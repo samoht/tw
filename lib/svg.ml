@@ -23,6 +23,9 @@ module Handler = struct
     | Fill_color of Color.color * int
     | Fill_color_opacity of Color.color * int * Color.opacity_modifier
     | Fill_bracket_color of string * Css.color
+    | Fill_bracket_raw of string * string
+      (* fill-[notacolour]: the colour is this family's last resort, so a
+         bracket no reader took reaches [fill] verbatim. *)
     | Fill_bracket_color_opacity of string * Css.color * Color.opacity_modifier
     | Fill_bracket_var of string
     | Fill_bracket_var_opacity of string * Color.opacity_modifier
@@ -36,6 +39,8 @@ module Handler = struct
     | Stroke_color of Color.color * int
     | Stroke_color_opacity of Color.color * int * Color.opacity_modifier
     | Stroke_bracket_color of string * Css.color
+    | Stroke_bracket_raw of string * string
+      (* stroke-[notacolour]: the colour is this family's last resort. *)
     | Stroke_bracket_color_opacity of
         string * Css.color * Color.opacity_modifier
     | Stroke_bracket_var of string
@@ -141,6 +146,8 @@ module Handler = struct
         Color.fill_with_opacity ~theme color shade opacity
     | Fill_bracket_color (_, css_color) ->
         bracket_color_style ~theme ~property:Css.fill css_color
+    | Fill_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "fill" value))
     | Fill_bracket_color_opacity (_, css_color, opacity) ->
         bracket_color_opacity_style ~theme ~property:Css.fill css_color opacity
     | Fill_bracket_var v | Fill_bracket_typed_var v ->
@@ -161,6 +168,8 @@ module Handler = struct
         Color.stroke_with_opacity ~theme color shade opacity
     | Stroke_bracket_color (_, css_color) ->
         bracket_color_style ~theme ~property:Css.stroke css_color
+    | Stroke_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "stroke" value))
     | Stroke_bracket_color_opacity (_, css_color, opacity) ->
         bracket_color_opacity_style ~theme ~property:Css.stroke css_color
           opacity
@@ -219,6 +228,10 @@ module Handler = struct
       | Fill_bracket_var _ | Fill_bracket_var_opacity _
       | Fill_bracket_typed_var _ | Fill_bracket_typed_var_opacity _ ->
           (0, 1)
+      (* Tailwind emits the bracket a reader took, then the paren-var shorthand,
+         then the bracket no reader took, so the last resort takes the slot
+         after the var rather than sharing the colour's. *)
+      | Fill_bracket_raw _ -> (0, 2)
       | Stroke_none -> (1, alpha_order "none")
       | Stroke_inherit -> (1, alpha_order "inherit")
       | Stroke_transparent -> (1, alpha_order "transparent")
@@ -229,6 +242,7 @@ module Handler = struct
       | Stroke_bracket_var _ | Stroke_bracket_var_opacity _
       | Stroke_bracket_typed_var _ | Stroke_bracket_typed_var_opacity _ ->
           (1, 1)
+      | Stroke_bracket_raw _ -> (1, 2)
       | Stroke_0 -> (2, 0)
       | Stroke_1 -> (2, 1)
       | Stroke_2 -> (2, 2)
@@ -255,7 +269,7 @@ module Handler = struct
         else
           "fill-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
           ^ Color.opacity_suffix opacity
-    | Fill_bracket_color (v, _) -> "fill-[" ^ v ^ "]"
+    | Fill_bracket_color (v, _) | Fill_bracket_raw (v, _) -> "fill-[" ^ v ^ "]"
     | Fill_bracket_color_opacity (v, _, opacity) ->
         "fill-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Fill_bracket_var v -> "fill-[" ^ v ^ "]"
@@ -279,7 +293,8 @@ module Handler = struct
         else
           "stroke-" ^ Color.color_to_string c ^ "-" ^ string_of_int shade
           ^ Color.opacity_suffix opacity
-    | Stroke_bracket_color (v, _) -> "stroke-[" ^ v ^ "]"
+    | Stroke_bracket_color (v, _) | Stroke_bracket_raw (v, _) ->
+        "stroke-[" ^ v ^ "]"
     | Stroke_bracket_color_opacity (v, _, opacity) ->
         "stroke-[" ^ v ^ "]" ^ Color.opacity_suffix opacity
     | Stroke_bracket_var v -> "stroke-[" ^ v ^ "]"
@@ -320,7 +335,12 @@ module Handler = struct
         match opacity with
         | Color.No_opacity -> Ok (Fill_bracket_color (base_inner, css_color))
         | _ -> Ok (Fill_bracket_color_opacity (base_inner, css_color, opacity)))
-    | None -> err_not_utility
+    | None -> (
+        (* The colour is this family's last resort, so a bracket no reader took
+           still reaches [fill]. An opacity modifier has nothing to mix. *)
+        match (opacity, Parse.arbitrary_declaration_value base_inner) with
+        | Color.No_opacity, Some raw -> Ok (Fill_bracket_raw (base_inner, raw))
+        | _ -> err_not_utility)
 
   let parse_bracket_stroke_color v =
     let base_str, opacity = Color.parse_opacity_modifier v in
@@ -339,7 +359,17 @@ module Handler = struct
         | Color.No_opacity -> Ok (Stroke_bracket_color (base_inner, css_color))
         | _ ->
             Ok (Stroke_bracket_color_opacity (base_inner, css_color, opacity)))
-    | None -> err_not_utility
+    | None -> (
+        (* The colour is this family's last resort. The width hints belong to
+           the width reader above, so declining them here keeps one class from
+           being claimed twice. *)
+        match Parse.data_type_hint base_inner with
+        | Some (("length" | "number" | "percentage"), _) -> err_not_utility
+        | _ -> (
+            match (opacity, Parse.arbitrary_declaration_value base_inner) with
+            | Color.No_opacity, Some raw ->
+                Ok (Stroke_bracket_raw (base_inner, raw))
+            | _ -> err_not_utility))
 
   (* Parse bracket value for stroke width: [1.5], [12px], [50%], [2em],
      [calc(1rem_+_2px)], [length:var(...)], [number:var(...)],
@@ -424,7 +454,7 @@ module Handler = struct
       when String.length v > 0
            && v.[0] = '['
            && Parse.is_bracket_value
-                (fst (Color.parse_opacity_modifier ~theme v)) ->
+                (fst (Color.parse_opacity_modifier ~theme v)) -> (
         (* Bracket value: could be color or width *)
         let base_str, _ = Color.parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
@@ -437,7 +467,12 @@ module Handler = struct
           || starts "#" base_inner
           || Stdlib.Option.is_some (Color.parse_bracket_color base_inner)
         then parse_bracket_stroke_color v
-        else parse_bracket_stroke_width base_inner
+        else
+          (* The width owns the numbers and lengths; what it refuses falls to
+             the colour, which is this family's last resort. *)
+          match parse_bracket_stroke_width base_inner with
+          | Ok _ as w -> w
+          | Error _ -> parse_bracket_stroke_color v)
     | [ "stroke"; "0" ] -> Ok Stroke_0
     | [ "stroke"; "1" ] -> Ok Stroke_1
     | [ "stroke"; "2" ] -> Ok Stroke_2
