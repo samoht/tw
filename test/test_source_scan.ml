@@ -82,8 +82,44 @@ const f = fn(arg)|}
   Alcotest.(check bool)
     "a call is not a candidate" false (List.mem "fn(arg)" found)
 
+(* Tailwind's extractor refuses a candidate whose [/modifier] opens on [-] or
+   [_], and refuses the whole candidate rather than truncating it: measured
+   2026-09-13, the CLI emits nothing at all for [bg-red-500/-2], not the
+   truncated [bg-red-500]. tw's scanner read one where Tailwind reads none, so a
+   sheet tw built carried rules the author's own toolchain never writes. Only a
+   [/] the utility itself carries counts; one inside a bracket or a paren group
+   belongs to the value. *)
+let test_scan_modifier_boundary () =
+  let source =
+    {|<span class="group-hover/-2a:underline group-hover/_x:underline
+group-hover/edit:underline bg-red-500/-2 bg-red-500/50 aspect-[16/9]
+bg-[url(a/b.png)] bg-cyan-400/(--alpha) w-1/2">x</span>|}
+  in
+  let found = Tw_tools.Source_scan.candidates source in
+  let refused cls =
+    Alcotest.(check bool)
+      (cls ^ " is not a candidate")
+      false (List.mem cls found)
+  in
+  let scanned cls =
+    Alcotest.(check bool) (cls ^ " is a candidate") true (List.mem cls found)
+  in
+  refused "group-hover/-2a:underline";
+  refused "group-hover/_x:underline";
+  refused "bg-red-500/-2";
+  (* A modifier that opens on anything else is a candidate, and so is every [/]
+     the value carries. *)
+  scanned "group-hover/edit:underline";
+  scanned "bg-red-500/50";
+  scanned "aspect-[16/9]";
+  scanned "bg-[url(a/b.png)]";
+  scanned "bg-cyan-400/(--alpha)";
+  scanned "w-1/2"
+
 let tests =
   [
+    test_case "a modifier opening on - or _ is no candidate" `Quick
+      test_scan_modifier_boundary;
     test_case "unbalanced bracket stops at the newline" `Quick
       test_unbalanced_bracket_stops_at_newline;
     test_case "split whitespace" `Quick test_split_whitespace;
