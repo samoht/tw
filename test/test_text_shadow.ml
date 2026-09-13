@@ -61,18 +61,20 @@ let test_palette_color_keeps_oklch () =
    token that is not a length used to drop out of the list and shift its
    neighbours along, so [0 1ch 2px] became a two-length [0 2px]. *)
 let test_arbitrary_lengths () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  emits "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, #000)"
-    "text-shadow-[0_1ch_2px_#000]";
-  emits "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .5))"
-    "text-shadow-[0_1ch_2px_#000]/50";
+  (* The whole list, which is what says the bare form writes one declaration and
+     the modified form writes two: the alpha channel travels with the value, and
+     the substring could not see it either way. *)
+  Test_helpers.check_declarations ~minify:false "text-shadow-[0_1ch_2px_#000]"
+    [ "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, #000)" ];
+  (* The colour folds through oklab where the CLI writes the relative-colour
+     form; the two are one colour and the canonical differ reports no
+     difference. *)
+  Test_helpers.check_declarations ~minify:false
+    "text-shadow-[0_1ch_2px_#000]/50"
+    [
+      "--tw-text-shadow-alpha: 50%";
+      "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .5))";
+    ];
   match Tw.of_string "text-shadow-[0_bogus_2px]" with
   | Ok _ -> Alcotest.fail "expected text-shadow-[0_bogus_2px] to be rejected"
   | Error _ -> ()
