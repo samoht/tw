@@ -910,23 +910,30 @@ let test_invalid_bracket_hex () =
     | Error _ -> ()
   in
   let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
+  (* The CLI writes a malformed hex through into every one of these families:
+     the colour is each family's last resort, so a bracket no reader took is
+     still a declaration, which the browser then discards. [text-] and
+     [outline-] follow it; the other seven still refuse, which is the same
+     divergence in seven more parsers. *)
+  List.iter
+    (fun (prefix, property) ->
+      let writes suffix value =
+        Test_helpers.check_declarations (prefix ^ suffix) [ property ^ value ]
+      in
+      writes "-[#zz]" "#zz";
+      writes "-[#]" "#";
+      writes "-[#12345]" "#12345";
+      (* An opacity modifier has nothing to mix, so that form stays refused
+         where the CLI writes a color-mix around the raw token. *)
+      rejected (prefix ^ "-[#zz]/50"))
+    [ ("text", "color:"); ("outline", "outline-color:") ];
   List.iter
     (fun prefix ->
       rejected (prefix ^ "-[#zz]");
       rejected (prefix ^ "-[#]");
       rejected (prefix ^ "-[#12345]");
       rejected (prefix ^ "-[#zz]/50"))
-    [
-      "text";
-      "bg";
-      "border";
-      "fill";
-      "stroke";
-      "accent";
-      "caret";
-      "outline";
-      "placeholder";
-    ];
+    [ "bg"; "border"; "fill"; "stroke"; "accent"; "caret"; "placeholder" ];
   emits "text-[#abc]" "color:#abc";
   emits "bg-[#00ff0080]" "background-color:#00ff0080";
   emits "border-[#123456]" "border-color:#123456";
@@ -1195,14 +1202,26 @@ let test_bracket_color_hint_reads_the_value () =
   Alcotest.(check string)
     "text-[color:red] round-trips" "text-[color:red]"
     (Tw.pp (Result.get_ok (Tw.of_string "text-[color:red]")));
-  (* A value no colour reader takes is held open, not settled: Tailwind writes
-     the bracket out whatever it says, so refusing is an intermediate. *)
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Color.Handler)
-    "text-[color:notacolour]"
+  (* The colour is this family's last resort, so a value no colour reader takes
+     still reaches [color], forwarded verbatim under the token-stream contract.
+     The browser discards the declaration; the selector is what the class was
+     for. *)
+  Test_helpers.check_declarations "text-[color:notacolour]"
+    [ "color:notacolour" ];
+  Test_helpers.check_declarations "text-[color:1.25rem]" [ "color:1.25rem" ];
+  Test_helpers.check_declarations "text-[color:--c]" [ "color:--c" ];
+  (* An unknown hint lands there too: it says nothing about the value, and the
+     value reaches the last resort whatever it says. *)
+  Test_helpers.check_declarations "text-[foo:red]" [ "color:red" ];
+  Test_helpers.check_declarations "text-[foo:1.25rem]" [ "color:1.25rem" ];
+  Test_helpers.check_declarations "outline-[foo:red]" [ "outline-color:red" ];
+  (* Unhinted and unreadable is the same answer. *)
+  Test_helpers.check_declarations "text-[notacolour]" [ "color:notacolour" ];
+  Test_helpers.check_declarations "outline-[notacolour]"
+    [ "outline-color:notacolour" ];
+  (* A known hint still routes: [length:] is the font size, which typography
+     owns, so it does not reach the colour at all. *)
+  Test_helpers.check_declarations "text-[length:red]" [ "font-size:red" ]
 
 (* The four families that never consulted a hint. Each writes one colour
    longhand, so any hint reaches it and the colour reader sees what follows;

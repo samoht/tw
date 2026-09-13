@@ -501,9 +501,13 @@ let test_invalid_bracket_widths () =
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
     | Error _ -> ()
   in
-  rejected "outline-[.]";
-  rejected "outline-[1e]";
-  rejected "outline-[-]";
+  (* [outline-] falls through to its colour, which is the family's last resort,
+     so a bracket the width reader declines is a declaration rather than a
+     refusal - the CLI writes [outline-color: .] for the first of these. *)
+  check_declarations "outline-[.]" [ "outline-color:." ];
+  check_declarations "outline-[1e]" [ "outline-color:1e" ];
+  check_declarations "outline-[-]" [ "outline-color:-" ];
+  (* [border-] has no such last resort here yet, so these still refuse. *)
   rejected "border-[.]";
   rejected "border-[abc]";
   rejected "border-t-[1e]"
