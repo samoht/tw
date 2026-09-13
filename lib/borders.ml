@@ -139,6 +139,7 @@ module Handler = struct
     | Outline_offset of int
     | Outline_offset_var of string (* outline-offset-[var(--value)] *)
     | Outline_offset_arbitrary of string (* outline-offset-[3px] *)
+    | Outline_offset_raw of string * string
     | Neg_outline_offset of int
     | Neg_outline_offset_var of string (* -outline-offset-[var(--value)] *)
 
@@ -152,7 +153,7 @@ module Handler = struct
     | Outline | Outline_0 | Outline_width _ | Outline_width_bracket _
     | Outline_width_dropped _ | Outline_width_var _ | Outline_width_raw _
     | Outline_hidden | Outline_offset _ | Outline_offset_var _
-    | Outline_offset_arbitrary _ | Neg_outline_offset _
+    | Outline_offset_arbitrary _ | Outline_offset_raw _ | Neg_outline_offset _
     | Neg_outline_offset_var _ ->
         28
     | _ -> 19
@@ -742,6 +743,8 @@ module Handler = struct
     | Outline_hidden -> outline_hidden
     | Outline_offset n -> outline_offset_px n
     | Outline_offset_var v -> outline_offset_var_style v
+    | Outline_offset_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "outline-offset" v))
     | Outline_offset_arbitrary v -> (
         match parse_length v with
         | Some l -> style [ Css.outline_offset l ]
@@ -891,7 +894,7 @@ module Handler = struct
     | Neg_outline_offset_var _ -> 2209
     | Outline_offset n -> 2210 + n
     | Outline_offset_var _ -> 2299
-    | Outline_offset_arbitrary _ -> 2215
+    | Outline_offset_arbitrary _ | Outline_offset_raw _ -> 2215
 
   (* The ten sides a border width can name: the two axes, the four logical sides
      and the four physical ones. *)
@@ -1081,12 +1084,15 @@ module Handler = struct
     (* outline-none/solid/dashed/dotted/double handled by
        Outline_style_handler *)
     | [ "outline"; "hidden" ] -> Ok Outline_hidden
-    | [ "outline"; "offset"; v ] when Parse.is_bracket_value v ->
+    | [ "outline"; "offset"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Outline_offset_var inner)
         else if parse_length inner <> None then
           Ok (Outline_offset_arbitrary inner)
-        else err_not_utility
+        else
+          match Parse.arbitrary_declaration_value inner with
+          | Some raw -> Ok (Outline_offset_raw (inner, raw))
+          | None -> err_not_utility)
     | [ "outline"; "offset"; n ] -> (
         match Parse.decimal_int n with
         | Some i when i >= 0 -> Ok (Outline_offset i)
@@ -1187,7 +1193,8 @@ module Handler = struct
     | Outline_hidden -> "outline-hidden"
     | Outline_offset n -> "outline-offset-" ^ string_of_int n
     | Outline_offset_var v -> "outline-offset-[" ^ v ^ "]"
-    | Outline_offset_arbitrary v -> "outline-offset-[" ^ v ^ "]"
+    | Outline_offset_arbitrary v | Outline_offset_raw (v, _) ->
+        "outline-offset-[" ^ v ^ "]"
     | Neg_outline_offset n -> "-outline-offset-" ^ string_of_int n
     | Neg_outline_offset_var v -> "-outline-offset-[" ^ v ^ "]"
 

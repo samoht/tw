@@ -12,6 +12,9 @@ module Handler = struct
     | Filter
     | Filter_none
     | Filter_arbitrary of string * Css.filter
+    | Filter_raw of string * string
+      (* filter-[foo]: the family writes one longhand, so a bracket no reader
+         took still names it and the value is forwarded verbatim. *)
     | Blur_none
     | Blur_xs
     | Blur_sm
@@ -69,6 +72,7 @@ module Handler = struct
     | Backdrop_filter
     | Backdrop_filter_none
     | Backdrop_filter_arbitrary of string * Css.filter
+    | Backdrop_filter_raw of string * string
     | Backdrop_blur_none
     | Backdrop_blur_xs
     | Backdrop_blur_sm
@@ -1368,6 +1372,8 @@ module Handler = struct
     | Filter -> filter_
     | Filter_none -> filter_none
     | Filter_arbitrary (_, value) -> filter_arbitrary value
+    | Filter_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "filter" v))
     | Blur_none -> blur_none ()
     | Blur_xs -> blur_xs ()
     | Blur_sm -> blur_sm ()
@@ -1454,6 +1460,13 @@ module Handler = struct
     | Backdrop_filter -> backdrop_filter_
     | Backdrop_filter_none -> backdrop_filter_none
     | Backdrop_filter_arbitrary (_, value) -> backdrop_filter_arbitrary value
+    | Backdrop_filter_raw (_, v) ->
+        (* The backdrop family aliases its property for WebKit, so the raw form
+           writes both, as the CLI does. *)
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property v)
+             [ "-webkit-backdrop-filter"; "backdrop-filter" ])
 
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a filter utility")
@@ -1490,7 +1503,7 @@ module Handler = struct
     | Invert _ | Invert_arbitrary _ -> 6000
     | Saturate _ | Saturate_arbitrary _ -> 7000
     | Sepia _ | Sepia_arbitrary _ -> 8000
-    | Filter | Filter_arbitrary _ | Filter_none -> 9000
+    | Filter | Filter_arbitrary _ | Filter_raw _ | Filter_none -> 9000
     (* Backdrop filters follow the same one-slot-per-kind rule. *)
     | Backdrop_blur_arbitrary _ | Backdrop_blur_raw _ | Backdrop_blur_none
     | Backdrop_blur_xs | Backdrop_blur_sm | Backdrop_blur | Backdrop_blur_md
@@ -1507,7 +1520,8 @@ module Handler = struct
     | Backdrop_opacity _ | Backdrop_opacity_arbitrary _ -> 17000
     | Backdrop_saturate _ | Backdrop_saturate_arbitrary _ -> 19000
     | Backdrop_sepia _ | Backdrop_sepia_arbitrary _ -> 20000
-    | Backdrop_filter | Backdrop_filter_arbitrary _ | Backdrop_filter_none ->
+    | Backdrop_filter | Backdrop_filter_arbitrary _ | Backdrop_filter_raw _
+    | Backdrop_filter_none ->
         21000
 
   let of_class theme class_name =
@@ -1518,12 +1532,24 @@ module Handler = struct
     | [ "filter"; s ] when Parse.is_bracket_value s -> (
         match filter_arbitrary_value s with
         | Option.Some value -> Ok (Filter_arbitrary (s, value))
-        | Option.None -> err_not_utility)
+        | Option.None -> (
+            match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
+            | Some raw -> Ok (Filter_raw (s, raw))
+            | None -> err_not_utility))
     | [ "backdrop"; "filter" ] -> Ok Backdrop_filter
     | [ "backdrop"; "filter"; "none" ] -> Ok Backdrop_filter_none
     | [ "backdrop"; "filter"; s ] when Parse.is_bracket_value s -> (
         match filter_arbitrary_value s with
         | Option.Some value -> Ok (Backdrop_filter_arbitrary (s, value))
+        | Option.None
+          when Parse.arbitrary_declaration_value (Parse.bracket_inner s) <> None
+          ->
+            Ok
+              (Backdrop_filter_raw
+                 ( s,
+                   Stdlib.Option.get
+                     (Parse.arbitrary_declaration_value (Parse.bracket_inner s))
+                 ))
         | Option.None -> err_not_utility)
     | [ "blur"; "none" ] -> Ok Blur_none
     | [ "blur"; "xs" ] -> Ok Blur_xs
@@ -1764,10 +1790,11 @@ module Handler = struct
   let to_class = function
     | Filter -> "filter"
     | Filter_none -> "filter-none"
-    | Filter_arbitrary (s, _) -> "filter-" ^ s
+    | Filter_arbitrary (s, _) | Filter_raw (s, _) -> "filter-" ^ s
     | Backdrop_filter -> "backdrop-filter"
     | Backdrop_filter_none -> "backdrop-filter-none"
-    | Backdrop_filter_arbitrary (s, _) -> "backdrop-filter-" ^ s
+    | Backdrop_filter_arbitrary (s, _) | Backdrop_filter_raw (s, _) ->
+        "backdrop-filter-" ^ s
     | Blur_none -> "blur-none"
     | Blur_xs -> "blur-xs"
     | Blur_sm -> "blur-sm"

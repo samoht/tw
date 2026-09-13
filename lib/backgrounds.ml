@@ -210,6 +210,8 @@ module Handler = struct
     | Bg_bracket_raw_position of string * string
     (* bg-position-[...] bracket notation *)
     | Bg_position_bracket of string * Css.position_value
+    | Bg_position_raw of string * string
+    (* bg-position-[foo]: one longhand, so the value is forwarded verbatim. *)
     (* bg-size-[...] bracket notation *)
     | Bg_size_bracket of string
 
@@ -386,7 +388,8 @@ module Handler = struct
     | Bg_radial -> "bg-radial"
     | Bg_radial_interp (interp, _) -> "bg-radial/" ^ interp
     | Bg_radial_bracket v -> "bg-radial-[" ^ v ^ "]"
-    | Bg_position_bracket (v, _) -> "bg-position-[" ^ v ^ "]"
+    | Bg_position_bracket (v, _) | Bg_position_raw (v, _) ->
+        "bg-position-[" ^ v ^ "]"
     | Bg_size_bracket v -> "bg-size-[" ^ v ^ "]"
 
   let to_spec (dir : direction) : Css.gradient_direction =
@@ -460,7 +463,7 @@ module Handler = struct
     | Bg_fixed | Bg_local | Bg_scroll -> 252
     | Bg_clip_border | Bg_clip_padding | Bg_clip_content | Bg_clip_text -> 253
     | Bg_position _ | Bg_bracket_position _ | Bg_bracket_typed_position _
-    | Bg_position_bracket _ | Bg_bracket_raw_position _ ->
+    | Bg_position_bracket _ | Bg_position_raw _ | Bg_bracket_raw_position _ ->
         254
     | Bg_repeat | Bg_no_repeat | Bg_repeat_x | Bg_repeat_y | Bg_repeat_round
     | Bg_repeat_space ->
@@ -1627,6 +1630,9 @@ module Handler = struct
               (Option.to_list
                  (Parse.opaque_declaration "background-size" inner)))
     | Bg_position_bracket (_, pos) -> style [ Css.background_position [ pos ] ]
+    | Bg_position_raw (_, v) ->
+        style
+          (Option.to_list (Parse.opaque_declaration "background-position" v))
     | Bg_size_bracket inner -> (
         (* [of_class] refused an empty hint, so the peel succeeds here. *)
         let value =
@@ -1638,7 +1644,13 @@ module Handler = struct
             let var_name = Parse.extract_var_name value in
             let ref : Css.background_size Css.var = Var.bracket var_name in
             style [ Css.background_size (Var ref) ]
-        | None -> style [ Css.background_size Auto ])
+        | None ->
+            (* A value the size grammar declines is forwarded verbatim, not
+               replaced by [auto]: substituting a value the class never asked
+               for paints something rather than nothing. *)
+            style
+              (Option.to_list
+                 (Parse.opaque_declaration "background-size" value)))
 
   (** Split a string on the first '/' into (base, modifier_opt). E.g. "r/oklab"
       → ("r", Some "oklab"), "45" → ("45", None) *)
@@ -1934,7 +1946,10 @@ module Handler = struct
         let inner = Parse.bracket_inner bracket in
         match bracket_position_value inner with
         | Some pos -> Ok (Bg_position_bracket (inner, pos))
-        | None -> Error (`Msg "Invalid background-position value"))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Bg_position_raw (inner, raw))
+            | None -> Error (`Msg "Invalid background-position value")))
     (* bg-size-[...] bracket notation *)
     | [ "bg"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
@@ -1944,6 +1959,11 @@ module Handler = struct
         if
           Stdlib.Option.fold ~none:false ~some:readable
             (bracket_value_after_hint inner)
+        then Ok (Bg_size_bracket inner)
+        else if
+          (* The size reader keeps its own spelling; a value it declines still
+             names background-size, which Bg_size_bracket forwards verbatim. *)
+          Parse.arbitrary_declaration_value inner <> None
         then Ok (Bg_size_bracket inner)
         else Error (`Msg "Invalid background-size value")
     (* Bracket notation: bg-[...] and bg-[...]/opacity *)

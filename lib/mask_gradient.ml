@@ -1073,8 +1073,13 @@ module Handler = struct
         (* Handle arbitrary values - strip brackets *)
         if Parse.is_bracket_value position then
           let inner = Parse.bracket_inner position in
-          if radial_at_position inner = None then
-            Error (`Msg ("Invalid mask-radial-at position: " ^ position))
+          (* The channel is this family's longhand, so a bracket no position
+             reader took still reaches it; [build_radial_at_style] already
+             writes such a bracket verbatim. *)
+          if
+            radial_at_position inner = None
+            && Parse.arbitrary_declaration_value inner = None
+          then Error (`Msg ("Invalid mask-radial-at position: " ^ position))
           else Ok (Radial_at (Bracket inner))
         else
           (* Validate keyword positions: top, bottom, left, right, center and

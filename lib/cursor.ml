@@ -51,7 +51,13 @@ module Handler = struct
     | Zoom_in
     | Zoom_out
 
-  type t = Keyword of keyword | Bracket_var of string | Theme of string
+  type t =
+    | Keyword of keyword
+    | Bracket_var of string
+    | Theme of string
+    | Raw of string * string
+  (* cursor-[foo]: the family writes one longhand, so a bracket no reader took
+     still names it and the value is forwarded verbatim. *)
 
   let name = "cursor"
   let priority _ = 11
@@ -148,6 +154,7 @@ module Handler = struct
 
   let to_class = function
     | Bracket_var s -> "cursor-[" ^ s ^ "]"
+    | Raw (s, _) -> "cursor-[" ^ s ^ "]"
     | Theme name -> "cursor-" ^ name
     | Keyword v -> "cursor-" ^ keyword_suffix v
 
@@ -173,6 +180,7 @@ module Handler = struct
     | Keyword v ->
         let _, cursor, _ = data v in
         style [ Css.cursor cursor ]
+    | Raw (_, v) -> style (Option.to_list (Parse.opaque_declaration "cursor" v))
 
   (* The keyword suffixes with their suborders, for placing a theme cursor among
      them. *)
@@ -193,7 +201,7 @@ module Handler = struct
     find sorted_suffixes
 
   let suborder = function
-    | Bracket_var _ -> -1
+    | Bracket_var _ | Raw _ -> -1
     | Theme name -> theme_suborder name
     | Keyword v ->
         let _, _, order = data v in
@@ -204,6 +212,11 @@ module Handler = struct
     match parts with
     | [ "cursor"; value ] when Parse.is_bracket_var value ->
         Ok (Bracket_var (Parse.bracket_inner value))
+    | [ "cursor"; value ] when Parse.is_bracket_value value -> (
+        let inner = Parse.bracket_inner value in
+        match Parse.arbitrary_declaration_value inner with
+        | Some raw -> Ok (Raw (inner, raw))
+        | None -> Error (`Msg "Not a cursor utility"))
     | [ "cursor"; name ] when not (List.mem_assoc cls of_class_map) ->
         (* A theme token name is an identifier: [cursor-[<value>]] is not
            one. *)

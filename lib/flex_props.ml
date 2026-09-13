@@ -45,6 +45,10 @@ module Handler = struct
     | Basis_fraction of int * int
     | Basis_named of string
     | Basis_arbitrary of string * Css.flex_basis (* basis-[123px] *)
+    | Basis_raw of string * string
+    (* basis-[foo]: the family writes one longhand, so a bracket no reader took
+       still names it and the value is forwarded verbatim - Tailwind's
+       token-stream contract. *)
     (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
@@ -52,6 +56,7 @@ module Handler = struct
        name is spelled exactly as it was written. *)
     | Neg_order_arbitrary of string * Css.order (* -order-[var(--value)] *)
     | Order_arbitrary of string * Css.order (* order-[123] *)
+    | Order_raw of string * string
     | Order_first
     | Order_last
     | Order_none
@@ -64,7 +69,7 @@ module Handler = struct
      ~20M band and below container (priority 1). *)
   let priority = function
     | Order _ | Neg_order _ | Neg_order_arbitrary _ | Order_arbitrary _
-    | Order_first | Order_last | Order_none ->
+    | Order_raw _ | Order_first | Order_last | Order_none ->
         0
     | _ -> 7
 
@@ -211,11 +216,15 @@ module Handler = struct
     | Basis_fraction (n, m) -> basis_fraction_style n m
     | Basis_named name -> basis_named_style name
     | Basis_arbitrary (_, len) -> style [ flex_basis len ]
+    | Basis_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "flex-basis" v))
     | Order n -> order_style n
     | Neg_order n -> style [ order (Int (-n)) ]
     | Neg_order_arbitrary (_, o) ->
         style [ order (Calc (Css.Calc.mul (Val o) (Css.Calc.float (-1.)))) ]
     | Order_arbitrary (_, o) -> style [ order o ]
+    | Order_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "order" v))
     | Order_first -> order_first ()
     | Order_last -> order_last ()
     | Order_none -> order_none
@@ -227,7 +236,7 @@ module Handler = struct
     | Neg_order n -> 21_000_000 + n (* negative comes first *)
     | Neg_order_arbitrary _ -> 21_000_000 + 50
     | Order n -> 21_000_000 + 100 + n
-    | Order_arbitrary _ -> 21_000_000 + 150
+    | Order_arbitrary _ | Order_raw _ -> 21_000_000 + 150
     | Order_first -> 21_000_000 + 200
     | Order_last -> 21_000_000 + 201
     | Order_none -> 21_000_000 + 202
@@ -267,7 +276,7 @@ module Handler = struct
     | Flex_grow_arbitrary _ -> 39000
     (* Basis: fractions → arbitrary → keywords alphabetical → named *)
     | Basis_fraction (n, m) -> 40000 + (n * 10) + m
-    | Basis_arbitrary _ -> 42000
+    | Basis_arbitrary _ | Basis_raw _ -> 42000
     | Basis_0 -> 43000
     | Basis_1 -> 43001
     | Basis_spacing _ -> 43001
@@ -385,8 +394,12 @@ module Handler = struct
               with
               | value -> value
               | exception Cascade.Cursor.Parse_error _ -> None))
-        |> Option.fold ~none:err_not_utility ~some:(fun value ->
-            Ok (Basis_arbitrary (inner, value)))
+        |> Option.fold
+             ~none:
+               (match Parse.arbitrary_declaration_value inner with
+               | Some raw -> Ok (Basis_raw (inner, raw))
+               | None -> err_not_utility)
+             ~some:(fun value -> Ok (Basis_arbitrary (inner, value)))
     | [ "basis"; value ] -> (
         match Parse.decimal_int value with
         | Some n when n >= 0 -> Ok (Basis_spacing n)
@@ -409,7 +422,10 @@ module Handler = struct
           let inner = Parse.bracket_inner value in
           match arbitrary_order inner with
           | Some o -> Ok (Order_arbitrary (inner, o))
-          | None -> err_not_utility
+          | None -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some raw -> Ok (Order_raw (inner, raw))
+              | None -> err_not_utility)
         else
           match Parse.decimal_int value with
           | Some n when n >= 0 -> Ok (Order n)
@@ -475,12 +491,12 @@ module Handler = struct
     | Basis_fraction (n, m) ->
         "basis-" ^ string_of_int n ^ "/" ^ string_of_int m
     | Basis_named s -> "basis-" ^ s
-    | Basis_arbitrary (raw, _) -> "basis-[" ^ raw ^ "]"
+    | Basis_arbitrary (raw, _) | Basis_raw (raw, _) -> "basis-[" ^ raw ^ "]"
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
     | Neg_order_arbitrary (s, _) -> "-order-[" ^ s ^ "]"
-    | Order_arbitrary (s, _) -> "order-[" ^ s ^ "]"
+    | Order_arbitrary (s, _) | Order_raw (s, _) -> "order-[" ^ s ^ "]"
     | Order_first -> "order-first"
     | Order_last -> "order-last"
     | Order_none -> "order-none"
