@@ -491,6 +491,31 @@ let test_arbitrary_transform_reads_the_whole_bracket () =
   Test_helpers.check_declarations "transform-[translateX(calc(1px+1px))]"
     [ "transform:translateX(calc(1px + 1px))" ]
 
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. The three families reading a bracket through one typed
+   cursor each write one longhand, so every hint lands there and the reader is
+   handed what follows it; the hint stays in the class name, which is what the
+   markup carries. All three were given the hint as well, read nothing, and the
+   classes were refused where Tailwind writes the value through. *)
+let test_transform_brackets_peel_a_hint () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes " ^ decl)
+            true
+            (Astring.String.is_infix ~affix:decl css))
+    [
+      ("origin-[position:top]", "transform-origin: top");
+      ("origin-[foo:top]", "transform-origin: top");
+      ("perspective-origin-[foo:top]", "perspective-origin: top");
+      ("transform-[foo:scaleX(2)]", "transform: scaleX(2)");
+    ]
+
 let tests =
   [
     test_case "rotate underscore escape" `Quick test_rotate_underscore_escape;
@@ -528,6 +553,8 @@ let tests =
     test_case "arbitrary scale axis token stream" `Quick
       test_arbitrary_scale_axis_token_stream;
     test_case "project perspective token" `Quick test_project_perspective_token;
+    test_case "transform brackets peel a data-type hint" `Quick
+      test_transform_brackets_peel_a_hint;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
   ]
 
