@@ -33,20 +33,6 @@ let has_animation_name expected_name css =
     false css
 
 (* Helper to check if transition-property exists *)
-let has_transition_property css =
-  let open Tw in
-  Css.fold
-    (fun found stmt ->
-      if found then found
-      else
-        match Css.as_rule stmt with
-        | Some (_, decls, _) ->
-            List.exists
-              (fun decl -> Css.declaration_name decl = "transition-property")
-              decls
-        | None -> false)
-    false css
-
 let test_transitions () =
   check_transition "transition-none";
   check_transition "transition-opacity";
@@ -75,14 +61,22 @@ let test_animation_css () =
 let test_transition_css () =
   (* Test that transition utilities generate CSS with correct transition
      properties - Tailwind v4 uses individual properties, not shorthand *)
-  let open Tw in
-  (* transition-all uses individual properties (transition-property, etc.) *)
-  Alcotest.check bool "transition-all has transition-property" true
-    (has_transition_property (to_css [ transition_all ]));
-  (* transition-none should use transition-property: none *)
-  Alcotest.check bool "transition-none has transition-property (not transition)"
-    true
-    (has_transition_property (to_css [ transition_none ]))
+  (* Tailwind v4 writes the longhands rather than the [transition] shorthand.
+     The old assertion only proved a declaration *named* transition-property
+     existed, which is equally true of both classes and says nothing about the
+     value, though its own name claimed [none]. The lists tell them apart:
+     transition-all carries the timing and duration channels, transition-none
+     carries the property alone. *)
+  Test_helpers.check_declarations ~minify:false "transition-all"
+    [
+      "transition-property: all";
+      "transition-timing-function: var(--tw-ease, \
+       var(--default-transition-timing-function))";
+      "transition-duration: var(--tw-duration, \
+       var(--default-transition-duration))";
+    ];
+  Test_helpers.check_declarations ~minify:false "transition-none"
+    [ "transition-property: none" ]
 
 let suborder_matches_tailwind () =
   let open Tw in
