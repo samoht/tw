@@ -471,19 +471,14 @@ let theme_function_reads_the_project_palette () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#123456") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "theme(colors.red.500) reads the override" true
-    (Astring.String.is_infix ~affix:"#123456"
-       (css "[color:theme(colors.red.500)]"));
-  Alcotest.(check bool)
-    "an unoverridden colour keeps the default" true
-    (Astring.String.is_infix ~affix:"oklch"
-       (css "[color:theme(colors.blue.500)]"))
+  (* The whole declaration. The affixes these replace searched the sheet for a
+     hex and for the text "oklch", which the theme bindings the class drags in
+     supply on their own. *)
+  Test_helpers.check_declarations ~theme ~minify:false
+    "[color:theme(colors.red.500)]" [ "color: #123456" ];
+  Test_helpers.check_declarations ~theme ~minify:false
+    "[color:theme(colors.blue.500)]"
+    [ "color: oklch(62.3% .214 259.815)" ]
 
 (* [theme(colors.<name>.<shade>/<alpha>)] mixes the alpha into whatever value
    the theme bound the colour to, the way Tailwind does. The alpha was spliced
@@ -493,25 +488,13 @@ let theme_function_alpha_reads_any_palette_value () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#ef4444") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let mixes cls value =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [ "color: color-mix(in oklab, " ^ value ^ " 25%, transparent)" ]
   in
-  Alcotest.(check bool)
-    "a hex palette value keeps the alpha" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, #ef4444 25%, transparent)"
-       (css "[color:theme(colors.red.500/25%)]"));
-  Alcotest.(check bool)
-    "a fraction is the same alpha as the percentage" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, #ef4444 25%, transparent)"
-       (css "[color:theme(colors.red.500/0.25)]"));
-  Alcotest.(check bool)
-    "an unoverridden colour mixes its own value" true
-    (Astring.String.is_infix ~affix:"color-mix(in oklab, oklch("
-       (css "[color:theme(colors.blue.500/25%)]"));
+  mixes "[color:theme(colors.red.500/25%)]" "#ef4444";
+  mixes "[color:theme(colors.red.500/0.25)]" "#ef4444";
+  mixes "[color:theme(colors.blue.500/25%)]" "oklch(62.3% .214 259.815)";
   (* an alpha that names no number leaves the call verbatim, the way an unknown
      path already does, rather than dropping the alpha; [theme()] is no colour
      function, so the arbitrary property is then refused as a whole. Tailwind
@@ -536,10 +519,9 @@ let theme_function_keeps_an_underscore () =
   match Tw.of_string ~theme "[color:theme(colors.red.500)]" with
   | Error (`Msg m) -> Alcotest.failf "[color:theme(colors.red.500)]: %s" m
   | Ok u ->
-      let css = Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string in
-      Alcotest.(check bool)
-        "the variable name keeps its underscore" true
-        (Astring.String.is_infix ~affix:"var(--brand_red)" css);
+      Test_helpers.check_declarations ~theme ~minify:false
+        "[color:theme(colors.red.500)]"
+        [ "color: var(--brand_red)" ];
       Alcotest.(check string)
         "the class is the one the source spells" "[color:theme(colors.red.500)]"
         (Tw.to_classes [ u ])
@@ -747,9 +729,14 @@ let custom_breakpoint_theme_is_local () =
     | Error (`Msg msg) -> Alcotest.fail msg
   in
   let css = Tw.to_css ~theme ~base:false [ utility ] |> Tw.Css.to_string in
+  (* The whole condition. A bare "1600px" also matches a breakpoint written the
+     wrong way round, or one landing in a query the variant did not ask for; an
+     at-rule prelude is not a declaration, so this stays a substring. *)
   Alcotest.(check bool)
     "custom breakpoint renders" true
-    (Astring.String.is_infix ~affix:"1600px" css);
+    (Astring.String.is_infix ~affix:"@media (min-width: 1600px)" css);
+  Test_helpers.check_declarations ~theme ~minify:false "10xl:flex"
+    [ "display: flex" ];
   Alcotest.(check bool)
     "custom breakpoint does not leak into the default theme" true
     (Result.is_error (Tw.of_string "10xl:flex"))
@@ -1266,64 +1253,50 @@ let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
 let bg_shades color shade_list =
   List.map (fun shade -> bg ~shade color) shade_list
 
+(* An inline style is not a rule, so [declarations_of_class] cannot read it; the
+   string itself is the assertion. It used to be three searches for a property
+   name, which said nothing about any value and passed on a sheet where every
+   one of them was empty. *)
 let inline_styles () =
-  let inline = to_inline_style [ p 4; bg blue; text white ] in
-  let expected_patterns = [ "padding:"; "background-color:"; "color:" ] in
-  List.iter
-    (fun pattern ->
-      if
-        not
-          (Astring.String.is_infix ~affix:":" inline
-          && Astring.String.is_infix ~affix:pattern inline)
-      then
-        Alcotest.failf "Missing pattern %s in inline styles: %s" pattern inline)
-    expected_patterns
+  Alcotest.(check string)
+    "the whole inline style"
+    "padding: calc(.25rem * 4); background-color: oklch(62.3% .214 259.815); \
+     color: #fff"
+    (to_inline_style [ p 4; bg blue; text white ])
 
+(* Four utilities together write four rules and no more. The searches this
+   replaces were for [.p-4] and friends anywhere in the text, which the selector
+   [.p-40] satisfies just as well. *)
 let style_combination () =
-  let combined = [ p 4; bg blue; text white; rounded_lg ] in
-  let css = to_css combined |> Css.to_string ~minify:true in
-  let expected_classes =
-    [ ".p-4"; ".bg-blue-500"; ".text-white"; ".rounded-lg" ]
-  in
-  List.iter
-    (fun class_name ->
-      if
-        not
-          (Astring.String.is_infix ~affix:"." css
-          && Astring.String.is_infix ~affix:class_name css)
-      then Alcotest.failf "Missing class %s in combined CSS" class_name)
-    expected_classes
+  let css = to_css [ p 4; bg blue; text white; rounded_lg ] in
+  Alcotest.(check (list string))
+    "one rule per utility, in Tailwind's order"
+    [ ".rounded-lg"; ".bg-blue-500"; ".p-4"; ".text-white" ]
+    (Test_helpers.extract_rule_selectors
+       (Test_helpers.extract_utilities_layer_rules css))
 
 (* The v4 [prop-(--x)] shorthand is [prop-[var(--x)]] in value but keeps its own
    class name in the selector. It works for any utility that accepts the bracket
    var form, and round-trips the paren spelling. *)
 let paren_var_shorthand () =
-  let css cls =
+  let writes cls decl selector =
+    Test_helpers.check_declarations ~minify:false cls [ decl ];
+    (* The whole selector, which is where "keeps the paren spelling, not the
+       bracket form" is actually said: the bracket form was ruled out by a
+       second search for a string that must not appear. *)
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Alcotest.(check (list string))
+          (cls ^ " selector") [ selector ]
+          (Test_helpers.selectors_of_utility u)
   in
-  (* value is var(--x) *)
-  Alcotest.(check bool)
-    "w-(--w) sets width: var(--w)" true
-    (Astring.String.is_infix ~affix:"width: var(--w)" (css "w-(--w)"));
-  (* selector keeps the paren spelling, not the bracket form *)
-  let out = css "w-(--w)" in
-  Alcotest.(check bool)
-    "selector keeps (--w) spelling" true
-    (Astring.String.is_infix ~affix:{|.w-\(--w\)|} out);
-  Alcotest.(check bool)
-    "selector is not the bracket form" false
-    (Astring.String.is_infix ~affix:"var\\(--w\\)\\]" out);
-  (* fallback form keeps the default inside var() *)
-  Alcotest.(check bool)
-    "top-(--top,0) keeps the fallback" true
-    (Astring.String.is_infix ~affix:"top: var(--top, 0)" (css "top-(--top,0)"));
-  (* typed hint maps to the bracket typed form *)
-  Alcotest.(check bool)
-    "font-(family-name:--font-x) sets font-family: var(--font-x)" true
-    (Astring.String.is_infix ~affix:"font-family: var(--font-x)"
-       (css "font-(family-name:--font-x)"));
+  writes "w-(--w)" "width: var(--w)" {|.w-\(--w\)|};
+  (* the fallback form keeps the default inside var() *)
+  writes "top-(--top,0)" "top: var(--top, 0)" {|.top-\(--top\,0\)|};
+  (* a typed hint maps to the bracket typed form *)
+  writes "font-(family-name:--font-x)" "font-family: var(--font-x)"
+    {|.font-\(family-name\:--font-x\)|};
   (* round-trips the class name through of_string -> to_class *)
   match Tw.of_string "p-(--p)" with
   | Ok u ->
@@ -1345,13 +1318,8 @@ let unterminated_theme_call () =
   rejected "theme(colors.red";
   rejected "bg-[theme(";
   (* the terminated form still resolves *)
-  match Tw.of_string "bg-[theme(colors.red.500)]" with
-  | Ok u ->
-      Alcotest.(check bool)
-        "theme(colors.red.500) resolves" true
-        (Astring.String.is_infix ~affix:"background-color: oklch("
-           (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string))
-  | Error (`Msg m) -> Alcotest.failf "bg-[theme(colors.red.500)]: %s" m
+  Test_helpers.check_declarations ~minify:false "bg-[theme(colors.red.500)]"
+    [ "background-color: oklch(63.7% .237 25.331)" ]
 
 (* The rejection an unrecognised [prop:value] candidate gets has to describe the
    shape one must have. Plain [--name:value] declarations and non-colour
