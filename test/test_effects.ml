@@ -268,6 +268,36 @@ let test_inset_shadow_theme_override () =
     "inset-shadow-sm @theme override drops the default [inset 0 2px 4px]" false
     (Astring.String.is_infix ~affix:"inset 0 2px 4px" css)
 
+(* The override is read through the CSS shadow grammar, so it carries whatever
+   that grammar allows: a length in any unit, a fourth length for the spread,
+   and the colour in the spelling the project wrote. The reader used to take a
+   [px] or [rem] suffix and a three-length body only, and answered nothing for
+   the rest, which put the built-in [inset 0 2px 4px] in the sheet and lost the
+   override without saying so. *)
+let test_inset_shadow_theme_override_grammar () =
+  let sheet override =
+    let theme =
+      Tw.Scheme.with_overrides Tw.Scheme.default
+        [ ("inset-shadow-sm", override) ]
+    in
+    Tw.to_css ~theme ~base:false
+      [ Result.get_ok (Tw.of_string ~theme "inset-shadow-sm") ]
+    |> Tw.Css.to_string ~minify:true
+  in
+  let holds ~name ~override affix =
+    Alcotest.(check bool)
+      name true
+      (Astring.String.is_infix ~affix (sheet override))
+  in
+  holds ~name:"an em override keeps its unit"
+    ~override:"inset 0 0.125em 0.25em rgb(0 0 0 / 0.05)" "inset 0 .125em .25em";
+  holds ~name:"a fourth length is the spread"
+    ~override:"inset 0 1px 2px 3px rgb(0 0 0 / 0.05)" "inset 0 1px 2px 3px";
+  Alcotest.(check bool)
+    "the default is not substituted" false
+    (Astring.String.is_infix ~affix:"inset 0 2px 4px"
+       (sheet "inset 0 0.125em 0.25em rgb(0 0 0 / 0.05)"))
+
 (* A shadeless colour has no shade segment, so shadow-white never reached the
    colour parse: the size cases claimed the segment and rejected it. The class
    name drops the shade too, or it comes back as shadow-white-500. *)
@@ -849,6 +879,8 @@ let tests =
       test_inset_shadow_default_scale;
     test_case "inset-shadow @theme override threads through" `Quick
       test_inset_shadow_theme_override;
+    test_case "inset-shadow @theme override reads the whole grammar" `Quick
+      test_inset_shadow_theme_override_grammar;
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
