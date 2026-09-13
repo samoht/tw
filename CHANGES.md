@@ -187,7 +187,9 @@
   no hint: `text-[notacolour]`, `stroke-[1zz]`, `bg-[image:nope]` and a
   malformed hex in any of them reach the sheet where they used to be refused.
   `bg-[size:...]` no longer substitutes `background-size: auto` for a value it
-  cannot read (#761, #762, #763, #764, #765).
+  cannot read, and the per-side border colours follow the rest, so
+  `border-t-[1e]` writes `border-top-color: 1e` (#761, #762, #763, #764, #765,
+  #766).
 - A negated arbitrary length is `calc(<value> * -1)` on every family and in
   every unit, the spelling Tailwind writes. The sign was folded into the number
   from a unit table that each of margin, the inset sides and `text-indent` kept

@@ -318,8 +318,8 @@ reason a family with several readers always will: its bracket runs through a
 size, a position, an image and a url, so each reader forwards its own value and
 only the unhinted fall-through reaches the colour. The fall-through is gated on
 the text being one bracket value, or `bg-[10px][20px]` would be accepted as a
-single declaration. What is left is the per-side border colours, a separate
-constructor per side. An opacity modifier over a value that is not a colour
+single declaration. The per-side border colours followed, one longhand per
+side, which closes the colour families. An opacity modifier over a value that is not a colour
 stays refused everywhere: the CLI writes a `color-mix()` around the raw token,
 and cascade's colour types hold colours, not token streams. The width hints in `lib/typography.ml`,
 `lib/borders.ml` and `lib/svg.ml` no longer refuse a value their reader
