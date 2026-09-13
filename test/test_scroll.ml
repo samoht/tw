@@ -52,9 +52,14 @@ let test_arbitrary_length () =
   emits "scroll-margin: 2vh" "scroll-m-[2vh]";
   emits "scroll-padding-top: 3ch" "scroll-pt-[3ch]";
   emits "scroll-margin: var(--gap)" "scroll-m-[var(--gap)]";
-  match Tw.of_string "scroll-m-[bogus]" with
-  | Ok _ -> Alcotest.fail "expected scroll-m-[bogus] to be rejected"
-  | Error _ -> ()
+  (* A value no length reader took still names the longhand the class does,
+     which is the token-stream contract: the browser discards the declaration
+     and the selector survives, where a refusal drops both. It used to be read
+     as a variable name, so [scroll-m-[2vh]] emitted [scroll-margin: var(--2vh)]
+     - a value the class never asked for, which is the failure this test was
+     written against and is still ruled out. *)
+  Test_helpers.check_declarations ~minify:false "scroll-m-[bogus]"
+    [ "scroll-margin: bogus" ]
 
 (* Every scroll margin writes a property another one writes too, so their order
    decides which one wins. Tailwind sorts them by side - all, the two axes, the
