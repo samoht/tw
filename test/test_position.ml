@@ -508,14 +508,11 @@ let negative_named_inset_on_every_side () =
      accepts *)
   check_themed theme "-top-[(var(--a)+var(--b))]"
     [ "top:calc((var(--a) + var(--b))*-1)" ];
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "Tailwind writes the group out unwrapped, as top: (var(--a) + \
-          var(--b)); tw refuses the class rather than emit a declaration no \
-          browser reads")
-    (module Tw.Position.Handler)
-    "top-[(var(--a)+var(--b))]";
+  (* Unsigned, the group is no length either, so it goes to the side's own
+     longhand as the token stream it is - the same text the CLI writes, which no
+     browser reads and both sides therefore agree on. *)
+  Test_helpers.check_declarations "top-[(var(--a)+var(--b))]"
+    [ "top:(var(--a)+var(--b))" ];
   (* and a name the theme binds in neither namespace is still no utility *)
   Test_helpers.check_invalid_input (module Tw.Position.Handler) "-top-level";
   Test_helpers.check_invalid_input (module Tw.Position.Handler) "-bottom-right"
