@@ -1197,12 +1197,26 @@ let test_bracket_data_type_hint_reads_the_value () =
   Alcotest.(check string)
     "text-[length:1.25rem] round-trips" "text-[length:1.25rem]"
     (Tw.pp (Result.get_ok (Tw.of_string "text-[length:1.25rem]")));
-  (* A value the reading refuses is held open, not settled: Tailwind writes the
-     bracket out whatever it says, so refusing is an intermediate. *)
-  check_invalid_input
-    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Typography.Typography_early)
-    "text-[length:notalength]"
+  (* A hint says the bracket is a font size whatever the value turns out to be,
+     so a value no font-size grammar reads is still a font size, forwarded
+     verbatim under the token-stream contract. The browser discards the
+     declaration; what matters is that the rule, and so the selector, exists. *)
+  check_declarations "text-[length:notalength]" [ "font-size:notalength" ];
+  check_declarations "text-[length:red]" [ "font-size:red" ];
+  check_declarations "text-[absolute-size:red]" [ "font-size:red" ];
+  (* A bare number after the hint is pixels: Tailwind's generator writes [12]
+     and its minifier reads it as [12px], which is the spelling that ships and
+     the one [stroke-[1.5]] already follows. Without the hint the same text is a
+     colour candidate, not a size. *)
+  check_declarations "text-[length:12]" [ "font-size:12px" ];
+  check_declarations "text-[length:0]" [ "font-size:0" ];
+  (* The class still prints back with the text the author wrote. *)
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "text-[length:notalength]"; "text-[length:12]" ]
 
 (* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
    writes for every unit. Folding the sign into the number instead was done from
