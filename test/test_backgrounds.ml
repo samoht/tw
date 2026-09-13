@@ -127,19 +127,10 @@ let test_of_string_invalid () =
    (bg-[length:cover]) used to fall through to background-size:auto because
    parse_bracket_size only handled numeric lengths. *)
 let test_bracket_length_keywords () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "bg-[length:cover] emits background-size: cover" true
-    (Astring.String.is_infix ~affix:"background-size: cover"
-       (css "bg-[length:cover]"));
-  Alcotest.(check bool)
-    "bg-[length:contain] emits background-size: contain" true
-    (Astring.String.is_infix ~affix:"background-size: contain"
-       (css "bg-[length:contain]"))
+  Test_helpers.check_declarations ~minify:false "bg-[length:cover]"
+    [ "background-size: cover" ];
+  Test_helpers.check_declarations ~minify:false "bg-[length:contain]"
+    [ "background-size: contain" ]
 
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [bg-position-] and [bg-size-] each write one longhand, so
@@ -169,40 +160,28 @@ let test_bg_position_and_size_peel_a_hint () =
 (* A two-axis bg-position bracket mixes a keyword edge with a length, e.g.
    bg-position-[center_-100px] -> background-position: 50% -100px. *)
 let test_bg_position_bracket_keyword_length () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "bg-position-[center_-100px] keeps both axes" true
-    (Astring.String.is_infix ~affix:"background-position: 50% -100px"
-       (css "bg-position-[center_-100px]"));
-  Alcotest.(check bool)
-    "bg-position-[left_top] keeps the edge keywords" true
-    (Astring.String.is_infix ~affix:"background-position: left top"
-       (css "bg-position-[left_top]"))
+  (* [center] resolves to its percentage, where the CLI writes the keyword; the
+     two are one position and the canonical differ folds them. *)
+  Test_helpers.check_declarations ~minify:false "bg-position-[center_-100px]"
+    [ "background-position: 50% -100px" ];
+  Test_helpers.check_declarations ~minify:false "bg-position-[left_top]"
+    [ "background-position: left top" ]
 
 (* A background-position bracket takes the whole CSS grammar: a single edge
    keyword, and the four-value edge/offset form. Both used to fall through the
    hand-rolled parser to a silent [center]. *)
 let test_bracket_position_grammar () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let writes cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "background-position: " ^ value ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "bg-[position:top]" "background-position: top";
-  has "bg-[position:left_10px_top_20px]"
-    "background-position: left 10px top 20px";
-  has "bg-position-[top]" "background-position: top";
-  has "bg-[top]" "background-position: top";
+  writes "bg-[position:top]" "top";
+  writes "bg-[position:left_10px_top_20px]" "left 10px top 20px";
+  writes "bg-position-[top]" "top";
+  writes "bg-[top]" "top";
   (* the lengths form is unchanged *)
-  has "bg-[position:120px_120px]" "background-position: 120px 120px";
-  has "bg-position-[center_-100px]" "background-position: 50% -100px"
+  writes "bg-[position:120px_120px]" "120px 120px";
+  writes "bg-position-[center_-100px]" "50% -100px"
 
 (* A bracket value the property cannot take is not a utility. [bg-[image:...]]
    used to emit an empty rule and [bg-[position:...]] a plausible-looking
