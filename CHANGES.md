@@ -53,6 +53,10 @@
 - Merge adjacent `@container` and `@supports` blocks with identical preludes
   the same way, so a run of utilities sharing one condition is a single wrapper
   and the sheet is smaller (#682).
+- A variant nested inside another is merged at both levels, so `sm:dark:p-4`
+  beside `sm:dark:m-2` is one breakpoint wrapper holding one dark wrapper, as
+  Tailwind emits it. Only the outer run was collapsed, leaving one dark wrapper
+  per utility inside it (#726).
 - A project's own theme reaches class generation, so its variants, keyframes,
   layers, static scales, custom breakpoints and v3 dotted `theme()` paths apply
   to the utilities tw generates from the markup, and a routed utility survives a

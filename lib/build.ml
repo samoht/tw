@@ -564,16 +564,35 @@ let utilities_layer ~layers ~statements =
   if layers then Css.v [ Css.layer ~name:[ "utilities" ] statements ]
   else Css.v statements
 
+(* A [sm:dark:] utility nests one conditional group inside another, so merging
+   the outer run builds a body that is itself a run of equal blocks. Cascade's
+   passes work one level at a time, and [~optimize_merged_block] is how a pass
+   is handed what to run over the body it just built.
+
+   Only [@media] recurses. Tailwind emits a fallback rule and its [@supports]
+   copy per utility, interleaved, where tw's comparator groups the fallbacks
+   together and leaves the [@supports] blocks adjacent; collapsing that run
+   would be correct CSS and the wrong sheet. The same reasoning keeps
+   [merge_distant_media] out of the pipeline below: it hoists a block past the
+   statements between, which Tailwind does not do. Canonical diffing normalises
+   both regroupings away, so neither shows under [--diff] -- use
+   [--diff-mode=tree]. *)
+let rec merge_nested_media statements =
+  Css.Optimize.merge_consecutive_media ~optimize_merged_block:merge_nested_media
+    statements
+
 (* Each utility is wrapped in its own conditional group, so a run of utilities
    sharing one condition arrives here as a run of equal blocks where Tailwind
    has a single one. Cascade collapses each run. [@starting-style] carries no
    condition, so adjacency is its whole gate; the other three compare preludes
-   as well. Every pass merges adjacent blocks only, which leaves the rule order
-   the comparator produced untouched. *)
+   as well. Every pass here merges adjacent blocks, except
+   [merge_distant_containers], which reaches past a statement that cannot
+   conflict. *)
 let statements_of_sorted_rules ?verbatim sorted_rules =
   List.map (indexed_rule_to_statement ?verbatim) sorted_rules
   |> Css.Optimize.merge_consecutive_starting_style
   |> Css.Optimize.merge_consecutive_media
+       ~optimize_merged_block:merge_nested_media
   |> Css.Optimize.merge_consecutive_supports
   |> Css.Optimize.merge_consecutive_containers
   |> Css.Optimize.merge_distant_containers
