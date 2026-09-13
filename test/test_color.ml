@@ -171,17 +171,20 @@ let test_css_mode_with_colors () =
   Fmt.epr "Generated CSS:\n%s\n" css_string;
 
   (* Test that Variables mode is the default and uses CSS variables *)
-  Alcotest.(check bool)
-    "Default mode uses var() for colors" true
-    (Astring.String.is_infix ~affix:"var(--color-" css_string);
-
-  (* For now, just verify the CSS is generated correctly *)
-  Alcotest.(check bool)
-    "Contains bg-blue-500 class" true
-    (Astring.String.is_infix ~affix:".bg-blue-500" css_string);
-  Alcotest.(check bool)
-    "Contains text-red-500 class" true
-    (Astring.String.is_infix ~affix:".text-red-500" css_string)
+  (* One rule per utility and nothing else. The searches this replaces were
+     for ".bg-blue-500" anywhere in the text, which ".bg-blue-500\\/50"
+     satisfies. *)
+  Alcotest.(check (list string))
+    "one rule per utility"
+    [ ".bg-blue-500"; ".text-red-500" ]
+    (Test_helpers.extract_rule_selectors
+       (Test_helpers.extract_utilities_layer_rules css));
+  (* And the values, which is what "variables mode is the default" means; a
+     search for "var(--color-" found it in the theme layer regardless. *)
+  Test_helpers.check_declarations "bg-blue-500"
+    [ "background-color:var(--color-blue-500)" ];
+  Test_helpers.check_declarations "text-red-500"
+    [ "color:var(--color-red-500)" ]
 
 (* Per-side border colors (border-{t,r,b,l}-{color}) paint the matching physical
    edge; named, arbitrary and keyword forms. Widths (border-l-2) still resolve
@@ -275,19 +278,22 @@ let test_border_color_var () =
 (* A per-side border color takes an alpha modifier, like the all-sides one.
    border-b-white/5 used to be an unknown class. *)
 let test_border_side_color_opacity () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  (* Both arms: the folded hex a browser without color-mix reaches, then the
+     mix. The affix the axis case replaces named the property alone and said
+     nothing about either value. *)
+  let mixes cls prop fallback token alpha =
+    Test_helpers.check_declarations cls
+      [
+        prop ^ ":" ^ fallback;
+        prop ^ ":color-mix(in oklab,var(" ^ token ^ ") " ^ alpha
+        ^ ",transparent)";
+      ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "border-b-white/5" "border-bottom-color:#ffffff0d";
-  has "border-b-white/5"
-    "border-bottom-color:color-mix(in oklab,var(--color-white) 5%,transparent)";
+  mixes "border-b-white/5" "border-bottom-color" "#ffffff0d" "--color-white"
+    "5%";
   (* an axis sets both of its sides *)
-  has "border-x-pink-400/30" "border-inline-color:";
+  mixes "border-x-pink-400/30" "border-inline-color" "#fb64b64d"
+    "--color-pink-400" "30%";
   Alcotest.(check string)
     "border-b-white/5 round-trips" "border-b-white/5"
     (Tw.pp (Result.get_ok (Tw.of_string "border-b-white/5")))
@@ -297,26 +303,24 @@ let test_border_side_color_opacity () =
    known at build time, so it goes into the [color-mix] as a reference; before,
    an unresolved alpha counted as 100% and the modifier was dropped. *)
 let test_alpha_from_a_var () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "bg-cyan-400/(--a)"
-    "color-mix(in oklab,var(--color-cyan-400) var(--a),transparent)";
-  has "bg-cyan-400/[var(--a)]"
-    "color-mix(in oklab,var(--color-cyan-400) var(--a),transparent)";
-  has "text-red-500/(--a)"
-    "color-mix(in oklab,var(--color-red-500) var(--a),transparent)";
-  has "fill-red-500/(--a)"
-    "color-mix(in oklab,var(--color-red-500) var(--a),transparent)";
-  has "bg-[#0088cc]/(--a)" "color-mix(in oklab,#08c var(--a),transparent)";
   (* Tailwind resolves the token into the full-opacity fallback and keeps the
-     variable reference for the guarded mix. *)
-  has "bg-cyan-400/(--a)" "background-color:oklch(78.9%.154 211.53)";
+     variable reference for the guarded mix, so each of these writes both. *)
+  let reads_the_var cls prop fallback mixed =
+    Test_helpers.check_declarations cls
+      [
+        prop ^ ":" ^ fallback;
+        prop ^ ":color-mix(in oklab," ^ mixed ^ " var(--a),transparent)";
+      ]
+  in
+  reads_the_var "bg-cyan-400/(--a)" "background-color" "oklch(78.9%.154 211.53)"
+    "var(--color-cyan-400)";
+  reads_the_var "bg-cyan-400/[var(--a)]" "background-color"
+    "oklch(78.9%.154 211.53)" "var(--color-cyan-400)";
+  reads_the_var "text-red-500/(--a)" "color" "oklch(63.7%.237 25.331)"
+    "var(--color-red-500)";
+  reads_the_var "fill-red-500/(--a)" "fill" "oklch(63.7%.237 25.331)"
+    "var(--color-red-500)";
+  reads_the_var "bg-[#0088cc]/(--a)" "background-color" "#08c" "#08c";
   (* both spellings round-trip *)
   Alcotest.(check string)
     "the shorthand round-trips" "bg-cyan-400/(--a)"
@@ -329,17 +333,11 @@ let test_alpha_from_a_var () =
    system colour or a light-dark() both work. The fallback used to admit only
    colour functions, which left [bg-[Field]] an unknown class. *)
 let test_bracket_css_colors () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let has cls decl = Test_helpers.check_declarations cls [ decl ] in
   has "bg-[Field]" "background-color:field";
   has "text-[FieldText]" "color:fieldtext";
-  has "bg-[light-dark(white,black)]" "background-color:light-dark(";
+  (* the whole function, where the affix stopped at the opening paren *)
+  has "bg-[light-dark(white,black)]" "background-color:light-dark(white,black)";
   (* a CSS keyword still beats the palette entry of the same name *)
   has "bg-[red]" "background-color:red"
 
@@ -493,18 +491,16 @@ let test_black_and_white_keep_three_digits () =
    only bare numbers and [deg] and read every other unit as 0, so a half turn
    painted red instead of cyan. *)
 let test_hsl_hue_units () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "bg-[hsl(180deg_100%_50%)]" "background-color: #00ffff";
-  has "bg-[hsl(0.5turn_100%_50%)]" "background-color: #00ffff";
-  has "bg-[hsl(200grad_100%_50%)]" "background-color: #00ffff";
-  has "bg-[hsl(3.14159rad_100%_50%)]" "background-color: #00ffff"
+  List.iter
+    (fun cls ->
+      Test_helpers.check_declarations ~minify:false cls
+        [ "background-color: #00ffff" ])
+    [
+      "bg-[hsl(180deg_100%_50%)]";
+      "bg-[hsl(0.5turn_100%_50%)]";
+      "bg-[hsl(200grad_100%_50%)]";
+      "bg-[hsl(3.14159rad_100%_50%)]";
+    ]
 
 (* hsl() saturation and lightness also accept a bare number, which is the same
    value as the percentage; both used to be read as 0, which painted the colour
@@ -562,13 +558,8 @@ let test_rgb_non_numeric_channels () =
 
 (* A bracket colour the fold refuses keeps the authored function. *)
 let test_bracket_rgb_unresolvable_channels () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  let has cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   has "bg-[rgb(var(--x)_0_0)]" "background-color: rgb(var(--x) 0 0)";
   has "bg-[rgb(none_0_0)]" "background-color: rgb(none 0 0)";
@@ -626,26 +617,29 @@ let test_keyword_opacity_families () =
 (* A colour keyword carries its opacity modifier into a mix like any other
    colour. Only a fully opaque modifier collapses back to the bare keyword. *)
 let test_keyword_opacity_mixes () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let has cls decls = Test_helpers.check_declarations ~minify:false cls decls in
+  (* A keyword resolves to nothing a fallback could fold, so unlike a palette
+     colour these write the mix alone. *)
+  let mixes cls prop keyword alpha =
+    has cls
+      [
+        prop ^ ": color-mix(in oklab, " ^ keyword ^ " " ^ alpha
+        ^ ", transparent)";
+      ]
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "bg-transparent/50"
-    "background-color: color-mix(in oklab, transparent 50%, transparent)";
-  has "text-transparent/25"
-    "color: color-mix(in oklab, transparent 25%, transparent)";
-  has "border-transparent/[0.25]"
-    "border-color: color-mix(in oklab, transparent 25%, transparent)";
+  mixes "bg-transparent/50" "background-color" "transparent" "50%";
+  mixes "text-transparent/25" "color" "transparent" "25%";
+  mixes "border-transparent/[0.25]" "border-color" "transparent" "25%";
+  (* the decoration family aliases its property for WebKit, so it writes two *)
   has "decoration-transparent/50"
-    "text-decoration-color: color-mix(in oklab, transparent 50%, transparent)";
-  has "bg-inherit/50"
-    "background-color: color-mix(in oklab, inherit 50%, transparent)";
-  has "bg-transparent/100" "background-color: transparent";
-  has "border-inherit/100" "border-color: inherit"
+    [
+      "-webkit-text-decoration-color: color-mix(in oklab, transparent 50%, \
+       transparent)";
+      "text-decoration-color: color-mix(in oklab, transparent 50%, transparent)";
+    ];
+  mixes "bg-inherit/50" "background-color" "inherit" "50%";
+  has "bg-transparent/100" [ "background-color: transparent" ];
+  has "border-inherit/100" [ "border-color: inherit" ]
 
 (* A palette colour with no shade segment must not absorb one and rename the
    class. Tailwind rejects the candidate instead. *)
@@ -678,33 +672,35 @@ let test_theme_colour_opacity_families () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("color-brand", "oklch(55% 0.2 250)") ]
   in
-  let css cls =
+  let round_trips cls =
     match Tw.of_string ~theme cls with
-    | Ok u ->
-        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
-        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  (* The pre-color-mix fallback keeps the modifier's alpha, and the enhanced
+     value reads the token rather than inlining it. As a pair of affixes this
+     said nothing about which property either landed on. *)
+  let mixes cls prop extra =
+    round_trips cls;
+    Test_helpers.check_declarations ~theme cls
+      ([
+         prop ^ ":color-mix(in srgb,oklch(55%.2 250) 50%,transparent)";
+         prop ^ ":color-mix(in oklab,var(--color-brand) 50%,transparent)";
+       ]
+      @ extra)
   in
-  List.iter
-    (fun cls ->
-      (* The pre-color-mix fallback keeps the modifier's alpha. *)
-      has cls "color-mix(in srgb,oklch(55%.2 250) 50%,transparent)";
-      (* The enhanced value reads the token rather than inlining it. *)
-      has cls "color-mix(in oklab,var(--color-brand) 50%,transparent)")
+  mixes "bg-brand/50" "background-color" [];
+  mixes "text-brand/50" "color" [];
+  mixes "border-brand/50" "border-color" [];
+  mixes "divide-brand/50" "border-color" [];
+  mixes "fill-brand/50" "fill" [];
+  mixes "accent-brand/50" "accent-color" [];
+  (* a gradient stop drags its stop list along *)
+  mixes "from-brand/50" "--tw-gradient-from"
     [
-      "bg-brand/50";
-      "text-brand/50";
-      "border-brand/50";
-      "divide-brand/50";
-      "fill-brand/50";
-      "accent-brand/50";
-      "from-brand/50";
+      "--tw-gradient-stops:var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from) \
+       var(--tw-gradient-from-position),var(--tw-gradient-to) \
+       var(--tw-gradient-to-position))";
     ]
 
 (* A project token is a colour in its own right, with or without a modifier: at
@@ -714,30 +710,27 @@ let test_theme_colour_without_opacity () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("color-brand", "oklch(55% 0.2 250)") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u ->
-        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
-        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let references cls prop extra =
+    (match Tw.of_string ~theme cls with
+    | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m);
+    Test_helpers.check_declarations ~theme cls
+      ((prop ^ ":var(--color-brand)") :: extra)
   in
-  List.iter
-    (fun cls ->
-      Alcotest.(check bool)
-        (cls ^ " references the token")
-        true
-        (Astring.String.is_infix ~affix:"var(--color-brand)" (css cls)))
+  references "bg-brand" "background-color" [];
+  references "text-brand" "color" [];
+  references "border-brand" "border-color" [];
+  references "divide-brand" "border-color" [];
+  references "fill-brand" "fill" [];
+  references "stroke-brand" "stroke" [];
+  references "accent-brand" "accent-color" [];
+  references "caret-brand" "caret-color" [];
+  references "outline-brand" "outline-color" [];
+  references "from-brand" "--tw-gradient-from"
     [
-      "bg-brand";
-      "text-brand";
-      "border-brand";
-      "divide-brand";
-      "fill-brand";
-      "stroke-brand";
-      "accent-brand";
-      "caret-brand";
-      "outline-brand";
-      "from-brand";
+      "--tw-gradient-stops:var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from) \
+       var(--tw-gradient-from-position),var(--tw-gradient-to) \
+       var(--tw-gradient-to-position))";
     ]
 
 (* A token name is not limited to one segment, and the modifier still rides on
@@ -747,21 +740,21 @@ let test_multi_segment_theme_colour () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("color-brand-primary", "#123456") ]
   in
-  let css cls =
+  let round_trips cls =
     match Tw.of_string ~theme cls with
-    | Ok u ->
-        Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
-        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  Alcotest.(check bool)
-    "bg-brand-primary references the token" true
-    (Astring.String.is_infix ~affix:"var(--color-brand-primary)"
-       (css "bg-brand-primary"));
-  Alcotest.(check bool)
-    "bg-brand-primary/50 keeps the alpha" true
-    (Astring.String.is_infix ~affix:"color-mix(in srgb,#123456 50%,transparent)"
-       (css "bg-brand-primary/50"))
+  round_trips "bg-brand-primary";
+  Test_helpers.check_declarations ~theme "bg-brand-primary"
+    [ "background-color:var(--color-brand-primary)" ];
+  round_trips "bg-brand-primary/50";
+  Test_helpers.check_declarations ~theme "bg-brand-primary/50"
+    [
+      "background-color:color-mix(in srgb,#123456 50%,transparent)";
+      "background-color:color-mix(in oklab,var(--color-brand-primary) \
+       50%,transparent)";
+    ]
 
 (* A name no [@theme] block declared is not a colour, whatever it looks like. *)
 let test_undeclared_theme_colour_rejected () =
@@ -846,45 +839,32 @@ let test_achromatic_none_hue () =
 (* v4.3.3 added four colour families to the default theme (mauve/mist/olive/
    taupe). Each utility reads var(--color-<family>-<shade>). *)
 let test_v433_color_families () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let has cls prop token =
+    Test_helpers.check_declarations cls [ prop ^ ":var(" ^ token ^ ")" ]
   in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " uses " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
-  has "bg-mauve-500" "var(--color-mauve-500)";
-  has "text-olive-700" "var(--color-olive-700)";
-  has "border-mist-200" "var(--color-mist-200)";
-  has "bg-taupe-950" "var(--color-taupe-950)"
+  has "bg-mauve-500" "background-color" "--color-mauve-500";
+  has "text-olive-700" "color" "--color-olive-700";
+  has "border-mist-200" "border-color" "--color-mist-200";
+  has "bg-taupe-950" "background-color" "--color-taupe-950"
 
 (* A [/100] modifier is a no-op mix, so the colour itself is the value: the
    color-mix and its @supports fallback used to be emitted anyway. And [!] has
    to reach inside that @supports, or the fallback outranks the modern value. *)
 let test_full_opacity_and_important () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  let lacks cls affix =
-    Alcotest.(check bool)
-      (cls ^ " without " ^ affix)
-      false
-      (Astring.String.is_infix ~affix (css cls))
-  in
-  has "text-blue-600/100" "color:var(--color-blue-600)";
-  lacks "text-blue-600/100" "color-mix";
-  lacks "divide-gray-200/100" "color-mix";
-  has "bg-white/75!"
-    "color-mix(in oklab,var(--color-white) 75%,transparent)!important"
+  (* The whole list is where "the color-mix used to be emitted anyway" is said:
+     the two [lacks] checks this replaces searched for the text "color-mix" and
+     would have passed on a sheet with no rule in it. *)
+  Test_helpers.check_declarations "text-blue-600/100"
+    [ "color:var(--color-blue-600)" ];
+  Test_helpers.check_declarations "divide-gray-200/100"
+    [ "border-color:var(--color-gray-200)" ];
+  (* [!] reaches both arms, or the fallback outranks the modern value. *)
+  Test_helpers.check_declarations "bg-white/75!"
+    [
+      "background-color:#ffffffbf!important";
+      "background-color:color-mix(in oklab,var(--color-white) \
+       75%,transparent)!important";
+    ]
 
 (* The alpha byte is appended to the six RGB digits, so a shorthand hex has to
    be expanded first: [#fff] with 10% alpha gave the five-digit [#fff1a], which
@@ -924,19 +904,12 @@ let test_bracket_hex_keeps_authored_spelling () =
    from inside [of_class], so a malformed hex escaped the parser as an exception
    instead of failing the match. *)
 let test_invalid_bracket_hex () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
     | Error _ -> ()
   in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
   List.iter
     (fun prefix ->
       rejected (prefix ^ "-[#zz]");
@@ -1104,32 +1077,22 @@ let test_removed_mix_token_stays_runtime () =
   let class_name =
     "bg-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]"
   in
-  let css =
-    match Tw.of_string ~theme class_name with
-    | Ok utility ->
-        Tw.to_css ~theme ~base:false [ utility ]
-        |> Tw.Css.to_string ~minify:true
-    | Error (`Msg message) -> Alcotest.failf "%s: %s" class_name message
-  in
-  Alcotest.(check bool)
-    "removed theme token is the runtime fallback" true
-    (Astring.String.is_infix ~affix:"background-color:var(--color-red-500)" css);
-  Alcotest.(check bool)
-    "removed theme token is not resolved through the default palette" false
-    (Astring.String.is_infix ~affix:"oklch(63.7% .237 25.331)" css)
+  (* The whole list, which is where "not resolved through the default palette"
+     is said: it used to be a second search for the palette's oklch, which any
+     sheet without a rule in it also satisfies. *)
+  Test_helpers.check_declarations ~theme class_name
+    [
+      "background-color:var(--color-red-500)";
+      "background-color:color-mix(in oklab,var(--color-red-500) \
+       25%,transparent)";
+    ]
 
 (* A bracket colour reads [_] as a space, so a variable name carrying an
    underscore is written [\_] and keeps the character. *)
 let test_bracket_colour_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an escaped underscore stays in the variable name" true
-    (Astring.String.is_infix ~affix:"color: light-dark(var(--a_b), red)"
-       (css {|text-[light-dark(var(--a\_b),red)]|}))
+  Test_helpers.check_declarations ~minify:false
+    {|text-[light-dark(var(--a\_b),red)]|}
+    [ "color: light-dark(var(--a_b), red)" ]
 
 (* The theme layer and the utilities layer rank the same colour names in
    different orders, and a name missing from either map silently takes that
