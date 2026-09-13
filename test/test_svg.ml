@@ -48,20 +48,18 @@ let stroke_arbitrary_width_units () =
     "stroke-[1.5rem] round-trips" "stroke-[1.5rem]"
     (Tw.pp (Result.get_ok (Tw.of_string "stroke-[1.5rem]")))
 
-(* A bracket that is not a length is refused, rather than accepted and rendered
-   as a zero width. *)
+(* A bracket that is not a length is not a width, and it is not rendered as a
+   zero width either: the colour is this family's last resort, so it reaches
+   [stroke] verbatim, which is what the CLI writes. Each of these used to be
+   refused, which dropped the selector. *)
 let stroke_arbitrary_width_invalid () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let strokes cls value =
+    Test_helpers.check_declarations cls [ "stroke:" ^ value ]
   in
-  rejected "stroke-[1zz]";
-  rejected "stroke-[12px3]";
-  rejected "stroke-[.]";
-  rejected "stroke-[-]"
+  strokes "stroke-[1zz]" "1zz";
+  strokes "stroke-[12px3]" "12px3";
+  strokes "stroke-[.]" ".";
+  strokes "stroke-[-]" "-"
 
 (* A stroke width is written in plain decimal. Read as an OCaml literal,
    [stroke-0x4] parsed and then named itself [.stroke-4]: a rule the author
@@ -92,10 +90,10 @@ let bracket_named_color () =
     [ "stroke: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
   Test_helpers.check_declarations ~minify:false "fill-[rebeccapurple]/50"
     [ "fill: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
-  (* a bracket naming neither a colour nor a width is still not a class *)
-  Alcotest.(check bool)
-    "stroke-[notacolour] is not a class" true
-    (Result.is_error (Tw.of_string "stroke-[notacolour]"))
+  (* a bracket naming neither a colour nor a width lands on the colour, which is
+     this family's last resort *)
+  Test_helpers.check_declarations "stroke-[notacolour]" [ "stroke:notacolour" ];
+  Test_helpers.check_declarations "fill-[notacolour]" [ "fill:notacolour" ]
 
 (* fill and stroke share a priority with object-fit and object-position, and
    Tailwind emits them first of the two. They sorted last instead, the whole svg

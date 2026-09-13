@@ -507,9 +507,11 @@ let test_invalid_bracket_widths () =
   check_declarations "outline-[.]" [ "outline-color:." ];
   check_declarations "outline-[1e]" [ "outline-color:1e" ];
   check_declarations "outline-[-]" [ "outline-color:-" ];
-  (* [border-] has no such last resort here yet, so these still refuse. *)
-  rejected "border-[.]";
-  rejected "border-[abc]";
+  (* [border-] falls through the same way, into its colour. *)
+  check_declarations "border-[.]" [ "border-color:." ];
+  check_declarations "border-[abc]" [ "border-color:abc" ];
+  (* The per-side colours have no last resort yet, so this one still refuses
+     where the CLI writes [border-top-color: 1e]. *)
   rejected "border-t-[1e]"
 
 (* A data-type hint says how to read the value written after it; it does not
