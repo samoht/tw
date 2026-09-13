@@ -105,9 +105,26 @@ val minimize_failing_case : ('a list -> bool) -> 'a list -> 'a list option
 
 val check_ordering_matches :
   ?forms:bool -> test_name:string -> Tw.t list -> unit
-(** [check_ordering_matches ?forms ~test_name utilities] compares the ordering
-    of utilities between our implementation and Tailwind CSS, failing the test
-    if they differ. *)
+(** [check_ordering_matches ?forms ~test_name utilities] fails when tw's sheet
+    for [utilities] is not canonically equivalent to the pinned Tailwind CLI's.
+
+    {b It does not check the order its name claims.} It runs {!ordering_diff},
+    which is the canonical differ, and that suppresses every reorder it can
+    prove cascade-neutral: two rules reorder observably only where they overlap
+    in both dimensions, matching a common element {e and} writing a common
+    property, which is the pairing {!interacting_pairs} finds. So a family
+    emitted in the wrong band passes here whenever nothing in the band between
+    contends with it, which is the usual case.
+
+    What it does catch is a reorder that can change the cascade, and every
+    difference in what the utilities emit: a wrong value, a dropped or surplus
+    declaration, a rule that is not there. That is most of what the callers
+    named "... suborder matches Tailwind" are relying on, and it is worth
+    having; only the ordering half of the name is unearned.
+
+    {!check_class_order} reads positions back and does check order, for the
+    classes it is given. The whole-sheet answer is {!sheet_order_gap}, which the
+    gate in [test/parity/] pins at zero. *)
 
 val tree_diff_css :
   expected:string -> actual:string -> Cascade_diff.Css_compare.t
