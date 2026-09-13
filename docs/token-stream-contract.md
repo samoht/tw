@@ -309,12 +309,15 @@ class exists and then build the declaration from the raw bracket again, so the
 hint reaches the sheet: `transition-[foo:color]` writes `transition-property:
 foo:color` where the CLI writes `color`. Each needs the `(spelling, value)`
 payload the other families carry, so `to_class` keeps the hint and `to_style`
-does not. `text-[…]` and `outline-[…]` read only the hints they already know,
-because both route between longhands two modules own and an unknown hint on
-either falls to the colour, which wants the opaque colour case as well as the
-peel: `text-[foo:1.25rem]`, `text-[foo:red]` and `outline-[foo:red]` are
-refused where the CLI writes `color: 1.25rem`, `color: red` and
-`outline-color: red`. The width hints in `lib/typography.ml`,
+does not. `text-[…]` and `outline-[…]` now write a bracket
+no reader took into their colour, which is each family's last resort, so
+`text-[foo:1.25rem]`, `text-[foo:red]`, `text-[notacolour]`,
+`outline-[foo:red]` and a malformed hex all reach the sheet. The seven other
+colour families — `bg-`, `border-`, `fill-`, `stroke-`, `accent-`, `caret-`,
+`placeholder-` — still refuse the same brackets, which is one divergence in
+seven more parsers. An opacity modifier over a value that is not a colour
+stays refused everywhere: the CLI writes a `color-mix()` around the raw token,
+and cascade's colour types hold colours, not token streams. The width hints in `lib/typography.ml`,
 `lib/borders.ml` and `lib/svg.ml` no longer refuse a value their reader
 declines: each carries a variant holding `(spelling, value)` and writes the
 value through `opaque_declaration` on the longhand the hint named, with the

@@ -1747,6 +1747,11 @@ module Handler = struct
     | Text_inherit
     | Text_bracket_color of string * Css.color
       (* text-[#0088cc], text-[black] - string is original bracket content *)
+    | Text_bracket_raw of string * string
+      (* text-[notacolour], text-[foo:red]: the colour is this family's last
+         resort, so a bracket no reader took reaches [color] verbatim, which is
+         Tailwind's token-stream contract. The browser discards the declaration;
+         the selector is what the class was for. *)
     | Text_bracket_color_opacity of string * Css.color * opacity_modifier
     | Text_bracket_var of string (* text-[var(--value)] *)
     | Text_bracket_var_opacity of string * opacity_modifier
@@ -1788,6 +1793,9 @@ module Handler = struct
     | Outline_transparent
     | Outline_bracket_color of string * Css.color
       (* outline-[#0088cc], outline-[black] *)
+    | Outline_bracket_raw of string * string
+      (* outline-[notacolour]: the colour is this family's last resort, the way
+         it is for [text-]. *)
     | Outline_bracket_color_opacity of string * Css.color * opacity_modifier
     | Outline_bracket_var of string (* outline-[var(--value)] *)
     | Outline_bracket_var_opacity of string * opacity_modifier
@@ -1940,7 +1948,7 @@ module Handler = struct
         19
     | Text_opacity _ | Text _ | Text_transparent | Text_current
     | Text_current_opacity _ | Text_inherit | Text_bracket_color _
-    | Text_bracket_color_opacity _ | Text_bracket_var _
+    | Text_bracket_raw _ | Text_bracket_color_opacity _ | Text_bracket_var _
     | Text_bracket_var_opacity _ | Text_bracket_typed_var _
     | Text_bracket_typed_var_opacity _ | Placeholder_opacity _ | Placeholder _
     | Placeholder_transparent | Placeholder_current
@@ -1955,9 +1963,10 @@ module Handler = struct
         26
     | Outline_opacity _ | Outline _ | Outline_current
     | Outline_current_opacity _ | Outline_inherit | Outline_transparent
-    | Outline_bracket_color _ | Outline_bracket_color_opacity _
-    | Outline_bracket_var _ | Outline_bracket_var_opacity _
-    | Outline_bracket_typed_var _ | Outline_bracket_typed_var_opacity _ ->
+    | Outline_bracket_color _ | Outline_bracket_raw _
+    | Outline_bracket_color_opacity _ | Outline_bracket_var _
+    | Outline_bracket_var_opacity _ | Outline_bracket_typed_var _
+    | Outline_bracket_typed_var_opacity _ ->
         28
 
   (* Helper to check if a string contains an opacity modifier *)
@@ -2107,7 +2116,14 @@ module Handler = struct
             | _ ->
                 Ok (Text_bracket_color_opacity (base_inner, css_color, opacity))
             )
-        | None -> Error (`Msg ("Invalid text bracket value: " ^ base_inner)))
+        | None -> (
+            (* The colour is this family's last resort, so a bracket no reader
+               took still reaches [color]. An opacity modifier has nothing to
+               mix - the value is not a colour - so that form stays refused,
+               where the CLI writes a color-mix around the raw token. *)
+            match (opacity, Parse.arbitrary_declaration_value base_inner) with
+            | No_opacity, Some raw -> Ok (Text_bracket_raw (base_inner, raw))
+            | _ -> Error (`Msg ("Invalid text bracket value: " ^ base_inner))))
     | "text" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -2300,7 +2316,11 @@ module Handler = struct
                 Ok
                   (Outline_bracket_color_opacity (base_inner, css_color, opacity))
             )
-        | None -> Error (`Msg ("Invalid outline bracket value: " ^ base_inner)))
+        | None -> (
+            match (opacity, Parse.arbitrary_declaration_value base_inner) with
+            | No_opacity, Some raw -> Ok (Outline_bracket_raw (base_inner, raw))
+            | _ -> Error (`Msg ("Invalid outline bracket value: " ^ base_inner))
+            ))
     | "outline" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -3031,6 +3051,8 @@ module Handler = struct
     | Text_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"text-" ~property:Css.color
           css_color
+    | Text_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "color" value))
     | Text_bracket_color_opacity (_orig, css_color, opacity) ->
         bracket_color_opacity_style ~theme ~property:Css.color css_color opacity
     | Text_bracket_var v ->
@@ -3125,6 +3147,8 @@ module Handler = struct
     | Outline_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"outline-"
           ~property:Css.outline_color css_color
+    | Outline_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "outline-color" value))
     | Outline_bracket_color_opacity (inner, css_color, opacity) ->
         outline_bracket_color_opacity_style ~theme inner css_color opacity
     | Outline_bracket_var v -> outline_bracket_var_style v
@@ -3174,7 +3198,7 @@ module Handler = struct
     | Text_current -> 8350
     | Text_current_opacity _ -> 8350
     | Text_inherit -> 8350
-    | Text_bracket_color _ -> 8350
+    | Text_bracket_color _ | Text_bracket_raw _ -> 8350
     | Text_bracket_color_opacity _ -> 8350
     | Text_bracket_var _ -> 8350
     | Text_bracket_var_opacity _ -> 8350
@@ -3277,7 +3301,7 @@ module Handler = struct
     (* i -> after every indigo shade and before lime(10) *)
     | Outline_transparent -> 3000 + (22 * 1000)
     (* t -> between teal and violet *)
-    | Outline_bracket_color _ -> 3000
+    | Outline_bracket_color _ | Outline_bracket_raw _ -> 3000
     | Outline_bracket_color_opacity _ -> 3000
     | Outline_bracket_var _ -> 3000
     | Outline_bracket_var_opacity _ -> 3000
@@ -3300,7 +3324,7 @@ module Handler = struct
     | Text_current -> "text-current"
     | Text_current_opacity opacity -> "text-current" ^ opacity_suffix opacity
     | Text_inherit -> "text-inherit"
-    | Text_bracket_color (v, _) -> "text-[" ^ v ^ "]"
+    | Text_bracket_color (v, _) | Text_bracket_raw (v, _) -> "text-[" ^ v ^ "]"
     | Text_bracket_color_opacity (v, _, opacity) ->
         "text-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Text_bracket_var v -> "text-[" ^ v ^ "]"
@@ -3400,7 +3424,8 @@ module Handler = struct
         "outline-current" ^ opacity_suffix opacity
     | Outline_inherit -> "outline-inherit"
     | Outline_transparent -> "outline-transparent"
-    | Outline_bracket_color (v, _) -> "outline-[" ^ v ^ "]"
+    | Outline_bracket_color (v, _) | Outline_bracket_raw (v, _) ->
+        "outline-[" ^ v ^ "]"
     | Outline_bracket_color_opacity (v, _, opacity) ->
         "outline-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Outline_bracket_var v -> "outline-[" ^ v ^ "]"
