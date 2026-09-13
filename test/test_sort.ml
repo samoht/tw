@@ -1731,7 +1731,10 @@ let case_faults cases =
 
 let test_random_utilities_with_minimization () =
   let entries = pool_entries () in
-  let rng = Test_helpers.test_rng in
+  (* Its own state, so the seed a failing run prints replays this test on its
+     own. Drawing from the shared one made that impossible: a real ordering
+     defect here passed every attempt to reproduce it from the CI seed. *)
+  let rng = Test_helpers.rng_named "sort/random-utilities-with-minimization" in
   let sample i =
     let initial =
       List.map
@@ -2022,6 +2025,21 @@ let test_container_query_call_order () =
    with - it only reads the suborder for two rules whose whole variant prefix is
    equal - so they cancel, and this pins the order they were meant to produce
    across the families that carry them. *)
+(* A [peer-] variant sorts inside the peer group by the variant it wraps, the
+   way a [group-] one does: Tailwind writes peer-checked, then peer-hover, then
+   peer-focus. [peer-hover] used to be special-cased into [group-hover]'s slot,
+   which pulled it out of the group entirely and put it in front of every other
+   [peer-] spelling. The fuzzer found it as
+   [peer-checked:contain-layout **:peer-hover:contain-strict] and it read as a
+   flake for a session, because the seed that failed the whole suite passed
+   when the sort tests were run alone. *)
+let test_peer_variant_group_order () =
+  Test_helpers.check_class_order ~test_name:"peer variants sort as Tailwind"
+    [ "peer-checked:grid"; "peer-hover:block"; "peer-focus:flex" ];
+  (* The group- family is the shape peer- now follows. *)
+  Test_helpers.check_class_order ~test_name:"group variants sort as Tailwind"
+    [ "group-checked:grid"; "group-hover:block"; "group-focus:flex" ]
+
 let test_variant_family_order () =
   Test_helpers.check_class_order ~test_name:"variant families sort as Tailwind"
     [
@@ -3278,6 +3296,8 @@ let tests =
     test_case "pool variants all compile" `Quick test_variants_all_compile;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;
+    test_case "peer variants sort inside their group" `Quick
+      test_peer_variant_group_order;
     test_case "variant families sort as Tailwind" `Quick
       test_variant_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;

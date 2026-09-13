@@ -384,9 +384,18 @@ val spacing_values : int list
     utilities. *)
 
 val test_rng : Random.State.t
-(** [test_rng] is the global RNG for randomized tests. Initialized with a random
-    seed printed to stderr. Set [TEST_SEED] env var to replay a specific seed.
-*)
+(** [test_rng] is the shared RNG behind {!shuffle}. Initialized from the seed
+    printed to stderr; set [TEST_SEED] to replay one.
+
+    Sharing it couples every drawer: what one test sees depends on how much
+    randomness ran before it, so a seed that fails the whole suite passes when
+    that test is run alone, and a real failure reads as a flake. A test that
+    draws enough to matter should take {!rng_named} instead. *)
+
+val rng_named : string -> Random.State.t
+(** [rng_named name] is a state of its own, seeded from the run's seed and
+    [name]. It draws the same sequence whatever else the run does, so the seed a
+    failing run prints reproduces that test on its own. *)
 
 val shuffle : 'a list -> 'a list
 (** [shuffle lst] returns a shuffled copy of the list using Fisher-Yates

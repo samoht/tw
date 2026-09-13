@@ -1160,7 +1160,7 @@ let spacing_values =
 (** Global RNG for randomized tests. Initialized with a random seed that is
     printed to stderr for reproducibility. Set [TEST_SEED] env var to replay a
     specific seed. *)
-let test_rng =
+let test_seed =
   let seed =
     match Sys.getenv_opt "TEST_SEED" with
     | Some s -> (
@@ -1175,7 +1175,17 @@ let test_rng =
         Random.bits ()
   in
   Fmt.epr "Test seed: %d (replay with TEST_SEED=%d)@." seed seed;
-  Random.State.make [| seed |]
+  seed
+
+let test_rng = Random.State.make [| test_seed |]
+
+(* The seed a run prints has to replay on its own, and a shared state does not:
+   what a test draws then depends on how much randomness ran before it, so a
+   seed that fails the whole suite passes when that one test is run alone. That
+   is how a real ordering defect read as a flake for a whole session. Each
+   randomised test takes its own state, seeded from the run's seed and its own
+   name, so the seed reproduces whatever else runs. *)
+let rng_named name = Random.State.make [| test_seed; Hashtbl.hash name |]
 
 (** Shuffle a list using Fisher-Yates algorithm with the global test RNG. *)
 let shuffle lst =
