@@ -133,14 +133,18 @@ let bracket_data_type_hint_reads_the_value () =
   Alcotest.(check string)
     "stroke-[length:2px] round-trips" "stroke-[length:2px]"
     (Tw.pp (Result.get_ok (Tw.of_string "stroke-[length:2px]")));
-  (* A value the width reader refuses is held open, not settled: Tailwind writes
-     the bracket out whatever it says, so refusing is an intermediate. *)
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Svg.Handler)
-    "stroke-[length:notawidth]"
+  (* The hint says the bracket is a width whatever the value turns out to be, so
+     a value no length grammar reads is still a width, forwarded verbatim under
+     the token-stream contract. The browser discards the declaration; what
+     matters is that the rule, and so the selector, exists. *)
+  Test_helpers.check_declarations "stroke-[length:notawidth]"
+    [ "stroke-width:notawidth" ];
+  Test_helpers.check_declarations "stroke-[number:red]" [ "stroke-width:red" ];
+  Test_helpers.check_declarations "stroke-[percentage:red]"
+    [ "stroke-width:red" ];
+  Alcotest.(check string)
+    "stroke-[length:notawidth] round-trips" "stroke-[length:notawidth]"
+    (Tw.pp (Result.get_ok (Tw.of_string "stroke-[length:notawidth]")))
 
 let tests =
   [

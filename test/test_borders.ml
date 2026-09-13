@@ -526,12 +526,21 @@ let test_bracket_data_type_hint_reads_the_value () =
   Alcotest.(check string)
     "outline-[length:3px] round-trips" "outline-[length:3px]"
     (Tw.pp (Result.get_ok (Tw.of_string "outline-[length:3px]")));
-  (* A value the width reader refuses is held open, not settled: Tailwind writes
-     the bracket out whatever it says, so refusing is an intermediate. *)
-  check_invalid_input
-    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Borders.Handler)
-    "outline-[length:notawidth]"
+  (* The hint says the bracket is a width whatever the value turns out to be, so
+     a value no width grammar reads is still a width, forwarded verbatim under
+     the token-stream contract. The style declaration travels with it, so the
+     browser drops the width and keeps the style. *)
+  check_declarations "outline-[length:notawidth]"
+    [ "outline-style:var(--tw-outline-style)"; "outline-width:notawidth" ];
+  check_declarations "border-[line-width:red]"
+    [ "border-style:var(--tw-border-style)"; "border-width:red" ];
+  check_declarations "border-t-[line-width:red]"
+    [ "border-top-style:var(--tw-border-style)"; "border-top-width:red" ];
+  check_declarations "border-x-[length:red]"
+    [ "border-inline-style:var(--tw-border-style)"; "border-inline-width:red" ];
+  Alcotest.(check string)
+    "outline-[length:notawidth] round-trips" "outline-[length:notawidth]"
+    (Tw.pp (Result.get_ok (Tw.of_string "outline-[length:notawidth]")))
 
 (* [border-[…]] routes on the hint: [length:] and [line-width:] name the width,
    and the width reader sees only what follows. [rounded-[…]] names its longhand
