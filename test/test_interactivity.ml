@@ -115,15 +115,8 @@ let test_invalid_arbitrary_will_change () =
    The arbitrary value spells that one [\_], so the class both parses and keeps
    the character. *)
 let test_will_change_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an escaped underscore stays in the property name" true
-    (Astring.String.is_infix ~affix:"will-change: a_b"
-       (css {|will-change-[a\_b]|}))
+  Test_helpers.check_declarations ~minify:false {|will-change-[a\_b]|}
+    [ "will-change: a_b" ]
 
 let tests =
   [

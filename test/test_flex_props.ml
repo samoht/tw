@@ -150,10 +150,12 @@ let test_basis_arbitrary_keeps_the_authored_spelling () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " selects itself") true
-            (Astring.String.is_infix ~affix:escaped css))
+          (* The whole selector list, which is where "names its rule with the
+             bracket text" is said: an affix of the selector is satisfied by a
+             longer one that starts the same way. *)
+          Alcotest.(check (list string))
+            (cls ^ " selects itself") [ escaped ]
+            (Test_helpers.selectors_of_utility u))
     [
       ("basis-[0.5ch]", {|.basis-\[0\.5ch\]|});
       ("basis-[0.0]", {|.basis-\[0\.0\]|});

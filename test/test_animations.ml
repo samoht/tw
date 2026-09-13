@@ -200,15 +200,9 @@ let test_theme_animation_sorts_by_name () =
    space, so a keyframe name carrying an underscore of its own is written [\_]
    and keeps the character. *)
 let test_shorthand_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an escaped underscore stays in the keyframe name" true
-    (Astring.String.is_infix ~affix:"animation: wiggle_x 1s infinite"
-       (css {|animate-[wiggle\_x_1s_infinite]|}))
+  Test_helpers.check_declarations ~minify:false
+    {|animate-[wiggle\_x_1s_infinite]|}
+    [ "animation: wiggle_x 1s infinite" ]
 
 let tests =
   [

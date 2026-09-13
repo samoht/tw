@@ -19,20 +19,26 @@ let border_spacing_prime () =
    every other unit unparsed, and the class-name printer had a placeholder
    waiting to stand in for whatever it could not spell. *)
 let arbitrary_border_spacing () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let shorthand =
+    "border-spacing:var(--tw-border-spacing-x) var(--tw-border-spacing-y)"
   in
-  let emits cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  (* The whole list. The affixes named one axis of a utility that sets both, and
+     never the shorthand that reads them. *)
+  let both cls value =
+    Test_helpers.check_declarations cls
+      [
+        "--tw-border-spacing-x:" ^ value;
+        "--tw-border-spacing-y:" ^ value;
+        shorthand;
+      ]
   in
-  emits "border-spacing-[123px]" "--tw-border-spacing-x:123px";
-  emits "border-spacing-[1rem]" "--tw-border-spacing-y:1rem";
-  emits "border-spacing-x-[2em]" "--tw-border-spacing-x:2em";
-  emits "border-spacing-y-[1.5vw]" "--tw-border-spacing-y:1.5vw";
-  emits "border-spacing-[calc(1rem_+_2px)]"
-    "--tw-border-spacing-x:calc(1rem + 2px)";
+  both "border-spacing-[123px]" "123px";
+  both "border-spacing-[1rem]" "1rem";
+  both "border-spacing-[calc(1rem_+_2px)]" "calc(1rem + 2px)";
+  Test_helpers.check_declarations "border-spacing-x-[2em]"
+    [ "--tw-border-spacing-x:2em"; shorthand ];
+  Test_helpers.check_declarations "border-spacing-y-[1.5vw]"
+    [ "--tw-border-spacing-y:1.5vw"; shorthand ];
   List.iter
     (fun cls ->
       Alcotest.(check string)

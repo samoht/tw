@@ -56,20 +56,21 @@ let test_arbitrary_width_roundtrip () =
   check "divide-x-[1rem]";
   check "divide-y-[0.5rem]";
   check "divide-x-[0.5rem]";
-  let selector cls =
+  (* The whole selector. An affix of it says the class name appears somewhere,
+     which [.divide-x-\[1rem\]x] would satisfy too; what this test is about is
+     that each width names its own rule. *)
+  let selects cls sel =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Alcotest.(check bool)
+          (cls ^ " selects the class the author wrote")
+          true
+          (List.mem sel (Test_helpers.selectors_of_utility u))
   in
-  Alcotest.(check bool)
-    "divide-x-[1rem] selects the class the author wrote" true
-    (Astring.String.is_infix ~affix:".divide-x-\\[1rem\\]"
-       (selector "divide-x-[1rem]"));
+  selects "divide-x-[1rem]" {|:where(.divide-x-\[1rem\] > :not(:last-child))|};
   (* Two rem widths are two class names, not one. *)
-  Alcotest.(check bool)
-    "divide-x-[2rem] is its own class" true
-    (Astring.String.is_infix ~affix:".divide-x-\\[2rem\\]"
-       (selector "divide-x-[2rem]"))
+  selects "divide-x-[2rem]" {|:where(.divide-x-\[2rem\] > :not(:last-child))|}
 
 (* The typed constructor spells the width itself, and builds exactly the classes
    the bracket reader accepts. Tailwind takes a line-width keyword there -

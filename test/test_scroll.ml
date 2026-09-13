@@ -46,13 +46,8 @@ let test_typed_prime () =
    is not a utility: it used to be reinterpreted as a variable name, so
    [scroll-m-[2vh]] emitted [scroll-margin: var(--2vh)]. *)
 let test_arbitrary_length () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  let emits decl cls =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   emits "scroll-margin: 2vh" "scroll-m-[2vh]";
   emits "scroll-padding-top: 3ch" "scroll-pt-[3ch]";
