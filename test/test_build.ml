@@ -799,6 +799,16 @@ let selectors_in_container ~condition css =
       | _ -> acc)
     [] css
 
+(* Conditions of every [@media] block in the sheet, nested ones included. *)
+let media_conditions css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_media stmt with
+      | Some (cond, _) -> Css.Media.to_string cond :: acc
+      | None -> acc)
+    [] css
+  |> List.rev
+
 let supports_conditions css =
   Css.fold
     (fun acc stmt ->
@@ -833,6 +843,21 @@ let test_container_query_merge () =
     "container block keeps rule order"
     [ Css.Selector.class_ "@sm:m-2"; Css.Selector.class_ "@sm:p-4" ]
     (selectors_in_container ~condition:"(width >= 24rem)" css)
+
+(* A [sm:dark:] utility nests one conditional group inside another, so merging
+   the two outer blocks builds a body that is itself a run of two dark blocks.
+   Collapsing that run needs the merge run over what the merge produced, which
+   is what [~optimize_merged_block] carries. Tailwind emits one block at each
+   level. *)
+let test_nested_media_merge () =
+  let css =
+    Tw.Build.to_css
+      ~config:{ base = false; forms = None; layers = true }
+      [ sm [ dark [ p 4 ] ]; sm [ dark [ m 2 ] ] ]
+  in
+  check (list string) "outer and inner each merge to one block"
+    [ "(min-width: 40rem)"; "(prefers-color-scheme: dark)" ]
+    (media_conditions css)
 
 (* The same for [@supports], whose blocks carry a condition to compare in the
    same way. *)
@@ -1337,6 +1362,7 @@ let tests =
     test_case "consecutive supports merge" `Quick test_supports_merge;
     test_case "container merge keeps conditions apart" `Quick
       test_container_merge_keeps_conditions_apart;
+    test_case "nested media merge" `Quick test_nested_media_merge;
     test_case "media query deduplication" `Quick test_media_query_deduplication;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;
