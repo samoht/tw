@@ -935,17 +935,8 @@ let test_invalid_bracket_hex () =
       ("accent", "accent-color:");
       ("caret", "caret-color:");
       ("placeholder", "color:");
+      ("bg", "background-color:");
     ];
-  (* [bg-] reads its bracket through many longhands - a size, a position, an
-     image, a url - and has no single point where a refusal falls to the colour,
-     so it is the one family still refusing what the CLI writes. *)
-  List.iter
-    (fun prefix ->
-      rejected (prefix ^ "-[#zz]");
-      rejected (prefix ^ "-[#]");
-      rejected (prefix ^ "-[#12345]");
-      rejected (prefix ^ "-[#zz]/50"))
-    [ "bg" ];
   emits "text-[#abc]" "color:#abc";
   emits "bg-[#00ff0080]" "background-color:#00ff0080";
   emits "border-[#123456]" "border-color:#123456";

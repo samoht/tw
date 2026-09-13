@@ -189,22 +189,19 @@ let test_bracket_position_grammar () =
   writes "bg-[position:120px_120px]" "120px 120px";
   writes "bg-position-[center_-100px]" "50% -100px"
 
-(* A bracket value the property cannot take is not a utility. [bg-[image:...]]
-   used to emit an empty rule and [bg-[position:...]] a plausible-looking
-   [center]: no CSS the class asked for, and no diagnostic. *)
+(* A bracket value the property cannot take goes to that property anyway: the
+   hint chose the longhand, and the browser discards what it cannot read. What
+   is ruled out is the two answers that are neither - [bg-[image:...]] used to
+   emit an empty rule and [bg-[position:...]] a plausible-looking [center], so
+   the class silently painted something it never asked for. *)
 let test_invalid_bracket_value () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
   let accepted cls =
     match Tw.of_string cls with
     | Ok _ -> ()
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "bg-[image:nope]";
-  rejected "bg-[position:nope]";
+  check_declarations "bg-[image:nope]" [ "background-image:nope" ];
+  check_declarations "bg-[position:nope]" [ "background-position:nope" ];
   accepted "bg-[image:radial-gradient(white,black)]";
   accepted "bg-[image:var(--x)]";
   accepted "bg-[image:url(/a.png)]";
@@ -621,12 +618,15 @@ let test_bracket_data_type_hint_reads_the_value () =
   Alcotest.(check string)
     "bg-[color:red] round-trips" "bg-[color:red]"
     (Tw.pp (Result.get_ok (Tw.of_string "bg-[color:red]")));
-  (* A value no colour reader takes is held open, not settled: Tailwind writes
-     the bracket out whatever it says, so refusing is an intermediate. *)
-  check_invalid_input
-    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Backgrounds.Handler)
-    "bg-[color:notacolour]"
+  (* The colour is this family's last resort, so a value no colour reader takes
+     still reaches [background-color], forwarded verbatim. *)
+  check_declarations "bg-[color:notacolour]" [ "background-color:notacolour" ];
+  check_declarations "bg-[notacolour]" [ "background-color:notacolour" ];
+  (* An unknown hint lands there too, and so does a bracket that opens with
+     [url(] but holds no url. *)
+  check_declarations "bg-[foo:50%]" [ "background-color:50%" ];
+  check_declarations "bg-[url(x.png)_center]"
+    [ "background-color:url(x.png) center" ]
 
 (* Tailwind knows two spellings for the hint that names a background-position,
    and [bg-[…]] routes on the one the author wrote while the class name keeps
@@ -635,10 +635,12 @@ let test_percentage_hint_names_a_position () =
   check_declarations "bg-[percentage:50%]" [ "background-position:50%" ];
   check_declarations "bg-[position:50%]" [ "background-position:50%" ];
   List.iter check [ "bg-[percentage:50%]"; "bg-[position:50%]" ];
-  check_invalid_input
-    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Backgrounds.Handler)
-    "bg-[percentage:notaposition]"
+  (* Either spelling of the hint names the longhand, so a value the position
+     grammar declines still lands on [background-position]. *)
+  check_declarations "bg-[percentage:notaposition]"
+    [ "background-position:notaposition" ];
+  check_declarations "bg-[position:notaposition]"
+    [ "background-position:notaposition" ]
 
 let tests =
   [
