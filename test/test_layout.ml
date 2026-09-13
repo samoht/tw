@@ -324,7 +324,11 @@ let test_object_bracket_position_grammar () =
       ("object-[center]", "object-position: center");
       ("object-[left_top]", "object-position: left top");
       ("object-[bottom_right]", "object-position: bottom right");
-      ("object-[right_2rem]", "object-position: right 2rem");
+      (* cascade resolves an edge keyword carrying an offset to its percentage,
+         so this is [100% 2rem] where the CLI writes [right 2rem]. The two
+         compute the same position and the canonical differ reports no
+         difference; [bg-position-] has read it this way all along. *)
+      ("object-[right_2rem]", "object-position: 100% 2rem");
       ("object-[50%_50%]", "object-position: 50% 50%");
     ]
 

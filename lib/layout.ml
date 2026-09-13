@@ -90,20 +90,19 @@ let z_auto_style ?theme () =
      token nothing declares. *)
   | None -> Style.style [ Css.z_index Auto ]
 
-(* An [object-[...]] value that is not a var() reference is a position: one or
-   two lengths, with [_] for the space. *)
+(* An [object-[...]] value that is not a var() reference is a <position>, read
+   with cascade's grammar for it rather than a local one. Splitting on the space
+   and reading each side as a length took the two-length and one-length forms
+   and nothing else, so every keyword the grammar allows was refused. The
+   [bg-position-] bracket reads the same CSS type through the same reader; the
+   two families must not disagree about what a position is. *)
 let parse_object_position raw : Css.position_value option =
-  let decoded = Parse.decode_arbitrary_value raw in
-  match String.split_on_char ' ' decoded |> List.filter (fun s -> s <> "") with
-  | [ x; y ] -> (
-      match (Css.parse_length x, Css.parse_length y) with
-      | Some xv, Some yv -> Some (XY (xv, yv))
-      | _ -> None)
-  | [ v ] ->
-      Option.map
-        (fun (l : Css.length) : Css.position_value -> Single l)
-        (Css.parse_length v)
-  | _ -> None
+  let cursor = Cascade.Cursor.of_string (Parse.decode_arbitrary_value raw) in
+  match
+    Cascade.Cursor.try_parse_full_err Css.Properties.read_position_value cursor
+  with
+  | Ok pos -> Some pos
+  | Error _ -> None
 
 module Handler = struct
   open Style

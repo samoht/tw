@@ -176,6 +176,12 @@
   the class names, as Tailwind does, so `mask-[foo]`, `mask-[url(x.png)_center]`,
   `mask-position-[foo]`, `mask-size-[foo]` and every `mask-[<hint>:...]` whose
   value the hint declines reach the sheet (#714).
+- `object-[...]` takes the whole CSS `<position>` grammar, so an edge keyword,
+  a pair of them and a keyword carrying an offset resolve: `object-[top]`,
+  `object-[left_top]`, `object-[center]` and `object-[right_2rem]` reach the
+  sheet where only a bare length or a pair of them did. It reads through the
+  same cascade grammar `bg-position-[...]` does, which took these all along
+  (#734).
 - `aspect-[...]` emits its bracket verbatim, as Tailwind does: nothing inside is
   validated, so `aspect-[foo]`, `aspect-[-1]`, `aspect-[calc(1+2)]` and
   `aspect-[1.23/4.56]` reach the sheet. `aspect-[0x4]` writes `0x4` rather than
