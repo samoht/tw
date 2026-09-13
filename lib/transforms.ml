@@ -1575,14 +1575,21 @@ module Handler = struct
      [_] stands for a space, [--spacing(n)] expands, and a binary [+] gets the
      spaces CSS math wants, so [calc(1px+1px)] is a value rather than a parse
      error. [None] is a bracket that grammar refuses, and [of_class] declines
-     the utility rather than leaving [to_style] to raise. *)
+     the utility rather than leaving [to_style] to raise.
+
+     A data-type hint chooses which longhand a bracket lands in and says nothing
+     about the value. Every family reading through here writes one longhand, so
+     the hint lands there and [read] is handed what follows it. A bracket whose
+     hint is empty names no utility, which is the other [None]. The caller keeps
+     the bracket whole for the class name, which is what the markup carries. *)
   let arbitrary_value read inner =
-    let cursor =
-      Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
-    in
-    match Cascade.Cursor.try_parse_full_err read cursor with
-    | Ok v -> Some v
-    | Error _ -> None
+    Stdlib.Option.bind (Parse.value_after_hint inner) (fun value ->
+        let cursor =
+          Cascade.Cursor.of_string (Parse.decode_arbitrary_value value)
+        in
+        match Cascade.Cursor.try_parse_full_err read cursor with
+        | Ok v -> Some v
+        | Error _ -> None)
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
