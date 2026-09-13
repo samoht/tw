@@ -89,17 +89,23 @@ let tailwind_css ?(forms = false) classnames =
    the table. *)
 let compiled_cache : (string, Css.t option) Hashtbl.t = Hashtbl.create 512
 
-let compiled cls =
-  match Hashtbl.find_opt compiled_cache cls with
-  | Some sheet -> sheet
-  | None ->
-      let sheet =
-        match Tw.of_string cls with
-        | Error _ -> None
-        | Ok u -> Some (Tw.to_css ~base:false [ u ])
-      in
-      Hashtbl.add compiled_cache cls sheet;
-      sheet
+let compile ?theme cls =
+  match Tw.of_string ?theme cls with
+  | Error _ -> None
+  | Ok u -> Some (Tw.to_css ?theme ~base:false [ u ])
+
+(* The cache is keyed on the class alone, so a caller supplying its own theme
+   goes around it rather than poisoning it for the default-theme callers. *)
+let compiled ?theme cls =
+  match theme with
+  | Some _ -> compile ?theme cls
+  | None -> (
+      match Hashtbl.find_opt compiled_cache cls with
+      | Some sheet -> sheet
+      | None ->
+          let sheet = compile cls in
+          Hashtbl.add compiled_cache cls sheet;
+          sheet)
 
 let properties_of_class cls =
   match compiled cls with
@@ -122,8 +128,8 @@ let properties_of_class cls =
    [Alcotest.check bool ... true] then prints neither the class nor the CSS when
    it fails, so a red test reports only that something is wrong. The helpers
    below compare whole declarations and name the subject in the failure. *)
-let declarations_of_class ?(minify = true) cls =
-  match compiled cls with
+let declarations_of_class ?theme ?(minify = true) cls =
+  match compiled ?theme cls with
   | None -> Alcotest.failf "%s does not parse" cls
   | Some sheet ->
       Css.fold
@@ -135,10 +141,10 @@ let declarations_of_class ?(minify = true) cls =
           | _ -> acc)
         [] sheet
 
-let check_declarations ?minify cls expected =
+let check_declarations ?theme ?minify cls expected =
   Alcotest.(check (list string))
     cls expected
-    (declarations_of_class ?minify cls)
+    (declarations_of_class ?theme ?minify cls)
 
 (* For a value a test cannot spell exactly, a generated hash or a number the
    suite deliberately leaves open. Anchor the pattern: an unanchored one
