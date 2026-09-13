@@ -542,9 +542,13 @@ module Handler = struct
     | Object_right_top -> object_position_style theme "right-top" Right_top
     | Object_top_left -> object_position_style theme "top-left" Top_left
     | Object_top_right -> object_position_style theme "top-right" Top_right
-    | Object_arbitrary raw -> (
+    | Object_arbitrary bracket -> (
         (* Only a var() reference names a variable; anything else is a position
-           value, which [object-[50%]] used to turn into [var(--50)]. *)
+           value, which [object-[50%]] used to turn into [var(--50)]. [of_class]
+           refused an empty hint, so the peel succeeds here. *)
+        let raw =
+          Stdlib.Option.value (Parse.value_after_hint bracket) ~default:bracket
+        in
         match parse_object_position raw with
         | Some pos -> style [ object_position pos ]
         | None ->
@@ -712,10 +716,17 @@ module Handler = struct
     | [ "object"; value ] when Parse.is_bracket_value value ->
         let inner = Parse.bracket_inner value in
         (* Only a var() reference names a variable; anything the position parser
-           rejects is not a utility. *)
-        if parse_object_position inner = None && not (Parse.is_var inner) then
-          Error (`Msg ("Invalid object-position value: " ^ inner))
-        else Ok (Object_arbitrary inner)
+           rejects is not a utility. A data-type hint chooses which longhand a
+           bracket lands in and says nothing about the value, and this family
+           writes one, so the reader is handed what follows it. The constructor
+           keeps the bracket whole, because the class name is what the markup
+           carries. *)
+        let readable v = parse_object_position v <> None || Parse.is_var v in
+        if
+          Stdlib.Option.fold ~none:false ~some:readable
+            (Parse.value_after_hint inner)
+        then Ok (Object_arbitrary inner)
+        else Error (`Msg ("Invalid object-position value: " ^ inner))
     | [ "float"; "left" ] -> Ok Float_left
     | [ "float"; "right" ] -> Ok Float_right
     | [ "float"; "none" ] -> Ok Float_none

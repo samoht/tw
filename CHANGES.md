@@ -160,10 +160,13 @@
   `caret-[color:red]`, `placeholder-[color:red]`, `basis-[length:10px]`,
   `indent-[length:4px]`, `underline-offset-[length:4px]`,
   `bg-position-[position:50%]`, `bg-size-[length:10px_20px]`,
-  `origin-[position:top]`, `perspective-origin-[position:top]` and
-  `transform-[foo:scaleX(2)]`, with the hint kept in the class name. `bg-[percentage:50%]` is a
+  `origin-[position:top]`, `perspective-origin-[position:top]`,
+  `transform-[foo:scaleX(2)]`, `object-[position:50%]`, `col-[foo:2]`,
+  `col-start-[foo:2]` and `row-[foo:2]`, with the hint kept in the class name.
+  `col-span-[foo:2]` wrote the hint into the declaration rather than refusing,
+  emitting `grid-column: span foo:2 / span foo:2`. `bg-[percentage:50%]` is a
   `background-position`, the second spelling Tailwind gives that hint alongside
-  `bg-[position:50%]` (#706, #718, #720, #729, #730, #731, #732).
+  `bg-[position:50%]` (#706, #718, #720, #729, #730, #731, #732, #733).
 - A hint's name is a run of `a`-`z` and `-`, and a bracket whose hint is empty
   or which holds nothing but blank space names no utility, as in Tailwind.
   `mask-[FOO:2em]` and `mask-[a1:2em]` hold their bracket whole, where the mask

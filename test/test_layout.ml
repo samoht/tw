@@ -283,8 +283,12 @@ let test_arbitrary_token_stream () =
    about the value. [object-] writes one longhand, so every hint lands there and
    the position reader is handed what follows it; the hint stays in the class
    name, which is what the markup carries. The reader was given the hint as
-   well, read nothing, and the class was refused where Tailwind emits
-   [object-position: top]. *)
+   well, read nothing, and the class was refused where Tailwind writes the value
+   through.
+
+   A percentage rather than a keyword, because [object-[top]] is refused with no
+   hint involved: the position reader here takes no keyword, which is a separate
+   gap. *)
 let test_object_bracket_peels_a_hint () =
   List.iter
     (fun cls ->
@@ -294,10 +298,10 @@ let test_object_bracket_peels_a_hint () =
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
           let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
           Alcotest.(check bool)
-            (cls ^ " writes object-position: top")
+            (cls ^ " writes object-position: 50%")
             true
-            (Astring.String.is_infix ~affix:"object-position: top" css))
-    [ "object-[position:top]"; "object-[foo:top]" ]
+            (Astring.String.is_infix ~affix:"object-position: 50%" css))
+    [ "object-[position:50%]"; "object-[foo:50%]" ]
 
 let tests =
   [
