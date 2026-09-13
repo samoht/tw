@@ -97,14 +97,18 @@ rather than chasing it.
 
 ## What each family does
 
-The families below still refuse a bracket the CLI writes out; the mask family,
-which no longer does, is the worked example at the end. The longhand column is
+**None of the families below still refuses a bracket the CLI writes out.** The
+table is kept as the inventory it is - the longhand each falls through to, which
+is what a reader needs when touching one - but the sweep that produced it now
+reports zero. Re-run it before trusting that: two hostile values per family
+through `tw --single=... --variables --no-base`, counting the declarations tw
+emits. The mask family is the worked example at the end. The longhand column is
 what the CLI writes it into, measured through `@apply` against tailwindcss
 v4.3.3. Five value shapes cover most of it: a bare identifier
 (`foo`), a colour keyword (`red`), a dashed identifier (`--c`), a unitless
 `calc(1+2)`, and a `url()` with a word after it (`url(x.png)_center`).
 
-There are 150 of them. 96 refuse the same five shapes:
+There are 150 of them. 96 used to refuse the same five shapes:
 
 | family | longhand Tailwind falls through to |
 | --- | --- |
