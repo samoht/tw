@@ -45,14 +45,14 @@ runs Lightning CSS, which rewrites values as well as whitespace, and the
 snapshots in `test/upstream/utilities.txt` come from a run that was minified
 too. So a value read off an unminified CLI sheet is not on its own a target.
 
-Three families already differ that way and are right as they stand.
+Four families already differ that way and are right as they stand.
 `outline-[2]` writes `outline-width: 2` unminified and `outline-width: 2px`
 minified; `stroke-2` and `stroke-[1.5]` write `2` and `1.5` against `2px` and
-`1.5px`; `decoration-[10%]` writes `text-decoration-thickness: 10%` against
-`.1em`. tw writes the minified spelling in all three, `--diff` finds no
-difference because it minifies both sides, and the corpus agrees. Minify both
-sheets before calling one of these a divergence, or what you report is the
-minifier's.
+`1.5px`; `text-[length:12]` writes `font-size: 12` against `12px`; and
+`decoration-[10%]` writes `text-decoration-thickness: 10%` against `.1em`. tw
+writes the minified spelling in all four, `--diff` finds no difference because
+it minifies both sides, and the corpus agrees. Minify both sheets before
+calling one of these a divergence, or what you report is the minifier's.
 
 ## What routes a bracket
 
@@ -314,9 +314,12 @@ because both route between longhands two modules own and an unknown hint on
 either falls to the colour, which wants the opaque colour case as well as the
 peel: `text-[foo:1.25rem]`, `text-[foo:red]` and `outline-[foo:red]` are
 refused where the CLI writes `color: 1.25rem`, `color: red` and
-`outline-color: red`. And the `length:` hint in `lib/typography.ml`,
-`lib/borders.ml` and `lib/svg.ml` refuses a value its width reader declines,
-which is the same one-line shape in three modules.
+`outline-color: red`. The `length:` hint in `lib/borders.ml` and
+`lib/svg.ml` still refuses a value its width reader declines, which is the same
+shape in two modules. `lib/typography.ml` no longer does, and what closing it
+cost is the measure for the other two: a variant carrying `(spelling, value)`,
+an `opaque_declaration` in `to_style`, and the bare-number-as-pixels rule
+above, which the hint makes unambiguous.
 
 These families still refuse a bracket that opens with a hint, each because the
 hint reaches a typed reader that has not been shown it: `basis-[…]`,

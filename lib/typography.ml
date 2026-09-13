@@ -473,6 +473,11 @@ module Typography_early = struct
       Text_bracket_fs of string
     | (* Arbitrary font-size with line-height (text-[12px]/6) *)
       Text_bracket_fs_lh of string * lh_modifier
+    | (* A font-size hint over a value no font-size grammar reads
+         (text-[length:red]). The hint chooses the longhand and the value is
+         forwarded verbatim, which is Tailwind's token-stream contract; the
+         browser discards the declaration. *)
+      Text_bracket_fs_raw of string * string
 
   and lh_modifier =
     | Spacing of int (* /6 → calc(var(--spacing) * 6) *)
@@ -584,10 +589,31 @@ module Typography_early = struct
     | _ -> (inner, false)
 
   (* A hint settles the ambiguity [try_parse_length_value] guards against, so a
-     hinted [0] is the size zero where a bare one is a colour. *)
+     hinted [0] is the size zero where a bare one is a colour. A bare number
+     after the hint goes through Tailwind's generator as written and its
+     minifier reads it as pixels, which is the spelling [--diff] compares and
+     the one [stroke-[1.5]] already follows; see
+     docs/token-stream-contract.md. *)
   let bracket_font_size_length value ~hinted =
-    if hinted then Parse.arbitrary_length value
+    if hinted then
+      match Parse.arbitrary_length value with
+      | Stdlib.Option.Some _ as len -> len
+      | Stdlib.Option.None -> (
+          match float_of_string_opt value with
+          | Some f -> Stdlib.Option.Some (Css.Px f)
+          | None -> Stdlib.Option.None)
     else try_parse_length_value value
+
+  (* A [length:] hint says the bracket is a font size whatever the value turns
+     out to be, so a value no font-size grammar reads is still a font size -
+     forwarded verbatim under the token-stream contract. Without the hint the
+     same text names no utility, because nothing says which longhand it is
+     for. *)
+  let hinted_font_size_token_stream inner =
+    match split_type_prefix inner with
+    | Stdlib.Option.Some (prefix, _) when is_font_size_hint prefix ->
+        Parse.arbitrary_declaration_value inner
+    | _ -> Stdlib.Option.None
 
   let is_valid_bracket_font_size (inner : string) : bool =
     let value, hinted = bracket_font_size_value inner in
@@ -848,7 +874,11 @@ module Typography_early = struct
               if is_color_bracket inner then err_not_utility
               else if is_valid_bracket_font_size inner then
                 Ok (Text_bracket_fs inner)
-              else err_not_utility
+              else
+                match hinted_font_size_token_stream inner with
+                | Stdlib.Option.Some value ->
+                    Ok (Text_bracket_fs_raw (inner, value))
+                | Stdlib.Option.None -> err_not_utility
             else if is_theme_text_size theme part then Ok (Text_theme part)
             else err_not_utility)
     (* A project token's name may span several segments, and the line-height
@@ -932,6 +962,7 @@ module Typography_early = struct
     | Text_theme name -> "text-" ^ name
     | Text_theme_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
     | Text_bracket_fs raw -> "text-[" ^ raw ^ "]"
+    | Text_bracket_fs_raw (raw, _) -> "text-[" ^ raw ^ "]"
     | Text_bracket_fs_lh (raw, lh) -> "text-[" ^ raw ^ "]/" ^ lh_to_string lh
 
   (** {1 Ordering Support} *)
@@ -1001,7 +1032,7 @@ module Typography_early = struct
     | Text_theme _ -> 2014
     | Text_theme_lh _ -> 2014
     (* Bracket font-size without modifier — after named sizes *)
-    | Text_bracket_fs _ -> 2100
+    | Text_bracket_fs _ | Text_bracket_fs_raw _ -> 2100
     (* Leading comes third — numeric first, then arbitrary, then named
        (alphabetical: loose, none, normal, relaxed, snug, tight) *)
     | Leading n -> 3000 + n
@@ -1620,6 +1651,8 @@ module Typography_early = struct
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         style (text_theme_decls theme name @ lh_extra @ [ line_height lh_value ])
     | Text_bracket_fs raw -> bracket_font_size_style raw
+    | Text_bracket_fs_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "font-size" value))
     | Text_bracket_fs_lh (raw, lh_mod) ->
         let fs_decls = bracket_font_size_decls raw in
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
