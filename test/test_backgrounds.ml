@@ -141,6 +141,31 @@ let test_bracket_length_keywords () =
     (Astring.String.is_infix ~affix:"background-size: contain"
        (css "bg-[length:contain]"))
 
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. [bg-position-] and [bg-size-] each write one longhand, so
+   every hint lands there and the reader is handed what follows it; the hint
+   stays in the class name, which is what the markup carries. Both readers were
+   given the hint as well, read nothing, and the classes were refused where
+   Tailwind writes the value through. *)
+let test_bg_position_and_size_peel_a_hint () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes " ^ decl)
+            true
+            (Astring.String.is_infix ~affix:decl css))
+    [
+      ("bg-position-[position:50%]", "background-position: 50%");
+      ("bg-position-[foo:50%]", "background-position: 50%");
+      ("bg-size-[length:10px_20px]", "background-size: 10px 20px");
+      ("bg-size-[foo:cover]", "background-size: cover");
+    ]
+
 (* A two-axis bg-position bracket mixes a keyword edge with a length, e.g.
    bg-position-[center_-100px] -> background-position: 50% -100px. *)
 let test_bg_position_bracket_keyword_length () =
@@ -685,6 +710,8 @@ let tests =
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bg-position bracket keyword+length" `Quick
       test_bg_position_bracket_keyword_length;
+    test_case "bg-position and bg-size peel a data-type hint" `Quick
+      test_bg_position_and_size_peel_a_hint;
     test_case "bracket position grammar" `Quick test_bracket_position_grammar;
     test_case "invalid bracket value" `Quick test_invalid_bracket_value;
     test_case "bare radial and conic gradients" `Quick test_radial_conic;
