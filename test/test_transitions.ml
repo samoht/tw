@@ -33,48 +33,35 @@ let test_invalid () =
 (* duration-initial / ease-initial reset their channel var to the CSS initial
    keyword. *)
 let test_initial_resets () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "duration-initial sets --tw-duration:initial" true
-    (Astring.String.is_infix ~affix:"--tw-duration:initial"
-       (css "duration-initial"));
-  Alcotest.(check bool)
-    "ease-initial sets --tw-ease:initial" true
-    (Astring.String.is_infix ~affix:"--tw-ease:initial" (css "ease-initial"))
+  (* The channel alone: neither resets the longhand it feeds, which is what
+     distinguishes these from [duration-500]. *)
+  Test_helpers.check_declarations "duration-initial" [ "--tw-duration:initial" ];
+  Test_helpers.check_declarations "ease-initial" [ "--tw-ease:initial" ]
 
 (* Tailwind takes the same arbitrary token streams for [duration-] and [delay-]:
    a math function, a theme function call and a var() reference all reach the
    declaration, with underscores decoded to spaces. Only [duration-] also
    mirrors the value into its channel variable. *)
 let test_arbitrary_token_streams_agree () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:false
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let duration cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "--tw-duration: " ^ value; "transition-duration: " ^ value ]
   in
-  let emits cls affix =
-    Alcotest.(check bool)
-      (Fmt.str "%s emits %s" cls affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  let delay cls value =
+    (* The whole list, which is how the claim that [delay-] sets no duration
+       channel is made: it is absent from the declarations, not merely absent
+       from a substring search over the sheet. *)
+    Test_helpers.check_declarations ~minify:false cls
+      [ "transition-delay: " ^ value ]
   in
-  emits "duration-150" "transition-duration: 150ms";
-  emits "delay-150" "transition-delay: 150ms";
-  emits "duration-[calc(1s+2s)]" "transition-duration: calc(1s + 2s)";
-  emits "delay-[calc(1s+2s)]" "transition-delay: calc(1s + 2s)";
-  emits "duration-[--spacing(1)]" "transition-duration: var(--spacing)";
-  emits "delay-[--spacing(1)]" "transition-delay: var(--spacing)";
-  emits "duration-[var(--x,_3s)]" "transition-duration: var(--x, 3s)";
-  emits "delay-[var(--x,_3s)]" "transition-delay: var(--x, 3s)";
-  (* The channel variable carries the same value, and only for duration. *)
-  emits "duration-[calc(1s+2s)]" "--tw-duration: calc(1s + 2s)";
-  Alcotest.(check bool)
-    "delay sets no duration channel" false
-    (Astring.String.is_infix ~affix:"--tw-duration" (css "delay-[calc(1s+2s)]"))
+  duration "duration-150" "150ms";
+  delay "delay-150" "150ms";
+  duration "duration-[calc(1s+2s)]" "calc(1s + 2s)";
+  delay "delay-[calc(1s+2s)]" "calc(1s + 2s)";
+  duration "duration-[--spacing(1)]" "var(--spacing)";
+  delay "delay-[--spacing(1)]" "var(--spacing)";
+  duration "duration-[var(--x,_3s)]" "var(--x, 3s)";
+  delay "delay-[var(--x,_3s)]" "var(--x, 3s)"
 
 (* Tailwind forwards a declaration-safe arbitrary transition-property token
    stream even when it is not a valid property-name list. *)
