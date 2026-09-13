@@ -10,6 +10,11 @@ module Handler = struct
     | Standard of spacing
     | Arbitrary of string * Css.length (* p-[4px], raw kept for round-trip *)
     | Arbitrary_var of string * string (* raw inner, then the var() text *)
+    | Arbitrary_raw of string * string
+  (* p-[foo]: padding writes one longhand per side, so a bracket no length
+     reader took still names that longhand and the value is forwarded verbatim -
+     Tailwind's token-stream contract. The browser discards the declaration; the
+     selector is what the class was for. *)
 
   type t = {
     axis : [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ];
@@ -38,7 +43,7 @@ module Handler = struct
       match value with
       | Standard s -> Spacing.pp_spacing_suffix s
       | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
-      | Arbitrary_var (raw, _) -> "[" ^ raw ^ "]"
+      | Arbitrary_var (raw, _) | Arbitrary_raw (raw, _) -> "[" ^ raw ^ "]"
     in
     prefix ^ value_suffix
 
@@ -63,11 +68,31 @@ module Handler = struct
     | Standard s -> spacing_value_order s
     | Arbitrary _ -> 20000
     | Arbitrary_var _ -> 20000
+    | Arbitrary_raw _ -> 20000
+
+  (* The longhand each axis names, for a value no typed setter can hold. *)
+  let property_of_axis = function
+    | `All -> "padding"
+    | `X -> "padding-inline"
+    | `Y -> "padding-block"
+    | `T -> "padding-top"
+    | `R -> "padding-right"
+    | `B -> "padding-bottom"
+    | `L -> "padding-left"
+    | `S -> "padding-inline-start"
+    | `E -> "padding-inline-end"
+    | `Bs -> "padding-block-start"
+    | `Be -> "padding-block-end"
+
+  let raw_style axis value =
+    style
+      (Option.to_list (Parse.opaque_declaration (property_of_axis axis) value))
 
   let apply_prop_list ?theme (prop : length list -> declaration) value =
     match value with
     | Standard s -> vs_spacing ?theme prop s
     | Arbitrary (_, len) -> style [ prop [ len ] ]
+    | Arbitrary_raw _ -> style []
     | Arbitrary_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
         style [ prop [ Var (Var.bracket bare_name) ] ]
@@ -76,11 +101,18 @@ module Handler = struct
     match value with
     | Standard s -> v_spacing ?theme prop s
     | Arbitrary (_, len) -> style [ prop len ]
+    (* [to_style] answers the raw case before either applier is reached. *)
+    | Arbitrary_raw _ -> style []
     | Arbitrary_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
         style [ prop (Var (Var.bracket bare_name)) ]
 
-  let to_style theme t =
+  let rec to_style theme t =
+    match t.value with
+    | Arbitrary_raw (_, value) -> raw_style t.axis value
+    | Standard _ | Arbitrary _ | Arbitrary_var _ -> to_style_typed theme t
+
+  and to_style_typed theme t =
     let apply_prop_list prop value = apply_prop_list ~theme prop value in
     let apply_prop prop value = apply_prop ~theme prop value in
     match t.axis with
@@ -123,14 +155,19 @@ module Handler = struct
          because the class name has to. *)
       match Parse.value_after_hint inner with
       | None -> None
-      | Some value ->
+      | Some value -> (
           if Parse.is_var value then Some (Arbitrary_var (inner, value))
           else
             (* Full length grammar (percent, container units, calc), raw kept
                for round-trip. *)
-            Option.map
-              (fun l -> Arbitrary (inner, l))
-              (Parse.arbitrary_length value)
+            match Parse.arbitrary_length value with
+            | Some l -> Some (Arbitrary (inner, l))
+            | None ->
+                (* No length reader took it, so it goes to the longhand the
+                   class names, which is this family's last resort. *)
+                Option.map
+                  (fun raw -> Arbitrary_raw (inner, raw))
+                  (Parse.arbitrary_declaration_value inner))
     else None
 
   let padding_axis_of_prefix = function

@@ -27,6 +27,9 @@ module Handler = struct
     | Arbitrary of string * Css.length
       (* scroll-m-[4px], raw kept for round-trip *)
     | Arbitrary_var of string * string (* raw inner, then the var() text *)
+    | Arbitrary_raw of string * string
+  (* scroll-m-[foo]: each side names one longhand, so a bracket no length reader
+     took still reaches it and the value is forwarded verbatim. *)
 
   type t = {
     kind : scroll_kind;
@@ -63,13 +66,34 @@ module Handler = struct
          and the readers below are handed what follows it. *)
       match Parse.value_after_hint inner with
       | None -> None
-      | Some value ->
+      | Some value -> (
           if Parse.is_var value then Some (Arbitrary_var (inner, value))
           else
-            Option.map
-              (fun l -> Arbitrary (inner, l))
-              (Parse.arbitrary_length value)
+            match Parse.arbitrary_length value with
+            | Some l -> Some (Arbitrary (inner, l))
+            | None ->
+                Option.map
+                  (fun raw -> Arbitrary_raw (inner, raw))
+                  (Parse.arbitrary_declaration_value inner))
     else None
+
+  (* The longhand a kind and side name, for a value no typed setter can hold. *)
+  let scroll_property kind axis =
+    let base =
+      match kind with Margin -> "scroll-margin" | Padding -> "scroll-padding"
+    in
+    match axis with
+    | All -> base
+    | X -> base ^ "-inline"
+    | Y -> base ^ "-block"
+    | T -> base ^ "-top"
+    | R -> base ^ "-right"
+    | B -> base ^ "-bottom"
+    | L -> base ^ "-left"
+    | S -> base ^ "-inline-start"
+    | E -> base ^ "-inline-end"
+    | Bs -> base ^ "-block-start"
+    | Be -> base ^ "-block-end"
 
   let scroll_prop kind axis len =
     match (kind, axis) with
@@ -111,6 +135,13 @@ module Handler = struct
           else len
         in
         style [ scroll_prop kind axis len ]
+    | Arbitrary_raw (_, value) ->
+        (* [calc(<value> * -1)] is what a negated arbitrary writes whatever the
+           unit, and a value no reader took is no exception. *)
+        let value = if negative then "calc(" ^ value ^ " * -1)" else value in
+        style
+          (Option.to_list
+             (Parse.opaque_declaration (scroll_property kind axis) value))
     | Arbitrary_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
         let len : Css.length =
@@ -151,7 +182,7 @@ module Handler = struct
       match value with
       | Spacing n -> min 4_997 (int_of_float (n *. 10.))
       | Arbitrary _ -> 4_998
-      | Arbitrary_var _ -> 4_999
+      | Arbitrary_var _ | Arbitrary_raw _ -> 4_999
     in
     interaction_offset + kind_offset + neg_offset + axis_offset + value_order
 
@@ -178,7 +209,7 @@ module Handler = struct
       match value with
       | Spacing n -> Spacing.pp_spacing_suffix (`Rem (Float.abs n *. 0.25))
       | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
-      | Arbitrary_var (raw, _) -> "[" ^ raw ^ "]"
+      | Arbitrary_var (raw, _) | Arbitrary_raw (raw, _) -> "[" ^ raw ^ "]"
     in
     neg_prefix ^ kind_prefix ^ axis_str ^ "-" ^ value_suffix
 
