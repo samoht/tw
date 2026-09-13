@@ -202,6 +202,19 @@ type order_gap = {
 }
 (** What separates two sheets' statement order, in one number. *)
 
+val layer_statement_identities : string -> layer:string -> string list
+(** [layer_statement_identities sheet ~layer] is {!layer_statement_keys} with an
+    at-rule's key carrying a fingerprint of the statements nested in it, so two
+    blocks sharing a prelude stay distinguishable. This is the sequence
+    {!sheet_order_gap} compares, and what a frozen order fixture records. *)
+
+val order_gap_of_identities :
+  tailwind:string list -> tw:string list -> order_gap
+(** [order_gap_of_identities ~tailwind ~tw] is {!sheet_order_gap} over two
+    identity sequences that have already been read out. Taking the sequences
+    rather than the sheets is what lets Tailwind's side come from a committed
+    fixture instead of the pinned CLI. *)
+
 val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
 (** [sheet_order_gap ~layer ~tailwind ~tw] measures how far tw's statement order
     in [@layer layer] is from Tailwind's. At-rule identities include a

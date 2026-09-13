@@ -842,9 +842,7 @@ let longest_increasing_subsequence seq =
 
 type order_gap = { pairs : int; moves : int; moved : (string * int * int) list }
 
-let sheet_order_gap ~layer ~tailwind ~tw =
-  let ours = layer_statement_identities tw ~layer in
-  let theirs = layer_statement_identities tailwind ~layer in
+let order_gap_of_identities ~tailwind:theirs ~tw:ours =
   let occurrences keys =
     let tbl = Hashtbl.create 4096 in
     List.iter
@@ -900,6 +898,12 @@ let sheet_order_gap ~layer ~tailwind ~tw =
 type slot = { container : string; rank : int * int }
 
 (* Does [selector] name class [cls]? The same match [class_position] makes. *)
+
+let sheet_order_gap ~layer ~tailwind ~tw =
+  order_gap_of_identities
+    ~tailwind:(layer_statement_identities tailwind ~layer)
+    ~tw:(layer_statement_identities tw ~layer)
+
 let names_class selector cls = class_position selector cls <> None
 
 let class_slots sheet ~layer classes =
