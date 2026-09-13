@@ -1645,6 +1645,14 @@ module Typography_late = struct
     && String.for_all is_number_char str
     && float_of_string_opt str <> None
 
+  (* A data-type hint chooses which longhand a bracket lands in and says nothing
+     about the value. [indent-] and [underline-offset-] each write one longhand,
+     so every hint lands there and the length reader is handed what follows it.
+     The bracket text kept on the constructor still carries the hint, because
+     the class name is what the markup holds. *)
+  let arbitrary_length_after_hint inner : Css.length option =
+    Stdlib.Option.bind (Parse.value_after_hint inner) Parse.arbitrary_length
+
   (* An arbitrary decoration thickness is any CSS length. *)
   let parse_decoration_thickness inner : Css.length option =
     Parse.arbitrary_length inner
@@ -2088,7 +2096,7 @@ module Typography_late = struct
         let inner = Parse.bracket_inner n in
         if Parse.is_var inner then Ok (Underline_offset_var inner)
         else
-          match Parse.arbitrary_length inner with
+          match arbitrary_length_after_hint inner with
           | Some len -> Ok (Underline_offset_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ "underline"; "offset"; n ] -> (
@@ -2099,7 +2107,7 @@ module Typography_late = struct
         let inner = Parse.bracket_inner n in
         if Parse.is_var inner then Ok (Underline_offset_neg_var inner)
         else
-          match Parse.arbitrary_length inner with
+          match arbitrary_length_after_hint inner with
           | Some len -> Ok (Underline_offset_neg_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] -> (
@@ -2157,11 +2165,11 @@ module Typography_late = struct
     | [ ""; "indent"; "px" ] -> Ok Indent_neg_px
     | [ "indent"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
-        if Parse.arbitrary_length inner = None then err_not_utility
+        if arbitrary_length_after_hint inner = None then err_not_utility
         else Ok (Indent_arbitrary inner)
     | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
-        if Parse.arbitrary_length inner = None then err_not_utility
+        if arbitrary_length_after_hint inner = None then err_not_utility
         else Ok (Indent_neg_arbitrary inner)
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
@@ -2996,12 +3004,12 @@ module Typography_late = struct
     style [ spacing_decl; text_indent_length length ]
 
   let indent_arbitrary s =
-    match Parse.arbitrary_length s with
+    match arbitrary_length_after_hint s with
     | Some len -> style [ text_indent_length (Length len) ]
     | None -> style [ text_indent_length (Length (Px 0.)) ]
 
   let indent_neg_arbitrary s =
-    match Parse.arbitrary_length s with
+    match arbitrary_length_after_hint s with
     | Some len -> style [ text_indent_length (Length (negate_length len)) ]
     | None -> style [ text_indent_length (Length (Px 0.)) ]
 

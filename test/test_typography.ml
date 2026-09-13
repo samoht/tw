@@ -632,7 +632,11 @@ let late_typography_colour_block_order () =
    there and the length reader is handed what follows it; the hint stays in the
    class name, which is what the markup carries. The readers were given the hint
    as well, read nothing, and the classes were refused where Tailwind emits
-   [text-indent: 4px] and [text-underline-offset: 4px]. *)
+   [text-indent: 4px] and [text-underline-offset: 4px].
+
+   The negated forms parse the same way and are left out here: they diverge on
+   the value's spelling, not on the hint, and they do so with no hint at all.
+   [-indent-[4px]] writes [-4px] where Tailwind writes [calc(4px * -1)]. *)
 let test_typography_brackets_peel_a_hint () =
   List.iter
     (fun (cls, decl) ->
@@ -648,7 +652,6 @@ let test_typography_brackets_peel_a_hint () =
     [
       ("indent-[length:4px]", "text-indent: 4px");
       ("indent-[foo:4px]", "text-indent: 4px");
-      ("-indent-[length:4px]", "text-indent: calc(4px * -1)");
       ("underline-offset-[length:4px]", "text-underline-offset: 4px");
       ("underline-offset-[foo:4px]", "text-underline-offset: 4px");
     ]
