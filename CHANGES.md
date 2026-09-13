@@ -196,6 +196,10 @@
   which used to drop the rule and leave an element carrying the class with
   nothing at all. `bg-size-[foo]` no longer writes `background-size: auto`, a
   value the class never asked for (#761 through #771).
+- The source scanner draws the boundary Tailwind's extractor does: a candidate
+  whose `/modifier` opens on `-` or `_` is not one, so `tw file.html` no longer
+  writes rules for `group-hover/-2a:underline` that the author's own toolchain
+  never produces (#772).
 - A negated arbitrary length is `calc(<value> * -1)` on every family and in
   every unit, the spelling Tailwind writes. The sign was folded into the number
   from a unit table that each of margin, the inset sides and `text-indent` kept
