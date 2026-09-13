@@ -213,23 +213,14 @@ let test_arbitrary_bracket_color_token_stream () =
   List.iter
     (fun cls -> ignore (css cls))
     [ "divide-[#zz]"; "divide-[#]"; "divide-[#12345]"; "divide-[#zz]/50" ];
-  Alcotest.(check bool)
-    "divide-[#ff0000] still emits the colour" true
-    (Astring.String.is_infix ~affix:"border-color:#f00" (css "divide-[#ff0000]"))
+  Test_helpers.check_declarations "divide-[#ff0000]" [ "border-color:#f00" ]
 
 (* A bracket colour CSS names without spelling it as a function - a named
    colour, a keyword - is a divide colour too. The reader admitted only a [#]
    hex and a colour function, so [divide-[rebeccapurple]] was an unknown class,
    with or without an opacity modifier. *)
 let test_bracket_named_color () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let emits decl cls = Test_helpers.check_declarations cls [ decl ] in
   emits "border-color:rebeccapurple" "divide-[rebeccapurple]";
   emits "border-color:currentColor" "divide-[currentColor]";
   (* the modifier mixes into the colour the bracket named, not into black *)

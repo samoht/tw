@@ -221,14 +221,7 @@ let test_typed () =
    [object-position: var(--50)]. [z-auto] writes the keyword, since no theme
    declares [--z-index-auto]. *)
 let test_object_and_z_values () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let has cls decl = Test_helpers.check_declarations cls [ decl ] in
   has "object-[50%]" "object-position:50%";
   has "object-[10px_20px]" "object-position:10px 20px";
   has "object-[var(--x)]" "object-position:var(--x)";
@@ -296,11 +289,8 @@ let test_object_bracket_peels_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes object-position: 50%")
-            true
-            (Astring.String.is_infix ~affix:"object-position: 50%" css))
+          Test_helpers.check_declarations ~minify:false cls
+            [ "object-position: 50%" ])
     [ "object-[position:50%]"; "object-[foo:50%]" ]
 
 (* [object-[...]] takes the whole CSS <position> grammar, as Tailwind does and
@@ -311,14 +301,7 @@ let test_object_bracket_peels_a_hint () =
 let test_object_bracket_position_grammar () =
   List.iter
     (fun (cls, decl) ->
-      match Tw.of_string cls with
-      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-      | Ok u ->
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+      Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("object-[top]", "object-position: top");
       ("object-[center]", "object-position: center");

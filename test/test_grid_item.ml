@@ -106,20 +106,12 @@ let test_arbitrary_span_accepted () =
   accepted "col-span-[mycol]";
   accepted "col-span-[var(--my-variable)]"
 
-let css cls =
-  match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-
 (* A var() reference is not a <custom-ident>: it substitutes before the
    <grid-line> grammar applies, so its parentheses must reach the output
    unescaped. *)
 let test_arbitrary_span_var () =
-  let has affix cls =
-    Alcotest.(check bool)
-      (Fmt.str "%s emits %s" cls affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  let has decl cls =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   has "grid-column: span var(--my-variable) / span var(--my-variable)"
     "col-span-[var(--my-variable)]";
@@ -171,15 +163,8 @@ let test_invalid_arbitrary_grid_line () =
 (* A grid line is an arbitrary value: [_] is a space and [\_] a literal
    underscore, so a variable name carrying one keeps the character. *)
 let test_grid_line_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an escaped underscore stays in the variable name" true
-    (Astring.String.is_infix ~affix:"grid-column-start: var(--a_b)"
-       (css {|col-start-[var(--a\_b)]|}))
+  Test_helpers.check_declarations ~minify:false {|col-start-[var(--a\_b)]|}
+    [ "grid-column-start: var(--a_b)" ]
 
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. The grid-item families each write one longhand, so every
@@ -195,11 +180,7 @@ let test_grid_item_brackets_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+          Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("col-[foo:2]", "grid-column: 2");
       ("col-span-[foo:2]", "grid-column: span 2 / span 2");

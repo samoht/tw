@@ -103,15 +103,10 @@ let test_arbitrary_ease_token_stream () =
    position must render the same explicit keyword tw's sheet would otherwise
    silently disagree over. *)
 let test_arbitrary_ease_steps_default_position () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an omitted step position becomes an explicit end" true
-    (Astring.String.is_infix ~affix:"transition-timing-function: steps(4, end)"
-       (css "ease-[steps(4)]"))
+  (* Both declarations: the channel carries the same explicit keyword, which an
+     affix on the timing function alone never said. *)
+  Test_helpers.check_declarations ~minify:false "ease-[steps(4)]"
+    [ "--tw-ease: steps(4, end)"; "transition-timing-function: steps(4, end)" ]
 
 (* An [--ease-*] token the project declared in its [@theme] names a timing
    function the built-in scale has no slot for. Tailwind generates the utility
@@ -121,19 +116,11 @@ let test_project_ease_token () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("ease-snap", "cubic-bezier(0.2, 0, 0, 1)") ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let out = css "ease-snap" in
-  Alcotest.(check bool)
-    "sets the channel" true
-    (Astring.String.is_infix ~affix:"--tw-ease: var(--ease-snap)" out);
-  Alcotest.(check bool)
-    "sets the timing function" true
-    (Astring.String.is_infix
-       ~affix:"transition-timing-function: var(--ease-snap)" out);
+  Test_helpers.check_declarations ~theme ~minify:false "ease-snap"
+    [
+      "--tw-ease: var(--ease-snap)";
+      "transition-timing-function: var(--ease-snap)";
+    ];
   Alcotest.(check bool)
     "an undeclared ease name is rejected" true
     (Result.is_error (Tw.of_string ~theme "ease-nope"))

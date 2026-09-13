@@ -315,19 +315,10 @@ let test_bracket_value_leaving_the_declaration_is_rejected () =
    quoting. The same bytes inside a quoted string are a CSS string literal, not
    the function, so [expand_spacing_fn] must leave them alone. *)
 let test_spacing_shorthand_ignored_in_quotes () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "single-quoted content keeps the literal text" true
-    (Astring.String.is_infix ~affix:{|content: '--spacing(1)'|}
-       (css {|[content:'--spacing(1)']|}));
-  Alcotest.(check bool)
-    "double-quoted content keeps the literal text" true
-    (Astring.String.is_infix ~affix:{|content: "--spacing(1)"|}
-       (css {|[content:"--spacing(1)"]|}))
+  Test_helpers.check_declarations ~minify:false {|[content:'--spacing(1)']|}
+    [ {|content: '--spacing(1)'|} ];
+  Test_helpers.check_declarations ~minify:false {|[content:"--spacing(1)"]|}
+    [ {|content: "--spacing(1)"|} ]
 
 (* An arbitrary value writes a space as [_] and a literal underscore as [\_].
    Every family reads its bracket through this, so the two spellings have to

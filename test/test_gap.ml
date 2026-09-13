@@ -82,19 +82,20 @@ let mixed_gap_axis_arbitrary_order_matches_tailwind () =
 (* space-x-px / -space-x-px use a literal +/-1px gap (no --spacing multiple),
    wrapped in the reverse calc like the numeric variants. *)
 let test_space_px_values () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  (* The whole list, which is where "sets no --spacing" is said: it used to be a
+     search for a name that must not appear, and the px step writes both
+     margins, not just the one the affix named. *)
+  let px_step cls step =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "--tw-space-x-reverse: 0";
+        "margin-inline-start: calc(" ^ step ^ " * var(--tw-space-x-reverse))";
+        "margin-inline-end: calc(" ^ step
+        ^ " * calc(1 - var(--tw-space-x-reverse)))";
+      ]
   in
-  Alcotest.check bool "space-x-px uses 1px gap" true
-    (Astring.String.is_infix ~affix:"calc(1px * var(--tw-space-x-reverse))"
-       (css "space-x-px"));
-  Alcotest.check bool "-space-x-px uses -1px gap" true
-    (Astring.String.is_infix ~affix:"calc(-1px * var(--tw-space-x-reverse))"
-       (css "-space-x-px"));
-  Alcotest.check bool "space-x-px sets no --spacing" false
-    (Astring.String.is_infix ~affix:"--spacing" (css "space-x-px"))
+  px_step "space-x-px" "1px";
+  px_step "-space-x-px" "-1px"
 
 (** Test that CSS values use the correct spacing multiplier. gap-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)

@@ -130,9 +130,10 @@ let test_basis_named_prefers_spacing () =
     | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "basis-sm: %s" m
   in
-  Alcotest.(check bool)
-    "basis-sm reads --spacing-sm" true
-    (Astring.String.is_infix ~affix:"var(--spacing-sm)" css);
+  (* The whole declaration, which also says the token reached [flex-basis]. *)
+  Test_helpers.check_declarations ~theme ~minify:false "basis-sm"
+    [ "flex-basis: var(--spacing-sm)" ];
+  (* The binding is a :root declaration, left out of the list by design. *)
   Alcotest.(check bool)
     "basis-sm declares --spacing-sm" true
     (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css)
@@ -173,11 +174,9 @@ let test_basis_arbitrary_peels_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes flex-basis: 10px")
-            true
-            (Astring.String.is_infix ~affix:"flex-basis: 10px" css))
+          (* The whole list, which is where "lands in one longhand" is said. *)
+          Test_helpers.check_declarations ~minify:false cls
+            [ "flex-basis: 10px" ])
     [ "basis-[length:10px]"; "basis-[foo:10px]" ]
 
 (* [order-[...]] takes an order value. A bracket the order grammar cannot read

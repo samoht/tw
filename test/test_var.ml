@@ -47,7 +47,9 @@ let arbitrary_var_fallbacks () =
     [ "cursor:var(--c,var(--d))" ];
   (* The outer name is the author's own, set from a style attribute or from
      script, so inlining keeps the reference. Collapsing it to the fallback
-     would answer for an element the sheet never saw. *)
+     would answer for an element the sheet never saw. These read the sheet after
+     [inline_vars], which [declarations_of_class] cannot do, so they stay
+     searches over the text - with the whole value as the affix. *)
   check bool "padding inline keeps the override point" true
     (Astring.String.is_infix ~affix:"padding:var(--x,var(--y))"
        (inline_css "p-[var(--x,var(--y))]"));
@@ -58,8 +60,9 @@ let arbitrary_var_fallbacks () =
   (* The affix here stopped at the comma, so it said the reference survived but
      not what the fallback became. *)
   Test_helpers.check_declarations "top-(--top,0)" [ "top:var(--top,0)" ];
+  (* The whole value here too, for the same reason. *)
   check bool "paren shorthand inline keeps its override point" true
-    (Astring.String.is_infix ~affix:"top:var(--top,"
+    (Astring.String.is_infix ~affix:"top:var(--top,0)"
        (inline_css "top-(--top,0)"))
 
 (* CSS Syntax 3 (ED): a [<declaration-value>] carries no unmatched [)], so
@@ -130,6 +133,9 @@ let ring_offset_width_properties_layer_spelling () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Css.to_string ~minify:true
     | Error (`Msg m) -> fail m
   in
+  (* Neither of these is a declaration on the class: the first sits on the [*,
+     ::before] property-defaults rule and the second is an @property rule, so
+     both stay searches over the sheet. *)
   check bool "properties layer keeps the unit" true
     (Astring.String.is_infix ~affix:"--tw-ring-offset-width:0px" css);
   check bool "@property initial-value drops it" true

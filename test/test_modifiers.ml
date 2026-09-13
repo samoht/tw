@@ -1262,6 +1262,9 @@ let test_supports_property_is_unprefixed () =
   let emits affix cls =
     check bool cls true (Astring.String.is_infix ~affix (condition cls))
   in
+  (* Only for the class whose rule is not pinned whole below: where
+     [check_utilities] spells the condition out, "no vendor prefix" is already
+     said by the text and a second search for one adds nothing. *)
   let unprefixed cls =
     let css = condition cls in
     check bool cls false (Astring.String.is_infix ~affix:"-webkit-" css);
@@ -1280,10 +1283,7 @@ let test_supports_property_is_unprefixed () =
     "supports-text-size-adjust:flex";
   check_utilities "supports-backdrop-filter:flex"
     {|@supports(backdrop-filter:var(--tw)){.supports-backdrop-filter\:flex{display:flex}}|};
-  unprefixed "supports-hyphens:flex";
-  unprefixed "supports-user-select:flex";
-  unprefixed "supports-text-size-adjust:flex";
-  unprefixed "supports-backdrop-filter:flex"
+  unprefixed "supports-text-size-adjust:flex"
 
 (* A variant that wraps the utility in an at-rule keeps that at-rule when the
    variant it decorates already produced a media query. [supports-grid:sm:flex]

@@ -50,16 +50,8 @@ let test_negative_and_improper_fractions () =
    numerator is a position of its own. Restricting the denominator to a hand
    picked list refused classes the CLI emits. *)
 let test_any_fraction_denominator () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " contains " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  let has cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   has "top-1/7" "top: 14.2857%";
   has "top-3/8" "top: 37.5%";
@@ -134,19 +126,10 @@ let test_spacing_steps () =
 (* Arbitrary calc() insets go through the full length grammar (the bracket
    parser used to accept only plain <number><unit>). *)
 let test_arbitrary_calc () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "left-[calc(5%-2px)] spaces the operator" true
-    (Astring.String.is_infix ~affix:"left: calc(5% - 2px)"
-       (css "left-[calc(5%-2px)]"));
-  Alcotest.(check bool)
-    "left-[calc(50%+var(--offset))] keeps the var" true
-    (Astring.String.is_infix ~affix:"left: calc(50% + var(--offset))"
-       (css "left-[calc(50%+var(--offset))]"));
+  Test_helpers.check_declarations ~minify:false "left-[calc(5%-2px)]"
+    [ "left: calc(5% - 2px)" ];
+  Test_helpers.check_declarations ~minify:false "left-[calc(50%+var(--offset))]"
+    [ "left: calc(50% + var(--offset))" ];
   check "left-[calc(5%-2px)]"
 
 (* An arbitrary value is read by the whole decoder, not by its last stage alone:
@@ -275,35 +258,28 @@ let logical_inline_keeps_the_spacing_product () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let check_css cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
+  let check_css cls decl = Test_helpers.check_declarations cls [ decl ] in
   check_css "start-0" "inset-inline-start:calc(var(--spacing)*0)";
   check_css "start-1" "inset-inline-start:calc(var(--spacing)*1)";
   check_css "start-2" "inset-inline-start:calc(var(--spacing)*2)";
   check_css "-start-4" "inset-inline-start:calc(var(--spacing)*-4)";
   check_css "end-0" "inset-inline-end:calc(var(--spacing)*0)";
   check_css "end-1" "inset-inline-end:calc(var(--spacing)*1)";
-  check_css "start-0" "--spacing:.25rem";
-  check_css "end-0" "--spacing:.25rem"
+  (* The carrier the product reads is a :root binding, which
+     declarations_of_class leaves out by design, so these two stay searches over
+     the sheet - and keeping the carrier is half of what this test is for. *)
+  let declares_the_carrier cls =
+    Alcotest.(check bool)
+      (cls ^ " keeps --spacing") true
+      (Astring.String.is_infix ~affix:"--spacing:.25rem" (css cls))
+  in
+  declares_the_carrier "start-0";
+  declares_the_carrier "end-0"
 
 (* The logical inline sides carry the same scale as the physical ones: the px
    step, the fractional steps and the fractions, in both signs. *)
 let logical_inline_scale_steps () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let check_css cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
+  let check_css cls decl = Test_helpers.check_declarations cls [ decl ] in
   check_css "start-px" "inset-inline-start:1px";
   check_css "-start-px" "inset-inline-start:-1px";
   check_css "end-px" "inset-inline-end:1px";
@@ -633,14 +609,7 @@ let test_data_type_hint_before_the_length_reader () =
 let test_position_negated_arbitrary_is_a_calc () =
   List.iter
     (fun (cls, decl) ->
-      match Tw.of_string cls with
-      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-      | Ok u ->
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " writes " ^ decl)
-            true
-            (Astring.String.is_infix ~affix:decl css))
+      Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("-top-[4px]", "top: calc(4px * -1)");
       ("-left-[50%]", "left: calc(50% * -1)");

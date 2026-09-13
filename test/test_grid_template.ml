@@ -130,17 +130,7 @@ let suborder_matches_tailwind () =
 (* Arbitrary grid functions emit their values verbatim, including bare 0 inside
    minmax (not 0px) and nested repeat()/minmax(). *)
 let test_grid_functions_css () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error _ -> Alcotest.failf "could not parse %S" cls
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " contains " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
+  let has cls decl = Test_helpers.check_declarations cls [ decl ] in
   has "grid-cols-[repeat(3,minmax(0,1fr))]"
     "grid-template-columns:repeat(3,minmax(0,1fr))";
   has "grid-rows-[repeat(4,minmax(100px,auto))]"
@@ -156,14 +146,17 @@ let test_arbitrary_track_values () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  has "grid-cols-[repeat(auto-fit,--spacing(42))]"
-    "grid-template-columns:repeat(auto-fit,calc(var(--spacing)*42))";
-  has "grid-cols-[repeat(auto-fit,--spacing(42))]" "--spacing:.25rem";
-  has "grid-cols-[repeat(var(--columns),var(--width))]"
-    "grid-template-columns:repeat(var(--columns),var(--width))"
+  Test_helpers.check_declarations "grid-cols-[repeat(auto-fit,--spacing(42))]"
+    [ "grid-template-columns:repeat(auto-fit,calc(var(--spacing)*42))" ];
+  (* The carrier's binding is a :root declaration, left out of the list above by
+     design, and declaring it alongside the value is what this test is for. *)
+  Alcotest.(check bool)
+    "the spacing carrier is declared" true
+    (Astring.String.is_infix ~affix:"--spacing:.25rem"
+       (css "grid-cols-[repeat(auto-fit,--spacing(42))]"));
+  Test_helpers.check_declarations
+    "grid-cols-[repeat(var(--columns),var(--width))]"
+    [ "grid-template-columns:repeat(var(--columns),var(--width))" ]
 
 (* The bracket is a token stream Tailwind hands to the declaration unvalidated.
    It goes through the arbitrary-value pipeline, not OCaml's number reader, so
