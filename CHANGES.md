@@ -176,6 +176,12 @@
   the class names, as Tailwind does, so `mask-[foo]`, `mask-[url(x.png)_center]`,
   `mask-position-[foo]`, `mask-size-[foo]` and every `mask-[<hint>:...]` whose
   value the hint declines reach the sheet (#714).
+- `text-[length:...]` writes its value through whatever the value is, as
+  Tailwind does, so `text-[length:red]` reaches the sheet as a `font-size` the
+  browser discards rather than being refused outright, which dropped the
+  selector and left an element carrying the class with nothing at all. A bare
+  number after the hint is pixels, the spelling Tailwind's minifier ships
+  (#761).
 - A negated arbitrary length is `calc(<value> * -1)` on every family and in
   every unit, the spelling Tailwind writes. The sign was folded into the number
   from a unit table that each of margin, the inset sides and `text-indent` kept
