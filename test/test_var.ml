@@ -34,7 +34,6 @@ let arbitrary_var_fallbacks () =
   let refs class_name =
     sheet class_name |> Css.vars_of_stylesheet |> List.map Css.any_var_name
   in
-  let css class_name = Css.to_string ~minify:true (sheet class_name) in
   let inline_css class_name =
     sheet class_name |> Css.inline_vars |> Css.to_string ~minify:true
   in
@@ -42,12 +41,10 @@ let arbitrary_var_fallbacks () =
     (refs "p-[var(--x,var(--y))]");
   check (list string) "cursor outer reference" [ "--c" ]
     (refs "cursor-[var(--c,var(--d))]");
-  check bool "padding keeps nested fallback" true
-    (Astring.String.is_infix ~affix:"padding:var(--x,var(--y))"
-       (css "p-[var(--x,var(--y))]"));
-  check bool "cursor keeps nested fallback" true
-    (Astring.String.is_infix ~affix:"cursor:var(--c,var(--d))"
-       (css "cursor-[var(--c,var(--d))]"));
+  Test_helpers.check_declarations "p-[var(--x,var(--y))]"
+    [ "padding:var(--x,var(--y))" ];
+  Test_helpers.check_declarations "cursor-[var(--c,var(--d))]"
+    [ "cursor:var(--c,var(--d))" ];
   (* The outer name is the author's own, set from a style attribute or from
      script, so inlining keeps the reference. Collapsing it to the fallback
      would answer for an element the sheet never saw. *)
@@ -58,8 +55,9 @@ let arbitrary_var_fallbacks () =
     (Astring.String.is_infix ~affix:"cursor:var(--c,var(--d))"
        (inline_css "cursor-[var(--c,var(--d))]"));
   check (list string) "paren outer reference" [ "--top" ] (refs "top-(--top,0)");
-  check bool "paren shorthand keeps its override point" true
-    (Astring.String.is_infix ~affix:"top:var(--top," (css "top-(--top,0)"));
+  (* The affix here stopped at the comma, so it said the reference survived but
+     not what the fallback became. *)
+  Test_helpers.check_declarations "top-(--top,0)" [ "top:var(--top,0)" ];
   check bool "paren shorthand inline keeps its override point" true
     (Astring.String.is_infix ~affix:"top:var(--top,"
        (inline_css "top-(--top,0)"))
