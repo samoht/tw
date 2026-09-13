@@ -176,6 +176,12 @@
   the class names, as Tailwind does, so `mask-[foo]`, `mask-[url(x.png)_center]`,
   `mask-position-[foo]`, `mask-size-[foo]` and every `mask-[<hint>:...]` whose
   value the hint declines reach the sheet (#714).
+- A negated arbitrary length is `calc(<value> * -1)` on every family and in
+  every unit, the spelling Tailwind writes. The sign was folded into the number
+  from a unit table that each of margin, the inset sides and `text-indent` kept
+  separately and filled in differently, so `-mt-[4px]` came out `-4px` while
+  `-mt-[2em]`, which that table missed, already carried the calc. The `px` step
+  and a named inset still fold, which is what the CLI does there (#735).
 - `object-[...]` takes the whole CSS `<position>` grammar, so an edge keyword,
   a pair of them and a keyword carrying an offset resolve: `object-[top]`,
   `object-[left_top]`, `object-[center]` and `object-[right_2rem]` reach the

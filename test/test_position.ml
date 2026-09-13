@@ -377,19 +377,19 @@ let arbitrary_length_on_every_inset_side () =
   check_declarations "end-[4px]" [ "inset-inline-end:4px" ];
   check_declarations "start-[var(--x)]" [ "inset-inline-start:var(--x)" ];
   check_declarations "end-[calc(5%-2px)]" [ "inset-inline-end:calc(5% - 2px)" ];
-  check_declarations "-start-[4px]" [ "inset-inline-start:-4px" ];
-  check_declarations "-end-[4px]" [ "inset-inline-end:-4px" ];
-  check_declarations "-top-[4px]" [ "top:-4px" ];
-  check_declarations "-right-[4px]" [ "right:-4px" ];
-  check_declarations "-bottom-[4px]" [ "bottom:-4px" ];
-  check_declarations "-left-[4px]" [ "left:-4px" ];
-  check_declarations "-inset-[4px]" [ "inset:-4px" ];
-  check_declarations "-inset-x-[4px]" [ "inset-inline:-4px" ];
-  check_declarations "-inset-y-[4px]" [ "inset-block:-4px" ];
-  check_declarations "-inset-s-[4px]" [ "inset-inline-start:-4px" ];
-  check_declarations "-inset-e-[4px]" [ "inset-inline-end:-4px" ];
-  check_declarations "-inset-bs-[4px]" [ "inset-block-start:-4px" ];
-  check_declarations "-inset-be-[4px]" [ "inset-block-end:-4px" ];
+  check_declarations "-start-[4px]" [ "inset-inline-start:calc(4px*-1)" ];
+  check_declarations "-end-[4px]" [ "inset-inline-end:calc(4px*-1)" ];
+  check_declarations "-top-[4px]" [ "top:calc(4px*-1)" ];
+  check_declarations "-right-[4px]" [ "right:calc(4px*-1)" ];
+  check_declarations "-bottom-[4px]" [ "bottom:calc(4px*-1)" ];
+  check_declarations "-left-[4px]" [ "left:calc(4px*-1)" ];
+  check_declarations "-inset-[4px]" [ "inset:calc(4px*-1)" ];
+  check_declarations "-inset-x-[4px]" [ "inset-inline:calc(4px*-1)" ];
+  check_declarations "-inset-y-[4px]" [ "inset-block:calc(4px*-1)" ];
+  check_declarations "-inset-s-[4px]" [ "inset-inline-start:calc(4px*-1)" ];
+  check_declarations "-inset-e-[4px]" [ "inset-inline-end:calc(4px*-1)" ];
+  check_declarations "-inset-bs-[4px]" [ "inset-block-start:calc(4px*-1)" ];
+  check_declarations "-inset-be-[4px]" [ "inset-block-end:calc(4px*-1)" ];
   check_declarations "-top-[var(--t)]" [ "top:calc(var(--t)*-1)" ];
   (* the bracket text is the class name, so it has to survive the round trip *)
   check "start-[4px]";
@@ -639,7 +639,7 @@ let test_data_type_hint_before_the_length_reader () =
   let open Test_helpers in
   check_declarations "top-[length:4px]" [ "top:4px" ];
   check_declarations "inset-[foo:4px]" [ "inset:4px" ];
-  check_declarations "-top-[length:4px]" [ "top:-4px" ];
+  check_declarations "-top-[length:4px]" [ "top:calc(4px*-1)" ];
   check_declarations "left-[length:var(--x)]" [ "left:var(--x)" ];
   List.iter
     (check_handler_roundtrip (module Tw.Position.Handler))
@@ -653,8 +653,33 @@ let test_data_type_hint_before_the_length_reader () =
     (check_invalid_input (module Tw.Position.Handler))
     [ "top-[:4px]"; "top-[length:]" ]
 
+(* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
+   writes for every unit. Folding the sign into the number instead was done from
+   a unit table that listed a few of them, so [4px] came out [-4px] while [2em]
+   and [10vh], which the table missed, already carried the calc. The two compute
+   the same length, so only the raw sheets show it; what makes it worth settling
+   is that the upstream fixtures record the CLI's spelling. *)
+let test_position_negated_arbitrary_is_a_calc () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes " ^ decl)
+            true
+            (Astring.String.is_infix ~affix:decl css))
+    [
+      ("-top-[4px]", "top: calc(4px * -1)");
+      ("-left-[50%]", "left: calc(50% * -1)");
+      ("-inset-[2rem]", "inset: calc(2rem * -1)");
+    ]
+
 let tests =
   [
+    test_case "negated arbitrary length is a calc" `Quick
+      test_position_negated_arbitrary_is_a_calc;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;
     test_case "inset and z" `Quick test_inset_and_z;

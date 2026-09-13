@@ -43,7 +43,14 @@ let read_paren_calc inner : Css.length Css.calc option =
 let parse_bracket_length ?(negate = false) s : Css.length option =
   if not (Parse.is_bracket_value s) then None
   else
-    let signed l = if negate then negate_length l else l in
+    (* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
+       writes whatever the unit. [negate_length] still folds the sign for the
+       [px] step and a named inset, where the CLI writes [-1px] itself. *)
+    let signed (l : Css.length) : Css.length =
+      if negate then
+        Css.Calc (Css.Calc.mul (Css.Calc.length l) (Css.Calc.float (-1.)))
+      else l
+    in
     (* A data-type hint chooses the longhand and says nothing about the value.
        An inset side writes one longhand, so every hint lands here and the
        readers below are handed what follows it; the class name keeps the whole

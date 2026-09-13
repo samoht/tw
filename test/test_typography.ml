@@ -447,7 +447,7 @@ let test_bracket_length_units () =
   check_declarations "text-[2vh]" [ "font-size:2vh" ];
   check_declarations "text-[calc(1rem+2px)]" [ "font-size:calc(1rem + 2px)" ];
   check_declarations "indent-[3ch]" [ "text-indent:3ch" ];
-  check_declarations "-indent-[3ch]" [ "text-indent:-3ch" ]
+  check_declarations "-indent-[3ch]" [ "text-indent:calc(3ch*-1)" ]
 
 (* The [/leading] modifier on a text size and the standalone [leading-[...]]
    utility read an arbitrary line-height with one reader, so they agree on every
@@ -1209,8 +1209,32 @@ let test_bracket_data_type_hint_reads_the_value () =
     (module Tw.Typography.Typography_early)
     "text-[length:notalength]"
 
+(* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
+   writes for every unit. Folding the sign into the number instead was done from
+   a unit table that listed a few of them, so [4px] came out [-4px] while [2em]
+   and [10vh], which the table missed, already carried the calc. The two compute
+   the same length, so only the raw sheets show it; what makes it worth settling
+   is that the upstream fixtures record the CLI's spelling. *)
+let test_typography_negated_arbitrary_is_a_calc () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes " ^ decl)
+            true
+            (Astring.String.is_infix ~affix:decl css))
+    [
+      ("-indent-[4px]", "text-indent: calc(4px * -1)");
+      ("-indent-[2rem]", "text-indent: calc(2rem * -1)");
+    ]
+
 let tests =
   [
+    test_case "negated arbitrary length is a calc" `Quick
+      test_typography_negated_arbitrary_is_a_calc;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;
     test_case "arbitrary underscore escape" `Quick

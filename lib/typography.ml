@@ -3008,9 +3008,17 @@ module Typography_late = struct
     | Some len -> style [ text_indent_length (Length len) ]
     | None -> style [ text_indent_length (Length (Px 0.)) ]
 
+  (* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
+     writes whatever the unit. [negate_length] still folds the sign for
+     [-indent-px], where the CLI writes [-1px] itself. *)
   let indent_neg_arbitrary s =
     match arbitrary_length_after_hint s with
-    | Some len -> style [ text_indent_length (Length (negate_length len)) ]
+    | Some len ->
+        style
+          [
+            text_indent_length
+              (Length (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))));
+          ]
     | None -> style [ text_indent_length (Length (Px 0.)) ]
 
   let line_clamp n =

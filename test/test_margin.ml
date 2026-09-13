@@ -234,8 +234,33 @@ let test_data_type_hint_before_the_length_reader () =
   reject "m-[:4px]";
   reject "m-[length:]"
 
+(* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
+   writes for every unit. Folding the sign into the number instead was done from
+   a unit table that listed a few of them, so [4px] came out [-4px] while [2em]
+   and [10vh], which the table missed, already carried the calc. The two compute
+   the same length, so only the raw sheets show it; what makes it worth settling
+   is that the upstream fixtures record the CLI's spelling. *)
+let test_margin_negated_arbitrary_is_a_calc () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
+          Alcotest.(check bool)
+            (cls ^ " writes " ^ decl)
+            true
+            (Astring.String.is_infix ~affix:decl css))
+    [
+      ("-mt-[4px]", "margin-top: calc(4px * -1)");
+      ("-m-[2rem]", "margin: calc(2rem * -1)");
+      ("-mb-[50%]", "margin-bottom: calc(50% * -1)");
+    ]
+
 let tests =
   [
+    test_case "negated arbitrary length is a calc" `Quick
+      test_margin_negated_arbitrary_is_a_calc;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;
     test_case "margin of_string - valid values" `Quick of_string_valid;

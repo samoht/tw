@@ -95,16 +95,12 @@ module Handler = struct
       | Spacing s -> spacing_style ~negative s
       | Arbitrary (_, len) ->
           if negative then
-            (* A plain unit negates directly, [-4px] rather than a calc with a
-               factor of -1. *)
-            let neg_len : Css.length =
-              match len with
-              | Px f -> Px (-.f)
-              | Rem f -> Rem (-.f)
-              | Pct f -> Pct (-.f)
-              | _ -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
-            in
-            style [ prop neg_len ]
+            (* [calc(<value> * -1)], the spelling Tailwind writes whatever the
+               unit. Folding the sign into the number instead was done from a
+               table listing a few units, so [4px] came out [-4px] while [2em],
+               which the table missed, already carried the calc. *)
+            style
+              [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ]
           else style [ prop len ]
       | Arbitrary_var (_, var_str) ->
           let bare_name = Parse.extract_var_name var_str in
