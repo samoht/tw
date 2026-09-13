@@ -560,9 +560,13 @@ let test_reference_survives_theme_resolution () =
 (* Guards [Test_helpers.check_no_dropped_declarations], which every comparison
    in the runner goes through: a declaration the reader rejects is dropped from
    that side's AST, so the diff compares less than it appears to. A value the
-   property's grammar refuses on Tailwind's side is what a browser drops too and
-   is let through; the same drop on tw's side, or a rule lost on either side, is
-   reported. *)
+   property's grammar refuses is what a browser drops too and is let through on
+   either side; a rule lost on either side is reported.
+
+   The same drop on tw's side used to be a defect, on the premise that tw only
+   ever writes typed values. The token-stream contract overtakes that premise: a
+   bracket no reader took reaches the sheet verbatim because Tailwind puts it
+   there, so tw writes such a value deliberately. *)
 let test_dropped_declarations_are_reported () =
   let reported ~expected ~actual =
     Css_compare.diff ~mode:`Canonical expected actual
@@ -573,7 +577,7 @@ let test_dropped_declarations_are_reported () =
     false
     (reported ~expected:".x{width:12quux;color:red}" ~actual:".x{color:red}");
   Alcotest.(check bool)
-    "the same value on tw's side is a defect" true
+    "the same value on tw's side is the token-stream contract" false
     (reported ~expected:".x{color:red}" ~actual:".x{width:12quux;color:red}");
   Alcotest.(check bool)
     "a rule the reader drops on Tailwind's side is reported" true

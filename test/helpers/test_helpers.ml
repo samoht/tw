@@ -276,18 +276,22 @@ let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
    comparison is for: the canonical diff asks whether a browser could tell the
    two sheets apart, and cascade's reader drops what a browser drops.
 
-   A drop on tw's side is always a finding: tw writes through typed values, so a
-   declaration its own reader refuses is a defect in tw, never a spelling.
+   A drop is a finding on either side unless it is a value the property's
+   grammar refused ([Bad_value] on a declaration). That is CSS no browser reads:
+   [outline-width: 50%] under [outline-[50%]], the [-webkit-mask-clip: fill-box]
+   twin WebKit's grammar lacks, a [color-mix] mixing amount written as a bare
+   number. The browser keeps the rest of the rule, the comparison compares that
+   rest, and tw is held to what the browser keeps. A dropped rule, a selector
+   the reader refuses, or a construct that failed for any other reason is still
+   a finding on either side: those hide CSS the browser would have read.
 
-   A drop on Tailwind's side is a finding unless it is a value the property's
-   grammar refused ([Bad_value] on a declaration). That is Tailwind writing CSS
-   no browser reads: [outline-width: 50%] under [outline-[50%]], the
-   [-webkit-mask-clip: fill-box] twin WebKit's grammar lacks, a [color-mix]
-   mixing amount written as a bare number. The browser keeps the rest of the
-   rule, the comparison compares that rest, and tw is held to what the browser
-   keeps. A dropped rule, a selector the reader refuses, or a construct that
-   failed for any other reason is still a finding on either side: those hide CSS
-   the browser would have read. *)
+   This used to be allowed on Tailwind's side only, on the premise that tw
+   writes through typed values, so a declaration its own reader refused was a
+   defect in tw rather than a spelling. The token-stream contract overtakes that
+   premise: a bracket no reader took reaches the sheet verbatim because Tailwind
+   puts it there, so [width: [4px]/foo] under [size-[[4px]/foo]] is tw doing
+   what it is held to, and both sides drop the same declaration. See
+   docs/token-stream-contract.md. *)
 let browser_drops_too (error : Cascade.Error.t) =
   match (error.kind, error.recovery) with
   | ( Cascade.Error.Bad_value _,
@@ -299,8 +303,7 @@ let browser_drops_too (error : Cascade.Error.t) =
 let dropped_declarations (diff : Css_compare.t) =
   List.filter
     (fun e -> not (browser_drops_too e))
-    diff.Css_compare.expected_warnings
-  @ diff.Css_compare.actual_warnings
+    (diff.Css_compare.expected_warnings @ diff.Css_compare.actual_warnings)
 
 let check_no_dropped_declarations ~test_name diff =
   let dropped = dropped_declarations diff in

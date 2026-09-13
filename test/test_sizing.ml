@@ -594,15 +594,12 @@ let test_data_type_hint_before_the_length_reader () =
     ];
   (* The name is a run of [a-z] and [-], so an upper-case letter or a digit ends
      it without a hint and the whole bracket stays the value, which the length
-     reader declines. Tailwind writes it out because [w-[…]] has a token-stream
-     last resort and tw has none yet. *)
-  let reject ?why c = check_invalid_input ?why (module Tw.Sizing.Handler) c in
-  let no_last_resort =
-    Diverges "w-[…] has no token-stream last resort, so the value is refused"
-  in
-  reject ~why:no_last_resort "w-[FOO:10px]";
-  reject ~why:no_last_resort "w-[a1:10px]";
+     reader declines. The family's last resort then writes it out, colon and
+     all, which is what the CLI does. *)
+  check_declarations "w-[FOO:10px]" [ "width:FOO:10px" ];
+  check_declarations "w-[a1:10px]" [ "width:a1:10px" ];
   (* An empty hint, and a hint with nothing after it, name no utility. *)
+  let reject c = check_invalid_input (module Tw.Sizing.Handler) c in
   reject "w-[:10px]";
   reject "w-[length:]"
 

@@ -88,9 +88,14 @@ val check_no_dropped_declarations :
     dropped from that side's AST before the comparison. Such a drop makes the
     comparison read as a phantom addition on the side that parsed, or as no
     difference at all when both sides collapse to the same AST, so it is a
-    finding rather than noise. Tailwind's bare-number [color-mix] mixing amount,
-    which CSS Color 5 sec. 3.1 does not admit and a browser drops too, is the
-    one allowed exception. *)
+    finding rather than noise.
+
+    A value the property's grammar refused is the exception, on either side: a
+    browser drops it too, so the comparison is held to what the browser keeps.
+    Tailwind's bare-number [color-mix] mixing amount is one; a bracket no reader
+    took, which the token-stream contract sends to the sheet verbatim, is
+    another. Every other drop - a rule, a selector, any construct that failed
+    for another reason - stays a finding. *)
 
 val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
 (** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
