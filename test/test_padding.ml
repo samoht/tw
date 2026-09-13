@@ -56,40 +56,24 @@ let candidate_order () =
   Test_helpers.check_class_order ~test_name:"padding candidate order"
     [ "py-2"; "py-1.25"; "py-1.5"; "py-1" ]
 
-(** Test that CSS values use the correct spacing multiplier. p-64 should
-    generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
+(* Each step multiplies the spacing scale by its own number. The substring
+   [*64)] this used to look for is in [calc(var(--spacing)*64)] and in a dozen
+   other values, so it said little about what the class writes; the whole
+   declaration is what the CLI is held to. *)
 let test_css_values () =
-  let open Tw in
-  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.to_string ~minify:true in
-  (* p-64 => calc(var(--spacing)*64) *)
-  Alcotest.check bool "p-64 uses spacing*64" true
-    (Astring.String.is_infix ~affix:"*64)" (css_for (p 64)));
-  (* p-4 => calc(var(--spacing)*4) *)
-  Alcotest.check bool "p-4 uses spacing*4" true
-    (Astring.String.is_infix ~affix:"*4)" (css_for (p 4)));
-  (* px-10 => calc(var(--spacing)*10) *)
-  Alcotest.check bool "px-10 uses spacing*10" true
-    (Astring.String.is_infix ~affix:"*10)" (css_for (px 10)))
+  Test_helpers.check_declarations "p-64" [ "padding:calc(var(--spacing)*64)" ];
+  Test_helpers.check_declarations "p-4" [ "padding:calc(var(--spacing)*4)" ];
+  Test_helpers.check_declarations "px-10"
+    [ "padding-inline:calc(var(--spacing)*10)" ]
 
 (* Arbitrary paddings accept the full length grammar (percent, calc), not just
    px/rem, and round-trip verbatim. *)
 let test_arbitrary_length_grammar () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "p-[calc(var(--spacing-6)-1px)] spaces the operator" true
-    (Astring.String.is_infix ~affix:"padding:calc(var(--spacing-6) - 1px)"
-       (css "p-[calc(var(--spacing-6)-1px)]"));
-  Alcotest.(check bool)
-    "pl-[calc(100%-21.5rem)] spaces the operator" true
-    (Astring.String.is_infix ~affix:"padding-left:calc(100% - 21.5rem)"
-       (css "pl-[calc(100%-21.5rem)]"));
-  Alcotest.(check bool)
-    "px-[50%] keeps the percent" true
-    (Astring.String.is_infix ~affix:"padding-inline:50%" (css "px-[50%]"));
+  Test_helpers.check_declarations "p-[calc(var(--spacing-6)-1px)]"
+    [ "padding:calc(var(--spacing-6) - 1px)" ];
+  Test_helpers.check_declarations "pl-[calc(100%-21.5rem)]"
+    [ "padding-left:calc(100% - 21.5rem)" ];
+  Test_helpers.check_declarations "px-[50%]" [ "padding-inline:50%" ];
   let check c =
     match Tw.Padding.Handler.of_class Tw.Scheme.default c with
     | Ok u ->
@@ -108,14 +92,14 @@ let test_arbitrary_spacing_fn () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let s = css "py-[calc(--spacing(2)+1px)]" in
-  Alcotest.(check bool)
-    "expands to the spacing scale" true
-    (Astring.String.is_infix
-       ~affix:"padding-block:calc(calc(var(--spacing)*2) + 1px)" s);
+  Test_helpers.check_declarations "py-[calc(--spacing(2)+1px)]"
+    [ "padding-block:calc(calc(var(--spacing)*2) + 1px)" ];
+  (* The theme binding is a [:root] declaration, which [declarations_of_class]
+     leaves out by design, so this one stays a substring. *)
   Alcotest.(check bool)
     "declares --spacing" true
-    (Astring.String.is_infix ~affix:"--spacing:.25rem" s)
+    (Astring.String.is_infix ~affix:"--spacing:.25rem"
+       (css "py-[calc(--spacing(2)+1px)]"))
 
 (* The [']-suffixed sibling of each int constructor takes a half-step float; the
    int base keeps emitting what it always did. *)
