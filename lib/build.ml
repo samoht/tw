@@ -1818,6 +1818,29 @@ let normalize_declared_property_families order_map builtins extra_outputs =
               suborder)
     extra_outputs
 
+(* [prefix(tw)] moves every theme token and leaves the [--tw-*] channels a
+   utility sets for itself alone. Those two sets are told apart by the name:
+   Tailwind spells its own internal variables [--tw-*] and a theme token never
+   does, which is why the reference leaves them put. Measured against the pinned
+   CLI with [prefix(tw)] and [prefix(app)] alike - [--spacing] becomes
+   [--app-spacing], [--tw-shadow] and its [@property] rule do not move.
+
+   A declared token is not the test: the base layer reads
+   [--default-font-feature-settings] through a fallback and nothing declares it,
+   and the reference prefixes it all the same.
+
+   The rename goes to the printer rather than the sheet because a [var()]
+   reference sits inside a typed value, so moving it in the AST would mean
+   rebuilding every value that holds one. *)
+let theme_token_rename ~theme =
+  match theme.Scheme.prefix with
+  | None -> None
+  | Some prefix ->
+      Some
+        (fun name ->
+          if String.length name > 3 && String.sub name 0 3 = "tw-" then name
+          else prefix ^ "-" ^ name)
+
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class

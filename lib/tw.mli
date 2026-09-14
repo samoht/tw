@@ -4188,6 +4188,11 @@ module Var = Var
 
 (* Version module is now in the css library *)
 
+val theme_token_rename : theme:Scheme.t -> (string -> string) option
+(** [theme_token_rename ~theme] is the custom-property rename a [prefix(tw)]
+    project needs when serialising its sheet, and [None] when the project asked
+    for no prefix. Pass it to {!Css.to_string} as [?rename_custom_property]. *)
+
 val to_css :
   ?theme:Scheme.t ->
   ?base:bool ->

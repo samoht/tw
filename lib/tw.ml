@@ -64,6 +64,8 @@ include Contain
 include Scroll
 include Arbitrary
 
+let theme_token_rename = Build.theme_token_rename
+
 let to_css ?theme ?(base = Build.default_config.base) ?forms
     ?(layers = Build.default_config.layers) ?extra utilities =
   Build.to_css ?theme ~config:{ base; forms; layers } ?extra utilities
@@ -419,11 +421,11 @@ let of_candidate ~theme class_str =
           | None -> unknown_class_error ~base_class class_str))
 
 (* [prefix(tw)] puts [tw:] in front of every candidate. It is not a variant -
-   nothing reads it as one - so it comes off before anything parses, and the
-   written spelling goes back on through the alias, which is what puts
-   [.tw\\:hover\\:p-4] in the selector rather than [.hover\\:p-4]. A candidate
-   that does not carry the prefix names no utility, the way an unknown class
-   names none: Tailwind compiles nothing for a bare [p-4] under a prefix. *)
+   nothing reads it as one - so it comes off here, before anything parses, and
+   goes back on in [Rule.outputs], once the modifiers have composed the name
+   underneath it. A candidate that does not carry the prefix names no utility,
+   the way an unknown class names none: Tailwind compiles nothing for a bare
+   [p-4] once the import asks for a prefix. *)
 let strip_prefix theme class_str =
   match theme.Scheme.prefix with
   | None -> Some class_str
@@ -437,10 +439,7 @@ let strip_prefix theme class_str =
 let of_string ?(theme = Scheme.default) class_str =
   match strip_prefix theme class_str with
   | None -> Error (`Msg ("Unknown class: " ^ class_str))
-  | Some candidate -> (
-      match of_candidate ~theme candidate with
-      | Ok u when candidate != class_str -> Ok (Utility.alias class_str u)
-      | answer -> answer)
+  | Some candidate -> of_candidate ~theme candidate
 
 (* A name the parser rejects may be a typo or a deliberate non-tw class - a
    framework hook, a JS selector - and nothing here can tell the two apart. So

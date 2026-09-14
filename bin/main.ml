@@ -129,7 +129,10 @@ let render_css ~(opts : gen_opts) stylesheet =
       Tw.Css.Optimize.add_compatibility_prefixes
         ~targets:Tw.Css.Optimize.evergreen_targets stylesheet
   in
-  Tw.Css.to_string ~minify:opts.minify stylesheet
+  (* A prefixed project spells its theme tokens [--tw-spacing], on the
+     declaration and at every [var()] alike. *)
+  let rename_custom_property = Tw.theme_token_rename ~theme:opts.theme in
+  Tw.Css.to_string ~minify:opts.minify ?rename_custom_property stylesheet
 
 (* Surface of_string's specific message (e.g. the actionable arbitrary-property
    feedback) for a single unknown class; fall back to a generic message. *)
