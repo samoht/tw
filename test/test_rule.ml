@@ -595,8 +595,30 @@ let test_selector_underscore_escape () =
     (Astring.String.is_infix ~affix:{|[aria-label="a b"]|}
        (sheet "aria-[label=a_b]:flex"))
 
+(* [not-[:pseudo]] used to run through a table of nine pseudo-classes and write
+   everything else as a class node, so [not-[:target]] negated a class literally
+   named ":target" and matched nothing. cascade parses the selector, so the
+   table is gone and every pseudo-class it has a constructor for is negated as
+   one. *)
+let test_not_bracket_pseudo () =
+  check_utilities "not-[:checked]:flex"
+    {|.not-\[\:checked\]\:flex:not(:checked){display:flex}|};
+  check_utilities "not-[:target]:flex"
+    {|.not-\[\:target\]\:flex:not(:target){display:flex}|};
+  check_utilities "not-[:nth-child(2)]:flex"
+    {|.not-\[\:nth-child\(2\)\]\:flex:not(:nth-child(2)){display:flex}|};
+  check_utilities "not-[:has(.x)]:flex"
+    {|.not-\[\:has\(\.x\)\]\:flex:not(:has(.x)){display:flex}|};
+  (* A pseudo-class cascade has no constructor for keeps the class node. Chrome
+     drops the arm out of Tailwind's [:is()], so its rule matches every element
+     and so does this one. *)
+  check_utilities "not-[:wibble]:flex"
+    {|.not-\[\:wibble\]\:flex:not(.\:wibble){display:flex}|}
+
 let tests =
   [
+    test_case "not-[:pseudo] negates the pseudo-class" `Quick
+      test_not_bracket_pseudo;
     test_case "selector underscore escape" `Quick
       test_selector_underscore_escape;
     test_case "arbitrary selector combinator variants" `Quick

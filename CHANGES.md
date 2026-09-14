@@ -404,6 +404,10 @@
 
 ### Variants and selectors
 
+- `not-[:pseudo]` negates the pseudo-class rather than a class that happens to
+  be spelled like one. Only nine pseudo-classes were tabled, so
+  `not-[:target]`, `not-[:nth-child(2)]` and `not-[:has(.x)]` each negated a
+  class literally named `:target` and matched nothing (#775).
 - Variants compose in the combinations Tailwind allows. `group-*` and `peer-*`
   take any state and a name (`peer-checked/draft`), `has-*` takes any variant,
   a bare data attribute or a bracket selector (`has-[a]`, `has-peer-checked`),

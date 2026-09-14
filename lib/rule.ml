@@ -1156,17 +1156,15 @@ let parse_bracket_media content =
 
 (** Parse a bracket pseudo-class string into a CSS selector. *)
 let parse_bracket_pseudo content =
-  match content with
-  | ":checked" -> Css.Selector.Checked
-  | ":hover" -> Css.Selector.Hover
-  | ":focus" -> Css.Selector.Focus
-  | ":active" -> Css.Selector.Active
-  | ":disabled" -> Css.Selector.Disabled
-  | ":first-child" -> Css.Selector.First_child
-  | ":last-child" -> Css.Selector.Last_child
-  | ":focus-within" -> Css.Selector.Focus_within
-  | ":focus-visible" -> Css.Selector.Focus_visible
-  | _ -> Css.Selector.Class content
+  match Css.Selector.of_string content with
+  | sel -> sel
+  | exception Cascade.Error.Parse_error _ ->
+      (* A pseudo-class cascade has no constructor for, which is one no browser
+         implements either. Tailwind writes it into a [:is()], and Chrome then
+         drops the arm it cannot read, leaving [:not(:is())] - every element.
+         The class node is every element not in a class spelled ":wibble", which
+         is also every element, so the two agree on what they match. *)
+      Css.Selector.Class content
 
 (** Parse in-[...] bracket content into an ancestor selector. Class selectors
     (starting with .) are used directly; others are wrapped in :is(). *)
