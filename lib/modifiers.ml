@@ -2230,6 +2230,26 @@ and try_has_variant ~theme s =
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some m when is_not_compatible m -> Some (Has_variant m)
     | Some _ | None -> None
+  else
+    match try_scoped_has_variant ~theme "group-has-" s with
+    | Some (m, name) -> Some (Group_has_variant (m, name))
+    | None -> (
+        match try_scoped_has_variant ~theme "peer-has-" s with
+        | Some (m, name) -> Some (Peer_has_variant (m, name))
+        | None -> None)
+
+(* [group-has-<variant>] and [peer-has-<variant>] hold a variant the way [has-]
+   does. A state name or a bracket keeps the reading [try_has_shorthand] and the
+   bracket patterns give it. *)
+and try_scoped_has_variant ~theme prefix s =
+  let n = String.length prefix in
+  if String.length s > n && String.sub s 0 n = prefix then
+    let base, name = split_name (String.sub s n (String.length s - n)) in
+    if base = "" || base.[0] = '[' || is_has_shorthand base then None
+    else
+      match parse_modifier ~theme base with
+      | Some m when is_not_compatible m -> Some (m, name)
+      | Some _ | None -> None
   else None
 
 and try_not_of_modifier ~theme s =
@@ -2462,9 +2482,9 @@ let rec slot_of_modifier : modifier -> Slot.t = function
   | Group_autofill | Group_in_range | Group_out_of_range | Group_focus_within
   | Group_focus_visible | Group_enabled | Group_first | Group_last | Group_only
   | Group_odd | Group_even | Group_first_of_type | Group_last_of_type
-  | Group_only_of_type | Group_hocus | Group_has _ | Group_arbitrary _
-  | Group_not _ | Group_data _ | Group_aria _ | Named_group _
-  | Not_named_group _ | Group_peer_named _ ->
+  | Group_only_of_type | Group_hocus | Group_has _ | Group_has_variant _
+  | Group_arbitrary _ | Group_not _ | Group_data _ | Group_aria _
+  | Named_group _ | Not_named_group _ | Group_peer_named _ ->
       Slot.Group
   | Peer_hover | Peer_focus | Peer_checked | Peer_active | Peer_visited
   | Peer_disabled | Peer_empty | Peer_required | Peer_valid | Peer_invalid
@@ -2474,8 +2494,8 @@ let rec slot_of_modifier : modifier -> Slot.t = function
   | Peer_out_of_range | Peer_focus_within | Peer_focus_visible | Peer_enabled
   | Peer_first | Peer_last | Peer_only | Peer_odd | Peer_even
   | Peer_first_of_type | Peer_last_of_type | Peer_only_of_type | Peer_hocus
-  | Peer_has _ | Peer_arbitrary _ | Peer_not _ | Peer_data _ | Peer_aria _
-  | Named_peer _ ->
+  | Peer_has _ | Peer_has_variant _ | Peer_arbitrary _ | Peer_not _
+  | Peer_data _ | Peer_aria _ | Named_peer _ ->
       Slot.Peer
   | Children -> Slot.Child
   | Descendants -> Slot.Descendant

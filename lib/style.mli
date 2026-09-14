@@ -94,6 +94,11 @@ type modifier =
   | Has_variant of modifier
       (** [has-<variant>]: any variant's own selector inside [:has()], as
           [has-peer-checked] and [has-not-data-active] need. *)
+  | Group_has_variant of modifier * string option
+      (** [group-has-<variant>]: the variant's selector inside the [:has()] a
+          [.group] anchor carries, [group-has-data-[state=open]]. *)
+  | Peer_has_variant of modifier * string option
+      (** [peer-has-<variant>]: the same on a [.peer] anchor. *)
   | Group_has of string * string option
   | Peer_has of string * string option
   | Starting

@@ -111,6 +111,8 @@ type modifier =
   | Not of modifier
   | Has of string
   | Has_variant of modifier
+  | Group_has_variant of modifier * string option
+  | Peer_has_variant of modifier * string option
   | Group_has of string * string option
   | Peer_has of string * string option
   | Starting
@@ -578,6 +580,14 @@ let rec pp_modifier = function
      CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
   | Has s -> String.concat "" [ "has-"; has_part s ]
   | Has_variant m -> String.concat "" [ "has-"; pp_modifier m ]
+  | Group_has_variant (m, name) ->
+      String.concat ""
+        ([ "group-has-"; pp_modifier m ]
+        @ Option.fold ~none:[] ~some:(fun n -> [ "/"; n ]) name)
+  | Peer_has_variant (m, name) ->
+      String.concat ""
+        ([ "peer-has-"; pp_modifier m ]
+        @ Option.fold ~none:[] ~some:(fun n -> [ "/"; n ]) name)
   | Group_has (s, None) -> String.concat "" [ "group-has-"; has_part s ]
   | Group_has (s, Some name) ->
       String.concat "" [ "group-has-"; has_part s; "/"; name ]

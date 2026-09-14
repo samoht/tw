@@ -1586,6 +1586,28 @@ let modified_selector_rule modifier base_class selector props =
   regular ~selector:new_selector ~props ~base_class:modified_class ()
 
 (* [has-<variant>]: the inner variant's own selector goes inside [:has()]. *)
+(* [group-has-<variant>] and [peer-has-<variant>]: the inner variant's own
+   selector goes inside the [:has()] its anchor carries. *)
+let route_scoped_has_variant ~anchor ~combinator inner name ~selector base_class
+    props =
+  let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
+  let modified_class =
+    anchor ^ "-has-"
+    ^ Modifiers.pp_modifier inner
+    ^ name_suffix ^ ":" ^ base_class
+  in
+  let inner_selector =
+    match extract_not_conditions inner base_class with
+    | [ condition ] -> condition
+    | conditions -> Css.Selector.is_ conditions
+  in
+  let rel = has_anchor_rel ~anchor ~combinator ?name inner_selector in
+  let modified =
+    Css.Selector.compound
+      [ Css.Selector.Class modified_class; Css.Selector.is_ [ rel ] ]
+  in
+  route_regular ~selector ~base_class ~modified_class ~modified props
+
 let route_has_variant inner ~selector base_class props =
   let modified_class =
     "has-" ^ Modifiers.pp_modifier inner ^ ":" ^ base_class
@@ -1697,6 +1719,14 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
       route_has_modifier modifier ~selector base_class props
   | Style.Has_variant inner ->
       route_has_variant inner ~selector base_class props
+  | Style.Group_has_variant (inner, name) ->
+      route_scoped_has_variant ~anchor:"group"
+        ~combinator:Css.Selector.Descendant inner name ~selector base_class
+        props
+  | Style.Peer_has_variant (inner, name) ->
+      route_scoped_has_variant ~anchor:"peer"
+        ~combinator:Css.Selector.Subsequent_sibling inner name ~selector
+        base_class props
   (* Aria bracket and group/peer aria variants *)
   | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _
   | Style.Aria_checked | Style.Aria_expanded | Style.Aria_selected
