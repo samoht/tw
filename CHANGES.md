@@ -133,7 +133,7 @@
   stylesheet resolves standalone rather than shipping the theme again (#796).
 - `@apply prose` keeps the `.prose` the typography plugin names inside its own
   selectors, so the nested-list spacing it scopes to a `.prose` descendant no
-  longer applies under the rule doing the applying (#NNN).
+  longer applies under the rule doing the applying (#799).
 - `tw -s CLASS --input-css ENTRY` generates a utility the entrypoint declares
   with `@utility`, as the scanning form does, `--diff` included. It answered
   "Unknown class" (#798).
