@@ -50,7 +50,7 @@
 - An `@apply` in a file imported under `layer(…)` puts its theme tokens,
   `@property` registrations and keyframes at the top of the sheet, as Tailwind
   does. They stayed inside the import's layer and declared a second theme
-  block there (#NNN).
+  block there (#816).
 - `@import "tailwindcss" prefix(tw)` compiles. The option was parsed and
   discarded, so every candidate spelled `tw:p-4` was unknown and the sheet came
   back with no utilities at all. `Scheme.prefix` carries it: the candidate is
