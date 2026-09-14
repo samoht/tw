@@ -1543,6 +1543,84 @@ let resolve_theme_fn ~theme css =
   go 0;
   Buffer.contents buf
 
+(* Where an at-rule prelude runs, for the at-rules whose prelude can hold a
+   [--theme()] call. A [var()] is not read there, so such a call gives the value
+   itself. *)
+let at_rule_preludes index css =
+  let names = [ "@media"; "@container"; "@supports"; "@custom-media" ] in
+  let prelude_at acc i name =
+    match Index.at_rule index ~name i with
+    | Some { brace; _ } -> (i, brace) :: acc
+    | None -> (
+        match Index.at_statement index ~name i with
+        | Some { next; _ } -> (i, next) :: acc
+        | None -> acc)
+  in
+  let rec scan from acc =
+    match String.index_from_opt css from '@' with
+    | None -> acc
+    | Some i ->
+        scan (i + 1)
+          (List.fold_left (fun acc n -> prelude_at acc i n) acc names)
+  in
+  scan 0 []
+
+(* [--theme(--token)] reads a theme token from author CSS. It is a reference the
+   theme layer then declares, with any fallback threaded into it; the value
+   itself where the call says [inline] or stands in an at-rule prelude; and the
+   fallback alone when the theme has no such token. A call naming no token is
+   left alone, as the reference refuses to compile one. *)
+let dashed_theme_value ~theme ~in_prelude body =
+  match split_top_level ',' body with
+  | [] -> None
+  | first :: fallback -> (
+      let first = String.trim first in
+      let inline = String.ends_with ~suffix:" inline" first in
+      let token =
+        if inline then
+          String.trim (String.sub first 0 (String.length first - 7))
+        else first
+      in
+      let fallback = String.concat ", " (List.map String.trim fallback) in
+      if not (String.length token > 2 && String.sub token 0 2 = "--") then None
+      else
+        let bare = String.sub token 2 (String.length token - 2) in
+        match theme_token_value theme bare with
+        | Some value when inline || in_prelude -> Some value
+        | Some _ when fallback = "" ->
+            Some (String.concat "" [ "var("; token; ")" ])
+        | Some _ ->
+            Some (String.concat "" [ "var("; token; ", "; fallback; ")" ])
+        | None when fallback = "" -> None
+        | None -> Some fallback)
+
+let resolve_dashed_theme_fn ~theme css =
+  let index = Index.v css in
+  let preludes = at_rule_preludes index css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Index.call index ~name:"--theme" i with
+      | Some { body; next } -> (
+          let in_prelude =
+            List.exists (fun (start, stop) -> start < i && i < stop) preludes
+          in
+          match dashed_theme_value ~theme ~in_prelude body with
+          | Some value ->
+              Buffer.add_string buf value;
+              go next
+          | None ->
+              Buffer.add_char buf css.[i];
+              go (i + 1))
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
 (* [to_css] heads a utility's selector with the utility's own class, and a
    variant decorates it in place, as [.dark\:fill-gray-400:where(.dark, ...)].
    Swapping that class for [&] turns the rule into a nested one the author's
@@ -1879,8 +1957,9 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   drop_directives
     (resolve_theme_fn ~theme
        (expand_alpha_fn
-          (expand_spacing_fn ~theme
-             (expand_variants ~depth:0 defs (expand 0 css)))))
+          (resolve_dashed_theme_fn ~theme
+             (expand_spacing_fn ~theme
+                (expand_variants ~depth:0 defs (expand 0 css))))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's

@@ -143,9 +143,9 @@ val apply_variants :
   string
 (** [apply_variants ?extra_defs ?udefs ~theme css] runs the whole expansion over
     author CSS: [@apply] pulls in utilities, [@variant] and the declared
-    variants wrap them, [--spacing()] and [theme()] resolve against [theme], and
-    the directives themselves are dropped. [extra_defs] adds variant
-    declarations from outside [css], [udefs] the [@utility] ones. *)
+    variants wrap them, [--spacing()], [theme()] and [--theme()] resolve against
+    [theme], and the directives themselves are dropped. [extra_defs] adds
+    variant declarations from outside [css], [udefs] the [@utility] ones. *)
 
 val nest_on_ampersand :
   classes:string list -> Cascade.Selector.t -> Cascade.Selector.t
