@@ -700,6 +700,91 @@ let test_apply_keeps_the_keyframes () =
   check bool "the @keyframes the animation names survives" true
     (Astring.String.is_infix ~affix:"@keyframes spin" css)
 
+(* A sweep over the author-CSS dialect, each idiom measured against the pinned
+   CLI rather than against an expectation written here.
+
+   Every defect found in this area since the corpus went in has been invisible
+   to the markup sweeps: the utility rules were byte-identical and only the
+   theme layer differed, or a value shorthand passed through unexpanded and the
+   browser dropped the declaration. A class list cannot reach any of it, so the
+   entrypoint is the unit under test.
+
+   Adding a line here is how the next one gets found. The entrypoint fences its
+   own sources, so the generated sheet is empty and what is compared is the
+   author's CSS and the theme layer it pulls in. *)
+let cases =
+  [
+    ("apply-plain", ".btn { @apply p-4 rounded-lg; }");
+    ("apply-colour", ".btn { @apply bg-blue-500 text-white; }");
+    ("apply-important", ".btn { @apply bg-blue-500!; }");
+    ("apply-namespaced", ".btn { @apply blur-sm ease-in-out tracking-wide; }");
+    ("apply-animation", ".btn { @apply animate-spin; }");
+    ("apply-nested", ".btn { &:hover { @apply underline; } }");
+    ("apply-in-layer", "@layer components { .btn { @apply p-4; } }");
+    ("utility-apply", "@utility card { @apply rounded-lg; }");
+    ("spacing-fn", ".btn { padding: --spacing(4); }");
+    ("spacing-fn-fraction", ".btn { margin: --spacing(2.5); }");
+    ("alpha-fn", ".btn { color: --alpha(var(--color-red-500) / 50%); }");
+    ("theme-fn", ".btn { color: theme(--color-red-500); }");
+    ("theme-fn-v3", ".btn { color: theme(colors.red.500); }");
+    ( "theme-in-media",
+      "@media (width >= theme(--breakpoint-md)) { .btn { display: flex; } }" );
+    ( "theme-block",
+      "@theme { --color-brand: #1da1f2; } .btn { color: var(--color-brand); }"
+    );
+    ( "theme-keyframes",
+      "@theme { --animate-wiggle: wiggle 1s; @keyframes wiggle { to { \
+       transform: rotate(3deg); } } } .btn { animation: var(--animate-wiggle); \
+       }" );
+    ( "custom-variant",
+      "@custom-variant dark (&:where(.dark, .dark *)); .btn { @apply p-4; }" );
+    ("variant-at-rule", ".btn { @variant dark { color: white; } }");
+    ( "colour-mix-author",
+      "@theme { --color-brand: #1da1f2; } .btn { color: color-mix(in oklab, \
+       var(--color-brand) 25%, transparent); }" );
+  ]
+
+let entrypoint body =
+  String.concat "" [ "@import \"tailwindcss\" source(none);\n"; body; "\n" ]
+
+let compare_with_cli (name, body) =
+  (* Beside the other entrypoints these tests write, so the CLI resolves
+     [@import "tailwindcss"] against the project's own node_modules. *)
+  let path = "sweep-" ^ name ^ ".css" in
+  Fun.protect
+    ~finally:(fun () -> Sys.remove path)
+    (fun () ->
+      let oc = open_out path in
+      Fun.protect
+        ~finally:(fun () -> close_out_noerr oc)
+        (fun () -> output_string oc (entrypoint body));
+      let css = Tw_tools.Entrypoint.read_file path in
+      let theme = Tw_tools.Entrypoint.theme_of_css css in
+      (* The CLI emits preflight from the same [@import], so the generated half
+         carries the base layer too. Nothing is scanned: the entrypoint pins
+         [source(none)], so what is compared is the author's CSS and the theme
+         layer it pulls in. *)
+      let generated = Tw.to_css ~theme ~base:true [] in
+      let tw =
+        Tw_tools.Entrypoint.splice_into_entrypoint ~theme ~path generated
+        |> Cascade.Css.optimize
+        |> Cascade.Css.to_string ~minify:true
+      in
+      let cli = Tw_tools.Tailwind_gen.generate_entrypoint ~minify:true path in
+      let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
+      match diff.Cascade_diff.Css_compare.result with
+      | Cascade_diff.Css_compare.No_diff -> None
+      | _ -> Some name)
+
+let test_author_css_sweep () =
+  Test_helpers.require_tailwind_cli ();
+  match List.filter_map compare_with_cli cases with
+  | [] -> ()
+  | diverging ->
+      Alcotest.failf "%d of %d author-CSS idioms diverge from the CLI: %s"
+        (List.length diverging) (List.length cases)
+        (String.concat ", " diverging)
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
@@ -742,6 +827,7 @@ let tests =
       test_apply_declares_every_token_it_reads;
     test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
     test_case "prefix() on the import" `Quick test_import_prefix;
+    test_case "author CSS sweep against the CLI" `Slow test_author_css_sweep;
     test_case "author CSS declares every token it reads" `Quick
       test_author_css_declares_every_token_it_reads;
   ]
