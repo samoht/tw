@@ -163,6 +163,13 @@
 
 ### Arbitrary values and validation
 
+- `--alpha(<color> / <percentage>)` in author CSS compiles to the `color-mix()`
+  it spells, with the legacy fallback and `@supports` arm beside it. It passed
+  through unexpanded, which is not CSS, so the browser dropped the declaration
+  and the element took no colour (#783).
+- An `@theme inline` token goes into the utility that reads it, rather than
+  being declared and referenced. That is what `inline` is for: a value `var()`
+  cannot reach, inside `@keyframes` or composed into a `color-mix()` (#783).
 - Author CSS that reads a theme token declares it. `padding: --spacing(4)`
   emitted `calc(var(--spacing) * 4)` with nothing declaring `--spacing`, and
   `color: theme(--color-red-500)` dropped the declaration and the rule with it,
@@ -471,6 +478,10 @@
 
 ### CSS ordering and structure
 
+- `@lg:` and `@min-lg:` order the way Tailwind orders them. The two spell one
+  width and merge into one container block, where the last rule wins, so an
+  element carrying both rendered one way under Tailwind and the other under tw
+  (#783).
 - Utilities land where Tailwind puts them across the sheet. A colour's
   `@supports` rule stays with its fallback, container variants order by width,
   the logical sizing families sort last, line-clamp sorts with box-sizing, and
