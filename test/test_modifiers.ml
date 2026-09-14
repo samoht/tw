@@ -633,6 +633,29 @@ let test_important_prefix () =
   check_sheet "!p-4"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--spacing:.25rem}}@layer components;@layer utilities{.\!p-4{padding:calc(var(--spacing)*4)!important}}|}
 
+(* A utility that writes rules of its own names its class inside their
+   selectors, so the [!] spelling has to reach them too. Tailwind 4.3.3 writes
+   [:where(.space-x-4\!>:not(:last-child))] for [space-x-4!] and repeats
+   [.container\!] inside every breakpoint of [container!]; a selector naming the
+   bare class matches no element the markup marked. *)
+let test_important_multi_rule_selectors () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "space-x-4!" {|:where(.space-x-4\!>:not(:last-child))|};
+  has "!space-x-4" {|:where(.\!space-x-4>:not(:last-child))|};
+  has "hover:space-x-4!" {|:where(.hover\:space-x-4\!:hover>:not(:last-child))|};
+  has "container!"
+    {|@media(min-width:40rem){.container\!{max-width:40rem!important}}|}
+
 (* [not-has-<X>] reads X as a pseudo-class. The shorthand accepted any text and
    left the selector reader to raise out of [to_css], a pure conversion, while
    the bracket form [has-[...]] validated its selector. *)
@@ -719,6 +742,8 @@ let test_prose_element_variant_invalid () =
 let tests =
   [
     test_case "important prefix" `Quick test_important_prefix;
+    test_case "important multi-rule selectors" `Quick
+      test_important_multi_rule_selectors;
     test_case "has_responsive_modifier" `Quick test_has_responsive_modifier;
     test_case "validate_no_nested_responsive" `Quick
       test_validate_no_nested_responsive;
