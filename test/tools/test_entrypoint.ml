@@ -792,7 +792,6 @@ let cases =
          "@theme inline { --color-brand: #1da1f2; } .btn { color: \
           var(--color-brand); }");
     case "theme-reference"
-      ~why:"a reference token author CSS reads is declared, where none may be"
       (fenced
          "@theme reference { --color-brand: #1da1f2; } .btn { color: \
           var(--color-brand); }");

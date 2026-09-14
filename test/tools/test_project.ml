@@ -242,6 +242,25 @@ let test_sub_imports () =
       ]
     ~absent:[ "@layer utilities"; "@layer base"; "--font-sans"; "box-sizing" ]
 
+(* An [@theme reference] block says the tokens are declared somewhere else, so
+   the sheet declares none of them, a default one included. A utility reading
+   one, directly or through [@apply], carries the block's value as the fallback
+   of its reference so it still resolves; the author's own [var()] is the
+   author's and stays as written. *)
+let test_theme_reference_block () =
+  check_rules
+    (compiled ~classes:[ "bg-brand" ] "theme-reference"
+       "@theme reference { --color-brand: #123457; --color-red-500: #fe0102; }\n\
+        .btn { color: var(--color-brand); }\n\
+        .apply { @apply bg-red-500; }\n")
+    ~present:
+      [
+        ".bg-brand{background-color:var(--color-brand,#123457)}";
+        ".btn{color:var(--color-brand)}";
+        ".apply{background-color:var(--color-red-500,#fe0102)}";
+      ]
+    ~absent:[ "--color-brand:"; "--color-red-500:" ]
+
 let suite =
   ( "project",
     [
@@ -255,4 +274,5 @@ let suite =
       test_case "author @property fallback" `Quick test_author_property_fallback;
       test_case "--theme() in author CSS" `Quick test_dashed_theme_function;
       test_case "tailwindcss sub-imports" `Quick test_sub_imports;
+      test_case "@theme reference block" `Quick test_theme_reference_block;
     ] )
