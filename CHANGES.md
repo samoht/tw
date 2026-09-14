@@ -101,6 +101,10 @@
   `!important`, variants, the `!` suffix and declared `@utility` rules
   included, while author CSS and what `@apply` pulls into it stay as written.
   The option was stripped unread. `Scheme.important` carries it (#788).
+- `transition-behavior-normal` and `transition-behavior-allow-discrete` are
+  refused, as Tailwind compiles nothing for them. They compiled to a rule for
+  `transition-normal` and `transition-discrete`, which no markup written the
+  long way matches (#NNN).
 - `transition-discrete` and `transition-normal` no longer declare the
   `--default-transition-*` tokens, which nothing in their rules reads (#789).
 - An `@theme static { … }` block declares its tokens whether or not a utility

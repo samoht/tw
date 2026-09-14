@@ -678,9 +678,6 @@ module Handler = struct
     | [ "transition"; "opacity" ] -> Ok Transition_opacity
     | [ "transition"; "shadow" ] -> Ok Transition_shadow
     | [ "transition"; "transform" ] -> Ok Transition_transform
-    | [ "transition"; "behavior"; "normal" ] -> Ok Transition_behavior_normal
-    | [ "transition"; "behavior"; "allow"; "discrete" ] ->
-        Ok Transition_behavior_allow_discrete
     | [ "transition"; "normal" ] -> Ok Transition_behavior_normal
     | [ "transition"; "discrete" ] -> Ok Transition_behavior_allow_discrete
     | [ "transition"; value ] when Parse.is_bracket_value value -> (
