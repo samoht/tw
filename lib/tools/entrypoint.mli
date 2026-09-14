@@ -32,6 +32,11 @@ val import_prefix : string -> string option
     [None] when the import carries no such option. Every candidate is then
     spelled [tw:p-4] and every theme token declared as [--tw-spacing]. *)
 
+val imports_important : string -> bool
+(** [imports_important css] is [true] when [css] imports the package with
+    [@import "tailwindcss" important], which marks every declaration a utility
+    emits [!important]. *)
+
 val theme_overrides_of_css : string -> (string * string) list * string list
 (** [theme_overrides_of_css css] is the [(bare-name, value)] pairs the [@theme]
     blocks of [css] declare, together with the names among them that came from

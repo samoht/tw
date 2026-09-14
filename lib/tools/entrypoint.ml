@@ -383,6 +383,17 @@ let source_inline css =
                  else (safelist @ candidates, blocklist)))
        ([], [])
 
+(* [@import "tailwindcss" important] marks every utility declaration
+   [!important]. The option is a bare word in the import's prelude rather than a
+   call, so it is read off the prelude's top-level words. *)
+let imports_important css =
+  let index = Index.v css in
+  let blank = function '\n' | '\t' | '\r' | '\012' -> ' ' | c -> c in
+  Index.at_statements index ~name:"@import"
+  |> List.exists (fun (_, (import : Index.statement)) ->
+      List.mem "important"
+        (split_top_level ' ' (String.map blank import.prelude)))
+
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
    [drop_directives] takes the whole block out of the emitted CSS; lift actual
@@ -1833,6 +1844,9 @@ let builtin_variant_template ~theme name =
     | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
 
 let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
+  (* What an [@apply] pulls into the author's CSS is not a utility, so the
+     import's [important] does not reach it. *)
+  let theme = { theme with Tw.Scheme.important = false } in
   (* The [@utility] declarations taken out here are the ones an [@apply] in this
      same file names. Dropping them left [@apply card] resolving against an
      empty table, so it named no utility and the rule it decorated came out
@@ -2320,7 +2334,9 @@ let theme_of_css css =
       { Tw.Scheme.default with static_theme = true }
     else Tw.Scheme.default
   in
-  let base = { base with prefix = import_prefix css } in
+  let base =
+    { base with prefix = import_prefix css; important = imports_important css }
+  in
   Tw.Scheme.with_overrides ~inline base overrides
 
 let entry_variant_defs = entry_defs take_custom_variants

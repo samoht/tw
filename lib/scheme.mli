@@ -61,6 +61,11 @@ type t = {
   static_theme : bool;
       (** Whether the package was imported with [theme(static)], which emits
           every theme variable rather than only the ones a utility used. *)
+  important : bool;
+      (** Whether the package was imported with [important], which marks every
+          declaration a utility emits [!important], dressed in variants or not.
+          The author's own CSS, and what an [\@apply] pulls into it, are not
+          utilities and keep their declarations as written. *)
   prefix : string option;
       (** The prefix [prefix(tw)] on the import asks for. Every candidate is
           then spelled [tw:p-4], and every theme token is declared and read as
