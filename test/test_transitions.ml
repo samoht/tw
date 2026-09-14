@@ -30,6 +30,18 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "delay";
   Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "ease"
 
+(* Tailwind spells the behaviour utilities [transition-normal] and
+   [transition-discrete] and compiles nothing for the property-length spellings,
+   which tw read and then printed under the short class, a rule no markup
+   written the long way matches. *)
+let test_behavior_long_spellings_refused () =
+  Test_helpers.check_invalid_input
+    (module Tw.Transitions.Handler)
+    "transition-behavior-normal";
+  Test_helpers.check_invalid_input
+    (module Tw.Transitions.Handler)
+    "transition-behavior-allow-discrete"
+
 (* duration-initial / ease-initial reset their channel var to the CSS initial
    keyword. *)
 let test_initial_resets () =
@@ -224,6 +236,8 @@ let tests =
         test_default_transition_theme_survives_a_variant;
       Alcotest.test_case "transition behaviour needs no defaults" `Quick
         test_transition_behavior_needs_no_defaults;
+      Alcotest.test_case "long behaviour spellings refused" `Quick
+        test_behavior_long_spellings_refused;
       Alcotest.test_case "delay candidate band" `Quick test_delay_candidate_band;
       Alcotest.test_case "initial reset boundary" `Quick
         test_initial_reset_boundary;
