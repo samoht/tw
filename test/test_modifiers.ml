@@ -656,6 +656,47 @@ let test_important_multi_rule_selectors () =
   has "container!"
     {|@media(min-width:40rem){.container\!{max-width:40rem!important}}|}
 
+(* The [!] marks every declaration of the utility's own rule, the variables it
+   sets included: Tailwind 4.3.3 writes [--tw-shadow:...!important] beside
+   [box-shadow:...!important] for [shadow-md!]. Left normal, the [--tw-shadow] a
+   plain [shadow-lg] sets on the same element wins, and the shadow the [!] was
+   meant to force is not the one drawn. The rule is found first: the [@layer
+   properties] fallback declares the same variables earlier in the sheet. *)
+let test_important_custom_properties () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let marked cls ~rule name =
+    let sheet = css cls in
+    let declaration =
+      Option.bind
+        (Astring.String.find_sub ~sub:(rule ^ "{") sheet)
+        (fun r ->
+          Option.map
+            (fun i ->
+              let stop =
+                Option.value ~default:(String.length sheet)
+                  (Astring.String.find ~start:i
+                     (fun c -> c = ';' || c = '}')
+                     sheet)
+              in
+              String.sub sheet i (stop - i))
+            (Astring.String.find_sub ~start:r ~sub:(name ^ ":") sheet))
+    in
+    match declaration with
+    | None -> Alcotest.failf "%s: no %s in %s" cls name rule
+    | Some d ->
+        check bool
+          (cls ^ " marks " ^ d)
+          true
+          (Astring.String.is_suffix ~affix:"!important" d)
+  in
+  marked "shadow-md!" ~rule:{|.shadow-md\!|} "--tw-shadow";
+  marked "translate-x-2!" ~rule:{|.translate-x-2\!|} "--tw-translate-x";
+  marked "font-bold!" ~rule:{|.font-bold\!|} "--tw-font-weight"
+
 (* [not-has-<X>] reads X as a pseudo-class. The shorthand accepted any text and
    left the selector reader to raise out of [to_css], a pure conversion, while
    the bracket form [has-[...]] validated its selector. *)
@@ -771,6 +812,8 @@ let tests =
     test_case "important prefix" `Quick test_important_prefix;
     test_case "important multi-rule selectors" `Quick
       test_important_multi_rule_selectors;
+    test_case "important custom properties" `Quick
+      test_important_custom_properties;
     test_case "has_responsive_modifier" `Quick test_has_responsive_modifier;
     test_case "validate_no_nested_responsive" `Quick
       test_validate_no_nested_responsive;
