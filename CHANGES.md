@@ -133,7 +133,7 @@
   stylesheet resolves standalone rather than shipping the theme again (#796).
 - `tw -s CLASS --input-css ENTRY` generates a utility the entrypoint declares
   with `@utility`, as the scanning form does, `--diff` included. It answered
-  "Unknown class" (#NNN).
+  "Unknown class" (#798).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
