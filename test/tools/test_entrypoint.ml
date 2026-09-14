@@ -849,9 +849,6 @@ let cases =
     case "import-theme-static"
       "@import \"tailwindcss\" theme(static) source(none);\n";
     case "reference"
-      ~why:
-        "tw emits the theme layer a reference exists to leave out, and each \
-         var() loses its fallback"
       "@reference \"tailwindcss\";\n\
        .btn { @apply rounded-lg bg-blue-600 p-4; }\n";
     case "source-inline"

@@ -261,6 +261,36 @@ let test_theme_reference_block () =
       ]
     ~absent:[ "--color-brand:"; "--color-red-500:" ]
 
+(* [@reference "tailwindcss"] is what a component's own stylesheet starts with:
+   the theme is in scope for [@apply] and none of it is emitted, so fifty
+   components do not ship fifty copies of it. What an [@apply] pulls in carries
+   each token's value as the fallback of its reference, variants included, so
+   the rule resolves standalone. The author's own [var()] is the author's. *)
+let test_reference_tailwindcss () =
+  check_rules
+    (compiled_with "reference-tailwindcss"
+       ~import:"@reference \"tailwindcss\";\n"
+       ".a { @apply text-lg; }\n\
+        .b { @apply hover:bg-red-500 md:p-4; }\n\
+        .x { color: var(--color-red-500); }\n")
+    ~present:
+      [
+        "font-size:var(--text-lg,1.125rem)";
+        "var(--text-lg--line-height,calc(";
+        "background-color:var(--color-red-500,oklch(";
+        "padding:calc(var(--spacing,.25rem)*4)";
+        ".x{color:var(--color-red-500)}";
+      ]
+    ~absent:
+      [
+        "@layer theme";
+        "@layer base";
+        "@layer utilities";
+        "--spacing:";
+        "--text-lg:";
+        "box-sizing";
+      ]
+
 let suite =
   ( "project",
     [
@@ -275,4 +305,5 @@ let suite =
       test_case "--theme() in author CSS" `Quick test_dashed_theme_function;
       test_case "tailwindcss sub-imports" `Quick test_sub_imports;
       test_case "@theme reference block" `Quick test_theme_reference_block;
+      test_case "@reference tailwindcss" `Quick test_reference_tailwindcss;
     ] )
