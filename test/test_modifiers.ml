@@ -674,6 +674,33 @@ let test_not_has_shorthand_selector () =
   renders "not-has-checked:flex";
   renders "not-has-hover:flex"
 
+(* [has-] and [not-] take an arbitrary [data-[...]] or [aria-[...]] variant as
+   their inner, and its attribute selector is what goes inside [:has()] or
+   [:not()]. Tailwind 4.3.3 writes [:has([data-state=open])] for
+   [has-data-[state=open]:ring-2], the shape Radix and shadcn markup relies on;
+   a condition naming the utility's own class matches what the author did not
+   mean, or nothing. *)
+let test_has_not_bracket_attribute () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "has-data-[state=open]:flex"
+    {|.has-data-\[state\=open\]\:flex:has([data-state=open]){|};
+  has "not-data-[state=open]:flex"
+    {|.not-data-\[state\=open\]\:flex:not([data-state=open]){|};
+  has "has-aria-[sort=ascending]:flex"
+    {|.has-aria-\[sort\=ascending\]\:flex:has([aria-sort=ascending]){|};
+  has "not-aria-[sort=ascending]:flex"
+    {|.not-aria-\[sort\=ascending\]\:flex:not([aria-sort=ascending]){|}
+
 (* @tailwindcss/typography registers one variant per element it styles, and the
    variant is what puts a utility on that element. Eight of them - h5, h6, dl,
    dt, dd, table, tr, picture - were not recognised at all, so the class was
@@ -1447,6 +1474,8 @@ let tests =
         test_nested_modifier_css_generation;
       test_case "not-has shorthand selector" `Quick
         test_not_has_shorthand_selector;
+      test_case "has and not bracket attribute" `Quick
+        test_has_not_bracket_attribute;
       test_case "arbitrary breakpoint spelling" `Quick
         test_arbitrary_breakpoint_spelling;
       test_case "nth spelling" `Quick test_nth_spelling;
