@@ -127,8 +127,23 @@ let test_data_type_hint_before_the_length_reader () =
   reject "p-[:4px]";
   reject "p-[length:]"
 
+(* Padding has no negative form in Tailwind, so a negative size is an impossible
+   request. The class printer writes the absolute value, and [p (-3)] came back
+   as [p-3], a different and valid utility, with nothing to say so. It is
+   refused at construction, as [bg ~shade:250 gray] is. *)
+let typed_negative () =
+  let open Tw in
+  check_raises "p (-3) is refused"
+    (Invalid_argument "p: padding has no negative size, got -3") (fun () ->
+      ignore (p (-3)));
+  check_raises "px' (-0.5) is refused"
+    (Invalid_argument "px': padding has no negative size, got -0.5") (fun () ->
+      ignore (px' (-0.5)));
+  check_typed_class "p-0" (p 0)
+
 let tests =
   [
+    test_case "typed constructors: negative size" `Quick typed_negative;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;
     test_case "arbitrary --spacing()" `Quick test_arbitrary_spacing_fn;
