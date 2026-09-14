@@ -1215,6 +1215,74 @@ let try_bracket_at_rule s =
     else None
   else None
 
+let is_supports_ident_char c =
+  (c >= 'a' && c <= 'z')
+  || (c >= 'A' && c <= 'Z')
+  || (c >= '0' && c <= '9')
+  || c = '-'
+
+(* The [@supports] keywords a condition joins or negates with. Written against a
+   parenthesis, [not(display:grid)], the keyword is the name of a function
+   token, which the grammar reads as an unknown feature that never holds, so
+   each gets the spaces Tailwind gives it. Only at the top level: inside
+   [selector(...)] a [:not(a)] is a pseudo-class, not the keyword. *)
+let space_supports_keywords cond =
+  let n = String.length cond in
+  let buf = Buffer.create (n + 8) in
+  let keyword_at i =
+    List.find_opt
+      (fun k ->
+        let l = String.length k in
+        i + l <= n
+        && String.sub cond i l = k
+        && (i = 0 || not (is_supports_ident_char cond.[i - 1]))
+        && (i + l = n || not (is_supports_ident_char cond.[i + l])))
+      [ "and"; "not"; "or" ]
+  in
+  let rec go i depth =
+    if i < n then
+      match cond.[i] with
+      | '(' ->
+          Buffer.add_char buf '(';
+          go (i + 1) (depth + 1)
+      | ')' ->
+          Buffer.add_char buf ')';
+          go (i + 1) (depth - 1)
+      | c when depth = 0 -> (
+          match keyword_at i with
+          | Some k ->
+              let len = Buffer.length buf in
+              if len > 0 && Buffer.nth buf (len - 1) <> ' ' then
+                Buffer.add_char buf ' ';
+              Buffer.add_string buf k;
+              let next = i + String.length k in
+              if next < n && cond.[next] <> ' ' then Buffer.add_char buf ' ';
+              go next depth
+          | None ->
+              Buffer.add_char buf c;
+              go (i + 1) depth)
+      | c ->
+          Buffer.add_char buf c;
+          go (i + 1) depth
+  in
+  go 0 0;
+  String.trim (Buffer.contents buf)
+
+(* [prop: value] is a property test only when what stands before the colon is a
+   property name. In [not(display:grid)] it is [not(display], and splitting
+   there handed the property reader [grid)] for a value. *)
+let supports_property_test cond =
+  match String.index_opt cond ':' with
+  | None -> None
+  | Some i ->
+      let prop = String.trim (String.sub cond 0 i) in
+      if prop <> "" && String.for_all is_supports_ident_char prop then
+        Some
+          ( prop,
+            String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
+          )
+      else None
+
 let normalize_supports_condition condition_str =
   let cond = Parse.decode_underscores condition_str in
   if
@@ -1230,36 +1298,36 @@ let normalize_supports_condition condition_str =
   then
     (* Already parenthesised, so it is the condition the author wrote; only the
        real grammar reader can make sense of arbitrary authored text. *)
-    Css.Supports.of_string cond
-  else if String.contains cond ':' then
-    (* [prop: value], the property test Tailwind emits, built directly. *)
-    let i = String.index cond ':' in
-    let prop = String.trim (String.sub cond 0 i) in
-    let value =
-      String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
-    in
-    Css.Supports.property prop value
-  else if String.contains cond '(' then
-    (* Function call like font-format(opentype) or var(--test); again arbitrary
-       authored text, so the real grammar reader parses it. *)
-    Css.Supports.of_string cond
+    Css.Supports.of_string (space_supports_keywords cond)
   else
-    (* Bare property name: backdrop-filter tests against var(--tw), the same
-       expansion as the bare custom property above. A lone identifier is not a
-       condition the CSS grammar has a production for, so leaving it raised a
-       parse error out of the scanner. *)
-    Css.Supports.property cond "var(--tw)"
+    match supports_property_test cond with
+    | Some (prop, value) ->
+        (* [prop: value], the property test Tailwind emits, built directly. *)
+        Css.Supports.property prop value
+    | None when String.contains cond '(' ->
+        (* A negation, a function such as [selector(...)] or
+           [font-format(opentype)], or a condition joined with [and]/[or]; again
+           arbitrary authored text, so the real grammar reader parses it. *)
+        Css.Supports.of_string (space_supports_keywords cond)
+    | None ->
+        (* Bare property name: backdrop-filter tests against var(--tw), the same
+           expansion as the bare custom property above. A lone identifier is not
+           a condition the CSS grammar has a production for, so leaving it
+           raised a parse error out of the scanner. *)
+        Css.Supports.property cond "var(--tw)"
 
 (* Validate that a supports-[...] bracket normalizes to a condition the
    [@supports] grammar has a production for. An empty or half-written one used
-   to reach the condition reader and raise from there. *)
+   to reach the condition reader and raise from there, and a property test whose
+   value is no declaration value raised [Failure] out of the property reader. *)
 let is_valid_supports_condition cond =
   cond <> ""
   &&
     try
       ignore (normalize_supports_condition cond);
       true
-    with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
+    with Cascade.Cursor.Parse_error _ | Invalid_argument _ | Failure _ ->
+      false
 
 (* Which spelling an [nth-*] argument was written in. A bare number reads both
    ways and they are different classes, so the reader records the one it saw
