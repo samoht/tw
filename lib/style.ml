@@ -370,28 +370,36 @@ let mark_important_decl d =
   | Some _ -> d
   | None -> Css.important d
 
-let rec important_stmt stmt =
+(* [f] rewrites the selector and declarations of every rule in [stmt], down
+   through its nested rules and the [@supports], [@media] and [@container]
+   blocks a utility's rules sit in. *)
+let rec map_rule_stmt f stmt =
   match Css.as_rule stmt with
   | Some (selector, decls, nested) ->
-      Css.rule ~selector
-        ~nested:(List.map important_stmt nested)
-        (List.map mark_important_decl decls)
+      let selector, decls = f selector decls in
+      Css.rule ~selector ~nested:(List.map (map_rule_stmt f) nested) decls
   | None -> (
-      (* An at-rule holds the declarations the [!] has to reach: the colour
-         utilities put their modern-syntax value behind [@supports], and it has
-         to outrank the fallback the same way. *)
       match Css.as_supports stmt with
       | Some (condition, stmts) ->
-          Css.supports ~condition (List.map important_stmt stmts)
+          Css.supports ~condition (List.map (map_rule_stmt f) stmts)
       | None -> (
           match Css.as_media stmt with
           | Some (condition, stmts) ->
-              Css.media ~condition (List.map important_stmt stmts)
+              Css.media ~condition (List.map (map_rule_stmt f) stmts)
           | None -> (
               match Css.as_container stmt with
               | Some (name, condition, stmts) ->
-                  Css.container ?name ?condition (List.map important_stmt stmts)
+                  Css.container ?name ?condition
+                    (List.map (map_rule_stmt f) stmts)
               | None -> stmt)))
+
+(* An at-rule holds the declarations the [!] has to reach: the colour utilities
+   put their modern-syntax value behind [@supports], and it has to outrank the
+   fallback the same way. *)
+let important_stmt stmt =
+  map_rule_stmt
+    (fun selector decls -> (selector, List.map mark_important_decl decls))
+    stmt
 
 let rec map_important = function
   | Style s ->
@@ -403,6 +411,21 @@ let rec map_important = function
         }
   | Modified (m, t) -> Modified (m, map_important t)
   | Group ts -> Group (List.map map_important ts)
+
+let rec rename_class ~old_class ~new_class = function
+  | Style s ->
+      let rename =
+        Css.Selector.map (function
+          | Css.Selector.Class c when String.equal c old_class ->
+              Css.Selector.Class new_class
+          | other -> other)
+      in
+      let rename_stmt =
+        map_rule_stmt (fun selector decls -> (rename selector, decls))
+      in
+      Style { s with rules = Option.map (List.map rename_stmt) s.rules }
+  | Modified (m, t) -> Modified (m, rename_class ~old_class ~new_class t)
+  | Group ts -> Group (List.map (rename_class ~old_class ~new_class) ts)
 
 let is_numeric s = s <> "" && String.for_all (fun c -> c >= '0' && c <= '9') s
 

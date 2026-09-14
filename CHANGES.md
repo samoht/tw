@@ -481,6 +481,9 @@
 
 ### Variants and selectors
 
+- A `!` on a utility that writes rules of its own reaches their selectors.
+  `space-x-4!`, `container!`, `prose!` and `form-input!` styled the class
+  without the `!`, which no element carries, so nothing applied (#NNN).
 - `@apply` declares the theme tokens the utilities it pulls in read. The rule
   it emitted was already right, so nothing warned, but `@layer theme` came back
   without `--radius-lg`, `--text-lg`, `--blur-sm` and the rest of the families

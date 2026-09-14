@@ -389,3 +389,9 @@ val important_stmt : Css.statement -> Css.statement
 val map_important : t -> t
 (** [map_important t] marks every declaration [t] emits as [!important] (the [!]
     utility prefix), recursing through modifiers, groups and nested rules. *)
+
+val rename_class : old_class:string -> new_class:string -> t -> t
+(** [rename_class ~old_class ~new_class t] renames the class [old_class] to
+    [new_class] in the selectors of the rules [t] writes itself, down through
+    their nested rules and the at-rules that hold them. The rule [t]'s own
+    declarations go on is named by whoever renders [t], and is left alone. *)
