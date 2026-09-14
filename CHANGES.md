@@ -96,7 +96,7 @@
 - `@source inline("…")` safelists its classes and `@source not inline("…")`
   blocks them, markup included, with Tailwind's brace patterns
   (`{hover:,}bg-red-{500,600}`, `p-{0..8..4}`). Both were dropped unread, so a
-  runtime-only class got no rule (#NNN).
+  runtime-only class got no rule (#787).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
