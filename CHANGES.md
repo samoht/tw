@@ -492,7 +492,7 @@
 - `supports-[…]` reads a condition that is not a property test the way
   Tailwind does: `not(display:grid)` becomes `@supports not (display:grid)`
   and `selector(:has(a))` passes through. The first crashed with an uncaught
-  `Failure` (exit 125), and a malformed condition is now refused (#NNN).
+  `Failure` (exit 125), and a malformed condition is now refused (#808).
 - A `!` on a utility that writes rules of its own reaches their selectors.
   `space-x-4!`, `container!`, `prose!` and `form-input!` styled the class
   without the `!`, which no element carries, so nothing applied (#802).
