@@ -1701,7 +1701,13 @@ let builtin_variant_template ~theme name =
     | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
 
 let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
-  let css, _ = take_custom_utilities css in
+  (* The [@utility] declarations taken out here are the ones an [@apply] in this
+     same file names. Dropping them left [@apply card] resolving against an
+     empty table, so it named no utility and the rule it decorated came out
+     without the declarations the custom utility carries - silently, since an
+     [@apply] that names nothing is not an error. *)
+  let css, own_udefs = take_custom_utilities css in
+  let udefs = udefs @ own_udefs in
   let css, defs = take_custom_variants css in
   let defs = defs @ extra_defs in
   (* A project declaration wins over the built-in of the same name. Any other

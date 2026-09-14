@@ -84,10 +84,11 @@
   candidate that raises while rendering an arbitrary value is dropped rather
   than aborting the run (#142, #144).
 - A functional `@utility name-*` resolves `--value()` and `--modifier()`, and
-  `@apply` of one produces its declarations instead of nothing. A token a
-  utility only reads through `var()` is now declared in the theme layer whatever
-  its family, `--spacing(N)` is multiplied out where the project inlines
-  `--spacing`, and an `@theme reference` block is represented (#554).
+  `@apply` of any utility the stylesheet declares produces its declarations
+  instead of nothing, in author CSS as in another utility. A token a utility
+  only reads through `var()` is now declared in the theme layer whatever its
+  family, `--spacing(N)` is multiplied out where the project inlines
+  `--spacing`, and an `@theme reference` block is represented (#554, #NNN).
 - Functional utilities follow Tailwind's declaration-count ordering, parity
   comparisons keep author custom properties, and a folded zero-spacing utility
   omits the internal `--spacing` carrier it no longer reads (#650, #651, #655).
