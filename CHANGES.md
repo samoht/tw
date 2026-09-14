@@ -494,7 +494,7 @@
   without the `!`, which no element carries, so nothing applied (#802).
 - A `!` marks the variables a utility sets, as Tailwind marks them:
   `shadow-md!` left `--tw-shadow` normal, so a plain `shadow-lg` on the same
-  element still chose the shadow drawn (#NNN).
+  element still chose the shadow drawn (#807).
 - `has-` and `not-` around an arbitrary `data-[…]` or `aria-[…]` variant test
   its attribute. `has-data-[state=open]:ring-2` read `:has(.ring-2)`, a
   condition on the utility's own class, where Tailwind reads
