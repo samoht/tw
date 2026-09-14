@@ -742,6 +742,33 @@ let test_has_not_bracket_attribute () =
   has "not-aria-[sort=ascending]:flex"
     {|.not-aria-\[sort\=ascending\]\:flex:not([aria-sort=ascending]){|}
 
+(* [group-has-] and [peer-has-] take any variant as their inner, the way [has-]
+   does, and that variant's own selector goes inside the anchored [:has()].
+   Tailwind 4.3.3 styles a descendant of [:where(.group):has([data-state=open])]
+   for [group-has-data-[state=open]:ring-2]; the two read only a state name or a
+   bracket selector, so the class was an unknown modifier. *)
+let test_group_peer_has_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "group-has-data-[state=open]:flex"
+    {|.group-has-data-\[state\=open\]\:flex:is(:where(.group):has([data-state=open]) *){display:flex}|};
+  has "group-has-aria-expanded:flex"
+    {|.group-has-aria-expanded\:flex:is(:where(.group):has([aria-expanded=true]) *){display:flex}|};
+  has "peer-has-data-[state=open]:flex"
+    {|.peer-has-data-\[state\=open\]\:flex:is(:where(.peer):has([data-state=open])~*){display:flex}|};
+  (* the state-name shorthand keeps its reading *)
+  has "group-has-checked:flex"
+    {|.group-has-checked\:flex:is(:where(.group):has(:checked) *){display:flex}|}
+
 (* @tailwindcss/typography registers one variant per element it styles, and the
    variant is what puts a utility on that element. Eight of them - h5, h6, dl,
    dt, dd, table, tr, picture - were not recognised at all, so the class was
@@ -1569,6 +1596,7 @@ let tests =
         test_not_has_shorthand_selector;
       test_case "has and not bracket attribute" `Quick
         test_has_not_bracket_attribute;
+      test_case "group and peer has variant" `Quick test_group_peer_has_variant;
       test_case "arbitrary breakpoint spelling" `Quick
         test_arbitrary_breakpoint_spelling;
       test_case "nth spelling" `Quick test_nth_spelling;
