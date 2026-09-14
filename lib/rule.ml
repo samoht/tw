@@ -1029,6 +1029,18 @@ and extract_not_conditions inner_modifier base_class =
       [ Css.Selector.attribute ("data-" ^ attr) Presence ]
   | Style.Data_custom (attr, value) ->
       [ Css.Selector.attribute ("data-" ^ attr) (Exact value) ]
+  (* An arbitrary [data-[...]] or [aria-[...]] variant is one attribute
+     selector, and that is the whole of what [:not()] or [:has()] holds. *)
+  | Style.Data_bracket expr ->
+      let name, matcher, flag = Modifiers.parse_data_expr expr in
+      [ Css.Selector.attribute ?flag name matcher ]
+  | Style.Aria_bracket expr ->
+      let name, matcher =
+        if Modifiers.is_aria_shorthand expr then
+          ("aria-" ^ expr, Css.Selector.Exact "true")
+        else parse_aria_expr expr
+      in
+      [ Css.Selector.attribute name matcher ]
   | Style.Aria_selected ->
       [ Css.Selector.attribute "aria-selected" (Exact "true") ]
   | Style.Aria_checked ->
