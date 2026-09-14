@@ -168,23 +168,25 @@ let theme_tokens body =
    with the same tokens Tailwind reads from it: the pairs every block declares,
    and the names among them that came from an [@theme inline] block. The
    resulting strings feed Scheme.with_overrides. *)
-let theme_overrides_of_css css =
+let theme_blocks css =
   match Css.of_string css with
-  | Error _ -> ([], [])
+  | Error _ -> []
   | Ok parse ->
-      let block (prelude, body) =
-        let names = theme_tokens body in
-        let inline =
-          List.mem "inline" (String.split_on_char ' ' (String.trim prelude))
-        in
-        (names, if inline then List.map fst names else [])
-      in
-      let blocks =
-        Css.statements parse.Css.stylesheet
-        |> List.filter_map theme_block
-        |> List.map block
-      in
-      (List.concat_map fst blocks, List.concat_map snd blocks)
+      Css.statements parse.Css.stylesheet
+      |> List.filter_map theme_block
+      |> List.map (fun (prelude, body) ->
+          (String.split_on_char ' ' (String.trim prelude), theme_tokens body))
+
+(* The names the blocks carrying the modifier [option] declare. *)
+let theme_tokens_with option blocks =
+  List.concat_map
+    (fun (options, tokens) ->
+      if List.mem option options then List.map fst tokens else [])
+    blocks
+
+let theme_overrides_of_css css =
+  let blocks = theme_blocks css in
+  (List.concat_map snd blocks, theme_tokens_with "inline" blocks)
 
 (* [@import "tailwindcss"] (and its subpath forms) is the package entry, not a
    file on disk: it marks where the generated theme/base/utilities belong. *)
@@ -2337,7 +2339,8 @@ let theme_of_css css =
   let base =
     { base with prefix = import_prefix css; important = imports_important css }
   in
-  Tw.Scheme.with_overrides ~inline base overrides
+  let static = theme_tokens_with "static" (theme_blocks css) in
+  Tw.Scheme.with_overrides ~inline ~static base overrides
 
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities

@@ -954,12 +954,28 @@ let keep_extracted_theme_decl ~theme ~referenced decl =
   | Some name -> Strings.mem name referenced
   | None -> false
 
+(* A token an [@theme static] block declared is declared whether or not a
+   utility reads it, with the value the block gave it. A namespace reset in such
+   a block names no token. *)
+let static_block_decls ~theme have =
+  List.filter_map
+    (fun name ->
+      if String.contains name '*' || Strings.mem ("--" ^ name) have then None
+      else
+        Option.map
+          (fun css -> Css.custom_property ~layer:"theme" ("--" ^ name) css)
+          (Scheme.token_override theme name))
+    theme.Scheme.static_tokens
+
 (* [theme(static)] on the package import emits every theme variable, not only
    the ones a utility used. The palette is by far the biggest part of it. A
    token the project declared in an [\@theme inline] or [\@theme reference]
    block is the exception: those blocks say the sheet declares it nowhere, and
    asking for the whole theme does not undo that. *)
 let add_static_theme_decls ~theme extracted =
+  let extracted =
+    extracted @ static_block_decls ~theme (names_set_of extracted)
+  in
   if not theme.Scheme.static_theme then extracted
   else
     let have = names_set_of extracted in

@@ -58,6 +58,10 @@ type t = {
           block. The block declares the token elsewhere, so the theme layer
           emits no declaration for it and a reader spells the value as the
           fallback of its own reference. *)
+  static_tokens : string list;
+      (** Names of the tokens a project declared in an [\@theme static] block.
+          The theme layer declares each of them whether or not a utility reads
+          it, with the value the block gave it. *)
   static_theme : bool;
       (** Whether the package was imported with [theme(static)], which emits
           every theme variable rather than only the ones a utility used. *)
@@ -128,13 +132,15 @@ val token : t -> string -> string option
 val with_overrides :
   ?inline:string list ->
   ?reference:string list ->
+  ?static:string list ->
   t ->
   (string * string) list ->
   t
-(** [with_overrides ?inline ?reference t overrides] applies [overrides] on top
-    of [t]'s existing token overrides (new entries win). [inline] names the
-    tokens that came from an [\@theme inline] block, [reference] those from an
-    [\@theme reference] one. *)
+(** [with_overrides ?inline ?reference ?static t overrides] applies [overrides]
+    on top of [t]'s existing token overrides (new entries win). [inline] names
+    the tokens that came from an [\@theme inline] block, [reference] those from
+    an [\@theme reference] one, and [static] those from an [\@theme static] one.
+*)
 
 val is_inline_token : t -> string -> bool
 (** [is_inline_token t name] is whether [name] was declared in an
@@ -145,6 +151,11 @@ val is_reference_token : t -> string -> bool
 (** [is_reference_token t name] is whether [name] was declared in an
     [\@theme reference] block, so nothing declares it in the generated sheet and
     a reader carries the value as its own [var()] fallback. *)
+
+val is_static_token : t -> string -> bool
+(** [is_static_token t name] is whether [name] was declared in an
+    [\@theme static] block, so the theme layer declares it whether or not a
+    utility reads it. *)
 
 val color : t -> string -> color_value option
 (** [color t name] looks up a color in the scheme. *)
