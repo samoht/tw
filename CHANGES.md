@@ -100,7 +100,7 @@
 - `@import "tailwindcss" important` marks every utility declaration
   `!important`, variants, the `!` suffix and declared `@utility` rules
   included, while author CSS and what `@apply` pulls into it stay as written.
-  The option was stripped unread. `Scheme.important` carries it (#NNN).
+  The option was stripped unread. `Scheme.important` carries it (#788).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
