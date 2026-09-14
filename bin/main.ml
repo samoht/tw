@@ -97,15 +97,23 @@ let print_oracle_note classes =
          drops a candidate it cannot read rather than compiling it.@."
         (String.concat ", " scanned)
 
+(* The exit status a comparison answers with, so a CI job can gate on it: 0 when
+   the two sheets are equivalent, 1 when they differ, 2 when one of them could
+   not be read and so nothing was compared. *)
 let print_diff_result label diff =
   match diff.Css_compare.result with
-  | Css_compare.No_diff -> Fmt.pr "✓ No differences found%s@." label
-  | _ ->
+  | Css_compare.No_diff ->
+      Fmt.pr "✓ No differences found%s@." label;
+      0
+  | result -> (
       Fmt.pr "Differences found%s:@.@." label;
       let buf = Buffer.create 256 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"tw" buf diff;
       print_string (Buffer.contents buf);
-      Fmt.pr "@."
+      Fmt.pr "@.";
+      match result with
+      | Css_compare.Both_errors _ | Expected_error _ | Actual_error _ -> 2
+      | Tree_diff _ | String_diff _ | No_diff -> 1)
 
 let render_css ~(opts : gen_opts) stylesheet =
   let stylesheet =
@@ -167,13 +175,15 @@ let diff_single_class class_str ~(opts : gen_opts) =
         let diff =
           Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
         in
-        if class_str = "" then print_diff_result " (empty/base only)" diff
-        else (
-          print_oracle_note [ class_str ];
-          print_diff_result
-            (Fmt.str " between Tailwind and tw for '%s'" class_str)
-            diff);
-        `Ok ()
+        let code =
+          if class_str = "" then print_diff_result " (empty/base only)" diff
+          else (
+            print_oracle_note [ class_str ];
+            print_diff_result
+              (Fmt.str " between Tailwind and tw for '%s'" class_str)
+              diff)
+        in
+        `Ok code
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
@@ -188,7 +198,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
             [ class_str ]
         in
         print_string css;
-        `Ok ()
+        `Ok 0
       with e ->
         `Error
           ( false,
@@ -200,7 +210,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
       | Some stylesheet ->
           print_string (render_css ~opts stylesheet);
-          `Ok ())
+          `Ok 0)
 
 (* Classes live outside component sources too: a docs site keeps most of its
    markup in .md/.mdx, and plain .ts/.js hold class strings just as .tsx does.
@@ -297,8 +307,7 @@ let diff_files paths ~(opts : gen_opts) =
       Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
     in
     print_oracle_note all_classes;
-    print_diff_result "" diff;
-    `Ok ()
+    `Ok (print_diff_result "" diff)
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
@@ -312,7 +321,7 @@ let native_files paths flag ~(opts : gen_opts) =
     print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
       ~known_count;
-    `Ok ()
+    `Ok 0
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
 let process_files paths flag ~(opts : gen_opts) =
@@ -326,7 +335,7 @@ let process_files paths flag ~(opts : gen_opts) =
             (scanned_classes ~opts paths)
         in
         print_string css;
-        `Ok ()
+        `Ok 0
       with e ->
         `Error
           ( false,
@@ -530,7 +539,14 @@ let man =
 
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
-  let info = Cmd.info "tw" ~version:Tw_info.version ~doc ~man in
+  let exits =
+    Cmd.Exit.info 1
+      ~doc:"when $(b,--diff) finds a difference between the two sheets."
+    :: Cmd.Exit.info 2
+         ~doc:"when $(b,--diff) cannot read one of the two sheets."
+    :: Cmd.Exit.defaults
+  in
+  let info = Cmd.info "tw" ~version:Tw_info.version ~doc ~man ~exits in
   Cmd.v info
     Term.(
       ret
@@ -562,4 +578,4 @@ let normalize_argv argv =
       else [ arg ])
   |> Array.of_list
 
-let () = exit (Cmd.eval ~argv:(normalize_argv Sys.argv) cmd)
+let () = exit (Cmd.eval' ~argv:(normalize_argv Sys.argv) cmd)

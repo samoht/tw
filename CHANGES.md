@@ -622,6 +622,9 @@
 
 ### Parity and packaging
 
+- `tw --diff` exits 1 when the two sheets differ and 2 when it cannot read one
+  of them, so a CI job can gate on it. It printed the differences and exited 0
+  (#NNN).
 - Require cascade 1.2.0 for the released package pairing. While it remains
   unreleased, CI pins cascade's main branch so builds and tests follow upstream
   rather than an exact development revision (#297, #302, #305, #646).
