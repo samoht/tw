@@ -360,6 +360,52 @@ let test_property_fallbacks_in_one_block () =
     (List.sort_uniq String.compare names)
     (List.sort String.compare names)
 
+(* An imported file under [layer(components)] gets the same [@apply] expansion,
+   and what the expansion hoists belongs at the top of the sheet rather than in
+   the import's layer. Tailwind 4.3.3 keeps the [@property] registrations, the
+   [@layer properties] fallbacks and the [@keyframes] at the top level and folds
+   the theme tokens into its one theme block; tw wrapped them all in [@layer
+   components], so the sheet also carried a [components.theme] sub-layer. *)
+let test_layered_import_hoists_to_the_top () =
+  let path = "layered-import-entry.css" in
+  let part = "layered-import-part.css" in
+  let write file body =
+    let oc = open_out file in
+    Fun.protect
+      ~finally:(fun () -> close_out_noerr oc)
+      (fun () -> output_string oc body)
+  in
+  write part ".x { @apply m-2 shadow-md animate-spin; }\n";
+  write path
+    ("@import \"tailwindcss\";\n@import \"./" ^ part ^ "\" layer(components);\n");
+  let out =
+    Fun.protect
+      ~finally:(fun () ->
+        Sys.remove path;
+        Sys.remove part)
+      (fun () ->
+        splice_into_entrypoint ~theme:Tw.Scheme.default ~path (Cascade.Css.v []))
+  in
+  let components =
+    List.concat_map
+      (fun stmt ->
+        match Cascade.Css.as_layer stmt with
+        | Some (Some name, inner)
+          when Cascade.Css.Stylesheet.equal_layer_name name [ "components" ] ->
+            inner
+        | _ -> [])
+      (Cascade.Css.statements out)
+  in
+  let hoisted stmt =
+    Cascade.Css.as_layer stmt <> None
+    || Cascade.Css.as_property stmt <> None
+    || Cascade.Css.as_keyframes stmt <> None
+  in
+  check int "nothing the @apply hoisted stays in @layer components" 0
+    (List.length (List.filter hoisted components));
+  check bool "the component rule stays in its layer" true
+    (List.exists (fun stmt -> Cascade.Css.as_rule stmt <> None) components)
+
 (* Tailwind emits a declared utility as one block, its own nesting intact:
    [.line-y { padding: 5px; &::before { color: red } }]. Flattened into two
    rules, the second sorts by the property it writes and an unrelated utility
@@ -1058,6 +1104,8 @@ let tests =
       test_apply_hoists_each_property_once;
     test_case "property fallbacks in one block" `Quick
       test_property_fallbacks_in_one_block;
+    test_case "layered import hoists to the top" `Quick
+      test_layered_import_hoists_to_the_top;
     test_case "declared utility keeps its nesting" `Quick
       test_declared_utility_keeps_its_nesting;
     test_case "complex custom variant keeps its candidate" `Quick
