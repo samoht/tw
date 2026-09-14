@@ -402,6 +402,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
             { Tw.Scheme.default with static_theme = true }
           else Tw.Scheme.default
         in
+        let base = { base with prefix = Entrypoint.import_prefix css } in
         Tw.Scheme.with_overrides ~inline base overrides
   in
   let opts : gen_opts =

@@ -233,6 +233,24 @@ let imports_static_theme css =
   |> List.exists (fun (at, (import : Index.statement)) ->
       List.exists (fun (i, _) -> at < i && i < import.next) static)
 
+(* [@import "tailwindcss" prefix(tw)] asks for [tw:] in front of every candidate
+   and [--tw-] in front of every theme token. Read the same way [theme(static)]
+   is: the option function sits inside the import statement. *)
+let import_prefix css =
+  let index = Index.v css in
+  let prefixes = Index.calls index ~name:"prefix" in
+  Index.at_statements index ~name:"@import"
+  |> List.filter_map (fun (at, (import : Index.statement)) ->
+      List.find_map
+        (fun (i, (block : Index.block)) ->
+          if at < i && i < import.next then
+            match String.trim block.body with "" -> None | name -> Some name
+          else None)
+        prefixes)
+  |> function
+  | name :: _ -> Some name
+  | [] -> None
+
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
    [drop_directives] takes the whole block out of the emitted CSS; lift actual

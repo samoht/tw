@@ -368,7 +368,7 @@ let unknown_class_error ~base_class class_str =
     | None -> Error (`Msg ("Unknown class: " ^ class_str))
 
 (* Parse a single class string into a Tw.t *)
-let of_string ?(theme = Scheme.default) class_str =
+let of_candidate ~theme class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   let importance, base_class = split_importance base_class in
   (* Wrap [important] around the base before applying modifiers, so a
@@ -417,6 +417,30 @@ let of_string ?(theme = Scheme.default) class_str =
               | Ok base_utility -> finish ~alias:base_class base_utility
               | Error _ -> Error (`Msg ("Unknown class: " ^ class_str)))
           | None -> unknown_class_error ~base_class class_str))
+
+(* [prefix(tw)] puts [tw:] in front of every candidate. It is not a variant -
+   nothing reads it as one - so it comes off before anything parses, and the
+   written spelling goes back on through the alias, which is what puts
+   [.tw\\:hover\\:p-4] in the selector rather than [.hover\\:p-4]. A candidate
+   that does not carry the prefix names no utility, the way an unknown class
+   names none: Tailwind compiles nothing for a bare [p-4] under a prefix. *)
+let strip_prefix theme class_str =
+  match theme.Scheme.prefix with
+  | None -> Some class_str
+  | Some prefix ->
+      let head = prefix ^ ":" in
+      let n = String.length head in
+      if String.length class_str > n && String.sub class_str 0 n = head then
+        Some (String.sub class_str n (String.length class_str - n))
+      else None
+
+let of_string ?(theme = Scheme.default) class_str =
+  match strip_prefix theme class_str with
+  | None -> Error (`Msg ("Unknown class: " ^ class_str))
+  | Some candidate -> (
+      match of_candidate ~theme candidate with
+      | Ok u when candidate != class_str -> Ok (Utility.alias class_str u)
+      | answer -> answer)
 
 (* A name the parser rejects may be a typo or a deliberate non-tw class - a
    framework hook, a JS selector - and nothing here can tell the two apart. So

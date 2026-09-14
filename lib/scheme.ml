@@ -49,6 +49,7 @@ type t = {
   inline_tokens : string list;
   reference_tokens : string list;
   static_theme : bool;
+  prefix : string option;
       (** Per-render theme token overrides (from a [@theme] block). Key is the
           variable name without the leading [--] (e.g. "text-shadow-2xs"), value
           is the CSS string. Threaded replacement for the global
@@ -94,6 +95,7 @@ let default : t =
     inline_tokens = [];
     reference_tokens = [];
     static_theme = false;
+    prefix = None;
     custom_variants = [];
     container_variants = [];
   }
