@@ -156,6 +156,12 @@
 
 ### Arbitrary values and validation
 
+- Author CSS that reads a theme token declares it. `padding: --spacing(4)`
+  emitted `calc(var(--spacing) * 4)` with nothing declaring `--spacing`, and
+  `color: theme(--color-red-500)` dropped the declaration and the rule with it,
+  because the palette is catalogued rather than held in the token table and the
+  unresolved `theme()` was not CSS. The v3 `theme(colors.red.500)` spelling and
+  a project `@theme` token read through `var()` take the same path (#780).
 - A v3 opacity utility says so. `bg-opacity-50` and the `text-`, `border-`,
   `divide-`, `ring-` and `placeholder-` spellings are still refused, as
   Tailwind refuses them, but the message names the v4 replacement
