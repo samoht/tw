@@ -291,6 +291,45 @@ let test_reference_tailwindcss () =
         "box-sizing";
       ]
 
+let occurrences needle hay =
+  let n = String.length needle and len = String.length hay in
+  let rec go i acc =
+    if i + n > len then acc
+    else if String.sub hay i n = needle then go (i + n) (acc + 1)
+    else go (i + 1) acc
+  in
+  go 0 0
+
+(* [theme(static)] declares the whole theme once, in the generated sheet. An
+   [@apply] renders its utilities on its own, and an expansion that carried the
+   static theme along put another copy of every token, and of the default
+   animations' keyframes, beside each rule that applied something: the
+   tailwindcss.com sheet came out with nine theme blocks where the reference has
+   one. *)
+let test_static_theme_declared_once () =
+  let css =
+    compiled_with ~classes:[ "card" ] "static-once"
+      ~import:"@import \"tailwindcss\" theme(static) source(none);\n"
+      "@utility card { @apply p-4 rounded-lg; }\n\
+       .a { @apply m-2; }\n\
+       .b { @apply rounded-lg shadow-sm; }\n"
+  in
+  check int "one theme block" 1 (occurrences ":root,:host{" css);
+  check int "one @keyframes spin" 1 (occurrences "@keyframes spin" css)
+
+(* A class under a project's [@custom-variant] is routed around the generated
+   sheet: its utility renders on its own and the variant wraps what comes back.
+   That render carried the static theme too, so a [dark:] class brought a second
+   copy of the default keyframes, as tailwindcss.com's [dark:*] classes did. *)
+let test_static_theme_routed_once () =
+  let css =
+    compiled_with ~classes:[ "dark:p-4"; "dark:m-2" ] "static-routed"
+      ~import:"@import \"tailwindcss\" theme(static) source(none);\n"
+      "@custom-variant dark (&:where(.dark, .dark *));\n"
+  in
+  check int "one theme block" 1 (occurrences ":root,:host{" css);
+  check int "one @keyframes spin" 1 (occurrences "@keyframes spin" css)
+
 let suite =
   ( "project",
     [
@@ -306,4 +345,7 @@ let suite =
       test_case "tailwindcss sub-imports" `Quick test_sub_imports;
       test_case "@theme reference block" `Quick test_theme_reference_block;
       test_case "@reference tailwindcss" `Quick test_reference_tailwindcss;
+      test_case "static theme declared once" `Quick
+        test_static_theme_declared_once;
+      test_case "static theme routed once" `Quick test_static_theme_routed_once;
     ] )
