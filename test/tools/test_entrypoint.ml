@@ -821,7 +821,9 @@ let cases =
          "@theme { --color-brand: #1da1f2; } .btn { color: color-mix(in oklab, \
           var(--color-brand) 25%, transparent); }");
     case "property-author"
-      ~why:"an author @property gets no @supports initial-value fallback"
+      ~why:
+        "cascade's optimizer keeps initial-value: 0px in the @property where \
+         the reference minifies it to 0"
       (fenced
          "@property --my-x { syntax: \"<length>\"; inherits: false; \
           initial-value: 0px; } .a { --my-x: 2px; }");

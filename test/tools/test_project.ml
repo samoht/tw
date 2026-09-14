@@ -138,6 +138,36 @@ let test_theme_static_block () =
       ]
     ~absent:[ "--color-plain" ]
 
+(* A browser without [@property] never gives a registered property its initial
+   value, so Tailwind declares each one in the same [@supports]-guarded [@layer
+   properties] block it writes for its own: a non-inheriting property on every
+   element, an inheriting one on the root, [initial] where the rule names no
+   value. Only a top-level [@property] is shimmed, and the first of two with one
+   name is the one that counts. *)
+let test_author_property_fallback () =
+  check_rules
+    (compiled "author-property"
+       "@property --a { syntax: \"<length>\"; inherits: false; initial-value: \
+        0px; }\n\
+        @property --b { syntax: \"<color>\"; inherits: true; initial-value: \
+        red; }\n\
+        @property --c { syntax: \"*\"; inherits: false; }\n\
+        @property --e { syntax: \"<length>\"; inherits: false; initial-value: \
+        1px; }\n\
+        @property --e { syntax: \"<length>\"; inherits: false; initial-value: \
+        2px; }\n\
+        @layer components { @property --d { syntax: \"<length>\"; inherits: \
+        false; initial-value: 0px; } }\n")
+    ~present:
+      [
+        "@layer properties{";
+        "--a:0px";
+        ":root,:host{--b:red}";
+        "--c:initial";
+        "--e:1px";
+      ]
+    ~absent:[ "--e:2px"; "--d:" ]
+
 let suite =
   ( "project",
     [
@@ -148,4 +178,5 @@ let suite =
       test_case "important on the import" `Quick test_import_important;
       test_case "important elsewhere" `Quick test_import_important_scope;
       test_case "@theme static block" `Quick test_theme_static_block;
+      test_case "author @property fallback" `Quick test_author_property_fallback;
     ] )
