@@ -106,6 +106,9 @@
 - An `@theme static { … }` block declares its tokens whether or not a utility
   reads them, as `theme(static)` on the import does for the whole theme. The
   modifier was ignored, so a token only JavaScript reads was missing (#790).
+- A project's own `@property` gets the `@supports`-guarded initial value in
+  `@layer properties` that Tailwind writes for its own, so a browser without
+  `@property` still starts the variable at its declared value (#NNN).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).

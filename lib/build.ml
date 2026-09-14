@@ -1319,6 +1319,38 @@ let property_layer_content metadata fallback_order first_usage_order
   let layer_content = [ supports_stmt ] @ other_statements in
   Css.v [ Css.layer ~name:[ "properties" ] layer_content ]
 
+(* A project's own [@property] rules get the fallback block Tailwind writes for
+   its own: a browser without [@property] never applies an initial value, so
+   each is declared under the same browser-detection guard, a non-inheriting
+   property on every element and an inheriting one on the root. The first rule
+   of a name is the one that counts. *)
+let author_property_fallbacks property_rules =
+  let inheriting, other =
+    Property.dedup property_rules
+    |> List.filter_map (fun stmt ->
+        match Css.as_property stmt with
+        | Some (Css.Property_info { inherits; _ } as info) ->
+            Some (inherits, Var.property_initial_declaration info)
+        | None -> None)
+    |> List.partition fst
+  in
+  let rule selector = function
+    | [] -> []
+    | decls -> [ Css.rule ~selector (List.map snd decls) ]
+  in
+  match
+    rule Css.Selector.(list [ Root; host () ]) inheriting
+    @ rule
+        Css.Selector.(list [ universal; Before Single; After Single; Backdrop ])
+        other
+  with
+  | [] -> []
+  | rules ->
+      [
+        Css.layer ~name:[ "properties" ]
+          [ Css.supports ~condition:browser_detection rules ];
+      ]
+
 (* Build the properties layer with browser detection for initial values *)
 (* Returns (properties_layer, property_rules) - @property rules are separate *)
 let properties_layer metadata fallback_order first_usage_order

@@ -4193,6 +4193,14 @@ val theme_token_rename : theme:Scheme.t -> (string -> string) option
     project needs when serialising its sheet, and [None] when the project asked
     for no prefix. Pass it to {!Css.to_string} as [?rename_custom_property]. *)
 
+val property_fallbacks : Css.statement list -> Css.statement list
+(** [property_fallbacks rules] is the [\@layer properties] block that gives the
+    [\@property] rules among [rules] their initial values in a browser without
+    [\@property], under the guard the generated sheet uses for its own: a
+    non-inheriting property on every element, an inheriting one on the root,
+    [initial] where a rule names no value, and the first rule of a name winning.
+    It is empty when [rules] holds no [\@property]. *)
+
 val to_css :
   ?theme:Scheme.t ->
   ?base:bool ->

@@ -2269,6 +2269,14 @@ let declare_author_theme_tokens tokens stmts =
       in
       Css.layer ~name:[ "theme" ] [ Css.rule ~selector decls ] :: stmts
 
+(* The author's own top-level [@property] rules get the fallback block the
+   generated sheet writes for its own. Appended, so [merge_named_layers] folds
+   it into the sheet's [@layer properties] after the utilities' variables. *)
+let add_author_property_fallbacks author stmts =
+  match List.filter (fun s -> Option.is_some (Css.as_property s)) author with
+  | [] -> stmts
+  | rules -> stmts @ Tw.property_fallbacks rules
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
@@ -2309,6 +2317,7 @@ let splice_into_entrypoint ~theme ~path generated =
               | s -> [ s ])
           |> declare_author_theme_tokens
                (author_theme_tokens ~theme (Css.statements inlined))
+          |> add_author_property_fallbacks (Css.statements inlined)
           |> merge_named_layers |> collapse_property_fallbacks
           |> hoist_layer_blocks |> lead_properties_layer
           |> drop_unread_inline_tokens ~theme
