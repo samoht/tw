@@ -222,6 +222,9 @@
 
 ### Arbitrary values and validation
 
+- A text size's line height takes the `(--name)` shorthand: `text-sm/(--lh)`
+  compiles to `line-height:var(--lh)` beside the size, as Tailwind writes it.
+  It was an unknown class (#NNN).
 - A colour utility's `(--c)` shorthand takes an opacity modifier, as the bracket
   spelling does: `bg-(--c)/50`, `text-(--c)/50` and `bg-(--c)/(--o)` compile to
   Tailwind's `color-mix()` under `@supports`. They were unknown classes (#811).

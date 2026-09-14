@@ -488,6 +488,7 @@ module Typography_early = struct
     | No_leading (* /none → line-height: 1 *)
     | Named of string (* /snug → var(--leading-snug) *)
     | Bracket of string * Css.line_height (* /[4px] → 4px *)
+    | Var_shorthand of string (* /(--lh) → var(--lh) *)
 
   let name = "typography_early"
 
@@ -708,6 +709,10 @@ module Typography_early = struct
      counts the same as a built-in one. *)
   let parse_lh_modifier theme s =
     if s = "none" then Stdlib.Option.Some No_leading
+    else if Parse.is_bare_var s then
+      (* The [(--name)] shorthand reads the variable as the line height, the way
+         [[var(--name)]] does, and keeps its own spelling in the class. *)
+      Stdlib.Option.Some (Var_shorthand (Parse.bare_var_inner s))
     else if Parse.is_bracket_value s then
       let inner = Parse.bracket_inner s in
       match parse_bracket_leading inner with
@@ -927,6 +932,7 @@ module Typography_early = struct
     | No_leading -> "none"
     | Named name -> name
     | Bracket (v, _) -> "[" ^ v ^ "]"
+    | Var_shorthand name -> "(" ^ name ^ ")"
 
   let to_class = function
     | Text_xs -> "text-xs"
@@ -1451,6 +1457,7 @@ module Typography_early = struct
                 in
                 ([], Css.Var ref_)))
     | Bracket (_, lh) -> ([], lh)
+    | Var_shorthand name -> ([], Css.Var (Var.bracket ("var(" ^ name ^ ")")))
 
   (* A size the project declared carries no line height of its own, so the
      utility sets font-size alone unless a modifier asks for one. *)
