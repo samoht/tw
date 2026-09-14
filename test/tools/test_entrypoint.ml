@@ -848,9 +848,6 @@ let cases =
     case "import-prefix" ~classes:[ "tw:p-4" ]
       "@import \"tailwindcss\" prefix(tw) source(none);\n";
     case "import-theme-static"
-      ~why:
-        "the static theme leaves out the --text-*--line-height tokens and the \
-         keyframes"
       "@import \"tailwindcss\" theme(static) source(none);\n";
     case "reference"
       ~why:
