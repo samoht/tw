@@ -102,7 +102,7 @@
   included, while author CSS and what `@apply` pulls into it stay as written.
   The option was stripped unread. `Scheme.important` carries it (#788).
 - `transition-discrete` and `transition-normal` no longer declare the
-  `--default-transition-*` tokens, which nothing in their rules reads (#NNN).
+  `--default-transition-*` tokens, which nothing in their rules reads (#789).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
