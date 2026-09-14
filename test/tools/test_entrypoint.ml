@@ -863,15 +863,9 @@ let cases =
     case "source-not-inline" ~classes:[ "p-4"; "m-2" ]
       (fenced "@source not inline(\"m-2\");");
     case "tailwind-utilities" ~classes:[ "p-4" ]
-      ~why:
-        "tw emits the whole sheet where the file asks for the theme and the \
-         utilities alone"
       "@import \"tailwindcss/theme.css\" layer(theme);\n\
        @tailwind utilities source(none);\n";
     case "sub-imports" ~classes:[ "p-4" ]
-      ~why:
-        "tw emits the whole sheet where the file asks for the theme and the \
-         utilities alone"
       "@import \"tailwindcss/theme.css\" layer(theme);\n\
        @import \"tailwindcss/utilities.css\" layer(utilities) source(none);\n";
     case "transition-discrete" ~classes:[ "transition-discrete" ] (fenced "");

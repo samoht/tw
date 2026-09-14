@@ -199,6 +199,49 @@ let test_dashed_theme_function () =
       ]
     ~absent:[ "--theme("; "--color-blue-500" ]
 
+(* Each file under [tailwindcss/] is one part of the sheet, placed where it is
+   imported, inside the layer [layer()] names or unlayered without one:
+   [theme.css] the theme tokens a utility read, [utilities.css] and [@tailwind
+   utilities] the utilities. A project importing those two asked for no
+   preflight, so it gets neither the reset nor the font tokens only the reset
+   reads, and no layer it did not declare. *)
+let test_sub_imports () =
+  let theme_import = "@import \"tailwindcss/theme.css\" layer(theme);\n" in
+  check_rules
+    (compiled_with ~classes:[ "p-4" ] "sub-layered"
+       ~import:
+         (theme_import
+        ^ "@import \"tailwindcss/utilities.css\" layer(utilities) source(none);\n"
+         )
+       "")
+    ~present:
+      [
+        "@layer theme{:root,:host{--spacing:.25rem}}";
+        "@layer utilities{.p-4{padding:calc(var(--spacing)*4)}}";
+      ]
+    ~absent:[ "@layer base"; "@layer components"; "--font-sans"; "box-sizing" ];
+  check_rules
+    (compiled_with ~classes:[ "p-4" ] "sub-unlayered"
+       ~import:
+         "@import \"tailwindcss/theme.css\";\n\
+          @import \"tailwindcss/utilities.css\" source(none);\n"
+       "")
+    ~present:
+      [
+        ":root,:host{--spacing:.25rem}"; ".p-4{padding:calc(var(--spacing)*4)}";
+      ]
+    ~absent:[ "@layer"; "--font-sans"; "box-sizing" ];
+  check_rules
+    (compiled_with ~classes:[ "p-4" ] "sub-tailwind-directive"
+       ~import:(theme_import ^ "@tailwind utilities source(none);\n")
+       "")
+    ~present:
+      [
+        "@layer theme{:root,:host{--spacing:.25rem}}";
+        ".p-4{padding:calc(var(--spacing)*4)}";
+      ]
+    ~absent:[ "@layer utilities"; "@layer base"; "--font-sans"; "box-sizing" ]
+
 let suite =
   ( "project",
     [
@@ -211,4 +254,5 @@ let suite =
       test_case "@theme static block" `Quick test_theme_static_block;
       test_case "author @property fallback" `Quick test_author_property_fallback;
       test_case "--theme() in author CSS" `Quick test_dashed_theme_function;
+      test_case "tailwindcss sub-imports" `Quick test_sub_imports;
     ] )
