@@ -224,7 +224,7 @@
 
 - A colour utility's `(--c)` shorthand takes an opacity modifier, as the bracket
   spelling does: `bg-(--c)/50`, `text-(--c)/50` and `bg-(--c)/(--o)` compile to
-  Tailwind's `color-mix()` under `@supports`. They were unknown classes (#NNN).
+  Tailwind's `color-mix()` under `@supports`. They were unknown classes (#811).
 - `--alpha(<color> / <percentage>)` in author CSS compiles to the `color-mix()`
   it spells, with the legacy fallback and `@supports` arm beside it. It passed
   through unexpanded, which is not CSS, so the browser dropped the declaration
