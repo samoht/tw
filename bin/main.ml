@@ -10,8 +10,10 @@ let parse_classes ?(warn = true) ?(theme = Tw.Scheme.default) classes_str =
     (fun cls ->
       match Tw.of_string ~theme cls with
       | Ok style -> Some style
-      | Error _ ->
-          if warn then Fmt.epr "Warning: Unknown class '%s'@." cls;
+      | Error (`Msg msg) ->
+          (* The parser says why - a v3 spelling, a malformed arbitrary property
+             - and repeating "Unknown class" here threw that away. *)
+          if warn then Fmt.epr "Warning: %s@." msg;
           None)
     class_names
 
@@ -234,7 +236,7 @@ let print_stats ~quiet ~candidate_count ~known_count =
 let declares_plugin css name =
   match css with
   | None -> false
-  | Some css -> Tw.Strings.contains ~sub:("@tailwindcss/" ^ name) css
+  | Some css -> Re.execp (Re.compile (Re.str ("@tailwindcss/" ^ name))) css
 
 let is_prose_class cls =
   cls = "prose"

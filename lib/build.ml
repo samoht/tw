@@ -460,7 +460,7 @@ let add_index ?theme ?(declared = fun _ -> false) triples =
       in
       let media_key, nested_media_key = Sort.media_sort_keys typ nested in
       let responsive_media_key = Sort.responsive_media_key typ nested in
-      let variant_order = Rule.compute_variant_order ~selector_str base_class in
+      let variant_order = Rule.compute_variant_order ~selector:sel base_class in
       ({
          index = i;
          rule_type = typ;

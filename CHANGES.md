@@ -28,6 +28,12 @@
 - `-safe` alignment resolves on `center` and `end` only, as in Tailwind. The
   `-start-safe` classes stop being emitted, and `Alignment.content_start_safe`
   and `Alignment.place_items_start_safe` are removed (#679).
+- `Tw.Strings` is removed. Nothing in the library searches text any more: a
+  variant order is read off the selector's class node and an unresolved
+  `theme()` call off the token stream. The dev tools and the CLI, which grep
+  text no one typed, use `re`, so `re` is now a regular dependency rather than
+  a test-only one; it stays out of the `tw.dom` bundle, which links neither
+  (#774).
 
 ### Tailwind CSS 4.3.3
 
@@ -150,6 +156,12 @@
 
 ### Arbitrary values and validation
 
+- A v3 opacity utility says so. `bg-opacity-50` and the `text-`, `border-`,
+  `divide-`, `ring-` and `placeholder-` spellings are still refused, as
+  Tailwind refuses them, but the message names the v4 replacement
+  (`bg-<color>/50`) instead of reporting an unfamiliar name. The CLI's
+  `Warning:` line now carries whatever the parser said rather than always
+  `Unknown class` (#777).
 - A data-type hint comes off the front of any bracket, whatever the family does
   with what follows, and the value written after it is the one that reaches the
   sheet. `z-[integer:5]` wrote `z-index: integer:5` and
@@ -398,6 +410,10 @@
 
 ### Variants and selectors
 
+- `not-[:pseudo]` negates the pseudo-class rather than a class that happens to
+  be spelled like one. Only nine pseudo-classes were tabled, so
+  `not-[:target]`, `not-[:nth-child(2)]` and `not-[:has(.x)]` each negated a
+  class literally named `:target` and matched nothing (#775).
 - Variants compose in the combinations Tailwind allows. `group-*` and `peer-*`
   take any state and a name (`peer-checked/draft`), `has-*` takes any variant,
   a bare data attribute or a bracket selector (`has-[a]`, `has-peer-checked`),

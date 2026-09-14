@@ -562,25 +562,18 @@ let declaration_value_of s =
    forward: [p-[--theme(spacing.4)]] is the v4 spelling over a v3 dot path,
    which resolves to nothing and names no utility. *)
 let holds_unresolved_theme_call s =
-  (* [theme(] preceded by anything that cannot continue an identifier, so a
-     function whose name merely ends in "theme" does not match. *)
-  let needle = "theme(" in
-  let n = String.length needle and len = String.length s in
-  let rec scan i =
-    match Strings.index ~sub:needle (String.sub s i (len - i)) with
-    | None -> false
-    | Some off ->
-        let at = i + off in
-        let before = if at = 0 then ' ' else s.[at - 1] in
-        let opens_a_name =
-          match before with
-          | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> true
-          | '-' -> at >= 2 && s.[at - 2] <> '-'
-          | _ -> false
-        in
-        if opens_a_name then scan (at + n) else true
+  (* Tokenise rather than search for text: a [<function-token>] is an ident
+     immediately followed by [(], so the name is matched whole and a call
+     spelled inside a string or a comment is not a call at all. *)
+  let lexer = Cascade.Lexer.of_string s in
+  let rec scan () =
+    let token = Cascade.Lexer.next lexer in
+    match token.Cascade.Token.kind with
+    | Eof -> false
+    | Function ("theme" | "--theme") -> true
+    | _ -> scan ()
   in
-  scan 0
+  scan ()
 
 let arbitrary_declaration_value s =
   match Option.bind (value_after_hint s) declaration_value_of with

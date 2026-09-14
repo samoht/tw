@@ -31,7 +31,7 @@
   cmdliner
   dune-build-info
   fmt
-  (re :with-test)
+  re
   uutf
   (brr (>= 0.0.6))
   js_of_ocaml

@@ -41,11 +41,11 @@ val outputs :
     Lower-level entry point used when constructing rules from an already-parsed
     modifier/selector/props triple. Prefer {!outputs} for normal use. *)
 
-val compute_variant_order : selector_str:string -> string option -> int
-(** [compute_variant_order ~selector_str base_class] computes the sort key for
+val compute_variant_order : selector:Css.Selector.t -> string option -> int
+(** [compute_variant_order ~selector base_class] computes the sort key for
     modifier-prefixed rules. Returns 0 for plain rules; non-zero for rules
-    carrying a [not-*] or variant prefix. [selector_str] is the rendered
-    selector, which the caller already has. Used internally by {!Build}. *)
+    carrying a [not-*] or variant prefix. [selector] supplies the modifiers that
+    [base_class] no longer carries. Used internally by {!Build}. *)
 
 val modifier_to_rule :
   ?inner_has_hover:bool ->

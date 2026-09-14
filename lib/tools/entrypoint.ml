@@ -1,5 +1,21 @@
 module Css = Cascade.Css
 
+(* The patterns are literal, so they are compiled once here rather than per
+   call. [Re.str] quotes its argument, which matters for the wildcard ones: [-*]
+   is text the utility grammar spells, not a repetition operator. *)
+let wildcard_re = Re.compile (Re.str "-*")
+let double_wildcard_re = Re.compile (Re.str "-*-*")
+let bracket_opener_re = Re.compile (Re.str "-[")
+let paren_opener_re = Re.compile (Re.str "-(")
+
+let value_or_modifier_re =
+  Re.compile (Re.alt [ Re.str "--value("; Re.str "--modifier(" ])
+
+let re_index re s =
+  match Re.exec_opt re s with
+  | Some group -> Some (fst (Re.Group.offset group 0))
+  | None -> None
+
 let read_file path =
   let ic = open_in_bin path in
   Fun.protect
@@ -198,147 +214,10 @@ let builtin_variants =
    dropped. cascade's component values come out of CSS Syntax 3 sec. 5.4 already
    matched, and each carries the range of source it was parsed from, so the
    offsets are read off those. *)
-module Index = struct
-  open Cascade
-
-  type block = { body : string; next : int }
-  (** A [{ ... }] or [( ... )] body, and the offset just past its close. *)
-
-  type header = { prelude : string; brace : int; block : block }
-  (** An [@name PRELUDE { ... }] header: what stands between the at-keyword and
-      the [{], where that [{] is, and the block it opens. *)
-
-  type statement = { prelude : string; next : int }
-  (** A blockless at-rule's prelude and the offset after its semicolon. When a
-      closing brace terminates it, [next] points at that brace. *)
-
-  type t = {
-    call : (int, string * block) Hashtbl.t;
-        (** function-token offset -> the name it calls and its arguments *)
-    at : (int, string * header) Hashtbl.t;
-        (** at-keyword offset -> its at-name and its header *)
-    statement : (int, string * statement) Hashtbl.t;
-        (** at-keyword offset -> its at-name and blockless statement *)
-  }
-
-  (* Where the contents of a group end. One the source left open ends with the
-     source, which is where the parser ends it too. *)
-  let inner_end ~closed (loc : Loc.t) =
-    if closed then loc.end_pos - 1 else loc.end_pos
-
-  let group css ~from ~upto ~next =
-    { body = String.sub css from (upto - from); next }
-
-  let block_of css (b : Component.block Component.node) =
-    let upto = inner_end ~closed:b.node.closed b.loc in
-    group css ~from:(b.loc.start_pos + 1) ~upto ~next:b.loc.end_pos
-
-  (* A call's arguments start where its first one does; one that takes none has
-     an empty body against its own closer. *)
-  let call_of css (f : Component.func Component.node) =
-    let upto = inner_end ~closed:f.node.terminated f.loc in
-    let from =
-      match f.node.arguments with
-      | argument :: _ -> (Component.source_loc argument).start_pos
-      | [] -> upto
-    in
-    group css ~from ~upto ~next:f.loc.end_pos
-
-  (* The [{] an at-rule's prelude leads to. A group in the prelude is a single
-     component, so a [;] inside one does not end the at-rule. *)
-  let rec brace_of = function
-    | [] -> None
-    | Component.Block ({ node = { opening = Token.Curly; _ }; _ } as b) :: _ ->
-        Some b
-    | Component.Preserved { kind = Token.Semicolon | Token.Close _; _ } :: _ ->
-        None
-    | _ :: rest -> brace_of rest
-
-  (* The semicolon or enclosing closer that terminates a blockless at-rule. *)
-  let rec statement_end ~closer = function
-    | [] -> (closer, closer)
-    | Component.Preserved { kind = Token.Semicolon; loc; _ } :: _ ->
-        (loc.start_pos, loc.end_pos)
-    | Component.Preserved { kind = Token.Close Token.Curly; loc; _ } :: _ ->
-        (loc.start_pos, loc.start_pos)
-    | _ :: rest -> statement_end ~closer rest
-
-  let v css =
-    let t =
-      {
-        call = Hashtbl.create 16;
-        at = Hashtbl.create 16;
-        statement = Hashtbl.create 16;
-      }
-    in
-    let header name (at : Loc.t) rest =
-      match brace_of rest with
-      | None -> ()
-      | Some b ->
-          let brace = b.Component.loc.start_pos in
-          let prelude =
-            String.trim (String.sub css at.end_pos (brace - at.end_pos))
-          in
-          Hashtbl.replace t.at at.start_pos
-            (name, { prelude; brace; block = block_of css b })
-    in
-    let statement ~closer name (at : Loc.t) rest =
-      let upto, next = statement_end ~closer rest in
-      let prelude = String.sub css at.end_pos (upto - at.end_pos) in
-      Hashtbl.replace t.statement at.start_pos (name, { prelude; next })
-    in
-    let rec walk ~closer = function
-      | [] -> ()
-      | item :: rest ->
-          (match item with
-          | Component.Preserved { kind = Token.At_keyword name; loc; _ } ->
-              header name loc rest;
-              statement ~closer name loc rest
-          | Component.Preserved _ -> ()
-          | Component.Block b ->
-              walk ~closer:(inner_end ~closed:b.node.closed b.loc) b.node.value
-          | Component.Func f ->
-              Hashtbl.replace t.call f.loc.start_pos (f.node.name, call_of css f);
-              walk
-                ~closer:(inner_end ~closed:f.node.terminated f.loc)
-                f.node.arguments);
-          walk ~closer rest
-    in
-    let parsed = Parser.list_of_component_values (Reader.of_string css) in
-    walk ~closer:(String.length css) parsed.value;
-    t
-
-  (* [name( ... )] starting at [i]. *)
-  let call t ~name i =
-    match Hashtbl.find_opt t.call i with
-    | Some (n, block) when n = name -> Some block
-    | _ -> None
-
-  (* [@name PRELUDE { ... }] starting at [i]. An at-rule with no block of its
-     own is not one of these. *)
-  let at_rule t ~name i =
-    match Hashtbl.find_opt t.at i with
-    | Some (n, header) when "@" ^ n = name -> Some header
-    | _ -> None
-
-  (* A blockless [@name PRELUDE;] starting at [i]. *)
-  let at_statement t ~name i =
-    match Hashtbl.find_opt t.statement i with
-    | Some (n, statement) when "@" ^ n = name -> Some statement
-    | _ -> None
-
-  (* Every [name( ... )] in the source, with the offset each starts at. *)
-  let calls t ~name =
-    Hashtbl.fold
-      (fun i (n, block) acc -> if n = name then (i, block) :: acc else acc)
-      t.call []
-
-  (* Every blockless [@name PRELUDE;], the same way. *)
-  let at_statements t ~name =
-    Hashtbl.fold
-      (fun i (n, s) acc -> if "@" ^ n = name then (i, s) :: acc else acc)
-      t.statement []
-end
+(* Offsets into the entrypoint source, so a rewrite hands back the author's own
+   bytes. cascade owns the index; the callers below are the Tailwind-specific
+   part. *)
+module Index = Cascade.Source_index
 
 (* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
    variables a utility used. The option is not CSS, so it is read off the
@@ -547,6 +426,8 @@ let segment sep s =
   done;
   List.rev (Buffer.contents buf :: !pieces)
 
+let is_digit c = c >= '0' && c <= '9'
+
 (* A [<number>] as a candidate spells one: an optional sign, digits with at most
    one decimal point, and an optional exponent. *)
 let is_number text =
@@ -555,7 +436,7 @@ let is_number text =
   if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
   let digits () =
     let from = !i in
-    while !i < n && Tw.Strings.is_digit text.[!i] do
+    while !i < n && is_digit text.[!i] do
       incr i
     done;
     !i - from
@@ -599,7 +480,7 @@ let is_canonical_number text =
         ( String.sub text 0 i,
           Some (String.sub text (i + 1) (String.length text - i - 1)) )
   in
-  let digits s = s <> "" && String.for_all Tw.Strings.is_digit s in
+  let digits s = s <> "" && String.for_all is_digit s in
   digits whole
   && (String.length whole = 1 || whole.[0] <> '0')
   &&
@@ -683,10 +564,11 @@ let math_functions =
 
 (* A math function stands for the value it computes, so it reads as every
    numeric type. *)
-let has_math_fn text =
-  List.exists
-    (fun name -> Tw.Strings.contains ~sub:(name ^ "(") text)
-    math_functions
+let math_fn_re =
+  Re.compile
+    (Re.alt (List.map (fun name -> Re.str (name ^ "(")) math_functions))
+
+let has_math_fn text = Re.execp math_fn_re text
 
 let is_length text =
   has_math_fn text
@@ -745,7 +627,7 @@ let is_named_value s =
   s <> ""
   && String.for_all
        (fun c ->
-         Tw.Strings.is_digit c
+         is_digit c
          || (c >= 'a' && c <= 'z')
          || (c >= 'A' && c <= 'Z')
          || c = '_' || c = '.' || c = '%' || c = '-')
@@ -871,18 +753,18 @@ let parse_functional_candidates ~is_root cls =
         (* An arbitrary value ends the base, so what stands before its opener is
            the root outright rather than one of several the base could name. *)
         let arbitrary opener read =
-          match Tw.Strings.index ~sub:opener base with
+          match re_index opener base with
           | Some idx when is_root (String.sub base 0 idx) ->
               read (String.sub base 0 idx) idx
           | _ -> []
         in
         if base.[n - 1] = ']' then
-          arbitrary "-[" (fun root idx ->
+          arbitrary bracket_opener_re (fun root idx ->
               Option.to_list
                 (with_value
                    (root, Some (String.sub base (idx + 1) (n - idx - 1)))))
         else if base.[n - 1] = ')' then
-          arbitrary "-(" (fun root idx ->
+          arbitrary paren_opener_re (fun root idx ->
               Option.to_list
                 (Option.map
                    (fun value -> candidate root (Some value) None)
@@ -927,7 +809,7 @@ let normalize_value_arg arg =
     Buffer.contents buf
   in
   let rec collapse s =
-    match Tw.Strings.index ~sub:"-*-*" s with
+    match re_index double_wildcard_re s with
     | None -> s
     | Some i ->
         collapse
@@ -941,7 +823,7 @@ let normalize_value_arg arg =
     String.length arg >= 2
     && String.sub arg 0 2 = "--"
     && (not (String.contains arg '('))
-    && not (Tw.Strings.contains ~sub:"-*" arg)
+    && not (Re.execp wildcard_re arg)
   then arg ^ "-*"
   else arg
 
@@ -966,15 +848,7 @@ let theme_token_css ~theme name =
 (* Split [arg] on the wildcard [-*]: [--text-*--line-height] is the namespace
    [--text] and the sub-key [--line-height], and [--example-*] is a namespace
    with nothing behind it. *)
-let split_wildcard arg =
-  let rec go acc s =
-    match Tw.Strings.index ~sub:"-*" s with
-    | None -> List.rev (s :: acc)
-    | Some i ->
-        go (String.sub s 0 i :: acc)
-          (String.sub s (i + 2) (String.length s - i - 2))
-  in
-  go [] arg
+let split_wildcard arg = Re.split_delim wildcard_re arg
 
 (* A [--value] argument naming a theme namespace reads the entry the candidate
    names in it, and one naming a sub-key ([--text-*--line-height]) reads that
@@ -1185,10 +1059,8 @@ let functional_body ~theme ~body candidate =
         match piece with
         | Punctuation _ -> (piece, Keep "")
         | Declaration text ->
-            if
-              Tw.Strings.contains ~sub:"--value(" text
-              || Tw.Strings.contains ~sub:"--modifier(" text
-            then (piece, resolve_declaration ~theme ~candidate ~state text)
+            if Re.execp value_or_modifier_re text then
+              (piece, resolve_declaration ~theme ~candidate ~state text)
             else (piece, Keep text))
       (body_pieces body)
   in
