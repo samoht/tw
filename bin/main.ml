@@ -398,15 +398,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
   let theme =
     match css_content with
     | None -> Tw.Scheme.default
-    | Some css ->
-        let overrides, inline = Entrypoint.theme_overrides_of_css css in
-        let base =
-          if Entrypoint.imports_static_theme css then
-            { Tw.Scheme.default with static_theme = true }
-          else Tw.Scheme.default
-        in
-        let base = { base with prefix = Entrypoint.import_prefix css } in
-        Tw.Scheme.with_overrides ~inline base overrides
+    | Some css -> Entrypoint.theme_of_css css
   in
   let opts : gen_opts =
     {

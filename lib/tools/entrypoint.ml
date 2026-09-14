@@ -1279,6 +1279,48 @@ let theme_token_value theme name =
         (fun decl -> String.trim (Cascade.Css.declaration_value decl))
         (Tw.Color.Handler.theme_color_decl ~theme name)
 
+(* Tailwind's [--alpha(<color> / <percentage>)] is shorthand for compositing a
+   colour with its own alpha. It is not CSS, so a parser rejects the declaration
+   and it drops out of the output, leaving the element with no colour at all. It
+   spells the same [color-mix()] the author could have written, which is what
+   [authored_color_mix_fallbacks] then gives a legacy fallback and an
+   [@supports] arm - the shape the reference emits. *)
+let expand_alpha_fn css =
+  let index = Index.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Index.call index ~name:"--alpha" i with
+      | Some { body; next } -> (
+          match String.index_opt body '/' with
+          | None ->
+              Buffer.add_char buf css.[i];
+              go (i + 1)
+          | Some slash ->
+              let colour = String.trim (String.sub body 0 slash) in
+              let alpha =
+                String.trim
+                  (String.sub body (slash + 1) (String.length body - slash - 1))
+              in
+              Buffer.add_string buf
+                (String.concat ""
+                   [
+                     "color-mix(in oklab, ";
+                     colour;
+                     " ";
+                     alpha;
+                     ", transparent)";
+                   ]);
+              go next)
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
 (* [theme()] also takes the dotted path of a v3 config ([theme(fontSize.sm)]),
    which names the same token under its old namespace. *)
 let v3_theme_namespaces =
@@ -1682,7 +1724,9 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   in
   drop_directives
     (resolve_theme_fn ~theme
-       (expand_spacing_fn ~theme (expand_variants ~depth:0 defs (expand 0 css))))
+       (expand_alpha_fn
+          (expand_spacing_fn ~theme
+             (expand_variants ~depth:0 defs (expand 0 css)))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -2126,6 +2170,20 @@ let entry_defs take = function
       match read_file path with
       | exception Sys_error _ -> []
       | raw -> snd (take (strip_tailwind_import_options raw)))
+
+(* The theme a project's entrypoint asks for: its [\@theme] overrides, whether
+   it imported [theme(static)], and the prefix it named. One function so the CLI
+   and anything measuring the CLI build the same theme from the same file rather
+   than two that drift. *)
+let theme_of_css css =
+  let overrides, inline = theme_overrides_of_css css in
+  let base =
+    if imports_static_theme css then
+      { Tw.Scheme.default with static_theme = true }
+    else Tw.Scheme.default
+  in
+  let base = { base with prefix = import_prefix css } in
+  Tw.Scheme.with_overrides ~inline base overrides
 
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities

@@ -22,6 +22,11 @@ val imports_static_theme : string -> bool
     with [@import "tailwindcss" theme(static)], rather than only the variables
     its utilities read. *)
 
+val theme_of_css : string -> Tw.Scheme.t
+(** [theme_of_css css] is the theme the entrypoint [css] asks for: its [\@theme]
+    overrides, [theme(static)] and [prefix()]. The CLI builds its theme with
+    this, so a measurement against the CLI can build the same one. *)
+
 val import_prefix : string -> string option
 (** [import_prefix css] is the name [prefix(tw)] on the [\@import] asks for, and
     [None] when the import carries no such option. Every candidate is then
