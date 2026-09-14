@@ -126,7 +126,7 @@
 - `@reference "tailwindcss"` puts the theme in scope for `@apply` and emits
   none of it: no theme, base or utilities layer, and each token an applied
   utility reads carries its value as the `var()` fallback, so a component's
-  stylesheet resolves standalone rather than shipping the theme again (#NNN).
+  stylesheet resolves standalone rather than shipping the theme again (#796).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
