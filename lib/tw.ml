@@ -65,6 +65,7 @@ include Scroll
 include Arbitrary
 
 let theme_token_rename = Build.theme_token_rename
+let property_fallbacks = Build.author_property_fallbacks
 
 let to_css ?theme ?(base = Build.default_config.base) ?forms
     ?(layers = Build.default_config.layers) ?extra utilities =

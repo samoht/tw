@@ -30,6 +30,18 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "delay";
   Test_helpers.check_invalid_input (module Tw.Transitions.Handler) "ease"
 
+(* Tailwind spells the behaviour utilities [transition-normal] and
+   [transition-discrete] and compiles nothing for the property-length spellings,
+   which tw read and then printed under the short class, a rule no markup
+   written the long way matches. *)
+let test_behavior_long_spellings_refused () =
+  Test_helpers.check_invalid_input
+    (module Tw.Transitions.Handler)
+    "transition-behavior-normal";
+  Test_helpers.check_invalid_input
+    (module Tw.Transitions.Handler)
+    "transition-behavior-allow-discrete"
+
 (* duration-initial / ease-initial reset their channel var to the CSS initial
    keyword. *)
 let test_initial_resets () =
@@ -157,6 +169,25 @@ let test_default_transition_theme_survives_a_variant () =
       Alcotest.(check bool) (cls ^ " needs no defaults") false (declares cls))
     [ "transition-none"; "hover:transition-none"; "p-4" ]
 
+(* The behaviour utilities set [transition-behavior] and read neither default,
+   so, as the pinned CLI emits them, they declare neither. Whether a class needs
+   the defaults was read off the [transition] at the head of its name, and both
+   of these have one. *)
+let test_transition_behavior_needs_no_defaults () =
+  let declares cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        let css = Tw.to_css ~base:true [ u ] |> Tw.Css.to_string in
+        Astring.String.is_infix ~affix:"--default-transition-duration:" css
+        || Astring.String.is_infix
+             ~affix:"--default-transition-timing-function:" css
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool) (cls ^ " declares no defaults") false (declares cls))
+    [ "transition-discrete"; "transition-normal"; "hover:transition-discrete" ]
+
 (* Values of one candidate are one registration slot in Tailwind. A numeric
    suborder per delay value used to let duration rules leak between them. *)
 let test_delay_candidate_band () =
@@ -203,6 +234,10 @@ let tests =
       Alcotest.test_case "project ease token" `Quick test_project_ease_token;
       Alcotest.test_case "default transition theme survives a variant" `Quick
         test_default_transition_theme_survives_a_variant;
+      Alcotest.test_case "transition behaviour needs no defaults" `Quick
+        test_transition_behavior_needs_no_defaults;
+      Alcotest.test_case "long behaviour spellings refused" `Quick
+        test_behavior_long_spellings_refused;
       Alcotest.test_case "delay candidate band" `Quick test_delay_candidate_band;
       Alcotest.test_case "initial reset boundary" `Quick
         test_initial_reset_boundary;

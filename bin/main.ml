@@ -141,29 +141,42 @@ let unknown_class_error ~theme class_str =
   | Error (`Msg m) -> Fmt.str "Error: %s" m
   | Ok _ -> Fmt.str "Error: Unknown class: %s" class_str
 
+(* The sheet for the class string of [-s]. With an entrypoint, a utility it
+   declares is routed the way the scanning form routes it, and none of the
+   entrypoint's own CSS is spliced in: this path answers for the classes alone.
+   [None] when nothing reads any of them. *)
+let single_class_sheet ~(opts : gen_opts) ~base class_str =
+  match opts.input_css_path with
+  | None -> (
+      match parse_classes ~warn:false ~theme:opts.theme class_str with
+      | [] when class_str <> "" -> None
+      | styles -> Some (Tw.to_css ~theme:opts.theme ~base styles))
+  | Some _ as entrypoint ->
+      let count, sheet =
+        Tw_tools.Project.utilities ~theme:opts.theme ?entrypoint ~base
+          (Tw_tools.Source_scan.split_whitespace class_str)
+      in
+      if count = 0 && class_str <> "" then None else Some sheet
+
 let diff_single_class class_str ~(opts : gen_opts) =
   try
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
         ~forms:true ?input_css:opts.input_css [ class_str ]
     in
-    let tw_styles = parse_classes ~warn:false ~theme:opts.theme class_str in
-    let styles = match tw_styles with [] -> [] | s -> s in
-    let stylesheet = Tw.to_css ~theme:opts.theme ~base:true styles in
-    let our_css = render_css ~opts stylesheet in
-    let diff =
-      Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
-    in
-    match tw_styles with
-    | [] when class_str = "" ->
-        print_diff_result " (empty/base only)" diff;
-        `Ok ()
-    | [] -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
-    | _ ->
-        print_oracle_note [ class_str ];
-        print_diff_result
-          (Fmt.str " between Tailwind and tw for '%s'" class_str)
-          diff;
+    match single_class_sheet ~opts ~base:true class_str with
+    | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
+    | Some stylesheet ->
+        let our_css = render_css ~opts stylesheet in
+        let diff =
+          Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
+        in
+        if class_str = "" then print_diff_result " (empty/base only)" diff
+        else (
+          print_oracle_note [ class_str ];
+          print_diff_result
+            (Fmt.str " between Tailwind and tw for '%s'" class_str)
+            diff);
         `Ok ()
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
@@ -187,15 +200,9 @@ let process_single_class class_str flag ~(opts : gen_opts) =
           ))
   | Native -> (
       let include_base = eval_flag flag ~default:false in
-      let tw_styles = parse_classes ~warn:false ~theme:opts.theme class_str in
-      let styles = match tw_styles with [] -> [] | s -> s in
-      match tw_styles with
-      | [] when class_str <> "" ->
-          `Error (false, unknown_class_error ~theme:opts.theme class_str)
-      | _ ->
-          let stylesheet =
-            Tw.to_css ~theme:opts.theme ~base:include_base styles
-          in
+      match single_class_sheet ~opts ~base:include_base class_str with
+      | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
+      | Some stylesheet ->
           print_string (render_css ~opts stylesheet);
           `Ok ())
 
@@ -233,97 +240,14 @@ let print_stats ~quiet ~candidate_count ~known_count =
     Fmt.epr "Candidate tokens scanned: %d@." candidate_count;
     Fmt.epr "Successfully parsed: %d@." known_count)
 
-(* [prose] comes from @tailwindcss/typography, which Tailwind only applies when
-   the entrypoint asks for it. A project that styles [.prose] itself, as
-   tailwindcss.com does, gets the plugin's whole stylesheet on top otherwise. *)
-let declares_plugin css name =
-  match css with
-  | None -> false
-  | Some css -> Re.execp (Re.compile (Re.str ("@tailwindcss/" ^ name))) css
-
-let is_prose_class cls =
-  cls = "prose"
-  || String.starts_with ~prefix:"prose-" cls
-  ||
-  (* variants keep the utility at the end: [lg:prose-sm] *)
-  match String.rindex_opt cls ':' with
-  | Some i ->
-      let bare = String.sub cls (i + 1) (String.length cls - i - 1) in
-      bare = "prose" || String.starts_with ~prefix:"prose-" bare
-  | None -> false
-
-let parse_known_candidates ?(theme = Tw.Scheme.default) ?input_css candidates =
-  let typography = declares_plugin input_css "typography" in
-  List.filter_map
-    (fun cls ->
-      if (not typography) && is_prose_class cls then None
-      else
-        match Tw.of_string ~theme cls with
-        | Ok style -> (
-            (* A handler may accept a class at parse yet raise when it renders
-               an arbitrary value it cannot serialise, as the docs'
-               [prop-[<value>]] placeholders do. Such a class produces no rule,
-               so drop it rather than let it abort the whole sheet. *)
-            match Tw.to_css ~theme [ style ] with
-            | (_ : Css.t) -> Some (cls, style)
-            | exception
-                (Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _)
-              ->
-                None)
-        | Error _ -> None)
-    candidates
-
 let scanned_classes paths =
   collect_files paths
   |> List.concat_map Tw_tools.Source_scan.candidates_from_file
   |> List.sort_uniq String.compare
 
-(* The whole sheet tw generates for a scanned project: the built-in utilities,
-   the classes the project's own [@utility] and [@custom-variant] declarations
-   route, and the entrypoint all of it is spliced into. A comparison against the
-   real Tailwind has to be made against this, not against the built-in utilities
-   alone: Tailwind reads the same entrypoint, so every declared utility would
-   otherwise read as a rule tw failed to emit. *)
 let native_stylesheet ~(opts : gen_opts) ~include_base all_classes =
-  let defs = Entrypoint.entry_variant_defs opts.input_css_path in
-  let udefs = Entrypoint.entry_utility_defs opts.input_css_path in
-  let routed, normal =
-    List.partition (Entrypoint.is_custom_routed ~defs ~udefs) all_classes
-  in
-  let known =
-    parse_known_candidates ~theme:opts.theme ?input_css:opts.input_css normal
-  in
-  let routed_count, routed_extra, routed_stmts =
-    Entrypoint.custom_routed_utilities ~theme:opts.theme ~defs ~udefs routed
-  in
-  (* Routed custom variants no longer pass through the typed modifier parser,
-     but the sorter still needs their exact names so a declaration such as
-     [not-dark] is not mistaken for the built-in [not-] compound slot. Dummy
-     selector values are sufficient here: routed candidates already carry the
-     expanded author CSS in [extra], and only the registered names are read. *)
-  let sort_theme =
-    let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
-    let custom_variants =
-      List.fold_left
-        (fun variants (name, _) ->
-          if List.mem_assoc name variants then variants
-          else (name, custom) :: variants)
-        opts.theme.custom_variants defs
-    in
-    { opts.theme with custom_variants }
-  in
-  let stylesheet =
-    Tw.to_css ~theme:sort_theme ~base:include_base ~extra:routed_extra
-      (List.map snd known)
-  in
-  let stylesheet = Entrypoint.place_routed routed_stmts stylesheet in
-  let stylesheet =
-    match opts.input_css_path with
-    | Some path ->
-        Entrypoint.splice_into_entrypoint ~theme:opts.theme ~path stylesheet
-    | None -> stylesheet
-  in
-  (List.length known + routed_count, stylesheet)
+  Tw_tools.Project.stylesheet ~theme:opts.theme ?entrypoint:opts.input_css_path
+    ~base:include_base all_classes
 
 let diff_files paths ~(opts : gen_opts) =
   try
@@ -377,6 +301,28 @@ let process_files paths flag ~(opts : gen_opts) =
           ))
   | Native -> native_files paths flag ~opts
 
+(* A v3 [@config] names a JavaScript config, which tw does not evaluate, so an
+   entrypoint carrying one is refused rather than compiled without the theme it
+   would add. The Tailwind backend reads the config itself, so only tw's own
+   compile refuses it. *)
+let js_config_refusal ~backend ~input_css css_content =
+  match (backend, input_css, css_content) with
+  | (Native | Diff), Some path, Some css -> (
+      match Entrypoint.config_directives css with
+      | [] -> None
+      | config :: _ ->
+          Some
+            (String.concat ""
+               [
+                 "Error: ";
+                 path;
+                 ": @config ";
+                 config;
+                 " loads a JavaScript config, which tw does not evaluate; \
+                  declare its theme in an @theme block instead";
+               ]))
+  | _ -> None
+
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     ~input_css ~diff_mode paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
@@ -413,12 +359,16 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       diff_mode;
     }
   in
-  match single_class with
-  | Some class_str -> process_single_class class_str base_flag ~opts
+  match js_config_refusal ~backend ~input_css css_content with
+  | Some message -> `Error (false, message)
   | None -> (
-      match paths with
-      | [] -> `Error (true, "Either provide -s <class> or file/directory paths")
-      | paths -> process_files paths base_flag ~opts)
+      match single_class with
+      | Some class_str -> process_single_class class_str base_flag ~opts
+      | None -> (
+          match paths with
+          | [] ->
+              `Error (true, "Either provide -s <class> or file/directory paths")
+          | paths -> process_files paths base_flag ~opts))
 
 (* Command-line arguments *)
 let single_flag =

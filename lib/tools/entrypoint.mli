@@ -32,11 +32,31 @@ val import_prefix : string -> string option
     [None] when the import carries no such option. Every candidate is then
     spelled [tw:p-4] and every theme token declared as [--tw-spacing]. *)
 
+val imports_important : string -> bool
+(** [imports_important css] is [true] when [css] imports the package with
+    [@import "tailwindcss" important], which marks every declaration a utility
+    emits [!important]. *)
+
+val config_directives : string -> string list
+(** [config_directives css] is what each [\@config] directive in [css] names, as
+    written and in source order: a v3 JavaScript config, which tw does not
+    evaluate. The CLI refuses an entrypoint for which this is not empty. *)
+
 val theme_overrides_of_css : string -> (string * string) list * string list
 (** [theme_overrides_of_css css] is the [(bare-name, value)] pairs the [@theme]
     blocks of [css] declare, together with the names among them that came from
     an [@theme inline] block. Both feed {!Tw.Scheme.with_overrides}, so tw
     renders with the tokens Tailwind reads from the same file. *)
+
+(** {1 Sources} *)
+
+val source_inline : string -> string list * string list
+(** [source_inline css] is the candidates the [@source inline("...")] directives
+    of [css] safelist, and those its [@source not inline("...")] directives
+    block. Each argument is a space-separated list of patterns, expanded the way
+    Tailwind expands braces: [{hover:,}bg-red-{500,600}] is four candidates and
+    [p-{0..8..4}] three. A blocked candidate is left out wherever it comes from,
+    the markup included. *)
 
 (** {1 Declared variants and utilities} *)
 
@@ -128,9 +148,9 @@ val apply_variants :
   string
 (** [apply_variants ?extra_defs ?udefs ~theme css] runs the whole expansion over
     author CSS: [@apply] pulls in utilities, [@variant] and the declared
-    variants wrap them, [--spacing()] and [theme()] resolve against [theme], and
-    the directives themselves are dropped. [extra_defs] adds variant
-    declarations from outside [css], [udefs] the [@utility] ones. *)
+    variants wrap them, [--spacing()], [theme()] and [--theme()] resolve against
+    [theme], and the directives themselves are dropped. [extra_defs] adds
+    variant declarations from outside [css], [udefs] the [@utility] ones. *)
 
 val nest_on_ampersand :
   classes:string list -> Cascade.Selector.t -> Cascade.Selector.t
@@ -140,6 +160,13 @@ val nest_on_ampersand :
     [classes] gives up its leftmost class instead. *)
 
 (** {1 Splicing} *)
+
+val imports_preflight : string -> bool
+(** [imports_preflight css] is [true] unless [css] imports Tailwind only in
+    parts that leave the reset out: [tailwindcss/theme.css] and
+    [tailwindcss/utilities.css] (or [\@tailwind utilities]) without
+    [tailwindcss/preflight.css]. An entrypoint that does not import Tailwind at
+    all is [true], as nothing it splices depends on it. *)
 
 val splice_into_entrypoint :
   theme:Tw.Scheme.t -> path:string -> Cascade.Css.t -> Cascade.Css.t

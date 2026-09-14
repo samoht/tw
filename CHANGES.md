@@ -84,14 +84,62 @@
   candidate that raises while rendering an arbitrary value is dropped rather
   than aborting the run (#142, #144).
 - A functional `@utility name-*` resolves `--value()` and `--modifier()`, and
-  `@apply` of one produces its declarations instead of nothing. A token a
-  utility only reads through `var()` is now declared in the theme layer whatever
-  its family, `--spacing(N)` is multiplied out where the project inlines
-  `--spacing`, and an `@theme reference` block is represented (#554).
+  `@apply` of any utility the stylesheet declares produces its declarations
+  instead of nothing, in author CSS as in another utility. A token a utility
+  only reads through `var()` is now declared in the theme layer whatever its
+  family, `--spacing(N)` is multiplied out where the project inlines
+  `--spacing`, and an `@theme reference` block is represented (#554, #785).
 - Functional utilities follow Tailwind's declaration-count ordering, parity
   comparisons keep author custom properties, and a folded zero-spacing utility
   omits the internal `--spacing` carrier it no longer reads (#650, #651, #655).
 - Every `@utility` declared for one name applies, not only the first (#550).
+- `@source inline("…")` safelists its classes and `@source not inline("…")`
+  blocks them, markup included, with Tailwind's brace patterns
+  (`{hover:,}bg-red-{500,600}`, `p-{0..8..4}`). Both were dropped unread, so a
+  runtime-only class got no rule (#787).
+- `@import "tailwindcss" important` marks every utility declaration
+  `!important`, variants, the `!` suffix and declared `@utility` rules
+  included, while author CSS and what `@apply` pulls into it stay as written.
+  The option was stripped unread. `Scheme.important` carries it (#788).
+- `transition-behavior-normal` and `transition-behavior-allow-discrete` are
+  refused, as Tailwind compiles nothing for them. They compiled to a rule for
+  `transition-normal` and `transition-discrete`, which no markup written the
+  long way matches (#797).
+- `transition-discrete` and `transition-normal` no longer declare the
+  `--default-transition-*` tokens, which nothing in their rules reads (#789).
+- An `@theme static { … }` block declares its tokens whether or not a utility
+  reads them, as `theme(static)` on the import does for the whole theme. The
+  modifier was ignored, so a token only JavaScript reads was missing (#790).
+- A project's own `@property` gets the `@supports`-guarded initial value in
+  `@layer properties` that Tailwind writes for its own, so a browser without
+  `@property` still starts the variable at its declared value (#791).
+- `--theme()` in author CSS resolves: to a `var()` the theme layer declares, with
+  its fallback, or to the value under `inline` and in a media query. It passed
+  through unexpanded, which no browser reads (#792).
+- `@import "tailwindcss/theme.css"`, `tailwindcss/utilities.css` and
+  `@tailwind utilities` each bring their own part of the sheet, in the layer
+  `layer()` names or unlayered without one. Any `tailwindcss/…` import brought
+  the whole sheet, preflight included (#793).
+- `theme(static)` declares every `--text-*--line-height` token and emits the
+  `@keyframes` of the default animations, which the whole theme carries and
+  tw left out (#794).
+- An `@theme reference` block declares nothing: its tokens stay out of the theme
+  layer, and a utility reading one carries the block's value as its `var()`
+  fallback, as it resolves in the reference. They were declared like any other
+  token (#795).
+- `@reference "tailwindcss"` puts the theme in scope for `@apply` and emits
+  none of it: no theme, base or utilities layer, and each token an applied
+  utility reads carries its value as the `var()` fallback, so a component's
+  stylesheet resolves standalone rather than shipping the theme again (#796).
+- `@apply prose` keeps the `.prose` the typography plugin names inside its own
+  selectors, so the nested-list spacing it scopes to a `.prose` descendant no
+  longer applies under the rule doing the applying (#799).
+- `tw -s CLASS --input-css ENTRY` generates a utility the entrypoint declares
+  with `@utility`, as the scanning form does, `--diff` included. It answered
+  "Unknown class" (#798).
+- An entrypoint carrying a v3 `@config` is refused: `tw` exits with an error
+  naming the file and pointing at `@theme`. It compiled the sheet without the
+  JavaScript config's theme and dropped every rule that read it (#800).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).

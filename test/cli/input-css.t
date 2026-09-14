@@ -282,3 +282,22 @@ entrypoint expands its [@layer] list in place, and the standalone
   > EOF
   $ tw --input-css slots.css index.html | grep -c '^@layer components;'
   1
+
+A v3 [@config] names a JavaScript config, which tw does not evaluate. An
+entrypoint carrying one is refused, on the scanning path and the single-class
+one alike, rather than compiled without the theme the config would add:
+
+  $ cat > config.css <<EOF
+  > @import "tailwindcss";
+  > @config "./tailwind.config.js";
+  > EOF
+  $ tw --minify --input-css config.css index.html
+  tw: Error: config.css: @config "./tailwind.config.js" loads a JavaScript
+      config, which tw does not evaluate; declare its theme in an @theme block
+      instead
+  [124]
+  $ tw --minify --input-css config.css -s flex
+  tw: Error: config.css: @config "./tailwind.config.js" loads a JavaScript
+      config, which tw does not evaluate; declare its theme in an @theme block
+      instead
+  [124]

@@ -11,7 +11,6 @@ that is not one of Tailwind's is the author's own and passes through.
   > @tailwind utilities;
   > @source "./src/**/*.html";
   > @plugin "@tailwindcss/typography";
-  > @config "./tailwind.config.js";
   > @reference "./ref.css";
   > @theme { --animate-wiggle: wiggle 1s ease-in-out infinite; }
   > @theme inline { --font-mine: Georgia, serif; }
@@ -30,9 +29,6 @@ that is not one of Tailwind's is the author's own and passes through.
   0
   [1]
   $ grep -c -- '@plugin' out.css
-  0
-  [1]
-  $ grep -c -- '@config' out.css
   0
   [1]
   $ grep -c -- '@reference' out.css

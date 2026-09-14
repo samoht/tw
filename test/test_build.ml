@@ -1270,6 +1270,41 @@ let test_static_theme_respects_project_tokens () =
   out_of_reach "a removed token"
     (Tw.Scheme.with_overrides static [ ("spacing", "initial") ])
 
+(* [theme(static)] asks for the whole theme, and the reference's whole theme
+   carries every text size's line-height and the [@keyframes] its default
+   animations name, whether a utility reads them or not. *)
+let test_static_theme_is_complete () =
+  let static = { Tw.Scheme.default with static_theme = true } in
+  let css =
+    Tw.to_css ~theme:static ~base:false [] |> Tw.Css.to_string ~minify:true
+  in
+  List.iter
+    (fun size ->
+      let token = "--text-" ^ size ^ "--line-height:" in
+      check bool (token ^ " declared") true
+        (Astring.String.is_infix ~affix:token css))
+    [
+      "xs";
+      "sm";
+      "base";
+      "lg";
+      "xl";
+      "2xl";
+      "3xl";
+      "4xl";
+      "5xl";
+      "6xl";
+      "7xl";
+      "8xl";
+      "9xl";
+    ];
+  List.iter
+    (fun name ->
+      let rule = "@keyframes " ^ name in
+      check bool (rule ^ " emitted") true
+        (Astring.String.is_infix ~affix:rule css))
+    [ "spin"; "ping"; "pulse"; "bounce" ]
+
 (* [--default-font-family] is derived from [--font-sans]: a project that took
    the family out of its theme leaves the derived token naming nothing, and
    Tailwind drops it rather than emitting a reference that never resolves. *)
@@ -1367,6 +1402,7 @@ let tests =
       test_theme_layer_emits_read_project_token;
     test_case "static theme respects project tokens" `Quick
       test_static_theme_respects_project_tokens;
+    test_case "static theme is complete" `Quick test_static_theme_is_complete;
     test_case "rule_sets_injects_hover_media_query" `Quick
       test_rule_sets_hover_media;
     test_case "rule_sets_groups_md_media_query" `Quick test_rule_sets_md_media;

@@ -135,3 +135,21 @@ the theme, not after the utilities it initialises.
   @layer properties{
   @layer theme{
   @layer utilities{
+
+The single-class path routes a utility the entrypoint declares, static or
+functional, the way the scanning form does. It reads the entrypoint for its
+declarations and emits none of the entrypoint's own CSS:
+
+  $ cat > single.css <<EOF
+  > @import "tailwindcss";
+  > @utility card { tab-size: 8; }
+  > @utility bar-* { tab-size: --value(integer); }
+  > .page { display: grid }
+  > EOF
+  $ tw --minify --input-css single.css -s card | grep -cF '.card{tab-size:8}'
+  1
+  $ tw --minify --input-css single.css -s bar-2 | grep -cF '.bar-2{tab-size:2}'
+  1
+  $ tw --minify --input-css single.css -s card | grep -c 'page'
+  0
+  [1]

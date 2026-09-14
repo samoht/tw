@@ -2429,6 +2429,12 @@ let written_with_prefix p output =
       let selector, base_class = moved r.selector r.base_class in
       Output.Supports_query { r with selector; base_class }
 
+(* [important] on the import marks every utility whatever dresses it, the way
+   the [!] suffix marks one, so it goes on the finished style. *)
+let utility_style theme util =
+  let style = Utility.to_style theme util in
+  if theme.Scheme.important then Style.map_important style else style
+
 let outputs ?(theme = Scheme.default) ?order_tbl util =
   let rec utility_order = function
     | Utility.Base b -> Some (Utility.order b)
@@ -2478,7 +2484,7 @@ let outputs ?(theme = Scheme.default) ?order_tbl util =
      again at every modifier. *)
   let class_name = Utility.to_class util in
   let prefix = theme.Scheme.prefix in
-  let style = Utility.to_style theme util in
+  let style = utility_style theme util in
   let results = extract_with_class class_name util style in
   match prefix with
   | None -> results

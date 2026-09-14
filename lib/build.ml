@@ -707,9 +707,13 @@ let apply_token_override theme decl =
   | Some full_name
     when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
       let bare = String.sub full_name 2 (String.length full_name - 2) in
-      match Scheme.token_override theme bare with
-      | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
-      | None -> if Scheme.is_removed theme bare then None else Some decl)
+      (* An [@theme reference] token is declared somewhere else, so it has no
+         declaration here to override. *)
+      if Scheme.is_reference_token theme bare then None
+      else
+        match Scheme.token_override theme bare with
+        | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
+        | None -> if Scheme.is_removed theme bare then None else Some decl)
   | _ -> Some decl
 
 (* Check if declaration name is a default font family indirection *)
@@ -954,12 +958,28 @@ let keep_extracted_theme_decl ~theme ~referenced decl =
   | Some name -> Strings.mem name referenced
   | None -> false
 
+(* A token an [@theme static] block declared is declared whether or not a
+   utility reads it, with the value the block gave it. A namespace reset in such
+   a block names no token. *)
+let static_block_decls ~theme have =
+  List.filter_map
+    (fun name ->
+      if String.contains name '*' || Strings.mem ("--" ^ name) have then None
+      else
+        Option.map
+          (fun css -> Css.custom_property ~layer:"theme" ("--" ^ name) css)
+          (Scheme.token_override theme name))
+    theme.Scheme.static_tokens
+
 (* [theme(static)] on the package import emits every theme variable, not only
    the ones a utility used. The palette is by far the biggest part of it. A
    token the project declared in an [\@theme inline] or [\@theme reference]
    block is the exception: those blocks say the sheet declares it nowhere, and
    asking for the whole theme does not undo that. *)
 let add_static_theme_decls ~theme extracted =
+  let extracted =
+    extracted @ static_block_decls ~theme (names_set_of extracted)
+  in
   if not theme.Scheme.static_theme then extracted
   else
     let have = names_set_of extracted in
@@ -1303,6 +1323,38 @@ let property_layer_content metadata fallback_order first_usage_order
   let layer_content = [ supports_stmt ] @ other_statements in
   Css.v [ Css.layer ~name:[ "properties" ] layer_content ]
 
+(* A project's own [@property] rules get the fallback block Tailwind writes for
+   its own: a browser without [@property] never applies an initial value, so
+   each is declared under the same browser-detection guard, a non-inheriting
+   property on every element and an inheriting one on the root. The first rule
+   of a name is the one that counts. *)
+let author_property_fallbacks property_rules =
+  let inheriting, other =
+    Property.dedup property_rules
+    |> List.filter_map (fun stmt ->
+        match Css.as_property stmt with
+        | Some (Css.Property_info { inherits; _ } as info) ->
+            Some (inherits, Var.property_initial_declaration info)
+        | None -> None)
+    |> List.partition fst
+  in
+  let rule selector = function
+    | [] -> []
+    | decls -> [ Css.rule ~selector (List.map snd decls) ]
+  in
+  match
+    rule Css.Selector.(list [ Root; host () ]) inheriting
+    @ rule
+        Css.Selector.(list [ universal; Before Single; After Single; Backdrop ])
+        other
+  with
+  | [] -> []
+  | rules ->
+      [
+        Css.layer ~name:[ "properties" ]
+          [ Css.supports ~condition:browser_detection rules ];
+      ]
+
 (* Build the properties layer with browser detection for initial values *)
 (* Returns (properties_layer, property_rules) - @property rules are separate *)
 let properties_layer metadata fallback_order first_usage_order
@@ -1526,15 +1578,20 @@ let has_pseudo_elements tw_classes =
    [transition-*] rule reads, so a sheet carrying one of those utilities needs
    them however the utility is dressed. Reading the name off the emitted class
    missed [hover:transition] and every other variant, whose class is
-   [hover:transition], and the rule then referenced a variable nothing
-   declared. *)
+   [hover:transition], and the rule then referenced a variable nothing declared.
+   The classes that start with [transition] and set no property to transition
+   read neither: [transition-none], and the behaviour utilities. *)
+let reads_no_transition_defaults = function
+  | "transition-none" | "transition-discrete" | "transition-normal" -> true
+  | _ -> false
+
 let has_transition_utility tw_classes =
   let rec check = function
     | Utility.Base b ->
         let c = Utility.class_of_base b in
         String.length c >= 10
         && String.sub c 0 10 = "transition"
-        && not (String.equal c "transition-none")
+        && not (reads_no_transition_defaults c)
     | Utility.Modified (_, u)
     | Utility.Important (_, u)
     | Utility.Aliased (_, u)
@@ -1617,6 +1674,13 @@ let sort_keyframes_by_var_order metadata keyframes =
       if order_cmp <> 0 then order_cmp
       else String.compare name1 name2 (* Stable sort for same order *))
 
+(* [theme(static)] asks for the whole theme, and the default theme's animations
+   name these keyframes whether a utility uses them or not. They follow the ones
+   a utility pulled in, which the dedup keeps. *)
+let with_static_keyframes ~theme keyframes =
+  if not theme.Scheme.static_theme then keyframes
+  else keyframes @ List.filter_map Css.as_keyframes Animations.builtin_keyframes
+
 (** Build all CSS layers from utilities and rules *)
 let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     tw_classes statements =
@@ -1663,6 +1727,7 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     List.fold_left collect_keyframes [] styles
     |> List.rev
     |> sort_keyframes_by_var_order metadata
+    |> with_static_keyframes ~theme
   in
   assemble_all_layers ~layers ~include_base
     ~properties_layer:individual.properties_layer
@@ -1841,6 +1906,57 @@ let theme_token_rename ~theme =
           if String.length name > 3 && String.sub name 0 3 = "tw-" then name
           else prefix ^ "-" ^ name)
 
+(* A declared utility means nothing to the handlers, so its order arrives with
+   it and is seeded under the same key [order_of_base] looks up. The key is the
+   base name, which a plain utility of the same name shares: seed it only when
+   it is free, so an incoming order never moves a rule the handlers already
+   placed. A declared utility is a utility, so [important] on the import marks
+   it as it marks a built-in one. *)
+let declared_outputs ~theme order_map extra =
+  List.map
+    (fun (class_name, order, statements) ->
+      let key = extract_base_utility class_name in
+      if not (Hashtbl.mem order_map key) then Hashtbl.add order_map key order;
+      let statements =
+        if theme.Scheme.important then List.map Style.important_stmt statements
+        else statements
+      in
+      ( class_name,
+        order,
+        List.concat_map (outputs_of_statement ~base_class:class_name) statements
+      ))
+    extra
+
+(* The value a reference token carries as its fallback: the project's own, the
+   registered default, or the palette's, which [Scheme] does not hold. *)
+let reference_value ~theme bare =
+  match Scheme.token theme bare with
+  | Some _ as value -> value
+  | None ->
+      Option.map
+        (fun decl -> String.trim (Css.declaration_value decl))
+        (Color.Handler.theme_color_decl ~theme bare)
+
+(* Every reference the generated sheet makes to a reference token carries its
+   value as the fallback, since nothing here declares the token and the sheet
+   has to resolve where no declaration reaches: an [@theme reference] block's
+   tokens, and under [@reference "tailwindcss"] the whole default theme. The
+   author's own CSS is not generated, and keeps the references it wrote. *)
+let with_reference_fallbacks ~theme sheet =
+  if theme.Scheme.reference_tokens = [] && not theme.Scheme.reference_theme then
+    sheet
+  else
+    Css.add_var_fallbacks
+      (fun name ->
+        let bare =
+          if String.length name > 2 && String.sub name 0 2 = "--" then
+            String.sub name 2 (String.length name - 2)
+          else name
+        in
+        if Scheme.is_reference_token theme bare then reference_value ~theme bare
+        else None)
+      sheet
+
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
@@ -1850,23 +1966,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
   let builtin_selector_props =
     List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
   in
-  (* A declared utility means nothing to the handlers, so its order arrives with
-     it and is seeded under the same key [order_of_base] looks up. The key is
-     the base name, which a plain utility of the same name shares: seed it only
-     when it is free, so an incoming order never moves a rule the handlers
-     already placed. *)
-  let extra_outputs =
-    List.map
-      (fun (class_name, order, statements) ->
-        let key = extract_base_utility class_name in
-        if not (Hashtbl.mem order_map key) then Hashtbl.add order_map key order;
-        ( class_name,
-          order,
-          List.concat_map
-            (outputs_of_statement ~base_class:class_name)
-            statements ))
-      extra
-  in
+  let extra_outputs = declared_outputs ~theme order_map extra in
   normalize_declared_property_families order_map builtin_selector_props
     extra_outputs;
   let selector_props =
@@ -1889,7 +1989,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     layers ~theme ~layers:config.layers ~include_base:config.base
       ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements
   in
-  Css.concat layer_results
+  Css.concat layer_results |> with_reference_fallbacks ~theme
 
 let rec collect_declarations acc = function
   | Style.Style { props; rules; _ } ->

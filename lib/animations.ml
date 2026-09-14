@@ -392,3 +392,4 @@ let animate_spin = utility Spin
 let animate_ping = utility Ping
 let animate_pulse = utility Pulse
 let animate_bounce = utility Bounce
+let builtin_keyframes = List.map snd Handler.builtin_keyframes

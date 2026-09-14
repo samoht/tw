@@ -168,29 +168,44 @@ let theme_tokens body =
    with the same tokens Tailwind reads from it: the pairs every block declares,
    and the names among them that came from an [@theme inline] block. The
    resulting strings feed Scheme.with_overrides. *)
-let theme_overrides_of_css css =
+let theme_blocks css =
   match Css.of_string css with
-  | Error _ -> ([], [])
+  | Error _ -> []
   | Ok parse ->
-      let block (prelude, body) =
-        let names = theme_tokens body in
-        let inline =
-          List.mem "inline" (String.split_on_char ' ' (String.trim prelude))
-        in
-        (names, if inline then List.map fst names else [])
-      in
-      let blocks =
-        Css.statements parse.Css.stylesheet
-        |> List.filter_map theme_block
-        |> List.map block
-      in
-      (List.concat_map fst blocks, List.concat_map snd blocks)
+      Css.statements parse.Css.stylesheet
+      |> List.filter_map theme_block
+      |> List.map (fun (prelude, body) ->
+          (String.split_on_char ' ' (String.trim prelude), theme_tokens body))
 
-(* [@import "tailwindcss"] (and its subpath forms) is the package entry, not a
-   file on disk: it marks where the generated theme/base/utilities belong. *)
-let is_tailwind_import url =
+(* The names the blocks carrying the modifier [option] declare. *)
+let theme_tokens_with option blocks =
+  List.concat_map
+    (fun (options, tokens) ->
+      if List.mem option options then List.map fst tokens else [])
+    blocks
+
+let theme_overrides_of_css css =
+  let blocks = theme_blocks css in
+  (List.concat_map snd blocks, theme_tokens_with "inline" blocks)
+
+(* [@import "tailwindcss"] and its subpath forms are the package, not a file on
+   disk: each marks where part of the generated sheet belongs. The package's own
+   [index.css] imports [theme.css], [preflight.css] and [utilities.css] in turn,
+   so the bare import is all three, each file is its own part, and any other
+   subpath is read as the package. *)
+type tailwind_part = Whole | Theme_part | Preflight_part | Utilities_part
+
+let tailwind_import_part url =
   let u = Css.decode_import_url url in
-  u = "tailwindcss" || String.starts_with ~prefix:"tailwindcss/" u
+  match Filename.remove_extension u with
+  | "tailwindcss" -> Some Whole
+  | "tailwindcss/theme" -> Some Theme_part
+  | "tailwindcss/preflight" -> Some Preflight_part
+  | "tailwindcss/utilities" -> Some Utilities_part
+  | _ when String.starts_with ~prefix:"tailwindcss/" u -> Some Whole
+  | _ -> None
+
+let is_tailwind_import url = Option.is_some (tailwind_import_part url)
 
 (* Tailwind's [@custom-variant NAME { ... @slot; ... }] and selector shorthand
    [@custom-variant NAME (...);] declare variants, and [@variant NAME { decls }]
@@ -250,6 +265,166 @@ let import_prefix css =
   |> function
   | name :: _ -> Some name
   | [] -> None
+
+(* Split [s] on [sep] where no bracket is open, so a [,] or a space inside
+   [[...]], [(...)] or a nested [{...}] stays in its segment. *)
+let split_top_level sep s =
+  let len = String.length s in
+  let rec go depth start i acc =
+    if i >= len then List.rev (String.sub s start (len - start) :: acc)
+    else
+      match s.[i] with
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
+      | c when c = sep && depth = 0 ->
+          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | _ -> go depth start (i + 1) acc
+  in
+  go 0 0 0 []
+
+let brace_bound = Re.seq [ Re.opt (Re.char '-'); Re.rep1 Re.digit ]
+
+let brace_range_re =
+  Re.compile
+    (Re.whole_string
+       (Re.seq
+          [
+            Re.group brace_bound;
+            Re.str "..";
+            Re.group brace_bound;
+            Re.opt (Re.seq [ Re.str ".."; Re.group brace_bound ]);
+          ]))
+
+(* [{from..to..step}] counts from [from] to [to] inclusive. The step defaults to
+   one, and a step pointing away from [to] is turned round rather than never
+   arriving, as the bundle does. A zero step is an error there, so the pattern
+   names nothing here. *)
+let brace_range inner =
+  let bound g k = Option.bind (Re.Group.get_opt g k) int_of_string_opt in
+  match Re.exec_opt brace_range_re inner with
+  | None -> None
+  | Some g -> (
+      match (bound g 1, bound g 2) with
+      | Some first, Some last ->
+          let step = Option.fold ~none:1 ~some:abs (bound g 3) in
+          let step = if first <= last then step else -step in
+          let past n = if step > 0 then n > last else n < last in
+          let rec count n acc =
+            if past n then List.rev acc
+            else count (n + step) (string_of_int n :: acc)
+          in
+          Some (if step = 0 then [] else count first [])
+      | _ -> None)
+
+(* Tailwind's brace expansion: the first [{...}] is a comma list or a range,
+   each alternative is expanded in turn, and so is what follows the brace. An
+   unbalanced brace is refused by the bundle, so it names nothing. *)
+let rec expand_braces pattern =
+  match String.index_opt pattern '{' with
+  | None -> [ pattern ]
+  | Some opening -> (
+      let len = String.length pattern in
+      let rec closing depth i =
+        if i >= len then None
+        else
+          match pattern.[i] with
+          | '{' -> closing (depth + 1) (i + 1)
+          | '}' when depth = 1 -> Some i
+          | '}' -> closing (depth - 1) (i + 1)
+          | _ -> closing depth (i + 1)
+      in
+      match closing 0 opening with
+      | None -> []
+      | Some close ->
+          let prefix = String.sub pattern 0 opening in
+          let inner = String.sub pattern (opening + 1) (close - opening - 1) in
+          let suffix = String.sub pattern (close + 1) (len - close - 1) in
+          let alternatives =
+            match brace_range inner with
+            | Some range -> range
+            | None -> List.concat_map expand_braces (split_top_level ',' inner)
+          in
+          List.concat_map
+            (fun rest ->
+              List.map
+                (fun alt -> String.concat "" [ prefix; alt; rest ])
+                alternatives)
+            (expand_braces suffix))
+
+(* The text of a quoted argument. The bundle refuses an unquoted one. *)
+let quoted_contents body =
+  let body = String.trim body in
+  let n = String.length body in
+  if n >= 2 && (body.[0] = '"' || body.[0] = '\'') && body.[n - 1] = body.[0]
+  then Some (String.sub body 1 (n - 2))
+  else None
+
+(* [@source inline("...")] is the safelist and [@source not inline("...")] the
+   blocklist. The argument is read off the [inline()] call inside the statement,
+   and what stands between the at-keyword and that call says which of the two it
+   is; anything else there is not the option. *)
+let source_inline css =
+  let index = Index.v css in
+  let calls = Index.calls index ~name:"inline" in
+  let keyword = String.length "@source" in
+  let argument at (source : Index.statement) =
+    List.find_map
+      (fun (i, (call : Index.block)) ->
+        if at + keyword <= i && call.next <= source.next then
+          match
+            String.trim (String.sub css (at + keyword) (i - at - keyword))
+          with
+          | "" -> Some (false, call.body)
+          | "not" -> Some (true, call.body)
+          | _ -> None
+        else None)
+      calls
+  in
+  Index.at_statements index ~name:"@source"
+  |> List.fold_left
+       (fun (safelist, blocklist) (at, source) ->
+         match argument at source with
+         | None -> (safelist, blocklist)
+         | Some (negated, body) -> (
+             match quoted_contents body with
+             | None -> (safelist, blocklist)
+             | Some patterns ->
+                 let candidates =
+                   split_top_level ' ' patterns
+                   |> List.filter (fun p -> p <> "")
+                   |> List.concat_map expand_braces
+                 in
+                 if negated then (safelist, blocklist @ candidates)
+                 else (safelist @ candidates, blocklist)))
+       ([], [])
+
+(* [@import "tailwindcss" important] marks every utility declaration
+   [!important]. The option is a bare word in the import's prelude rather than a
+   call, so it is read off the prelude's top-level words. *)
+let imports_important css =
+  let index = Index.v css in
+  let blank = function '\n' | '\t' | '\r' | '\012' -> ' ' | c -> c in
+  Index.at_statements index ~name:"@import"
+  |> List.exists (fun (_, (import : Index.statement)) ->
+      List.mem "important"
+        (split_top_level ' ' (String.map blank import.prelude)))
+
+(* [@reference "tailwindcss"] brings the theme into scope for [@apply] without
+   emitting any of it. The prelude is the URL alone. *)
+let references_tailwind css =
+  let index = Index.v css in
+  Index.at_statements index ~name:"@reference"
+  |> List.exists (fun (_, (statement : Index.statement)) ->
+      is_tailwind_import (String.trim statement.prelude))
+
+(* The JavaScript configs the entrypoint's [@config] directives name, as written
+   and in source order. *)
+let config_directives css =
+  let index = Index.v css in
+  Index.at_statements index ~name:"@config"
+  |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+  |> List.map (fun (_, (statement : Index.statement)) ->
+      String.trim statement.prelude)
 
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
@@ -1398,6 +1573,84 @@ let resolve_theme_fn ~theme css =
   go 0;
   Buffer.contents buf
 
+(* Where an at-rule prelude runs, for the at-rules whose prelude can hold a
+   [--theme()] call. A [var()] is not read there, so such a call gives the value
+   itself. *)
+let at_rule_preludes index css =
+  let names = [ "@media"; "@container"; "@supports"; "@custom-media" ] in
+  let prelude_at acc i name =
+    match Index.at_rule index ~name i with
+    | Some { brace; _ } -> (i, brace) :: acc
+    | None -> (
+        match Index.at_statement index ~name i with
+        | Some { next; _ } -> (i, next) :: acc
+        | None -> acc)
+  in
+  let rec scan from acc =
+    match String.index_from_opt css from '@' with
+    | None -> acc
+    | Some i ->
+        scan (i + 1)
+          (List.fold_left (fun acc n -> prelude_at acc i n) acc names)
+  in
+  scan 0 []
+
+(* [--theme(--token)] reads a theme token from author CSS. It is a reference the
+   theme layer then declares, with any fallback threaded into it; the value
+   itself where the call says [inline] or stands in an at-rule prelude; and the
+   fallback alone when the theme has no such token. A call naming no token is
+   left alone, as the reference refuses to compile one. *)
+let dashed_theme_value ~theme ~in_prelude body =
+  match split_top_level ',' body with
+  | [] -> None
+  | first :: fallback -> (
+      let first = String.trim first in
+      let inline = String.ends_with ~suffix:" inline" first in
+      let token =
+        if inline then
+          String.trim (String.sub first 0 (String.length first - 7))
+        else first
+      in
+      let fallback = String.concat ", " (List.map String.trim fallback) in
+      if not (String.length token > 2 && String.sub token 0 2 = "--") then None
+      else
+        let bare = String.sub token 2 (String.length token - 2) in
+        match theme_token_value theme bare with
+        | Some value when inline || in_prelude -> Some value
+        | Some _ when fallback = "" ->
+            Some (String.concat "" [ "var("; token; ")" ])
+        | Some _ ->
+            Some (String.concat "" [ "var("; token; ", "; fallback; ")" ])
+        | None when fallback = "" -> None
+        | None -> Some fallback)
+
+let resolve_dashed_theme_fn ~theme css =
+  let index = Index.v css in
+  let preludes = at_rule_preludes index css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Index.call index ~name:"--theme" i with
+      | Some { body; next } -> (
+          let in_prelude =
+            List.exists (fun (start, stop) -> start < i && i < stop) preludes
+          in
+          match dashed_theme_value ~theme ~in_prelude body with
+          | Some value ->
+              Buffer.add_string buf value;
+              go next
+          | None ->
+              Buffer.add_char buf css.[i];
+              go (i + 1))
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
 (* [to_css] heads a utility's selector with the utility's own class, and a
    variant decorates it in place, as [.dark\:fill-gray-400:where(.dark, ...)].
    Swapping that class for [&] turns the rule into a nested one the author's
@@ -1407,6 +1660,28 @@ let resolve_theme_fn ~theme css =
    selector with the ancestor's class instead, so it is picked out by name among
    the classes the [@apply] asked for. A selector naming none of them keeps the
    leftmost class, which is what the variants tw generates put there. *)
+let rec heads_with_class pick = function
+  | Cascade.Selector.Class name -> pick name
+  | Compound parts -> List.exists (heads_with_class pick) parts
+  | Combined (left, _, right) ->
+      heads_with_class pick left || heads_with_class pick right
+  | List arms -> List.exists (heads_with_class pick) arms
+  | _ -> false
+
+let rec swap_heading pick = function
+  | Cascade.Selector.Class name when pick name -> Cascade.Selector.Nesting
+  | Compound parts -> Compound (List.map (swap_heading pick) parts)
+  | Combined (left, combinator, right) ->
+      Combined (swap_heading pick left, combinator, swap_heading pick right)
+  | List arms -> List (List.map (swap_heading pick) arms)
+  | node -> node
+
+(* The utility's class can also stand inside a pseudo-class argument, as the
+   typography plugin's [:where(.prose > ul > li p)] under [.prose] does. Where
+   the class also stands outside every argument, that occurrence is the one the
+   applying rule takes the place of, and the one inside is a descendant test
+   that stays. Only a class found nowhere else, as [divide-*] puts it in
+   [:where()], is swapped where it sits. *)
 let nest_on_ampersand ~classes sel =
   let swap pick =
     Cascade.Selector.map (function
@@ -1415,7 +1690,8 @@ let nest_on_ampersand ~classes sel =
   in
   let own name = List.mem name classes in
   let arm a =
-    if Cascade.Selector.exists_class own a then swap own a
+    if heads_with_class own a then swap_heading own a
+    else if Cascade.Selector.exists_class own a then swap own a
     else
       match Cascade.Selector.first_class a with
       | Some name -> swap (String.equal name) a
@@ -1701,7 +1977,16 @@ let builtin_variant_template ~theme name =
     | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
 
 let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
-  let css, _ = take_custom_utilities css in
+  (* What an [@apply] pulls into the author's CSS is not a utility, so the
+     import's [important] does not reach it. *)
+  let theme = { theme with Tw.Scheme.important = false } in
+  (* The [@utility] declarations taken out here are the ones an [@apply] in this
+     same file names. Dropping them left [@apply card] resolving against an
+     empty table, so it named no utility and the rule it decorated came out
+     without the declarations the custom utility carries - silently, since an
+     [@apply] that names nothing is not an error. *)
+  let css, own_udefs = take_custom_utilities css in
+  let udefs = udefs @ own_udefs in
   let css, defs = take_custom_variants css in
   let defs = defs @ extra_defs in
   (* A project declaration wins over the built-in of the same name. Any other
@@ -1725,8 +2010,9 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   drop_directives
     (resolve_theme_fn ~theme
        (expand_alpha_fn
-          (expand_spacing_fn ~theme
-             (expand_variants ~depth:0 defs (expand 0 css)))))
+          (resolve_dashed_theme_fn ~theme
+             (expand_spacing_fn ~theme
+                (expand_variants ~depth:0 defs (expand 0 css))))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -2086,9 +2372,12 @@ let author_theme_tokens ~theme stmts =
   |> List.filter_map (fun (Css.V var) ->
       (* [var_name] is the bare name, without the [--] a declaration carries. *)
       let bare = Cascade.Css.var_name var in
-      Option.map
-        (fun value -> ("--" ^ bare, value))
-        (theme_token_value theme bare))
+      (* A reference token is declared somewhere else, by definition. *)
+      if Tw.Scheme.is_reference_token theme bare then None
+      else
+        Option.map
+          (fun value -> ("--" ^ bare, value))
+          (theme_token_value theme bare))
   |> List.sort_uniq compare
 
 (* Declared anywhere in [stmts], at any depth. *)
@@ -2115,10 +2404,101 @@ let declare_author_theme_tokens tokens stmts =
       in
       Css.layer ~name:[ "theme" ] [ Css.rule ~selector decls ] :: stmts
 
+(* The author's own top-level [@property] rules get the fallback block the
+   generated sheet writes for its own. Appended, so [merge_named_layers] folds
+   it into the sheet's [@layer properties] after the utilities' variables. *)
+let add_author_property_fallbacks author stmts =
+  match List.filter (fun s -> Option.is_some (Css.as_property s)) author with
+  | [] -> stmts
+  | rules -> stmts @ Tw.property_fallbacks rules
+
+(* [@tailwind utilities] is all [tailwindcss/utilities.css] holds, so it is read
+   as that import, where the directive stands. *)
+let tailwind_utilities_as_import css =
+  let index = Index.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let asks_for_utilities (statement : Index.statement) =
+    match split_top_level ' ' (String.trim statement.prelude) with
+    | "utilities" :: _ -> true
+    | _ -> false
+  in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Index.at_statement index ~name:"@tailwind" i with
+      | Some statement when asks_for_utilities statement ->
+          Buffer.add_string buf "@import \"tailwindcss/utilities\";";
+          go statement.next
+      | _ ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
+let tailwind_parts css =
+  match
+    Css.of_string
+      (strip_tailwind_import_options (tailwind_utilities_as_import css))
+  with
+  | Error _ -> []
+  | Ok parse ->
+      List.filter_map
+        (fun stmt ->
+          Option.bind (Css.as_import stmt)
+            (fun (ir : Css.Stylesheet.import_rule) ->
+              tailwind_import_part ir.url))
+        (Css.statements parse.Css.stylesheet)
+
+let imports_preflight css =
+  match tailwind_parts css with
+  | [] -> true
+  | parts ->
+      List.exists
+        (function
+          | Whole | Preflight_part -> true
+          | Theme_part | Utilities_part -> false)
+        parts
+
+(* The statements of [generated] one import asks for, in the layer its [layer()]
+   names or unlayered without one. The utilities bring what their rules need
+   beside them: the [@layer properties] fallbacks and the [@property] and
+   [@keyframes] rules. No part brings the components layer, which the generated
+   sheet only ever declares empty. *)
+let generated_part part ~layer generated =
+  let stmts = Css.statements generated in
+  let layer_named name stmt =
+    match Css.as_layer stmt with
+    | Some (Some n, inner) when equal_layer n [ name ] -> Some inner
+    | _ -> None
+  in
+  let contents name = List.concat (List.filter_map (layer_named name) stmts) in
+  let place = function
+    | [] -> []
+    | inner -> (
+        match layer with
+        | None -> inner
+        | Some name -> [ Css.layer ~name inner ])
+  in
+  let is_layer stmt =
+    Option.is_some (Css.as_layer stmt)
+    || Option.is_some (Css.layer_statement_name_list stmt)
+  in
+  match part with
+  | Whole -> stmts
+  | Theme_part -> place (contents "theme")
+  | Preflight_part -> place (contents "base")
+  | Utilities_part ->
+      List.filter (fun s -> Option.is_some (layer_named "properties" s)) stmts
+      @ place (contents "utilities")
+      @ List.filter (fun s -> not (is_layer s)) stmts
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
+      let raw = tailwind_utilities_as_import raw in
       let css =
         apply_variants ~theme
           (hoist_theme_keyframes (strip_tailwind_import_options raw))
@@ -2134,7 +2514,8 @@ let splice_into_entrypoint ~theme ~path generated =
           in
           let transform body =
             apply_variants ~extra_defs:entry_defs ~theme
-              (strip_tailwind_import_options body)
+              (strip_tailwind_import_options
+                 (tailwind_utilities_as_import body))
           in
           let imports =
             preload_imports ~transform ~base_url:path p.Css.stylesheet
@@ -2149,12 +2530,17 @@ let splice_into_entrypoint ~theme ~path generated =
           |> authored_color_mix_fallbacks ~theme
           |> List.concat_map (fun stmt ->
               match stmt with
-              | Cascade.Stylesheet.Import { url; _ } when is_tailwind_import url
-                ->
-                  Css.statements generated
+              | Cascade.Stylesheet.Import { url; layer; _ } as s -> (
+                  match tailwind_import_part url with
+                  | Some part -> generated_part part ~layer generated
+                  | None -> [ s ])
               | s -> [ s ])
+          (* A stylesheet that only references the package declares no token,
+             its own [@theme]'s included. *)
           |> declare_author_theme_tokens
-               (author_theme_tokens ~theme (Css.statements inlined))
+               (if theme.Tw.Scheme.reference_theme then []
+                else author_theme_tokens ~theme (Css.statements inlined))
+          |> add_author_property_fallbacks (Css.statements inlined)
           |> merge_named_layers |> collapse_property_fallbacks
           |> hoist_layer_blocks |> lead_properties_layer
           |> drop_unread_inline_tokens ~theme
@@ -2182,8 +2568,18 @@ let theme_of_css css =
       { Tw.Scheme.default with static_theme = true }
     else Tw.Scheme.default
   in
-  let base = { base with prefix = import_prefix css } in
-  Tw.Scheme.with_overrides ~inline base overrides
+  let base =
+    {
+      base with
+      prefix = import_prefix css;
+      important = imports_important css;
+      reference_theme = references_tailwind css && tailwind_parts css = [];
+    }
+  in
+  let blocks = theme_blocks css in
+  let static = theme_tokens_with "static" blocks in
+  let reference = theme_tokens_with "reference" blocks in
+  Tw.Scheme.with_overrides ~inline ~reference ~static base overrides
 
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities

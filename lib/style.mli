@@ -380,6 +380,12 @@ val style :
       explicit property rules; typed declarations are collected automatically.
     - [props]: CSS properties to apply. *)
 
+val important_stmt : Css.statement -> Css.statement
+(** [important_stmt stmt] marks the declarations of [stmt] as [!important], down
+    through its nested rules and the [\@supports], [\@media] and [\@container]
+    blocks that hold them. Custom properties keep their declarations, as
+    {!map_important} leaves them. *)
+
 val map_important : t -> t
 (** [map_important t] marks every declaration [t] emits as [!important] (the [!]
     utility prefix), recursing through modifiers, groups and nested rules. *)

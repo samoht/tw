@@ -49,6 +49,12 @@ val theme_token_rename : theme:Scheme.t -> (string -> string) option
     when it did not. It moves every theme token and leaves the [--tw-*] channels
     a utility sets for itself alone, whatever the prefix is. *)
 
+val author_property_fallbacks : Css.statement list -> Css.statement list
+(** [author_property_fallbacks rules] is the [\@layer properties] block giving
+    the [\@property] rules among [rules] their initial values under the guard
+    the generated sheet uses, empty when there are none.
+    {!Tw.property_fallbacks} exposes it. *)
+
 val to_css :
   ?theme:Scheme.t ->
   ?config:config ->
