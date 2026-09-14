@@ -1248,6 +1248,19 @@ let expand_spacing_fn ~theme css =
   go 0;
   Buffer.contents buf
 
+(* The value a theme token carries. The palette is not in [Scheme]'s table: a
+   colour is catalogued, and [theme_color_decl] is what reads it back. Asking
+   [Scheme.token] alone left [theme(--color-red-500)] unresolved, and an
+   unresolved [theme()] is not CSS, so the parser dropped the declaration and
+   the author's rule with it. *)
+let theme_token_value theme name =
+  match Tw.Scheme.token theme name with
+  | Some _ as value -> value
+  | None ->
+      Option.map
+        (fun decl -> String.trim (Cascade.Css.declaration_value decl))
+        (Tw.Color.Handler.theme_color_decl ~theme name)
+
 (* [theme()] also takes the dotted path of a v3 config ([theme(fontSize.sm)]),
    which names the same token under its old namespace. *)
 let v3_theme_namespaces =
@@ -1282,7 +1295,7 @@ let v3_theme_token theme path =
       | None -> None
       | Some prefix -> (
           let key = String.concat "-" rest in
-          match Tw.Scheme.token theme (prefix ^ "-" ^ key) with
+          match theme_token_value theme (prefix ^ "-" ^ key) with
           | Some _ as v -> v
           | None -> (
               match (ns, float_of_string_opt key) with
@@ -1313,7 +1326,7 @@ let resolve_theme_fn ~theme css =
             else name
           in
           match
-            match Tw.Scheme.token theme bare with
+            match theme_token_value theme bare with
             | Some _ as v -> v
             | None -> v3_theme_token theme name
           with
@@ -1996,6 +2009,50 @@ let authored_color_mix_fallbacks ~theme stmts =
   in
   lower_block stmts
 
+(* A theme token the author's own CSS reads has to be declared, the way one a
+   utility reads is. [padding: --spacing(4)] expands to [calc(var(--spacing) *
+   4)], and a sheet declaring no [--spacing] resolves it to nothing - the rule
+   is right and the page renders unstyled, which is the shape every author-CSS
+   defect here has taken.
+
+   Only the author's own statements are scanned. The generated sheet already
+   declares what it reads, and re-deriving it from the whole result is what
+   over-emits: a [--default-*] token nothing set would arrive in the theme layer
+   and move a fallback the utilities layer spells. *)
+let author_theme_tokens ~theme stmts =
+  Css.vars_of_rules stmts
+  |> List.filter_map (fun (Css.V var) ->
+      (* [var_name] is the bare name, without the [--] a declaration carries. *)
+      let bare = Cascade.Css.var_name var in
+      Option.map
+        (fun value -> ("--" ^ bare, value))
+        (theme_token_value theme bare))
+  |> List.sort_uniq compare
+
+(* Declared anywhere in [stmts], at any depth. *)
+let declared_custom_properties stmts =
+  Cascade.Css.Stylesheet.fold_declarations
+    (fun names decls ->
+      List.filter_map Cascade.Css.custom_declaration_name decls @ names)
+    [] stmts
+
+let declare_author_theme_tokens tokens stmts =
+  let declared = declared_custom_properties stmts in
+  match List.filter (fun (name, _) -> not (List.mem name declared)) tokens with
+  | [] -> stmts
+  | missing ->
+      (* An [@layer theme] block, so [merge_named_layers] folds it into the
+         generated sheet's own rather than leaving a second one behind. *)
+      let decls =
+        List.map
+          (fun (name, value) -> Css.custom_property ~layer:"theme" name value)
+          missing
+      in
+      let selector =
+        Css.Selector.List [ Css.Selector.Root; Css.Selector.host () ]
+      in
+      Css.layer ~name:[ "theme" ] [ Css.rule ~selector decls ] :: stmts
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
@@ -2034,6 +2091,8 @@ let splice_into_entrypoint ~theme ~path generated =
                 ->
                   Css.statements generated
               | s -> [ s ])
+          |> declare_author_theme_tokens
+               (author_theme_tokens ~theme (Css.statements inlined))
           |> merge_named_layers |> collapse_property_fallbacks
           |> hoist_layer_blocks |> lead_properties_layer
           |> drop_unread_inline_tokens ~theme
