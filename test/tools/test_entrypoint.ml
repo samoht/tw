@@ -861,12 +861,8 @@ let cases =
       "@reference \"tailwindcss\";\n\
        .btn { @apply rounded-lg bg-blue-600 p-4; }\n";
     case "source-inline"
-      ~why:
-        "the safelist is read by nothing, so none of its classes is generated"
       (fenced "@source inline(\"underline hover:bg-red-500\");");
     case "source-not-inline" ~classes:[ "p-4"; "m-2" ]
-      ~why:
-        "the exclusion is read by nothing, so the class it names is generated"
       (fenced "@source not inline(\"m-2\");");
     case "tailwind-utilities" ~classes:[ "p-4" ]
       ~why:

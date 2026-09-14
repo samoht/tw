@@ -3,4 +3,5 @@
 let () =
   Tw_tools.Cascade_provenance.report ();
   Tw_tools.Tailwind_gen.with_stats @@ fun () ->
-  Alcotest.run "tools" [ Test_entrypoint.suite; Test_tailwind_gen.suite ]
+  Alcotest.run "tools"
+    [ Test_entrypoint.suite; Test_project.suite; Test_tailwind_gen.suite ]
