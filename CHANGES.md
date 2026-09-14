@@ -442,6 +442,9 @@
 
 ### Colours and effects
 
+- `ring-offset-white` and `ring-offset-black` compile, with an optional opacity,
+  as their `ring-` counterparts do. A shadeless colour after `ring-offset-` was
+  read as a width and refused (#NNN).
 - Palette box, inset-box and text shadows keep Tailwind's authored OKLCH value
   as their unguarded fallback instead of converting it to sRGB hex (#657).
 - An opacity modifier reaches every colour family. A ring, a per-side border, a

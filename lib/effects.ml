@@ -3124,6 +3124,21 @@ module Handler = struct
            && v.[0] = '['
            && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
         parse_ring_bracket `Ring_offset v
+    (* A shadeless theme colour names the offset colour the way it names the
+       ring (ring-offset-white, with an optional /opacity); a bare number is the
+       width, below. *)
+    | [ "ring"; "offset"; v ]
+      when let base, _ = Color.parse_opacity_modifier ~theme v in
+           match Color.of_string base with
+           | Ok c -> Color.is_shadeless c
+           | Error _ -> false -> (
+        let base, opacity = Color.parse_opacity_modifier ~theme v in
+        match Color.of_string base with
+        | Ok c -> (
+            match opacity with
+            | Color.No_opacity -> Ok (Ring_offset_color (c, 500))
+            | _ -> Ok (Ring_offset_color_opacity (c, 500, opacity)))
+        | Error _ -> err_not_utility)
     | [ "ring"; "offset"; n ] -> (
         match Parse.int_any n with
         | Ok width -> Ok (Ring_offset_width width)
@@ -3347,10 +3362,14 @@ module Handler = struct
     | Ring_offset_width n -> "ring-offset-" ^ string_of_int n
     | Ring_offset_bracket_length l -> "ring-offset-[" ^ l ^ "]"
     | Ring_offset_color (color, shade) ->
-        "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        if Color.is_shadeless color then "ring-offset-" ^ Color.pp color
+        else "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade
     | Ring_offset_color_opacity (color, shade, opacity) ->
-        "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade ^ "/"
-        ^ Color.pp_opacity opacity
+        let base =
+          if Color.is_shadeless color then "ring-offset-" ^ Color.pp color
+          else "ring-offset-" ^ Color.pp color ^ "-" ^ string_of_int shade
+        in
+        base ^ "/" ^ Color.pp_opacity opacity
     | Ring_offset_keyword_opacity (_, spelling, opacity) ->
         "ring-offset-" ^ spelling ^ "/" ^ Color.pp_opacity opacity
     | Ring_offset_transparent -> "ring-offset-transparent"
