@@ -360,15 +360,15 @@ let style ?(rules = None) ?(property_rules = Css.empty) ?(metadata = [])
       pseudo_suffix;
     }
 
-(* Mark the property declarations a style emits as !important (the [!] utility
-   prefix), recursing through modifiers, groups and nested rules. Custom
-   properties (theme tokens such as the spacing and tw- variables) are left
-   untouched -- like Tailwind, [!] applies to the visible declaration, not the
-   variables it pulls in. *)
+(* Mark the declarations a style emits as !important (the [!] utility prefix),
+   recursing through modifiers, groups and nested rules. The variables the
+   utility sets are its own declarations and are marked too, as Tailwind marks
+   [--tw-shadow] for [shadow-md!]; a theme token riding on the rule is the
+   theme's, collected into the theme layer, and is left as it is. *)
 let mark_important_decl d =
-  match Css.custom_declaration_name d with
-  | Some _ -> d
-  | None -> Css.important d
+  match Css.custom_declaration_layer d with
+  | Some "theme" -> d
+  | _ -> Css.important d
 
 (* [f] rewrites the selector and declarations of every rule in [stmt], down
    through its nested rules and the [@supports], [@media] and [@container]
