@@ -680,6 +680,21 @@ let test_author_css_declares_every_token_it_reads () =
       ".btn { color: theme(colors.red.500); }";
     ]
 
+(* [prefix(tw)] is read off the import the way [theme(static)] is. A [prefix()]
+   outside an import statement is not the option, and neither is one in a later
+   import that the first did not carry. *)
+let test_import_prefix () =
+  let prefix s = import_prefix s in
+  check (option string) "the option on the import" (Some "tw")
+    (prefix "@import \"tailwindcss\" prefix(tw);");
+  check (option string) "beside other options" (Some "app")
+    (prefix "@import \"tailwindcss\" source(none) prefix(app) theme(static);");
+  check (option string) "no option" None (prefix "@import \"tailwindcss\";");
+  check (option string) "a call outside an import" None
+    (prefix ".a { width: prefix(tw) }");
+  check (option string) "an empty option names nothing" None
+    (prefix "@import \"tailwindcss\" prefix();")
+
 let test_apply_keeps_the_keyframes () =
   let css = applied_sheet ".card { @apply animate-spin; }" in
   check bool "the @keyframes the animation names survives" true
@@ -726,6 +741,7 @@ let tests =
     test_case "@apply declares every token it reads" `Quick
       test_apply_declares_every_token_it_reads;
     test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
+    test_case "prefix() on the import" `Quick test_import_prefix;
     test_case "author CSS declares every token it reads" `Quick
       test_author_css_declares_every_token_it_reads;
   ]
