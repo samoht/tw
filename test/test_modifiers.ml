@@ -1216,6 +1216,32 @@ let test_not_bracket_unreadable_selector_rejected () =
       "not-[@media_print]:flex";
     ]
 
+(* A bracket [@supports] condition under [not-] negates the condition, the way
+   [not-[@media ...]] negates the query: Tailwind 4.3.3 writes [@supports not
+   (display:grid)] for [not-[@supports(display:grid)]:flex], and the positive
+   query for a doubly negated one. tw read the at-rule as a variant and negated
+   the utility's own class instead. A compound condition has no single negation,
+   and 4.3.3 compiles nothing for it. *)
+let test_not_bracket_supports () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "not-[@supports(display:grid)]:flex"
+    {|@supports not (display:grid){.not-\[\@supports\(display\:grid\)\]\:flex{display:flex}}|};
+  has "not-[@supports_not_(display:grid)]:flex"
+    {|@supports(display:grid){.not-\[\@supports_not_\(display\:grid\)\]\:flex{display:flex}}|};
+  match Tw.of_string "not-[@supports(display:grid)_and_(gap:1px)]:flex" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "a compound supports condition has no single negation"
+
 (* A group/peer arbitrary variant whose [&] anchor is preceded by a context
    (e.g. group-[:nth-of-type(3)_&]) keeps that prefix ahead of the anchor,
    rather than dropping it down to just :where(.group). *)
@@ -1617,6 +1643,8 @@ let tests =
       test_case "variant inner order" `Quick test_variant_inner_order;
       test_case "not-[selector] unreadable content rejected" `Quick
         test_not_bracket_unreadable_selector_rejected;
+      test_case "not-[@supports] negates the condition" `Quick
+        test_not_bracket_supports;
     ]
 
 let suite = ("modifiers", tests)
