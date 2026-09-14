@@ -3,6 +3,19 @@
     One function, so the CLI and anything measuring the CLI against Tailwind
     compile a project the same way rather than two ways that drift. *)
 
+val utilities :
+  theme:Tw.Scheme.t ->
+  ?entrypoint:string ->
+  base:bool ->
+  string list ->
+  int * Cascade.Css.t
+(** [utilities ~theme ?entrypoint ~base classes] is the generated sheet for
+    [classes] alone, with how many of them produced a rule: the built-in
+    utilities and the classes the entrypoint's own [@utility] and
+    [@custom-variant] declarations route. Nothing else the entrypoint holds
+    reaches it, neither its CSS nor its [@source inline] safelist. The base
+    layer is included when [base]. *)
+
 val stylesheet :
   theme:Tw.Scheme.t ->
   ?entrypoint:string ->

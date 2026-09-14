@@ -141,29 +141,42 @@ let unknown_class_error ~theme class_str =
   | Error (`Msg m) -> Fmt.str "Error: %s" m
   | Ok _ -> Fmt.str "Error: Unknown class: %s" class_str
 
+(* The sheet for the class string of [-s]. With an entrypoint, a utility it
+   declares is routed the way the scanning form routes it, and none of the
+   entrypoint's own CSS is spliced in: this path answers for the classes alone.
+   [None] when nothing reads any of them. *)
+let single_class_sheet ~(opts : gen_opts) ~base class_str =
+  match opts.input_css_path with
+  | None -> (
+      match parse_classes ~warn:false ~theme:opts.theme class_str with
+      | [] when class_str <> "" -> None
+      | styles -> Some (Tw.to_css ~theme:opts.theme ~base styles))
+  | Some _ as entrypoint ->
+      let count, sheet =
+        Tw_tools.Project.utilities ~theme:opts.theme ?entrypoint ~base
+          (Tw_tools.Source_scan.split_whitespace class_str)
+      in
+      if count = 0 && class_str <> "" then None else Some sheet
+
 let diff_single_class class_str ~(opts : gen_opts) =
   try
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
         ~forms:true ?input_css:opts.input_css [ class_str ]
     in
-    let tw_styles = parse_classes ~warn:false ~theme:opts.theme class_str in
-    let styles = match tw_styles with [] -> [] | s -> s in
-    let stylesheet = Tw.to_css ~theme:opts.theme ~base:true styles in
-    let our_css = render_css ~opts stylesheet in
-    let diff =
-      Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
-    in
-    match tw_styles with
-    | [] when class_str = "" ->
-        print_diff_result " (empty/base only)" diff;
-        `Ok ()
-    | [] -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
-    | _ ->
-        print_oracle_note [ class_str ];
-        print_diff_result
-          (Fmt.str " between Tailwind and tw for '%s'" class_str)
-          diff;
+    match single_class_sheet ~opts ~base:true class_str with
+    | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
+    | Some stylesheet ->
+        let our_css = render_css ~opts stylesheet in
+        let diff =
+          Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
+        in
+        if class_str = "" then print_diff_result " (empty/base only)" diff
+        else (
+          print_oracle_note [ class_str ];
+          print_diff_result
+            (Fmt.str " between Tailwind and tw for '%s'" class_str)
+            diff);
         `Ok ()
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
@@ -187,15 +200,9 @@ let process_single_class class_str flag ~(opts : gen_opts) =
           ))
   | Native -> (
       let include_base = eval_flag flag ~default:false in
-      let tw_styles = parse_classes ~warn:false ~theme:opts.theme class_str in
-      let styles = match tw_styles with [] -> [] | s -> s in
-      match tw_styles with
-      | [] when class_str <> "" ->
-          `Error (false, unknown_class_error ~theme:opts.theme class_str)
-      | _ ->
-          let stylesheet =
-            Tw.to_css ~theme:opts.theme ~base:include_base styles
-          in
+      match single_class_sheet ~opts ~base:include_base class_str with
+      | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
+      | Some stylesheet ->
           print_string (render_css ~opts stylesheet);
           `Ok ())
 

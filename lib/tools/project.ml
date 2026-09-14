@@ -42,23 +42,8 @@ let parse_known_candidates ~theme ?input_css candidates =
    this, not against the built-in utilities alone: Tailwind reads the same
    entrypoint, so every declared utility would otherwise read as a rule tw
    failed to emit. *)
-let stylesheet ~theme ?entrypoint ~base classes =
+let utilities ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
-  (* An entrypoint importing Tailwind in parts asks for the reset only through
-     [tailwindcss/preflight.css]. *)
-  let base =
-    base && Option.fold ~none:true ~some:Entrypoint.imports_preflight input_css
-  in
-  (* The entrypoint's safelist joins the markup's classes, and its blocklist
-     takes a class out whichever of the two it came from. *)
-  let classes =
-    match input_css with
-    | None -> classes
-    | Some css ->
-        let safelist, blocklist = Entrypoint.source_inline css in
-        List.sort_uniq String.compare (classes @ safelist)
-        |> List.filter (fun cls -> not (List.mem cls blocklist))
-  in
   let defs = Entrypoint.entry_variant_defs entrypoint in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
   let routed, normal =
@@ -87,10 +72,26 @@ let stylesheet ~theme ?entrypoint ~base classes =
   let sheet =
     Tw.to_css ~theme:sort_theme ~base ~extra:routed_extra (List.map snd known)
   in
-  let sheet = Entrypoint.place_routed routed_stmts sheet in
-  let sheet =
-    match entrypoint with
-    | Some path -> Entrypoint.splice_into_entrypoint ~theme ~path sheet
-    | None -> sheet
+  (List.length known + routed_count, Entrypoint.place_routed routed_stmts sheet)
+
+let stylesheet ~theme ?entrypoint ~base classes =
+  let input_css = Option.map Entrypoint.read_file entrypoint in
+  (* An entrypoint importing Tailwind in parts asks for the reset only through
+     [tailwindcss/preflight.css]. *)
+  let base =
+    base && Option.fold ~none:true ~some:Entrypoint.imports_preflight input_css
   in
-  (List.length known + routed_count, sheet)
+  (* The entrypoint's safelist joins the markup's classes, and its blocklist
+     takes a class out whichever of the two it came from. *)
+  let classes =
+    match input_css with
+    | None -> classes
+    | Some css ->
+        let safelist, blocklist = Entrypoint.source_inline css in
+        List.sort_uniq String.compare (classes @ safelist)
+        |> List.filter (fun cls -> not (List.mem cls blocklist))
+  in
+  let count, sheet = utilities ~theme ?entrypoint ~base classes in
+  match entrypoint with
+  | Some path -> (count, Entrypoint.splice_into_entrypoint ~theme ~path sheet)
+  | None -> (count, sheet)
