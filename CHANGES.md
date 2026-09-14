@@ -28,6 +28,12 @@
 - `-safe` alignment resolves on `center` and `end` only, as in Tailwind. The
   `-start-safe` classes stop being emitted, and `Alignment.content_start_safe`
   and `Alignment.place_items_start_safe` are removed (#679).
+- `Tw.Strings` is removed. Nothing in the library searches text any more: a
+  variant order is read off the selector's class node and an unresolved
+  `theme()` call off the token stream. The dev tools and the CLI, which grep
+  text no one typed, use `re`, so `re` is now a regular dependency rather than
+  a test-only one; it stays out of the `tw.dom` bundle, which links neither
+  (#774).
 
 ### Tailwind CSS 4.3.3
 
