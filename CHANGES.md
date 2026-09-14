@@ -487,7 +487,7 @@
 - `has-` and `not-` around an arbitrary `data-[…]` or `aria-[…]` variant test
   its attribute. `has-data-[state=open]:ring-2` read `:has(.ring-2)`, a
   condition on the utility's own class, where Tailwind reads
-  `:has([data-state=open])` (#NNN).
+  `:has([data-state=open])` (#803).
 - `@apply` declares the theme tokens the utilities it pulls in read. The rule
   it emitted was already right, so nothing warned, but `@layer theme` came back
   without `--radius-lg`, `--text-lg`, `--blur-sm` and the rest of the families
