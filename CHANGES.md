@@ -105,7 +105,7 @@
   `--default-transition-*` tokens, which nothing in their rules reads (#789).
 - An `@theme static { … }` block declares its tokens whether or not a utility
   reads them, as `theme(static)` on the import does for the whole theme. The
-  modifier was ignored, so a token only JavaScript reads was missing (#NNN).
+  modifier was ignored, so a token only JavaScript reads was missing (#790).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
