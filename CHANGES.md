@@ -60,7 +60,7 @@
   `@apply` and `@variant` (#136, #138, #139, #140, #141, #143, #195, #206).
 - A `theme(static)` entrypoint declares its theme and keyframes once. Each
   `@apply`, and each class under a `@custom-variant`, repeated the whole theme
-  block and every `@keyframes` beside the generated sheet's (#NNN).
+  block and every `@keyframes` beside the generated sheet's (#801).
 - Authored input receives browser-compatibility prefixes even when full CSS
   optimization is disabled, preserving the CLI's target coverage (#665).
 - Merge adjacent media queries with identical conditions during utility
