@@ -1526,15 +1526,20 @@ let has_pseudo_elements tw_classes =
    [transition-*] rule reads, so a sheet carrying one of those utilities needs
    them however the utility is dressed. Reading the name off the emitted class
    missed [hover:transition] and every other variant, whose class is
-   [hover:transition], and the rule then referenced a variable nothing
-   declared. *)
+   [hover:transition], and the rule then referenced a variable nothing declared.
+   The classes that start with [transition] and set no property to transition
+   read neither: [transition-none], and the behaviour utilities. *)
+let reads_no_transition_defaults = function
+  | "transition-none" | "transition-discrete" | "transition-normal" -> true
+  | _ -> false
+
 let has_transition_utility tw_classes =
   let rec check = function
     | Utility.Base b ->
         let c = Utility.class_of_base b in
         String.length c >= 10
         && String.sub c 0 10 = "transition"
-        && not (String.equal c "transition-none")
+        && not (reads_no_transition_defaults c)
     | Utility.Modified (_, u)
     | Utility.Important (_, u)
     | Utility.Aliased (_, u)
