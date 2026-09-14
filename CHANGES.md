@@ -505,6 +505,10 @@
 
 ### Variants and selectors
 
+- `not-[@supports(…)]` negates the condition, as Tailwind does:
+  `not-[@supports(display:grid)]:flex` wraps the utility in
+  `@supports not (display:grid)`. It negated the utility's own class, and a
+  compound condition is now refused (#NNN).
 - `group-has-` and `peer-has-` take any variant as their inner, as `has-` does:
   `group-has-data-[state=open]:ring-2` compiles to Tailwind's
   `:where(.group):has([data-state=open])` scope. It was an unknown modifier

@@ -1256,6 +1256,17 @@ let handle_not_bracket content base_class props =
       media_query ~condition ~selector:(Css.Selector.Class modified_class)
         ~props ~base_class:modified_class ();
     ]
+  else if String.length content > 9 && String.sub content 0 9 = "@supports" then
+    (* Supports bracket: not-[@supports(display:grid)] → @supports not
+       (display:grid), and a doubly negated condition → the condition itself. *)
+    let rule condition =
+      supports_query ~condition ~selector:(Css.Selector.Class modified_class)
+        ~props ~base_class:modified_class ()
+    in
+    match Modifiers.bracket_supports_condition content with
+    | Some (Css.Supports.Not condition) -> [ rule condition ]
+    | Some condition -> [ rule (Css.Supports.Not condition) ]
+    | None -> []
   else if content <> "" && content.[0] = ':' then
     (* Pseudo-class bracket: not-[:checked] → :not(:checked) *)
     let pseudo = parse_bracket_pseudo content in

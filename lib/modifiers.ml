@@ -1767,6 +1767,11 @@ let is_not_compatible = function
      Tailwind compiles nothing for [has-[@media_print]]. *)
   | At_rule content when Option.is_some (bracket_media_condition content) ->
       false
+  (* A bracket [@supports] condition has its own [not-] reading too, which
+     negates the condition; read as a plain variant it negated the class. *)
+  | At_rule content
+    when String.length content > 9 && String.sub content 0 9 = "@supports" ->
+      false
   | _ -> true
 
 (* [not-[...]] whose content is neither a media condition nor a pseudo-class
@@ -1784,6 +1789,26 @@ let reads_as_selector content =
       Cascade.Cursor.ws cursor;
       Cascade.Cursor.is_done cursor
 
+(* The condition a bracket [@supports] at-rule names under [not-], with
+   underscores read as spaces: [(display:grid)] or [not (display:grid)]. [None]
+   for a compound [and]/[or] condition, which has no single negation, and for
+   text the condition grammar does not read. *)
+let bracket_supports_condition content =
+  let n = String.length content in
+  if n > 9 && String.sub content 0 9 = "@supports" then
+    let cond =
+      String.trim (Parse.decode_underscores (String.sub content 9 (n - 9)))
+    in
+    match Css.Supports.of_string cond with
+    | Css.Supports.And _ | Css.Supports.Or _
+    | Css.Supports.Not (Css.Supports.And _ | Css.Supports.Or _) ->
+        None
+    | condition -> Some condition
+    | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _ | Failure _)
+      ->
+        None
+  else None
+
 (** Check if bracket content is valid for not-[...] patterns. Rejects combinator
     selectors (+, >, ~), media conditions with commas, and bare selectors. *)
 let is_valid_not_bracket_content content =
@@ -1797,6 +1822,8 @@ let is_valid_not_bracket_content content =
       (String.length content > 6 && String.sub content 0 6 = "@media")
       || (String.length content > 7 && String.sub content 0 7 = "@media_")
     then not (String.contains content ',')
+    else if String.length content > 9 && String.sub content 0 9 = "@supports"
+    then Option.is_some (bracket_supports_condition content)
     else if first = ':' then true
     else reads_as_selector content
 

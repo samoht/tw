@@ -37,6 +37,13 @@ val bracket_media_condition : string -> Css.Media.t option
     with underscores read as spaces, and [None] when it is not or the query does
     not parse. *)
 
+val bracket_supports_condition : string -> Css.Supports.t option
+(** [bracket_supports_condition content] is the condition a bracket [@supports]
+    at-rule names under [not-], [@supports(display:grid)] or
+    [@supports_not_(display:grid)], with underscores read as spaces, and [None]
+    when it is not one, when it does not parse, or when it is an [and]/[or]
+    compound with no single negation. *)
+
 val normalize_supports_condition : string -> Css.Supports.t
 (** [normalize_supports_condition cond] builds the [supports-[...]] bracket
     content as a typed CSS [@supports] condition: underscores become spaces, and
