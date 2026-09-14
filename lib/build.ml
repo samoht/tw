@@ -1670,6 +1670,13 @@ let sort_keyframes_by_var_order metadata keyframes =
       if order_cmp <> 0 then order_cmp
       else String.compare name1 name2 (* Stable sort for same order *))
 
+(* [theme(static)] asks for the whole theme, and the default theme's animations
+   name these keyframes whether a utility uses them or not. They follow the ones
+   a utility pulled in, which the dedup keeps. *)
+let with_static_keyframes ~theme keyframes =
+  if not theme.Scheme.static_theme then keyframes
+  else keyframes @ List.filter_map Css.as_keyframes Animations.builtin_keyframes
+
 (** Build all CSS layers from utilities and rules *)
 let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     tw_classes statements =
@@ -1716,6 +1723,7 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     List.fold_left collect_keyframes [] styles
     |> List.rev
     |> sort_keyframes_by_var_order metadata
+    |> with_static_keyframes ~theme
   in
   assemble_all_layers ~layers ~include_base
     ~properties_layer:individual.properties_layer

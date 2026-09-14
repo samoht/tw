@@ -519,6 +519,26 @@ module Typography_early = struct
   (* The acceptor for [text-<size>] reads the converter's own table: the two
      have to hold the same names, and a name in one but not the other is an
      accepted class that emits no declarations at all. *)
+  (* The line-height each text size carries, which its [text-*] utility and its
+     [--text-*--line-height] token both spell. *)
+  let text_line_heights : (string * Css.line_height) list =
+    [
+      ("xs", Rem 1.0);
+      ("sm", Rem 1.25);
+      ("base", Rem 1.5);
+      ("lg", Rem 1.75);
+      ("xl", Rem 1.75);
+      ("2xl", Rem 2.0);
+      ("3xl", Rem 2.25);
+      ("4xl", Rem 2.5);
+      ("5xl", Num 1.0);
+      ("6xl", Num 1.0);
+      ("7xl", Num 1.0);
+      ("8xl", Num 1.0);
+      ("9xl", Num 1.0);
+    ]
+
+  let line_height_of size = List.assoc size text_line_heights
   let named_sizes = List.map (fun (name, _, _) -> name) text_size_data
   let is_named_size s = List.mem s named_sizes
 
@@ -1076,18 +1096,18 @@ module Typography_early = struct
     | Not_italic -> 8381
 
   (* Text utilities use theme record for line height variable reference *)
+  (* Tailwind v4 expresses a rem line-height as the ratio [calc(line-height /
+     font-size)]; unitless line-heights stay verbatim. *)
+  let text_line_height ~size_rem : Css.line_height -> Css.line_height = function
+    | Rem lh_rem ->
+        let num f : Css.line_height Css.calc = Num f in
+        Calc (Css.Calc.div (num lh_rem) (num size_rem))
+    | other -> other
+
   let text_size_utility (size_var : Css.length Var.theme)
       (lh_var : Css.line_height Var.theme) size_rem lh_value =
     let size_decl, size_ref = Var.binding size_var (Rem size_rem) in
-    (* Tailwind v4 expresses a rem line-height as the ratio [calc(line-height /
-       font-size)]; unitless line-heights stay verbatim. *)
-    let lh_value : Css.line_height =
-      match (lh_value : Css.line_height) with
-      | Rem lh_rem ->
-          let num f : Css.line_height Css.calc = Num f in
-          Calc (Css.Calc.div (num lh_rem) (num size_rem))
-      | other -> other
-    in
+    let lh_value = text_line_height ~size_rem lh_value in
     let lh_decl, lh_ref = Var.binding lh_var lh_value in
     (* Use shared theme record - no declaration, just reference *)
     let theme = default_line_height_theme in
@@ -1103,30 +1123,44 @@ module Typography_early = struct
         line_height (Var leading_with_fallback);
       ]
 
-  let text_xs () = text_size_utility text_xs_var text_xs_lh_var 0.75 (Rem 1.0)
-  let text_sm () = text_size_utility text_sm_var text_sm_lh_var 0.875 (Rem 1.25)
+  let text_xs () =
+    text_size_utility text_xs_var text_xs_lh_var 0.75 (line_height_of "xs")
+
+  let text_sm () =
+    text_size_utility text_sm_var text_sm_lh_var 0.875 (line_height_of "sm")
 
   let text_base () =
-    text_size_utility text_base_var text_base_lh_var 1.0 (Rem 1.5)
+    text_size_utility text_base_var text_base_lh_var 1.0 (line_height_of "base")
 
-  let text_lg () = text_size_utility text_lg_var text_lg_lh_var 1.125 (Rem 1.75)
-  let text_xl () = text_size_utility text_xl_var text_xl_lh_var 1.25 (Rem 1.75)
-  let text_2xl () = text_size_utility text_2xl_var text_2xl_lh_var 1.5 (Rem 2.0)
+  let text_lg () =
+    text_size_utility text_lg_var text_lg_lh_var 1.125 (line_height_of "lg")
+
+  let text_xl () =
+    text_size_utility text_xl_var text_xl_lh_var 1.25 (line_height_of "xl")
+
+  let text_2xl () =
+    text_size_utility text_2xl_var text_2xl_lh_var 1.5 (line_height_of "2xl")
 
   let text_3xl () =
-    text_size_utility text_3xl_var text_3xl_lh_var 1.875 (Rem 2.25)
+    text_size_utility text_3xl_var text_3xl_lh_var 1.875 (line_height_of "3xl")
 
   let text_4xl () =
-    text_size_utility text_4xl_var text_4xl_lh_var 2.25 (Rem 2.5)
+    text_size_utility text_4xl_var text_4xl_lh_var 2.25 (line_height_of "4xl")
 
-  let text_5xl () = text_size_utility text_5xl_var text_5xl_lh_var 3.0 (Num 1.0)
+  let text_5xl () =
+    text_size_utility text_5xl_var text_5xl_lh_var 3.0 (line_height_of "5xl")
 
   let text_6xl () =
-    text_size_utility text_6xl_var text_6xl_lh_var 3.75 (Num 1.0)
+    text_size_utility text_6xl_var text_6xl_lh_var 3.75 (line_height_of "6xl")
 
-  let text_7xl () = text_size_utility text_7xl_var text_7xl_lh_var 4.5 (Num 1.0)
-  let text_8xl () = text_size_utility text_8xl_var text_8xl_lh_var 6.0 (Num 1.0)
-  let text_9xl () = text_size_utility text_9xl_var text_9xl_lh_var 8.0 (Num 1.0)
+  let text_7xl () =
+    text_size_utility text_7xl_var text_7xl_lh_var 4.5 (line_height_of "7xl")
+
+  let text_8xl () =
+    text_size_utility text_8xl_var text_8xl_lh_var 6.0 (line_height_of "8xl")
+
+  let text_9xl () =
+    text_size_utility text_9xl_var text_9xl_lh_var 8.0 (line_height_of "9xl")
 
   (* Font weight utilities set --tw-font-weight for animation but use theme var
      directly *)
@@ -1340,6 +1374,17 @@ module Typography_early = struct
       (fun (name, _var, rem) ->
         Scheme.register_default_token ("text-" ^ name)
           (Css.Pp.to_string Css.pp_length (Css.Rem rem)))
+      text_size_data
+
+  (* And each size's line-height, which [theme(static)] declares with the rest
+     of the theme. *)
+  let () =
+    List.iter
+      (fun (name, _var, rem) ->
+        Scheme.register_default_token
+          ("text-" ^ name ^ "--line-height")
+          (Css.Pp.to_string ~minify:true Css.Properties.pp_line_height
+             (text_line_height ~size_rem:rem (line_height_of name))))
       text_size_data
 
   (* A theme token's value is text; read it back at the type the property

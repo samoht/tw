@@ -116,6 +116,9 @@
   `@tailwind utilities` each bring their own part of the sheet, in the layer
   `layer()` names or unlayered without one. Any `tailwindcss/…` import brought
   the whole sheet, preflight included (#793).
+- `theme(static)` declares every `--text-*--line-height` token and emits the
+  `@keyframes` of the default animations, which the whole theme carries and
+  tw left out (#NNN).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).

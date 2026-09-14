@@ -22,3 +22,7 @@ val animate_bounce : t
 (** [animate_bounce] applies a bounce animation. *)
 
 module Handler : Utility.Handler
+
+val builtin_keyframes : Cascade.Css.statement list
+(** [builtin_keyframes] is the [\@keyframes] rules Tailwind's default theme
+    carries for its animations, in the order the theme declares them. *)
