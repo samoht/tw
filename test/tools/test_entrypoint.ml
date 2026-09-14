@@ -191,8 +191,11 @@ let test_apply_merges_one_rule () =
     |> List.filter (Cascade.Selector.equal btn)
   in
   check int "one .btn rule" 1 (List.length rules);
-  check string "holding both declarations"
-    ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
+  (* The theme block comes with them: both declarations read [--spacing], and a
+     sheet that does not declare it resolves them to nothing. *)
+  check string "holding both declarations and the token they read"
+    ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}@layer \
+     theme{:root,:host{--spacing:.25rem}}"
     (Cascade.Css.to_string ~minify:true out)
 
 (* Lightning CSS lowers a dynamic [color-mix()] in author CSS as progressive
@@ -235,7 +238,9 @@ let test_authored_color_mix_fallbacks () =
       (fun () -> splice_into_entrypoint ~theme ~path (Cascade.Css.v []))
   in
   check string "fallback immediately precedes each guarded authored value"
-    ".article{--prose-color:var(--color-brand);--marker-color:#fb2c3640}@supports(color:color-mix(in \
+    "@layer theme{:root,:host{--color-brand:oklch(63.7%.237 \
+     25.331)}:root,:host{--color-gray-700:oklch(37.3%.034 \
+     259.733)}}.article{--prose-color:var(--color-brand);--marker-color:#fb2c3640}@supports(color:color-mix(in \
      lab,red,red)){.article{--marker-color:color-mix(in \
      oklab,var(--color-brand) \
      25%,transparent)}}.article{color:#fb2c3640}@supports(color:color-mix(in \
@@ -559,6 +564,227 @@ let test_malformed_utility_spares_the_others () =
       check string "the good utility stands on its own" ".line-ok{padding:5px}"
         (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
 
+(* An [@apply] must leave no [var()] the sheet does not declare.
+
+   This is the invariant a parity comparison misses: the rule [@apply] emits is
+   byte-identical to the reference in every one of these cases, so a diff of
+   the utilities layer passes while the page renders unstyled, because nothing
+   declares the token the rule reads. Colours and spacing hid it for a long
+   time - those two are rescued downstream by [Build.referenced_theme_decls],
+   so the families that carry their own namespace were the only ones broken.
+
+   The check is self-contained rather than a comparison, so it needs no CLI and
+   holds for any utility added later. *)
+(* Only a read with no fallback has to be declared. [var(--tw-leading,
+   var(--text-lg--line-height))] is the documented shape of a channel variable
+   a utility reads but never sets, and the fallback is what covers it. *)
+let var_re =
+  Re.compile
+    (Re.seq
+       [
+         Re.str "var(--";
+         Re.group (Re.rep1 (Re.compl [ Re.set ",) " ]));
+         Re.char ')';
+       ])
+
+let declared_re =
+  Re.compile
+    (Re.seq
+       [
+         Re.char '-';
+         Re.char '-';
+         Re.group (Re.rep1 (Re.compl [ Re.set ":;{} " ]));
+         Re.char ':';
+       ])
+
+let names re s =
+  Re.all re s |> List.map (fun g -> Re.Group.get g 1) |> List.sort_uniq compare
+
+let applied_sheet body =
+  let path = Filename.temp_file "apply-token" ".css" in
+  Fun.protect
+    ~finally:(fun () -> Sys.remove path)
+    (fun () ->
+      let oc = open_out path in
+      Fun.protect
+        ~finally:(fun () -> close_out_noerr oc)
+        (fun () ->
+          output_string oc
+            (String.concat "" [ "@import \"tailwindcss\";\n"; body; "\n" ]));
+      splice_into_entrypoint ~theme:Tw.Scheme.default ~path (Cascade.Css.v [])
+      |> Cascade.Css.to_string ~minify:true)
+
+let check_no_dangling_var label css =
+  let read = names var_re css and set = names declared_re css in
+  let dangling = List.filter (fun v -> not (List.mem v set)) read in
+  match dangling with
+  | [] -> ()
+  | missing ->
+      Alcotest.failf "%s reads --%s with nothing declaring it@.%s" label
+        (String.concat ", --" missing)
+        css
+
+(* One per theme namespace a utility reads through [var()]. The six spellings
+   that were always right are here too, so a fix that trades one for the other
+   cannot pass. *)
+let applied_utilities =
+  [
+    "rounded-lg";
+    "text-lg";
+    "blur-sm";
+    "ease-in-out";
+    "animate-spin";
+    "max-w-md";
+    "perspective-near";
+    "tracking-wide";
+    "leading-relaxed";
+    "p-6";
+    "gap-4";
+    "text-blue-500";
+    "bg-red-200";
+    "border-gray-300";
+    "ring-blue-400";
+    "shadow-sm";
+    "font-mono";
+    "duration-200";
+  ]
+
+let test_apply_declares_every_token_it_reads () =
+  List.iter
+    (fun cls ->
+      check_no_dangling_var
+        (String.concat "" [ ".card { @apply "; cls; " }" ])
+        (applied_sheet (String.concat "" [ ".card { @apply "; cls; "; }" ]));
+      check_no_dangling_var
+        (String.concat "" [ "@utility card { @apply "; cls; " }" ])
+        (applied_sheet
+           (String.concat "" [ "@utility card { @apply "; cls; "; }" ])))
+    applied_utilities
+
+(* An animation utility names a [@keyframes] block, which is not a declaration
+   and so not covered by the [var()] invariant above. *)
+(* The same invariant for author CSS that never mentions [@apply]. The value
+   shorthands read a theme token as surely as a utility does, and a token the
+   sheet does not declare leaves the declaration resolving to nothing.
+
+   A project [@theme] token is not covered here: the theme it declares is built
+   by the caller, and [splice_into_entrypoint] is handed one rather than
+   reading it back. That path is measured against the CLI instead. *)
+let test_author_css_declares_every_token_it_reads () =
+  List.iter
+    (fun body -> check_no_dangling_var body (applied_sheet body))
+    [
+      ".btn { padding: --spacing(4); }";
+      ".btn { margin: --spacing(2.5); }";
+      ".btn { color: theme(--color-red-500); }";
+      ".btn { color: theme(colors.red.500); }";
+    ]
+
+(* [prefix(tw)] is read off the import the way [theme(static)] is. A [prefix()]
+   outside an import statement is not the option, and neither is one in a later
+   import that the first did not carry. *)
+let test_import_prefix () =
+  let prefix s = import_prefix s in
+  check (option string) "the option on the import" (Some "tw")
+    (prefix "@import \"tailwindcss\" prefix(tw);");
+  check (option string) "beside other options" (Some "app")
+    (prefix "@import \"tailwindcss\" source(none) prefix(app) theme(static);");
+  check (option string) "no option" None (prefix "@import \"tailwindcss\";");
+  check (option string) "a call outside an import" None
+    (prefix ".a { width: prefix(tw) }");
+  check (option string) "an empty option names nothing" None
+    (prefix "@import \"tailwindcss\" prefix();")
+
+let test_apply_keeps_the_keyframes () =
+  let css = applied_sheet ".card { @apply animate-spin; }" in
+  check bool "the @keyframes the animation names survives" true
+    (Astring.String.is_infix ~affix:"@keyframes spin" css)
+
+(* A sweep over the author-CSS dialect, each idiom measured against the pinned
+   CLI rather than against an expectation written here.
+
+   Every defect found in this area since the corpus went in has been invisible
+   to the markup sweeps: the utility rules were byte-identical and only the
+   theme layer differed, or a value shorthand passed through unexpanded and the
+   browser dropped the declaration. A class list cannot reach any of it, so the
+   entrypoint is the unit under test.
+
+   Adding a line here is how the next one gets found. The entrypoint fences its
+   own sources, so the generated sheet is empty and what is compared is the
+   author's CSS and the theme layer it pulls in. *)
+let cases =
+  [
+    ("apply-plain", ".btn { @apply p-4 rounded-lg; }");
+    ("apply-colour", ".btn { @apply bg-blue-500 text-white; }");
+    ("apply-important", ".btn { @apply bg-blue-500!; }");
+    ("apply-namespaced", ".btn { @apply blur-sm ease-in-out tracking-wide; }");
+    ("apply-animation", ".btn { @apply animate-spin; }");
+    ("apply-nested", ".btn { &:hover { @apply underline; } }");
+    ("apply-in-layer", "@layer components { .btn { @apply p-4; } }");
+    ("utility-apply", "@utility card { @apply rounded-lg; }");
+    ("spacing-fn", ".btn { padding: --spacing(4); }");
+    ("spacing-fn-fraction", ".btn { margin: --spacing(2.5); }");
+    ("alpha-fn", ".btn { color: --alpha(var(--color-red-500) / 50%); }");
+    ("theme-fn", ".btn { color: theme(--color-red-500); }");
+    ("theme-fn-v3", ".btn { color: theme(colors.red.500); }");
+    ( "theme-in-media",
+      "@media (width >= theme(--breakpoint-md)) { .btn { display: flex; } }" );
+    ( "theme-block",
+      "@theme { --color-brand: #1da1f2; } .btn { color: var(--color-brand); }"
+    );
+    ( "theme-keyframes",
+      "@theme { --animate-wiggle: wiggle 1s; @keyframes wiggle { to { \
+       transform: rotate(3deg); } } } .btn { animation: var(--animate-wiggle); \
+       }" );
+    ( "custom-variant",
+      "@custom-variant dark (&:where(.dark, .dark *)); .btn { @apply p-4; }" );
+    ("variant-at-rule", ".btn { @variant dark { color: white; } }");
+    ( "colour-mix-author",
+      "@theme { --color-brand: #1da1f2; } .btn { color: color-mix(in oklab, \
+       var(--color-brand) 25%, transparent); }" );
+  ]
+
+let entrypoint body =
+  String.concat "" [ "@import \"tailwindcss\" source(none);\n"; body; "\n" ]
+
+let compare_with_cli (name, body) =
+  (* Beside the other entrypoints these tests write, so the CLI resolves
+     [@import "tailwindcss"] against the project's own node_modules. *)
+  let path = "sweep-" ^ name ^ ".css" in
+  Fun.protect
+    ~finally:(fun () -> Sys.remove path)
+    (fun () ->
+      let oc = open_out path in
+      Fun.protect
+        ~finally:(fun () -> close_out_noerr oc)
+        (fun () -> output_string oc (entrypoint body));
+      let css = Tw_tools.Entrypoint.read_file path in
+      let theme = Tw_tools.Entrypoint.theme_of_css css in
+      (* The CLI emits preflight from the same [@import], so the generated half
+         carries the base layer too. Nothing is scanned: the entrypoint pins
+         [source(none)], so what is compared is the author's CSS and the theme
+         layer it pulls in. *)
+      let generated = Tw.to_css ~theme ~base:true [] in
+      let tw =
+        Tw_tools.Entrypoint.splice_into_entrypoint ~theme ~path generated
+        |> Cascade.Css.optimize
+        |> Cascade.Css.to_string ~minify:true
+      in
+      let cli = Tw_tools.Tailwind_gen.generate_entrypoint ~minify:true path in
+      let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
+      match diff.Cascade_diff.Css_compare.result with
+      | Cascade_diff.Css_compare.No_diff -> None
+      | _ -> Some name)
+
+let test_author_css_sweep () =
+  Test_helpers.require_tailwind_cli ();
+  match List.filter_map compare_with_cli cases with
+  | [] -> ()
+  | diverging ->
+      Alcotest.failf "%d of %d author-CSS idioms diverge from the CLI: %s"
+        (List.length diverging) (List.length cases)
+        (String.concat ", " diverging)
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
@@ -597,6 +823,13 @@ let tests =
     test_case "functional routing" `Quick test_functional_routing;
     test_case "malformed utility spares the others" `Quick
       test_malformed_utility_spares_the_others;
+    test_case "@apply declares every token it reads" `Quick
+      test_apply_declares_every_token_it_reads;
+    test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
+    test_case "prefix() on the import" `Quick test_import_prefix;
+    test_case "author CSS sweep against the CLI" `Slow test_author_css_sweep;
+    test_case "author CSS declares every token it reads" `Quick
+      test_author_css_declares_every_token_it_reads;
   ]
 
 let suite = ("entrypoint", tests)

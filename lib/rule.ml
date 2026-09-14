@@ -2376,6 +2376,59 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   if !has_regular_rules then ordered_entries @ base_rule
   else base_rule @ ordered_entries
 
+(* [prefix(tw)] is the outermost segment of the written class, where tw composes
+   a name inner to outer ([hover:] onto [underline]). So it goes on the finished
+   rule rather than the utility: composed in place it would spell
+   [hover:tw:underline], and carried as an alias the recursion would read it
+   again at every modifier. *)
+let written_with_prefix p output =
+  (* The anchor a [group-*] or [peer-*] variant points at is a class the author
+     writes, so it carries the prefix too: [app:group-hover:underline] reads the
+     anchor as [.app] then [group] escaped together. A variant that carries its
+     own name spells it after a slash, and the prefix stays in front. *)
+  let anchored name =
+    let is_anchor kind =
+      name = kind
+      || String.length name > String.length kind
+         && String.sub name 0 (String.length kind + 1) = kind ^ "/"
+    in
+    is_anchor "group" || is_anchor "peer"
+  in
+  let prefix_anchors selector =
+    Css.Selector.map
+      (function
+        | Css.Selector.Class name when anchored name ->
+            Css.Selector.Class (p ^ ":" ^ name)
+        | other -> other)
+      selector
+  in
+  let moved selector base_class =
+    let selector = prefix_anchors selector in
+    match base_class with
+    | None -> (selector, None)
+    | Some c ->
+        let written = p ^ ":" ^ c in
+        ( Rules_selector.replace_class_in_selector ~old_class:c
+            ~new_class:written selector,
+          Some written )
+  in
+  match output with
+  | Output.Regular r ->
+      let selector, base_class = moved r.selector r.base_class in
+      Output.Regular { r with selector; base_class }
+  | Output.Media_query r ->
+      let selector, base_class = moved r.selector r.base_class in
+      Output.Media_query { r with selector; base_class }
+  | Output.Container_query r ->
+      let selector, base_class = moved r.selector r.base_class in
+      Output.Container_query { r with selector; base_class }
+  | Output.Starting_style r ->
+      let selector, base_class = moved r.selector r.base_class in
+      Output.Starting_style { r with selector; base_class }
+  | Output.Supports_query r ->
+      let selector, base_class = moved r.selector r.base_class in
+      Output.Supports_query { r with selector; base_class }
+
 let outputs ?(theme = Scheme.default) ?order_tbl util =
   let rec utility_order = function
     | Utility.Base b -> Some (Utility.order b)
@@ -2418,6 +2471,15 @@ let outputs ?(theme = Scheme.default) ?order_tbl util =
     | Style.Group styles ->
         handle_group class_name util_inner styles extract_with_class
   in
+  (* [prefix(tw)] is the outermost segment of the written class, where tw
+     composes a name inner to outer ([hover:] onto [underline]). So it goes on
+     the finished rule rather than the utility: composed in place it would spell
+     [hover:tw:underline], and carried as an alias the recursion would read it
+     again at every modifier. *)
   let class_name = Utility.to_class util in
+  let prefix = theme.Scheme.prefix in
   let style = Utility.to_style theme util in
-  extract_with_class class_name util style
+  let results = extract_with_class class_name util style in
+  match prefix with
+  | None -> results
+  | Some p -> List.map (written_with_prefix p) results

@@ -233,6 +233,24 @@ let imports_static_theme css =
   |> List.exists (fun (at, (import : Index.statement)) ->
       List.exists (fun (i, _) -> at < i && i < import.next) static)
 
+(* [@import "tailwindcss" prefix(tw)] asks for [tw:] in front of every candidate
+   and [--tw-] in front of every theme token. Read the same way [theme(static)]
+   is: the option function sits inside the import statement. *)
+let import_prefix css =
+  let index = Index.v css in
+  let prefixes = Index.calls index ~name:"prefix" in
+  Index.at_statements index ~name:"@import"
+  |> List.filter_map (fun (at, (import : Index.statement)) ->
+      List.find_map
+        (fun (i, (block : Index.block)) ->
+          if at < i && i < import.next then
+            match String.trim block.body with "" -> None | name -> Some name
+          else None)
+        prefixes)
+  |> function
+  | name :: _ -> Some name
+  | [] -> None
+
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
    [drop_directives] takes the whole block out of the emitted CSS; lift actual
@@ -1248,6 +1266,61 @@ let expand_spacing_fn ~theme css =
   go 0;
   Buffer.contents buf
 
+(* The value a theme token carries. The palette is not in [Scheme]'s table: a
+   colour is catalogued, and [theme_color_decl] is what reads it back. Asking
+   [Scheme.token] alone left [theme(--color-red-500)] unresolved, and an
+   unresolved [theme()] is not CSS, so the parser dropped the declaration and
+   the author's rule with it. *)
+let theme_token_value theme name =
+  match Tw.Scheme.token theme name with
+  | Some _ as value -> value
+  | None ->
+      Option.map
+        (fun decl -> String.trim (Cascade.Css.declaration_value decl))
+        (Tw.Color.Handler.theme_color_decl ~theme name)
+
+(* Tailwind's [--alpha(<color> / <percentage>)] is shorthand for compositing a
+   colour with its own alpha. It is not CSS, so a parser rejects the declaration
+   and it drops out of the output, leaving the element with no colour at all. It
+   spells the same [color-mix()] the author could have written, which is what
+   [authored_color_mix_fallbacks] then gives a legacy fallback and an
+   [@supports] arm - the shape the reference emits. *)
+let expand_alpha_fn css =
+  let index = Index.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Index.call index ~name:"--alpha" i with
+      | Some { body; next } -> (
+          match String.index_opt body '/' with
+          | None ->
+              Buffer.add_char buf css.[i];
+              go (i + 1)
+          | Some slash ->
+              let colour = String.trim (String.sub body 0 slash) in
+              let alpha =
+                String.trim
+                  (String.sub body (slash + 1) (String.length body - slash - 1))
+              in
+              Buffer.add_string buf
+                (String.concat ""
+                   [
+                     "color-mix(in oklab, ";
+                     colour;
+                     " ";
+                     alpha;
+                     ", transparent)";
+                   ]);
+              go next)
+      | None ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
 (* [theme()] also takes the dotted path of a v3 config ([theme(fontSize.sm)]),
    which names the same token under its old namespace. *)
 let v3_theme_namespaces =
@@ -1282,7 +1355,7 @@ let v3_theme_token theme path =
       | None -> None
       | Some prefix -> (
           let key = String.concat "-" rest in
-          match Tw.Scheme.token theme (prefix ^ "-" ^ key) with
+          match theme_token_value theme (prefix ^ "-" ^ key) with
           | Some _ as v -> v
           | None -> (
               match (ns, float_of_string_opt key) with
@@ -1313,7 +1386,7 @@ let resolve_theme_fn ~theme css =
             else name
           in
           match
-            match Tw.Scheme.token theme bare with
+            match theme_token_value theme bare with
             | Some _ as v -> v
             | None -> v3_theme_token theme name
           with
@@ -1410,11 +1483,6 @@ let dedup_statements stmts =
 (* A utility's selector names a class, the theme block's [:root, :host] does
    not. Asked of the selector itself rather than of its text, where a '.' also
    comes from an attribute value or a decimal inside a pseudo argument. *)
-let is_utility_statement stmt =
-  match Css.statement_selector stmt with
-  | None -> true
-  | Some sel -> Css.Selector.exists_class (fun _ -> true) sel
-
 let rec merge_same_selector = function
   | a :: b :: rest -> (
       match (Css.as_rule a, Css.as_rule b) with
@@ -1434,6 +1502,35 @@ let render_nested_utilities ~classes stmts =
    [@layer properties] block holds the initial value of the variables the
    utilities set, on the universal selector: nested under an author rule it
    would come out as [.box *], so it is hoisted instead. *)
+(* What goes to the top of the sheet rather than under the [&] that applied the
+   utilities: a rule naming no class, which is the [:root] block declaring the
+   theme tokens they read, and the three at-rules that stand on their own -
+   [@layer properties] (nested it would come out as [.box *]), [@property], and
+   the [@keyframes] an animation utility names. An at-rule that wraps utility
+   rules - [@supports], [@media] - is not one of those: it nests with what it
+   holds.
+
+   The theme block used to be dropped here rather than hoisted, so
+   [@apply rounded-lg] emitted a rule reading [var(--radius-lg)] with nothing
+   in the sheet declaring it. Colours and spacing hid it for a long time: those
+   two are rescued downstream by [Build.referenced_theme_decls], so only the
+   families carrying their own namespace showed the defect. *)
+let stands_at_top stmt =
+  match Css.statement_selector stmt with
+  | Some sel -> not (Css.Selector.exists_class (fun _ -> true) sel)
+  | None ->
+      Css.as_layer stmt <> None
+      || Css.as_property stmt <> None
+      || Css.as_keyframes stmt <> None
+
+(* The theme block goes back inside [@layer theme], where [merge_named_layers]
+   folds it into the generated sheet's own block. An at-rule stands at top
+   level, which is where Tailwind emits it. *)
+let at_top_of_sheet stmt =
+  match Css.statement_selector stmt with
+  | None -> stmt
+  | Some _ -> Css.layer ~name:[ "theme" ] [ stmt ]
+
 let nested_utilities ~theme names =
   let of_name n =
     match Tw.of_string ~theme n with Ok s -> Some s | Error _ -> None
@@ -1447,19 +1544,8 @@ let nested_utilities ~theme names =
       (* The class each utility carries in its own selector, spelled the way
          [to_css] spells it rather than the way the [@apply] did. *)
       let classes = String.split_on_char ' ' (Tw.to_classes styles) in
-      (* [to_css] also emits the theme block the utilities read from, whose
-         selector is [:root]. It belongs at the top of the sheet, not inside the
-         rule that applied them, and [is_utility_statement] tells the two apart
-         by whether the selector names a class at all. *)
-      (* [@property] belongs beside the utilities too, not inside the rule that
-         applied them: nested there it is emitted once per applying rule, and
-         the same property comes back for every utility that sets it. *)
-      let hoisted, nestable =
-        Css.statements sheet
-        |> List.filter is_utility_statement
-        |> List.partition (fun stmt ->
-            Css.as_layer stmt <> None || Css.as_property stmt <> None)
-      in
+      let top, nestable = List.partition stands_at_top (Css.statements sheet) in
+      let hoisted = List.map at_top_of_sheet top in
       (* One [@apply] pulls in several utilities, each with a rule of its own.
          They all decorate the same [&], so they belong in one rule, the way
          Tailwind emits them; left apart, each is a rule of the author's
@@ -1638,7 +1724,9 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   in
   drop_directives
     (resolve_theme_fn ~theme
-       (expand_spacing_fn ~theme (expand_variants ~depth:0 defs (expand 0 css))))
+       (expand_alpha_fn
+          (expand_spacing_fn ~theme
+             (expand_variants ~depth:0 defs (expand 0 css)))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -1804,6 +1892,22 @@ let fresh_layer_decl ~declare ~is_declared names =
       List.iter declare fresh;
       [ Css.layer_decl fresh ]
 
+(* [@layer properties] carries the initial values of the variables the utilities
+   set, so it has to be declared ahead of the layers that read them, which is
+   where Tailwind emits it. The generated sheet places its own; one an [@apply]
+   hoisted arrives at the end of the entrypoint text instead, and would order
+   after every other layer. [Place_routed] does the same for the
+   declared-utility path. *)
+let lead_properties_layer stmts =
+  let is_properties stmt =
+    match Css.layer_block_name stmt with
+    | Some name -> Css.Stylesheet.equal_layer_name name [ "properties" ]
+    | None -> false
+  in
+  match List.partition is_properties stmts with
+  | [], _ -> stmts
+  | lead, rest -> lead @ rest
+
 let hoist_layer_blocks stmts =
   let movable = movable_layer_slots stmts in
   if movable = [] then stmts
@@ -1967,6 +2071,50 @@ let authored_color_mix_fallbacks ~theme stmts =
   in
   lower_block stmts
 
+(* A theme token the author's own CSS reads has to be declared, the way one a
+   utility reads is. [padding: --spacing(4)] expands to [calc(var(--spacing) *
+   4)], and a sheet declaring no [--spacing] resolves it to nothing - the rule
+   is right and the page renders unstyled, which is the shape every author-CSS
+   defect here has taken.
+
+   Only the author's own statements are scanned. The generated sheet already
+   declares what it reads, and re-deriving it from the whole result is what
+   over-emits: a [--default-*] token nothing set would arrive in the theme layer
+   and move a fallback the utilities layer spells. *)
+let author_theme_tokens ~theme stmts =
+  Css.vars_of_rules stmts
+  |> List.filter_map (fun (Css.V var) ->
+      (* [var_name] is the bare name, without the [--] a declaration carries. *)
+      let bare = Cascade.Css.var_name var in
+      Option.map
+        (fun value -> ("--" ^ bare, value))
+        (theme_token_value theme bare))
+  |> List.sort_uniq compare
+
+(* Declared anywhere in [stmts], at any depth. *)
+let declared_custom_properties stmts =
+  Cascade.Css.Stylesheet.fold_declarations
+    (fun names decls ->
+      List.filter_map Cascade.Css.custom_declaration_name decls @ names)
+    [] stmts
+
+let declare_author_theme_tokens tokens stmts =
+  let declared = declared_custom_properties stmts in
+  match List.filter (fun (name, _) -> not (List.mem name declared)) tokens with
+  | [] -> stmts
+  | missing ->
+      (* An [@layer theme] block, so [merge_named_layers] folds it into the
+         generated sheet's own rather than leaving a second one behind. *)
+      let decls =
+        List.map
+          (fun (name, value) -> Css.custom_property ~layer:"theme" name value)
+          missing
+      in
+      let selector =
+        Css.Selector.List [ Css.Selector.Root; Css.Selector.host () ]
+      in
+      Css.layer ~name:[ "theme" ] [ Css.rule ~selector decls ] :: stmts
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
@@ -2005,8 +2153,10 @@ let splice_into_entrypoint ~theme ~path generated =
                 ->
                   Css.statements generated
               | s -> [ s ])
+          |> declare_author_theme_tokens
+               (author_theme_tokens ~theme (Css.statements inlined))
           |> merge_named_layers |> collapse_property_fallbacks
-          |> hoist_layer_blocks
+          |> hoist_layer_blocks |> lead_properties_layer
           |> drop_unread_inline_tokens ~theme
           |> collect_properties_at_end |> Css.v)
 
@@ -2020,6 +2170,20 @@ let entry_defs take = function
       match read_file path with
       | exception Sys_error _ -> []
       | raw -> snd (take (strip_tailwind_import_options raw)))
+
+(* The theme a project's entrypoint asks for: its [\@theme] overrides, whether
+   it imported [theme(static)], and the prefix it named. One function so the CLI
+   and anything measuring the CLI build the same theme from the same file rather
+   than two that drift. *)
+let theme_of_css css =
+  let overrides, inline = theme_overrides_of_css css in
+  let base =
+    if imports_static_theme css then
+      { Tw.Scheme.default with static_theme = true }
+    else Tw.Scheme.default
+  in
+  let base = { base with prefix = import_prefix css } in
+  Tw.Scheme.with_overrides ~inline base overrides
 
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities
@@ -2224,12 +2388,17 @@ let ordered_routed_entries ~own_order ~order_of group =
   |> List.sort (compare_routed_entries ~own_order ~order_of)
 
 let routed_statements ~block_count ~own_order stmts =
-  (* [@layer properties] and [@property] sit beside the utilities layer, not in
-     it: nested, the first would become [utilities.properties]. *)
+  (* [@layer properties], [@property] and [@keyframes] sit beside the utilities
+     layer, not in it: nested, the first would become [utilities.properties],
+     and the [@keyframes] an applied animation utility names would go into the
+     classless bucket and be wrapped in a utilities layer of its own, which is
+     not where Tailwind puts it. *)
   let hoisted, rules =
     List.partition
       (fun (_, stmt) ->
-        Css.as_layer stmt <> None || Css.as_property stmt <> None)
+        Css.as_layer stmt <> None
+        || Css.as_property stmt <> None
+        || Css.as_keyframes stmt <> None)
       stmts
   in
   let group, order_of, classless = group_routed_rules ~own_order rules in

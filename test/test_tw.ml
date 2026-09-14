@@ -1325,6 +1325,45 @@ let unterminated_theme_call () =
    is told which v4 spelling replaces it rather than that the name is
    unfamiliar. The v3 spellings v4 still emits are not in this set: 4.3.3
    compiles [flex-grow] and [overflow-ellipsis], so tw must too. *)
+(* [prefix(tw)] makes [tw:] the first segment of every candidate. It is not a
+   variant, so it comes off before anything parses, and the written spelling
+   goes back on as the class name - that is what puts [.tw\:hover\:p-4] in the
+   selector. Under a prefix a bare candidate names nothing, which is what the
+   pinned CLI does: it compiles [p-4] to nothing once the import asks for one. *)
+let prefixed_candidates () =
+  let theme = { Tw.Scheme.default with prefix = Some "tw" } in
+  (* The written spelling is what lands in the selector. It is put there on the
+     finished rule, not carried on the utility, so [Tw.to_classes] still reports
+     the utility's own name. *)
+  let sheet cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter
+    (fun (cls, selector) ->
+      Alcotest.(check bool)
+        (cls ^ " renders as " ^ selector)
+        true
+        (Astring.String.is_infix ~affix:selector (sheet cls)))
+    [
+      ("tw:flex", ".tw\\:flex{");
+      ("tw:p-4", ".tw\\:p-4{");
+      ("tw:hover:underline", ".tw\\:hover\\:underline:hover{");
+      ("tw:group-hover:underline", ".tw\\:group");
+    ];
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Ok u -> Alcotest.failf "expected %s to be refused, got %s" cls (Tw.pp u)
+      | Error _ -> ())
+    [ "flex"; "hover:underline"; "tw:nope"; "tw"; "twx:flex" ];
+  (* With no prefix asked for, a candidate spelled with one names nothing. *)
+  match Tw.of_string "tw:flex" with
+  | Ok u -> Alcotest.failf "expected tw:flex to be refused, got %s" (Tw.pp u)
+  | Error _ -> ()
+
 let v3_opacity_rejection_message () =
   let message cls =
     match Tw.of_string cls with
@@ -1760,6 +1799,7 @@ let core_tests =
     test_case "arbitrary property rejection message" `Quick
       arbitrary_property_rejection_message;
     test_case "v3 opacity rejection message" `Quick v3_opacity_rejection_message;
+    test_case "prefixed candidates" `Quick prefixed_candidates;
     test_case "responsive classes" `Slow responsive_classes;
     test_case "multiple classes" `Slow multiple_classes;
     test_case "all colors same shade" `Slow all_colors_same_shade;

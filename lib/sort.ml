@@ -1059,6 +1059,14 @@ let compare_container_values r1 r2 p1 p2 =
       | Some v1, Some v2 when v1.call || v2.call ->
           let c = String.compare v1.name v2.name in
           if c <> 0 then Some c else Some (String.compare v1.text v2.text)
+      | Some v1, Some v2 when v1.name = v2.name && v1.text = v2.text ->
+          (* [@lg] and [@min-lg] name one width and merge into one block, so
+             whichever is written last wins the cascade. The length key cannot
+             separate them - it is the same length - and leaving them to the
+             comparators below decides it by an order that is not Tailwind's.
+             Tailwind orders the two spellings by name, so [@lg] precedes
+             [@min-lg] and an element carrying both renders the same. *)
+          Some (String.compare p1 p2)
       | _ -> None)
   | _ -> None
 

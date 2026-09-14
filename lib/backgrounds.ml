@@ -569,16 +569,29 @@ module Handler = struct
   (** Helper to get color value and optional theme variable declaration. For
       custom/arbitrary colors: returns ([], color_value) - no theme variable.
       For named colors: returns ([theme_var_decl], Var(theme_var_ref)) *)
-  let color_binding ?(shade = 500) color =
-    let color_value = Color.to_css color shade in
+  let color_binding ?theme ?(shade = 500) color =
+    let color_value = Color.to_css ?theme color shade in
     if Color.is_custom_color color then
       (* Arbitrary color: no theme variable, use value directly *)
       ([], color_value)
     else
       (* Named color: create theme variable *)
       let color_theme_var = Color.color_var color shade in
-      let d_color, color_ref = Var.binding color_theme_var color_value in
-      ([ d_color ], (Var color_ref : Css.color))
+      let inline =
+        match theme with
+        | Some t -> Scheme.is_inline_token t (Var.name color_theme_var)
+        | None -> false
+      in
+      if inline then
+        (* An [\@theme inline] token declares nothing of its own: the value goes
+           into the utility. That is what inline is for - a value [var()] cannot
+           reach, inside [\@keyframes] or composed into a [color-mix()] - so
+           emitting the reference and declaring the token is the opposite of
+           what was asked for, even where the two paint the same colour. *)
+        ([], color_value)
+      else
+        let d_color, color_ref = Var.binding color_theme_var color_value in
+        ([ d_color ], (Var color_ref : Css.color))
 
   (** Common helper for gradient color utilities *)
   let gradient_color ~prefix ~set_var ?(shade = 500) color =
@@ -676,7 +689,7 @@ module Handler = struct
         let d, r = Var.binding tv (Css.hex theme_val) in
         style [ d; Css.background_color (Var r) ]
     | None ->
-        let theme_decls, color_value = color_binding ~shade color in
+        let theme_decls, color_value = color_binding ?theme ~shade color in
         style (theme_decls @ [ Css.background_color color_value ])
 
   let bg_origin_border = style [ Css.background_origin Border_box ]

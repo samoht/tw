@@ -43,6 +43,12 @@ type config = {
 val default_config : config
 (** The default configuration. Base layer enabled. *)
 
+val theme_token_rename : theme:Scheme.t -> (string -> string) option
+(** [theme_token_rename ~theme] is the rename to hand {!Css.to_string}['s]
+    [?rename_custom_property] when the project asked for a prefix, and [None]
+    when it did not. It moves every theme token and leaves the [--tw-*] channels
+    a utility sets for itself alone, whatever the prefix is. *)
+
 val to_css :
   ?theme:Scheme.t ->
   ?config:config ->

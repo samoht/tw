@@ -129,7 +129,10 @@ let render_css ~(opts : gen_opts) stylesheet =
       Tw.Css.Optimize.add_compatibility_prefixes
         ~targets:Tw.Css.Optimize.evergreen_targets stylesheet
   in
-  Tw.Css.to_string ~minify:opts.minify stylesheet
+  (* A prefixed project spells its theme tokens [--tw-spacing], on the
+     declaration and at every [var()] alike. *)
+  let rename_custom_property = Tw.theme_token_rename ~theme:opts.theme in
+  Tw.Css.to_string ~minify:opts.minify ?rename_custom_property stylesheet
 
 (* Surface of_string's specific message (e.g. the actionable arbitrary-property
    feedback) for a single unknown class; fall back to a generic message. *)
@@ -395,14 +398,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
   let theme =
     match css_content with
     | None -> Tw.Scheme.default
-    | Some css ->
-        let overrides, inline = Entrypoint.theme_overrides_of_css css in
-        let base =
-          if Entrypoint.imports_static_theme css then
-            { Tw.Scheme.default with static_theme = true }
-          else Tw.Scheme.default
-        in
-        Tw.Scheme.with_overrides ~inline base overrides
+    | Some css -> Entrypoint.theme_of_css css
   in
   let opts : gen_opts =
     {

@@ -47,6 +47,13 @@
 
 ### Project stylesheets
 
+- `@import "tailwindcss" prefix(tw)` compiles. The option was parsed and
+  discarded, so every candidate spelled `tw:p-4` was unknown and the sheet came
+  back with no utilities at all. `Scheme.prefix` carries it: the candidate is
+  read without the prefix, the written spelling goes on the finished rule, the
+  `group`/`peer` anchors carry it too, and the theme tokens are declared and
+  read as `--tw-spacing` while the `--tw-*` channels a utility sets for itself
+  keep their names (#781).
 - `tw` compiles a whole CSS entrypoint instead of reading only its `@theme`.
   `@import`, `@apply`, `@utility`, `@variant`, `@custom-variant`, `--spacing()`
   and `theme()` all expand in author CSS, down to a declared utility's own
@@ -156,6 +163,19 @@
 
 ### Arbitrary values and validation
 
+- `--alpha(<color> / <percentage>)` in author CSS compiles to the `color-mix()`
+  it spells, with the legacy fallback and `@supports` arm beside it. It passed
+  through unexpanded, which is not CSS, so the browser dropped the declaration
+  and the element took no colour (#783).
+- An `@theme inline` token goes into the utility that reads it, rather than
+  being declared and referenced. That is what `inline` is for: a value `var()`
+  cannot reach, inside `@keyframes` or composed into a `color-mix()` (#783).
+- Author CSS that reads a theme token declares it. `padding: --spacing(4)`
+  emitted `calc(var(--spacing) * 4)` with nothing declaring `--spacing`, and
+  `color: theme(--color-red-500)` dropped the declaration and the rule with it,
+  because the palette is catalogued rather than held in the token table and the
+  unresolved `theme()` was not CSS. The v3 `theme(colors.red.500)` spelling and
+  a project `@theme` token read through `var()` take the same path (#780).
 - A v3 opacity utility says so. `bg-opacity-50` and the `text-`, `border-`,
   `divide-`, `ring-` and `placeholder-` spellings are still refused, as
   Tailwind refuses them, but the message names the v4 replacement
@@ -410,6 +430,13 @@
 
 ### Variants and selectors
 
+- `@apply` declares the theme tokens the utilities it pulls in read. The rule
+  it emitted was already right, so nothing warned, but `@layer theme` came back
+  without `--radius-lg`, `--text-lg`, `--blur-sm` and the rest of the families
+  carrying their own namespace, and the page rendered as if the declarations
+  were absent. `@apply animate-spin` also lost its `@keyframes` block, and the
+  `@layer properties` an applied utility hoists now precedes the layers that
+  read it (#779).
 - `not-[:pseudo]` negates the pseudo-class rather than a class that happens to
   be spelled like one. Only nine pseudo-classes were tabled, so
   `not-[:target]`, `not-[:nth-child(2)]` and `not-[:has(.x)]` each negated a
@@ -451,6 +478,10 @@
 
 ### CSS ordering and structure
 
+- `@lg:` and `@min-lg:` order the way Tailwind orders them. The two spell one
+  width and merge into one container block, where the last rule wins, so an
+  element carrying both rendered one way under Tailwind and the other under tw
+  (#783).
 - Utilities land where Tailwind puts them across the sheet. A colour's
   `@supports` rule stays with its fallback, container variants order by width,
   the logical sizing families sort last, line-clamp sorts with box-sizing, and

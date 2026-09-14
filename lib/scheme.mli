@@ -61,6 +61,11 @@ type t = {
   static_theme : bool;
       (** Whether the package was imported with [theme(static)], which emits
           every theme variable rather than only the ones a utility used. *)
+  prefix : string option;
+      (** The prefix [prefix(tw)] on the import asks for. Every candidate is
+          then spelled [tw:p-4], and every theme token is declared and read as
+          [--tw-spacing]. The [--tw-*] variables a utility sets for itself are
+          not theme tokens and keep their names, whatever the prefix is. *)
   custom_variants : (string * custom_variant) list;
       (** The [\@custom-variant]s this [\@theme] declared, each a value map and
           a selector template. A variant belongs to the theme that declared it,
