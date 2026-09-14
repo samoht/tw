@@ -31,6 +31,12 @@ val prose_element_inner_selector : string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
+val bracket_media_condition : string -> Css.Media.t option
+(** [bracket_media_condition inner] is the media query a bracket at-rule [inner]
+    names when it is an [@media] one, [@media_print] or [@media(width>=600px)],
+    with underscores read as spaces, and [None] when it is not or the query does
+    not parse. *)
+
 val normalize_supports_condition : string -> Css.Supports.t
 (** [normalize_supports_condition cond] builds the [supports-[...]] bracket
     content as a typed CSS [@supports] condition: underscores become spaces, and

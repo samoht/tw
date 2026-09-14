@@ -1203,14 +1203,35 @@ let is_valid_data_attr_expr expr =
   | _ -> true
   | exception (Invalid_argument _ | Cascade.Cursor.Parse_error _) -> false
 
-(* An at-rule in brackets is a variant too: [[@supports(display:grid)]] and
-   [[@starting-style]] wrap the utility rather than select it. *)
+(* The query a bracket [@media] at-rule names, [[@media_print]] or
+   [[@media(width>=600px)]], with underscores read as spaces; [None] when what
+   follows [@media] is no query the grammar reads, so a half-written one is
+   refused where the modifier is parsed rather than raised from the render. *)
+let bracket_media_condition inner =
+  let n = String.length inner in
+  if
+    n > 7
+    && String.sub inner 0 6 = "@media"
+    && (inner.[6] = '_' || inner.[6] = '(')
+  then
+    let cond =
+      String.trim (Parse.decode_underscores (String.sub inner 6 (n - 6)))
+    in
+    match Css.Media.of_string_strict cond with
+    | media -> Some media
+    | exception Cascade.Cursor.Parse_error _ -> None
+  else None
+
+(* An at-rule in brackets is a variant too: [[@supports(display:grid)]],
+   [[@media_print]] and [[@starting-style]] wrap the utility rather than select
+   it. *)
 let try_bracket_at_rule s =
   if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then
     let inner = String.sub s 1 (String.length s - 2) in
     if
       inner = "@starting-style"
       || (String.length inner > 9 && String.sub inner 0 9 = "@supports")
+      || Option.is_some (bracket_media_condition inner)
     then Some (At_rule inner)
     else None
   else None
@@ -1741,6 +1762,11 @@ let is_not_compatible = function
   | Pseudo_first_line | Pseudo_details_content | Starting | Children
   | Descendants | Prose_element _ | Container _ ->
       false
+  (* A bracket [@media] at-rule wraps the utility in a query and has no selector
+     to negate or to look for; [not-[@media ...]] has its own reading, and
+     Tailwind compiles nothing for [has-[@media_print]]. *)
+  | At_rule content when Option.is_some (bracket_media_condition content) ->
+      false
   | _ -> true
 
 (* [not-[...]] whose content is neither a media condition nor a pseudo-class
@@ -1921,7 +1947,8 @@ let try_not_modifier theme s =
             (fun () -> try_not_bracket inner);
             (fun () ->
               match try_bracketed_modifier inner with
-              | Some m -> Some (Not m)
+              | Some m when is_not_compatible m -> Some (Not m)
+              | Some _ -> None
               | None -> None);
             (fun () -> try_not_shorthand inner);
           ]

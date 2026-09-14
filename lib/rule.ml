@@ -1544,10 +1544,17 @@ let at_rule_variant ?(inner_has_hover = false) content ~selector base_class
   if content = "@starting-style" then
     starting_style ~selector ~props ~nested ~base_class:modified_class ()
   else
-    let cond = String.trim (String.sub content 9 (String.length content - 9)) in
-    let condition = normalize_supports_condition cond in
-    supports_query ~condition ~selector ~props ~nested
-      ~base_class:modified_class ()
+    match Modifiers.bracket_media_condition content with
+    | Some condition ->
+        media_query ~condition ~selector ~props ~nested
+          ~base_class:modified_class ()
+    | None ->
+        let cond =
+          String.trim (String.sub content 9 (String.length content - 9))
+        in
+        let condition = normalize_supports_condition cond in
+        supports_query ~condition ~selector ~props ~nested
+          ~base_class:modified_class ()
 
 (* A [matchVariant]-registered custom variant. The class name is the token
    ([is-data-foo]); the selector is the template with [&] replaced by the
