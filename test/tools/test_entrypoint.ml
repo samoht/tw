@@ -700,6 +700,24 @@ let test_apply_keeps_the_keyframes () =
   check bool "the @keyframes the animation names survives" true
     (Astring.String.is_infix ~affix:"@keyframes spin" css)
 
+(* A utility the stylesheet declares for itself is what an [@apply] beside it
+   names most often: a component class built from a project utility. Static and
+   functional alike, with a modifier or without, each comes back carrying the
+   declarations the pinned CLI gives it. *)
+let test_apply_declared_utility () =
+  let css =
+    applied_sheet
+      "@utility card { tab-size: 8; }\n\
+       @utility bar-* { tab-size: --value(integer); line-clamp: \
+       --modifier(integer); }\n\
+       .a { @apply bar-2; }\n\
+       .b { @apply bar-2/3; }\n\
+       .c { @apply card; }"
+  in
+  List.iter
+    (fun rule -> check bool rule true (Astring.String.is_infix ~affix:rule css))
+    [ ".a{tab-size:2}"; ".b{tab-size:2;line-clamp:3}"; ".c{tab-size:8}" ]
+
 (* A sweep over Tailwind's CSS dialect: each case is an entrypoint, compiled by
    tw the way the [tw] CLI compiles a project and by the pinned CLI, and the two
    sheets compared whole.
@@ -749,9 +767,6 @@ let cases =
     case "apply-in-layer" (fenced "@layer components { .btn { @apply p-4; } }");
     case "utility-apply" (fenced "@utility card { @apply rounded-lg; }");
     case "apply-declared-utility"
-      ~why:
-        "an @apply naming a utility the same file declares finds none, so the \
-         rule loses the declarations"
       (fenced "@utility card { tab-size: 8; } .btn { @apply card; }");
     case "utility-functional"
       ~classes:[ "foo-2"; "foo-2/3"; "foo-2/[7]" ]
@@ -1069,6 +1084,7 @@ let tests =
     test_case "@apply declares every token it reads" `Quick
       test_apply_declares_every_token_it_reads;
     test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
+    test_case "@apply of a declared utility" `Quick test_apply_declared_utility;
     test_case "prefix() on the import" `Quick test_import_prefix;
     test_case "dialect sweep against the CLI" `Slow test_dialect_sweep;
     test_case "dialect surface is covered" `Quick
