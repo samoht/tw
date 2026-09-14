@@ -44,6 +44,11 @@ let parse_known_candidates ~theme ?input_css candidates =
    failed to emit. *)
 let stylesheet ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
+  (* An entrypoint importing Tailwind in parts asks for the reset only through
+     [tailwindcss/preflight.css]. *)
+  let base =
+    base && Option.fold ~none:true ~some:Entrypoint.imports_preflight input_css
+  in
   (* The entrypoint's safelist joins the markup's classes, and its blocklist
      takes a class out whichever of the two it came from. *)
   let classes =

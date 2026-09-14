@@ -188,11 +188,24 @@ let theme_overrides_of_css css =
   let blocks = theme_blocks css in
   (List.concat_map snd blocks, theme_tokens_with "inline" blocks)
 
-(* [@import "tailwindcss"] (and its subpath forms) is the package entry, not a
-   file on disk: it marks where the generated theme/base/utilities belong. *)
-let is_tailwind_import url =
+(* [@import "tailwindcss"] and its subpath forms are the package, not a file on
+   disk: each marks where part of the generated sheet belongs. The package's own
+   [index.css] imports [theme.css], [preflight.css] and [utilities.css] in turn,
+   so the bare import is all three, each file is its own part, and any other
+   subpath is read as the package. *)
+type tailwind_part = Whole | Theme_part | Preflight_part | Utilities_part
+
+let tailwind_import_part url =
   let u = Css.decode_import_url url in
-  u = "tailwindcss" || String.starts_with ~prefix:"tailwindcss/" u
+  match Filename.remove_extension u with
+  | "tailwindcss" -> Some Whole
+  | "tailwindcss/theme" -> Some Theme_part
+  | "tailwindcss/preflight" -> Some Preflight_part
+  | "tailwindcss/utilities" -> Some Utilities_part
+  | _ when String.starts_with ~prefix:"tailwindcss/" u -> Some Whole
+  | _ -> None
+
+let is_tailwind_import url = Option.is_some (tailwind_import_part url)
 
 (* Tailwind's [@custom-variant NAME { ... @slot; ... }] and selector shorthand
    [@custom-variant NAME (...);] declare variants, and [@variant NAME { decls }]
@@ -2356,10 +2369,93 @@ let add_author_property_fallbacks author stmts =
   | [] -> stmts
   | rules -> stmts @ Tw.property_fallbacks rules
 
+(* [@tailwind utilities] is all [tailwindcss/utilities.css] holds, so it is read
+   as that import, where the directive stands. *)
+let tailwind_utilities_as_import css =
+  let index = Index.v css in
+  let len = String.length css in
+  let buf = Buffer.create len in
+  let asks_for_utilities (statement : Index.statement) =
+    match split_top_level ' ' (String.trim statement.prelude) with
+    | "utilities" :: _ -> true
+    | _ -> false
+  in
+  let rec go i =
+    if i >= len then ()
+    else
+      match Index.at_statement index ~name:"@tailwind" i with
+      | Some statement when asks_for_utilities statement ->
+          Buffer.add_string buf "@import \"tailwindcss/utilities\";";
+          go statement.next
+      | _ ->
+          Buffer.add_char buf css.[i];
+          go (i + 1)
+  in
+  go 0;
+  Buffer.contents buf
+
+let tailwind_parts css =
+  match
+    Css.of_string
+      (strip_tailwind_import_options (tailwind_utilities_as_import css))
+  with
+  | Error _ -> []
+  | Ok parse ->
+      List.filter_map
+        (fun stmt ->
+          Option.bind (Css.as_import stmt)
+            (fun (ir : Css.Stylesheet.import_rule) ->
+              tailwind_import_part ir.url))
+        (Css.statements parse.Css.stylesheet)
+
+let imports_preflight css =
+  match tailwind_parts css with
+  | [] -> true
+  | parts ->
+      List.exists
+        (function
+          | Whole | Preflight_part -> true
+          | Theme_part | Utilities_part -> false)
+        parts
+
+(* The statements of [generated] one import asks for, in the layer its [layer()]
+   names or unlayered without one. The utilities bring what their rules need
+   beside them: the [@layer properties] fallbacks and the [@property] and
+   [@keyframes] rules. No part brings the components layer, which the generated
+   sheet only ever declares empty. *)
+let generated_part part ~layer generated =
+  let stmts = Css.statements generated in
+  let layer_named name stmt =
+    match Css.as_layer stmt with
+    | Some (Some n, inner) when equal_layer n [ name ] -> Some inner
+    | _ -> None
+  in
+  let contents name = List.concat (List.filter_map (layer_named name) stmts) in
+  let place = function
+    | [] -> []
+    | inner -> (
+        match layer with
+        | None -> inner
+        | Some name -> [ Css.layer ~name inner ])
+  in
+  let is_layer stmt =
+    Option.is_some (Css.as_layer stmt)
+    || Option.is_some (Css.layer_statement_name_list stmt)
+  in
+  match part with
+  | Whole -> stmts
+  | Theme_part -> place (contents "theme")
+  | Preflight_part -> place (contents "base")
+  | Utilities_part ->
+      List.filter (fun s -> Option.is_some (layer_named "properties" s)) stmts
+      @ place (contents "utilities")
+      @ List.filter (fun s -> not (is_layer s)) stmts
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
+      let raw = tailwind_utilities_as_import raw in
       let css =
         apply_variants ~theme
           (hoist_theme_keyframes (strip_tailwind_import_options raw))
@@ -2375,7 +2471,8 @@ let splice_into_entrypoint ~theme ~path generated =
           in
           let transform body =
             apply_variants ~extra_defs:entry_defs ~theme
-              (strip_tailwind_import_options body)
+              (strip_tailwind_import_options
+                 (tailwind_utilities_as_import body))
           in
           let imports =
             preload_imports ~transform ~base_url:path p.Css.stylesheet
@@ -2390,9 +2487,10 @@ let splice_into_entrypoint ~theme ~path generated =
           |> authored_color_mix_fallbacks ~theme
           |> List.concat_map (fun stmt ->
               match stmt with
-              | Cascade.Stylesheet.Import { url; _ } when is_tailwind_import url
-                ->
-                  Css.statements generated
+              | Cascade.Stylesheet.Import { url; layer; _ } as s -> (
+                  match tailwind_import_part url with
+                  | Some part -> generated_part part ~layer generated
+                  | None -> [ s ])
               | s -> [ s ])
           |> declare_author_theme_tokens
                (author_theme_tokens ~theme (Css.statements inlined))

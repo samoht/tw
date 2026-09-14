@@ -156,6 +156,13 @@ val nest_on_ampersand :
 
 (** {1 Splicing} *)
 
+val imports_preflight : string -> bool
+(** [imports_preflight css] is [true] unless [css] imports Tailwind only in
+    parts that leave the reset out: [tailwindcss/theme.css] and
+    [tailwindcss/utilities.css] (or [\@tailwind utilities]) without
+    [tailwindcss/preflight.css]. An entrypoint that does not import Tailwind at
+    all is [true], as nothing it splices depends on it. *)
+
 val splice_into_entrypoint :
   theme:Tw.Scheme.t -> path:string -> Cascade.Css.t -> Cascade.Css.t
 (** [splice_into_entrypoint ~theme ~path generated] compiles the entrypoint at

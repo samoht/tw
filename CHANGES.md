@@ -112,6 +112,10 @@
 - `--theme()` in author CSS resolves: to a `var()` the theme layer declares, with
   its fallback, or to the value under `inline` and in a media query. It passed
   through unexpanded, which no browser reads (#792).
+- `@import "tailwindcss/theme.css"`, `tailwindcss/utilities.css` and
+  `@tailwind utilities` each bring their own part of the sheet, in the layer
+  `layer()` names or unlayered without one. Any `tailwindcss/…` import brought
+  the whole sheet, preflight included (#NNN).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
