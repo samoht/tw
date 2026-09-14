@@ -4,7 +4,7 @@ open Alcotest
    entrypoints these tests write. Nothing is scanned: the import fences its
    sources, so a class reaches the sheet from [classes] or from the entrypoint
    itself. *)
-let compiled_with ?(classes = []) ~import name body =
+let compiled_with ?(base = false) ?(classes = []) ~import name body =
   let path = "project-" ^ name ^ ".css" in
   let oc = open_out path in
   Fun.protect
@@ -21,7 +21,7 @@ let compiled_with ?(classes = []) ~import name body =
         Tw_tools.Entrypoint.theme_of_css (Tw_tools.Entrypoint.read_file path)
       in
       let _, sheet =
-        Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base:false classes
+        Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base classes
       in
       Cascade.Css.to_string ~minify:true sheet)
 
@@ -330,6 +330,30 @@ let test_static_theme_routed_once () =
   check int "one theme block" 1 (occurrences ":root,:host{" css);
   check int "one @keyframes spin" 1 (occurrences "@keyframes spin" css)
 
+(* [@plugin "@tailwindcss/forms"] resets native form controls in the base layer
+   unless its options ask for [strategy: "class"]. Tailwind 4.3.3 writes
+   [input:where([type=text])] and the [select] rules there for the default
+   strategy and for [strategy: "base"]; the plugin line never reached tw's
+   sheet, so every input kept the browser's own look and nothing said so. *)
+let test_forms_plugin_base () =
+  let reset = "input:where([type=text])" in
+  let forms name plugin =
+    compiled_with ~base:true ~classes:[ "p-2" ] name
+      ~import:"@import \"tailwindcss\" source(none);\n" plugin
+  in
+  let resets name plugin =
+    Astring.String.is_infix ~affix:reset (forms name plugin)
+  in
+  check bool "default strategy resets inputs" true
+    (resets "forms-default" "@plugin \"@tailwindcss/forms\";\n");
+  check bool "base strategy resets inputs" true
+    (resets "forms-base"
+       "@plugin \"@tailwindcss/forms\" { strategy: \"base\"; }\n");
+  check bool "class strategy leaves inputs" false
+    (resets "forms-class"
+       "@plugin \"@tailwindcss/forms\" { strategy: \"class\"; }\n");
+  check bool "no plugin, no reset" false (resets "forms-none" "")
+
 let suite =
   ( "project",
     [
@@ -348,4 +372,5 @@ let suite =
       test_case "static theme declared once" `Quick
         test_static_theme_declared_once;
       test_case "static theme routed once" `Quick test_static_theme_routed_once;
+      test_case "forms plugin base" `Quick test_forms_plugin_base;
     ] )
