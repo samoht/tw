@@ -23,26 +23,29 @@ let test_combinations () =
   Alcotest.(check string)
     "complex prose" "prose prose-xl prose-gray mx-auto" complex
 
+(* [prose] is a component, so its 77 rules are not worth spelling out; what
+   these check is that the right selectors and the right declarations are among
+   them. Membership in the lists is exact where a substring was not: the affix
+   [.prose] matched every descendant rule as well as the root one, and the h1
+   affix stopped mid-selector. *)
 let test_css_generation () =
-  (* Test that prose generates CSS rules *)
-  let css = to_css [ prose ] in
-  let css_string = Css.to_string css in
-
-  (* Check that CSS variables are included *)
+  let utility =
+    match Tw.of_string "prose" with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.failf "prose: %s" m
+  in
+  let selectors = Test_helpers.selectors_of_utility utility in
+  let has_selector sel =
+    Alcotest.(check bool) ("has " ^ sel) true (List.mem sel selectors)
+  in
+  has_selector ".prose";
+  has_selector
+    {|.prose :where(h1):not(:where([class~="not-prose"], [class~="not-prose"] *))|};
+  (* The root rule reads the body variable rather than inlining a colour. *)
   Alcotest.(check bool)
     "has prose body variable" true
-    (Astring.String.is_infix ~affix:"--tw-prose-body" css_string);
-
-  (* Check that prose class is generated *)
-  Alcotest.(check bool)
-    "has prose class" true
-    (Astring.String.is_infix ~affix:".prose" css_string);
-
-  (* Check that descendant selectors are generated *)
-  Alcotest.(check bool)
-    "has prose h1 selector" true
-    (Astring.String.is_infix
-       ~affix:".prose :where(h1):not(:where([class~=\"not-prose\"]" css_string)
+    (List.mem "color:var(--tw-prose-body)"
+       (Test_helpers.declarations_of_class "prose"))
 
 let test_inline_styles () =
   (* Prose utilities can generate inline styles from their rules, but CSS
@@ -63,15 +66,17 @@ let test_inline_styles () =
 (* prose-invert remaps the palette to the inverted vars; prose-orange overrides
    the link accent colours. Both used to be no-ops / unknown. *)
 let test_color_variants () =
-  let invert = Css.to_string (to_css ~base:false [ prose_invert ]) in
   Alcotest.(check bool)
     "prose-invert remaps body to the invert var" true
-    (Astring.String.is_infix ~affix:"var(--tw-prose-invert-body)" invert);
-  let orange = Css.to_string (to_css ~base:false [ prose_orange ]) in
-  Alcotest.(check bool)
-    "prose-orange sets the link accent" true
-    (Astring.String.is_infix ~affix:"--tw-prose-links" orange
-    && Astring.String.is_infix ~affix:"--tw-prose-invert-links" orange)
+    (List.mem "--tw-prose-body:var(--tw-prose-invert-body)"
+       (Test_helpers.declarations_of_class "prose-invert"));
+  (* A colour variant sets only the accents it names, which the pair of searches
+     this replaces could not say. *)
+  Test_helpers.check_declarations "prose-orange"
+    [
+      "--tw-prose-links:oklch(64.6%.222 41.116)";
+      "--tw-prose-invert-links:oklch(70.5%.213 47.604)";
+    ]
 
 (* The colours [prose] sets on its own are the gray palette, normal and
    inverted. Nothing else in the suite reads them, so an edit to [gray_normal]

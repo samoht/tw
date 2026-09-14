@@ -221,21 +221,14 @@ let test_typed () =
    [object-position: var(--50)]. [z-auto] writes the keyword, since no theme
    declares [--z-index-auto]. *)
 let test_object_and_z_values () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let has cls decl = Test_helpers.check_declarations cls [ decl ] in
   has "object-[50%]" "object-position:50%";
   has "object-[10px_20px]" "object-position:10px 20px";
   has "object-[var(--x)]" "object-position:var(--x)";
-  (* not a position and not a var: not a utility *)
-  (match Tw.of_string "object-[<value>]" with
-  | Ok _ -> Alcotest.fail "expected object-[<value>] to be rejected"
-  | Error _ -> ());
+  (* Not a position and not a var: the family's own longhand takes it as the
+     token stream it is, which is what the CLI writes. *)
+  Test_helpers.check_declarations "object-[<value>]"
+    [ "object-position:<value>" ];
   has "z-auto" "z-index:auto"
 
 (* [z-[...]] takes a z-index. A bracket the z-index grammar cannot read is
@@ -279,8 +272,55 @@ let test_arbitrary_token_stream () =
   Test_helpers.check_declarations "z-[50%]" [ "z-index:50%" ];
   Test_helpers.check_declarations "z-[1.5]" [ "z-index:1.5" ]
 
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. [object-] writes one longhand, so every hint lands there and
+   the position reader is handed what follows it; the hint stays in the class
+   name, which is what the markup carries. The reader was given the hint as
+   well, read nothing, and the class was refused where Tailwind writes the value
+   through.
+
+   A percentage rather than a keyword, because [object-[top]] is refused with no
+   hint involved: the position reader here takes no keyword, which is a separate
+   gap. *)
+let test_object_bracket_peels_a_hint () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          Test_helpers.check_declarations ~minify:false cls
+            [ "object-position: 50%" ])
+    [ "object-[position:50%]"; "object-[foo:50%]" ]
+
+(* [object-[...]] takes the whole CSS <position> grammar, as Tailwind does and
+   as the [bg-position-] bracket already did: an edge keyword, a pair of them, a
+   keyword with an offset, a var() and a math function. The reader here split on
+   spaces and read each side as a length, so every keyword form was refused and
+   only the two-length and one-length cases resolved. *)
+let test_object_bracket_position_grammar () =
+  List.iter
+    (fun (cls, decl) ->
+      Test_helpers.check_declarations ~minify:false cls [ decl ])
+    [
+      ("object-[top]", "object-position: top");
+      ("object-[center]", "object-position: center");
+      ("object-[left_top]", "object-position: left top");
+      ("object-[bottom_right]", "object-position: bottom right");
+      (* cascade resolves an edge keyword carrying an offset to its percentage,
+         so this is [100% 2rem] where the CLI writes [right 2rem]. The two
+         compute the same position and the canonical differ reports no
+         difference; [bg-position-] has read it this way all along. *)
+      ("object-[right_2rem]", "object-position: 100% 2rem");
+      ("object-[50%_50%]", "object-position: 50% 50%");
+    ]
+
 let tests =
   [
+    test_case "object bracket position grammar" `Quick
+      test_object_bracket_position_grammar;
+    test_case "object bracket peels a data-type hint" `Quick
+      test_object_bracket_peels_a_hint;
     test_case "display utilities" `Quick test_display_utilities;
     test_case "visibility" `Quick test_visibility;
     test_case "box-decoration-break" `Quick test_box_decoration_break;

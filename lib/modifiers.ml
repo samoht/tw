@@ -2477,11 +2477,8 @@ let rec slot_of_modifier : modifier -> Slot.t = function
 let slot_of_prefix prefix : Slot.t option =
   let starts_with prefix' = String.starts_with ~prefix:prefix' prefix in
   match prefix with
-  (* [peer-hover] shares [group-hover]'s position rather than the one every
-     other [peer-] spelling takes. *)
   | "*" -> Some Slot.Child
   | "**" -> Some Slot.Descendant
-  | "group-hover" | "peer-hover" -> Some Slot.Group
   | "first-letter" -> Some Slot.Pseudo_first_letter
   | "first-line" -> Some Slot.Pseudo_first_line
   | "marker" -> Some Slot.Pseudo_marker

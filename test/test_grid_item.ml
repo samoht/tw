@@ -106,20 +106,12 @@ let test_arbitrary_span_accepted () =
   accepted "col-span-[mycol]";
   accepted "col-span-[var(--my-variable)]"
 
-let css cls =
-  match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-
 (* A var() reference is not a <custom-ident>: it substitutes before the
    <grid-line> grammar applies, so its parentheses must reach the output
    unescaped. *)
 let test_arbitrary_span_var () =
-  let has affix cls =
-    Alcotest.(check bool)
-      (Fmt.str "%s emits %s" cls affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  let has decl cls =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   has "grid-column: span var(--my-variable) / span var(--my-variable)"
     "col-span-[var(--my-variable)]";
@@ -171,18 +163,35 @@ let test_invalid_arbitrary_grid_line () =
 (* A grid line is an arbitrary value: [_] is a space and [\_] a literal
    underscore, so a variable name carrying one keeps the character. *)
 let test_grid_line_underscore_escape () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "an escaped underscore stays in the variable name" true
-    (Astring.String.is_infix ~affix:"grid-column-start: var(--a_b)"
-       (css {|col-start-[var(--a\_b)]|}))
+  Test_helpers.check_declarations ~minify:false {|col-start-[var(--a\_b)]|}
+    [ "grid-column-start: var(--a_b)" ]
+
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. The grid-item families each write one longhand, so every
+   hint lands there and the value reader is handed what follows it; the hint
+   stays in the class name, which is what the markup carries.
+
+   [col-span-] is the one that did not merely refuse: it wrote the hint into the
+   value, so [col-span-[foo:2]] emitted [span foo:2 / span foo:2]. *)
+let test_grid_item_brackets_peel_a_hint () =
+  List.iter
+    (fun (cls, decl) ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          Test_helpers.check_declarations ~minify:false cls [ decl ])
+    [
+      ("col-[foo:2]", "grid-column: 2");
+      ("col-span-[foo:2]", "grid-column: span 2 / span 2");
+      ("col-start-[foo:2]", "grid-column-start: 2");
+      ("row-[foo:2]", "grid-row: 2");
+    ]
 
 let tests =
   [
+    test_case "grid-item brackets peel a data-type hint" `Quick
+      test_grid_item_brackets_peel_a_hint;
     test_case "grid line underscore escape" `Quick
       test_grid_line_underscore_escape;
     test_case "grid_item of_string - valid values" `Quick of_string_valid;

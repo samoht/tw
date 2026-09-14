@@ -53,6 +53,10 @@
 - Merge adjacent `@container` and `@supports` blocks with identical preludes
   the same way, so a run of utilities sharing one condition is a single wrapper
   and the sheet is smaller (#682).
+- A variant nested inside another is merged at both levels, so `sm:dark:p-4`
+  beside `sm:dark:m-2` is one breakpoint wrapper holding one dark wrapper, as
+  Tailwind emits it. Only the outer run was collapsed, leaving one dark wrapper
+  per utility inside it (#726).
 - A project's own theme reaches class generation, so its variants, keyframes,
   layers, static scales, custom breakpoints and v3 dotted `theme()` paths apply
   to the utilities tw generates from the markup, and a routed utility survives a
@@ -105,14 +109,14 @@
   and `end-*` read one at all. `start-[4px]`, `end-[4px]`, `-top-[4px]` and
   `-inset-bs-[4px]` reach the sheet, as does a name the theme binds on the
   logical inline sides (#691).
-- A named inset takes its value from the theme, reading `--inset-<name>` and
-  falling back to `--spacing-<name>`; a theme declaring only `--spacing-lg` used
-  to get `top: var(--inset-lg)` over a length tw made up (#708).
-- Every inset side reads a named token under a minus, so `-top-header` and
-  `-inset-bs-lg` reach the sheet (#708).
-- `inset-s-*`, `inset-e-*`, `inset-bs-*` and `inset-be-*` carry the whole scale
-  `start`/`end` do, and a fraction resolves on every inset side: `inset-s-0.5`,
-  `inset-bs-1/2`, `inset-s-px`, `inset-y-1/2` and `-bottom-3/4` (#708).
+- Every inset side carries the whole scale, under either sign. A named token
+  takes its value from the theme, reading `--inset-<name>` and falling back to
+  `--spacing-<name>`, where a theme declaring only `--spacing-lg` used to get
+  `top: var(--inset-lg)` over a length tw made up; `inset-s-*`, `inset-e-*`,
+  `inset-bs-*` and `inset-be-*` carry what `start`/`end` do; and a fraction
+  resolves everywhere. `-top-header`, `-inset-bs-lg`, `inset-s-0.5`,
+  `inset-bs-1/2`, `inset-s-px`, `inset-y-1/2` and `-bottom-3/4` all reach the
+  sheet (#708).
 - Transforms, backgrounds, grids and typography take the keywords Tailwind
   documents: `translate-none`, `rotate-none`, `scale-none`, `perspective-near`,
   `duration-initial`, `ease-initial`, `via-none`, `grow-3`, `indent-px` and a
@@ -146,35 +150,73 @@
 
 ### Arbitrary values and validation
 
-- A data-type hint comes off the front of any bracket, not only the ones a
-  family reads: `z-[integer:5]` writes `z-index: 5` rather than
-  `z-index: integer:5`, and `divide-[color:red]`, `shadow-[length:3px]`,
-  `rotate-[angle:45deg]` and `aspect-[ratio:16/9]` write their values the same
-  way (#PR).
-- A family whose bracket reader is a typed length takes the hint off before
-  reading, so `w-[length:10px]`, `p-[length:4px]`, `m-[foo:4px]`,
-  `gap-[length:4px]`, `top-[length:4px]`, `scroll-m-[length:4px]`,
-  `rounded-[length:4px]`, `border-[length:2px]` and `border-[line-width:2px]`
-  reach the sheet with the hint kept in the class name (#PR).
-- `border-[…]` and its per-side spellings, `accent-[…]`, `caret-[…]` and
-  `placeholder-[…]` read the value after a hint too, so `border-[color:red]`,
-  `border-t-[color:red]`, `accent-[color:red]`, `caret-[color:red]` and
-  `placeholder-[color:red]` reach the sheet (#PR).
-- `bg-[percentage:50%]` is a `background-position`, the second spelling
-  Tailwind gives that hint alongside `bg-[position:50%]` (#PR).
-- A bracket whose hint is empty, and one left holding nothing but blank space,
-  name no utility, as in Tailwind. `z-[:5]` and `z-[_]` put a declaration with
-  no value into the sheet (#PR).
-- The hint's name is a run of `a`-`z` and `-`, so `mask-[FOO:2em]` and
-  `mask-[a1:2em]` hold their bracket whole. The mask family read a wider name
-  than Tailwind does and sliced the value away (#PR).
+- A data-type hint comes off the front of any bracket, whatever the family does
+  with what follows, and the value written after it is the one that reaches the
+  sheet. `z-[integer:5]` wrote `z-index: integer:5` and
+  `text-[length:1.25rem]` wrote `font-size: var(--1\.25rem)`; both now write
+  the value the author meant, as do `divide-[color:red]`, `shadow-[length:3px]`,
+  `rotate-[angle:45deg]`, `aspect-[ratio:16/9]`, `w-[length:10px]`,
+  `border-[line-width:2px]`, `border-t-[color:red]`, `accent-[color:red]`,
+  `caret-[color:red]`, `placeholder-[color:red]`, `basis-[length:10px]`,
+  `indent-[length:4px]`, `underline-offset-[length:4px]`,
+  `bg-position-[position:50%]`, `bg-size-[length:10px_20px]`,
+  `origin-[position:top]`, `perspective-origin-[position:top]`,
+  `transform-[foo:scaleX(2)]`, `object-[position:50%]`, `col-[foo:2]`,
+  `col-start-[foo:2]` and `row-[foo:2]`, with the hint kept in the class name.
+  `col-span-[foo:2]` wrote the hint into the declaration rather than refusing,
+  emitting `grid-column: span foo:2 / span foo:2`. `bg-[percentage:50%]` is a
+  `background-position`, the second spelling Tailwind gives that hint alongside
+  `bg-[position:50%]` (#706, #718, #720, #729, #730, #731, #732, #733).
+- A hint's name is a run of `a`-`z` and `-`, and a bracket whose hint is empty
+  or which holds nothing but blank space names no utility, as in Tailwind.
+  `mask-[FOO:2em]` and `mask-[a1:2em]` hold their bracket whole, where the mask
+  family read a wider name than Tailwind does and sliced the value away, and
+  `z-[:5]` and `z-[_]` put a declaration with no value into the sheet (#718).
 - The mask family writes an arbitrary bracket no reader takes into the longhand
   the class names, as Tailwind does, so `mask-[foo]`, `mask-[url(x.png)_center]`,
   `mask-position-[foo]`, `mask-size-[foo]` and every `mask-[<hint>:...]` whose
-  value the hint declines reach the sheet (#PR).
-- A data-type hint reads the value written after it instead of naming a custom
-  property, so `text-[length:1.25rem]` sets `font-size: 1.25rem` rather than
-  `font-size: var(--1\.25rem)`. Every hint tw recognises is affected (#706).
+  value the hint declines reach the sheet (#714).
+- A width or size hint writes its value through whatever the value is, as
+  Tailwind does, so `text-[length:red]`, `outline-[length:red]`,
+  `border-[line-width:red]` and `stroke-[length:red]` reach the sheet as
+  declarations the browser discards rather than being refused outright, which
+  dropped the selector and left an element carrying the class with nothing at
+  all. A bare number after the hint is pixels, the spelling Tailwind's minifier
+  ships. Every colour family does the same for a bracket no reader took at all,
+  writing it into the longhand the hint named or into the colour when there is
+  no hint: `text-[notacolour]`, `stroke-[1zz]`, `bg-[image:nope]` and a
+  malformed hex in any of them reach the sheet where they used to be refused.
+  `bg-[size:...]` no longer substitutes `background-size: auto` for a value it
+  cannot read, and the per-side border colours follow the rest, so
+  `border-t-[1e]` writes `border-top-color: 1e`. The spacing, inset, sizing and
+  corner-radius families do the same, so `p-[foo]`, `top-[foo]`, `w-[foo]` and
+  `rounded-[foo]` reach the sheet. Every one of the 150 families the
+  token-stream contract inventories now does, against 38 before: a bracket no
+  reader took goes to the longhand the class names rather than being refused,
+  which used to drop the rule and leave an element carrying the class with
+  nothing at all. `bg-size-[foo]` no longer writes `background-size: auto`, a
+  value the class never asked for (#761 through #771).
+- The source scanner draws the boundary Tailwind's extractor does: a candidate
+  whose `/modifier` opens on `-` or `_` is not one, so `tw file.html` no longer
+  writes rules for `group-hover/-2a:underline` that the author's own toolchain
+  never produces (#772).
+- A `peer-` variant sorts inside the peer group by the variant it wraps, as
+  `group-` does: Tailwind writes `peer-checked`, then `peer-hover`, then
+  `peer-focus`. `peer-hover` sorted in front of every other `peer-` spelling,
+  so a sheet using two of them put the rules in an order the browser resolves
+  differently (#773).
+- A negated arbitrary length is `calc(<value> * -1)` on every family and in
+  every unit, the spelling Tailwind writes. The sign was folded into the number
+  from a unit table that each of margin, the inset sides and `text-indent` kept
+  separately and filled in differently, so `-mt-[4px]` came out `-4px` while
+  `-mt-[2em]`, which that table missed, already carried the calc. The `px` step
+  and a named inset still fold, which is what the CLI does there (#735).
+- `object-[...]` takes the whole CSS `<position>` grammar, so an edge keyword,
+  a pair of them and a keyword carrying an offset resolve: `object-[top]`,
+  `object-[left_top]`, `object-[center]` and `object-[right_2rem]` reach the
+  sheet where only a bare length or a pair of them did. It reads through the
+  same cascade grammar `bg-position-[...]` does, which took these all along
+  (#734).
 - `aspect-[...]` emits its bracket verbatim, as Tailwind does: nothing inside is
   validated, so `aspect-[foo]`, `aspect-[-1]`, `aspect-[calc(1+2)]` and
   `aspect-[1.23/4.56]` reach the sheet. `aspect-[0x4]` writes `0x4` rather than
@@ -313,36 +355,40 @@
   and a drop shadow keeps both of its default layers under an opacity (#169,
   #185, #201, #202, #209, #214, #225, #231, #244, #254, #281, #308, #322,
   #323).
-- A bracket colour carrying an opacity modifier no longer renders black.
-  `text-[rebeccapurple]/50` and its siblings kept the parsed colour rather than
-  re-reading the bracket text through the palette, whose failure arm answered
-  black; `bg-[red]/50` separately read the palette red-500 instead of CSS red.
-  `decoration-`, `divide-` and `stroke-` accept the modifier at all now, and a
-  colour the browser resolves at use time keeps the `@supports` fallback
-  Tailwind writes (#508, #517).
+- An opacity modifier over a bracket colour paints the colour the class named,
+  as a `color-mix()`, across all thirteen colour families.
+  `text-[rebeccapurple]/50` and its siblings rendered black, re-reading the
+  bracket text through the palette whose failure arm answered black;
+  `bg-[red]/50` read the palette red-500 instead of CSS red; and elsewhere the
+  mix resolved to that colour's `oklab()` channels rather than staying a mix,
+  going out with no unguarded fallback where the alpha read a custom property,
+  so a browser without `color-mix()` painted nothing. `decoration-`, `divide-`
+  and `stroke-` accept the modifier at all now, and a colour the browser
+  resolves at use time keeps the `@supports` fallback Tailwind writes (#508,
+  #517, #711).
 - An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
   gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
   case, where Tailwind writes back what the bracket held (#700).
-- An opacity modifier over a bracket colour stays a `color-mix()` on the colour
-  the class named, across all thirteen colour families. It resolved to that
-  colour's `oklab()` channels instead, and where the alpha read a custom
-  property the mix went out with no unguarded fallback, so a browser without
-  `color-mix()` painted nothing (#711).
-- An arbitrary shadow whose alpha reads a custom property keeps the authored
-  colour as its unguarded fallback. `shadow-` and `text-shadow-` folded it
-  through oklab at full opacity, so a browser with no relative colours painted
-  an opaque shadow where Tailwind paints the colour the class named (#711).
+- An `@theme` override for an inset-shadow token is read as the CSS shadow it
+  is, so it keeps a length in any unit, a fourth length for the spread, and the
+  colour as the project spelled it. Only a `px` or `rem` length and a
+  three-length body were read; anything else put the built-in
+  `inset 0 2px 4px` into the sheet and lost the override without saying so
+  (#725).
+- An arbitrary shadow keeps the colour the class named, and keeps whatever the
+  value reader accepted with it: a colour keyword, `currentcolor`, a layer list,
+  a leading `inset`. A bracket naming a colour CSS knows came out as
+  `inset-shadow-none` under `inset-shadow-`, and as `shadow-none` under an
+  opacity modifier, which dropped the `--tw-*-alpha` declaration with the rest,
+  so `inset-shadow-[0_0_0_1px_red]`, `shadow-[0_0_red]/50` and
+  `inset-shadow-[0_0_0_1px_red]/50` reach the sheet now. Where the alpha reads a
+  custom property, `shadow-` and `text-shadow-` keep the authored colour as the
+  unguarded fallback instead of folding it through oklab at full opacity, which
+  painted an opaque shadow in a browser with no relative colours (#711, #716,
+  #717).
 - `--color-black` and `--color-white` are written `#000` and `#fff`, the three
   digits Tailwind spells them in, in the theme block and in every colour
   family's unguarded fallback (#711).
-- An arbitrary inset shadow keeps its lengths, its spread and its colour when
-  that colour is one CSS knows by name. `inset-shadow-[0_0_0_1px_red]` and every
-  other bracket carrying a named colour came out as `inset-shadow-none`, where
-  the same bracket under `shadow-` was read correctly (#PR).
-- An arbitrary shadow under an opacity modifier keeps whatever the value reader
-  accepted: a colour keyword, `currentcolor`, a layer list, a leading `inset`.
-  `shadow-[0_0_red]/50` and `inset-shadow-[0_0_0_1px_red]/50` came out as
-  `shadow-none`, dropping the `--tw-*-alpha` declaration with the rest (#PR).
 - A `theme()` alpha survives a hex-bound palette entry. It was applied by
   chopping the colour's closing paren, so it vanished whenever the entry was a
   hex rather than an `oklch()` (#508).
@@ -480,6 +526,12 @@
 - `tw --tailwind` and `tw --diff` no longer compile the working directory
   before they start. Identifying the pinned CLI ran with Tailwind's source
   detection on, which costs minutes in a large tree (#702).
+- `tw --tailwind` and `tw --diff` find the pinned CLI when run from a directory
+  with no `node_modules` above it, falling back to the tree the binary was
+  built in. Both died at discovery there, reporting the pinned CLI as not
+  installed and naming whatever version sat on `PATH`. A `node_modules` above
+  the working directory still wins, so a caller can still choose the CLI
+  pinned beside the project being measured (#727).
 - `tw --diff` no longer invents a difference for a class Tailwind compiles.
   Building the reference by scanning a file lost every class Tailwind's own
   extractor declines to read back, `group-hover/-2a:underline` among them

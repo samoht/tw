@@ -9,6 +9,9 @@ module Handler = struct
     | Percent of float
     | Bare_var of string
     | Arbitrary of string * Css.zoom
+    | Raw of string * string
+  (* zoom-[foo]: the family writes one longhand, so a bracket no reader took
+     still names it and the value is forwarded verbatim. *)
 
   let name = "zoom"
 
@@ -21,7 +24,7 @@ module Handler = struct
   let suborder = function
     | Bare_var _ -> 2999
     | Percent _ -> 3000
-    | Arbitrary _ -> 3001
+    | Arbitrary _ | Raw _ -> 3001
 
   let num_to_string n =
     if Float.is_integer n then string_of_int (int_of_float n) else Pp.float n
@@ -29,7 +32,7 @@ module Handler = struct
   let to_class = function
     | Percent n -> "zoom-" ^ num_to_string n
     | Bare_var raw -> "zoom-" ^ raw
-    | Arbitrary (raw, _) -> "zoom-" ^ raw
+    | Arbitrary (raw, _) | Raw (raw, _) -> "zoom-" ^ raw
 
   let to_style _theme = function
     | Percent n -> style [ Css.zoom (Pct n) ]
@@ -39,6 +42,7 @@ module Handler = struct
         in
         style [ Css.zoom (Var (Var.bracket name)) ]
     | Arbitrary (_, v) -> style [ Css.zoom v ]
+    | Raw (_, v) -> style (Option.to_list (Parse.opaque_declaration "zoom" v))
 
   (* [zoom-[var(--zoom)]] references a var; other bracket values parse as a
      number or percentage. *)
@@ -66,7 +70,14 @@ module Handler = struct
         | None -> (
             match parse_arbitrary n with
             | Some v -> Ok (Arbitrary (n, v))
-            | None -> Error (`Msg "Not a zoom utility")))
+            | None when not (Parse.is_bracket_value n) ->
+                Error (`Msg "Not a zoom utility")
+            | None -> (
+                match
+                  Parse.arbitrary_declaration_value (Parse.bracket_inner n)
+                with
+                | Some raw -> Ok (Raw (n, raw))
+                | None -> Error (`Msg "Not a zoom utility"))))
     | _ -> Error (`Msg "Not a zoom utility")
 
   let examples = [ Percent 100. ]

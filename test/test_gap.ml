@@ -82,53 +82,36 @@ let mixed_gap_axis_arbitrary_order_matches_tailwind () =
 (* space-x-px / -space-x-px use a literal +/-1px gap (no --spacing multiple),
    wrapped in the reverse calc like the numeric variants. *)
 let test_space_px_values () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  (* The whole list, which is where "sets no --spacing" is said: it used to be a
+     search for a name that must not appear, and the px step writes both
+     margins, not just the one the affix named. *)
+  let px_step cls step =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "--tw-space-x-reverse: 0";
+        "margin-inline-start: calc(" ^ step ^ " * var(--tw-space-x-reverse))";
+        "margin-inline-end: calc(" ^ step
+        ^ " * calc(1 - var(--tw-space-x-reverse)))";
+      ]
   in
-  Alcotest.check bool "space-x-px uses 1px gap" true
-    (Astring.String.is_infix ~affix:"calc(1px * var(--tw-space-x-reverse))"
-       (css "space-x-px"));
-  Alcotest.check bool "-space-x-px uses -1px gap" true
-    (Astring.String.is_infix ~affix:"calc(-1px * var(--tw-space-x-reverse))"
-       (css "-space-x-px"));
-  Alcotest.check bool "space-x-px sets no --spacing" false
-    (Astring.String.is_infix ~affix:"--spacing" (css "space-x-px"))
+  px_step "space-x-px" "1px";
+  px_step "-space-x-px" "-1px"
 
 (** Test that CSS values use the correct spacing multiplier. gap-64 should
     generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
 let test_css_values () =
-  let open Tw in
-  let css_for cls = Tw.to_css [ cls ] |> Tw.Css.to_string ~minify:true in
-  (* gap-64 => calc(var(--spacing)*64) *)
-  Alcotest.check bool "gap-64 uses spacing*64" true
-    (Astring.String.is_infix ~affix:"*64)" (css_for (gap 64)));
-  (* gap-4 => calc(var(--spacing)*4) *)
-  Alcotest.check bool "gap-4 uses spacing*4" true
-    (Astring.String.is_infix ~affix:"*4)" (css_for (gap 4)));
-  (* gap-x-10 => calc(var(--spacing)*10) *)
-  Alcotest.check bool "gap-x-10 uses spacing*10" true
-    (Astring.String.is_infix ~affix:"*10)" (css_for (gap_x 10)))
+  Test_helpers.check_declarations "gap-64" [ "gap:calc(var(--spacing)*64)" ];
+  Test_helpers.check_declarations "gap-4" [ "gap:calc(var(--spacing)*4)" ];
+  Test_helpers.check_declarations "gap-x-10"
+    [ "column-gap:calc(var(--spacing)*10)" ]
 
 (* Arbitrary gaps accept the full length grammar (container-query units, calc,
    and the CSS-wide keywords), not just px/rem, and round-trip verbatim. *)
 let test_arbitrary_length_grammar () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "gap-[5cqw] keeps the cqw unit" true
-    (Astring.String.is_infix ~affix:"gap:5cqw" (css "gap-[5cqw]"));
-  Alcotest.(check bool)
-    "gap-[calc(1rem/16*7)] spaces the calc" true
-    (Astring.String.is_infix ~affix:"gap:calc(1rem/16*7)"
-       (css "gap-[calc(1rem/16*7)]"));
-  Alcotest.(check bool)
-    "gap-[inherit] passes the keyword through" true
-    (Astring.String.is_infix ~affix:"gap:inherit" (css "gap-[inherit]"));
+  Test_helpers.check_declarations "gap-[5cqw]" [ "gap:5cqw" ];
+  Test_helpers.check_declarations "gap-[calc(1rem/16*7)]"
+    [ "gap:calc(1rem/16*7)" ];
+  Test_helpers.check_declarations "gap-[inherit]" [ "gap:inherit" ];
   check "gap-[5cqw]";
   check "gap-[inherit]";
   check "gap-[4px]"

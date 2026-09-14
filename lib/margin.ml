@@ -10,7 +10,11 @@ module Handler = struct
     | Spacing of Style.spacing
     | Arbitrary of string * Css.length (* mx-[4px], raw kept for round-trip *)
     | Arbitrary_var of string * string
-      (* mx-[var(--value)], raw then the var() text *)
+    | Arbitrary_raw of string * string
+    (* m-[foo]: margin writes one longhand per side, so a bracket no length
+         reader took still names that longhand and the value is forwarded
+         verbatim - Tailwind's token-stream contract. *)
+    (* mx-[var(--value)], raw then the var() text *)
     | Named of string (* mx-big - custom spacing *)
 
   (* [Auto] sits outside [signed] because there is no [-m-auto] and negating
@@ -65,6 +69,20 @@ module Handler = struct
     | `Px -> keyword_order 'p'
 
   (* Get the CSS property function for an axis *)
+  (* The longhand each axis names, for a value no typed setter can hold. *)
+  let property_of_axis = function
+    | `All -> "margin"
+    | `X -> "margin-inline"
+    | `Y -> "margin-block"
+    | `T -> "margin-top"
+    | `R -> "margin-right"
+    | `B -> "margin-bottom"
+    | `L -> "margin-left"
+    | `S -> "margin-inline-start"
+    | `E -> "margin-inline-end"
+    | `Bs -> "margin-block-start"
+    | `Be -> "margin-block-end"
+
   let prop_for_axis axis =
     match axis with
     | `All -> fun len -> margin [ len ]
@@ -95,17 +113,20 @@ module Handler = struct
       | Spacing s -> spacing_style ~negative s
       | Arbitrary (_, len) ->
           if negative then
-            (* A plain unit negates directly, [-4px] rather than a calc with a
-               factor of -1. *)
-            let neg_len : Css.length =
-              match len with
-              | Px f -> Px (-.f)
-              | Rem f -> Rem (-.f)
-              | Pct f -> Pct (-.f)
-              | _ -> Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
-            in
-            style [ prop neg_len ]
+            (* [calc(<value> * -1)], the spelling Tailwind writes whatever the
+               unit. Folding the sign into the number instead was done from a
+               table listing a few units, so [4px] came out [-4px] while [2em],
+               which the table missed, already carried the calc. *)
+            style
+              [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ]
           else style [ prop len ]
+      | Arbitrary_raw (_, value) ->
+          (* [calc(<value> * -1)] is what a negated arbitrary writes whatever
+             the unit, and a value no reader took is no exception. *)
+          let value = if negative then "calc(" ^ value ^ " * -1)" else value in
+          style
+            (Option.to_list
+               (Parse.opaque_declaration (property_of_axis axis) value))
       | Arbitrary_var (_, var_str) ->
           let bare_name = Parse.extract_var_name var_str in
           let len : Css.length =
@@ -157,6 +178,7 @@ module Handler = struct
       | Positive (Arbitrary _) | Negative (Arbitrary _) ->
           50000 (* after numbered, before auto *)
       | Positive (Arbitrary_var _) | Negative (Arbitrary_var _) -> 55000
+      | Positive (Arbitrary_raw _) | Negative (Arbitrary_raw _) -> 55000
       | Positive (Named _) | Negative (Named _) -> 60000 (* after arbitrary *)
     in
     (side_index * 1000000) + sign_offset + value_order
@@ -186,7 +208,10 @@ module Handler = struct
           Spacing.pp_margin_suffix (s :> margin)
       | Positive (Arbitrary (raw, _)) | Negative (Arbitrary (raw, _)) ->
           "[" ^ raw ^ "]"
-      | Positive (Arbitrary_var (raw, _)) | Negative (Arbitrary_var (raw, _)) ->
+      | Positive (Arbitrary_var (raw, _))
+      | Negative (Arbitrary_var (raw, _))
+      | Positive (Arbitrary_raw (raw, _))
+      | Negative (Arbitrary_raw (raw, _)) ->
           "[" ^ raw ^ "]"
       | Positive (Named name) | Negative (Named name) -> name
     in
@@ -205,12 +230,15 @@ module Handler = struct
          readers below are handed what follows it. *)
       match Parse.value_after_hint inner with
       | None -> None
-      | Some value ->
+      | Some value -> (
           if Parse.is_var value then Some (Arbitrary_var (inner, value))
           else
-            Option.map
-              (fun l -> Arbitrary (inner, l))
-              (Parse.arbitrary_length value)
+            match Parse.arbitrary_length value with
+            | Some l -> Some (Arbitrary (inner, l))
+            | None ->
+                Option.map
+                  (fun raw -> Arbitrary_raw (inner, raw))
+                  (Parse.arbitrary_declaration_value inner))
     else None
 
   let axis_of_prefix_ext = function

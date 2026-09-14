@@ -1732,6 +1732,9 @@ module Handler = struct
       | Named of color * int
       | Named_opacity of color * int * opacity_modifier
       | Bracket of string * Css.color
+      | Raw of string * string
+        (* border-t-[notacolour]: the colour is this family's last resort, so a
+           bracket no reader took reaches the side's own longhand verbatim. *)
       | Transparent
       | Current
   end
@@ -1747,6 +1750,11 @@ module Handler = struct
     | Text_inherit
     | Text_bracket_color of string * Css.color
       (* text-[#0088cc], text-[black] - string is original bracket content *)
+    | Text_bracket_raw of string * string
+      (* text-[notacolour], text-[foo:red]: the colour is this family's last
+         resort, so a bracket no reader took reaches [color] verbatim, which is
+         Tailwind's token-stream contract. The browser discards the declaration;
+         the selector is what the class was for. *)
     | Text_bracket_color_opacity of string * Css.color * opacity_modifier
     | Text_bracket_var of string (* text-[var(--value)] *)
     | Text_bracket_var_opacity of string * opacity_modifier
@@ -1759,6 +1767,9 @@ module Handler = struct
     | Border_current
     | Border_current_opacity of opacity_modifier
     | Border_bracket_color of string * Css.color
+    | Border_bracket_raw of string * string
+      (* border-[notacolour]: the colour is this family's last resort, so a
+         bracket no reader took reaches [border-color] verbatim. *)
     | Border_bracket_color_opacity of string * Css.color * opacity_modifier
     | Border_side_color of Side.t * Side_color.t
     (* Accent colors *)
@@ -1769,6 +1780,9 @@ module Handler = struct
     | Accent_current_opacity of opacity_modifier
     | Accent_inherit
     | Accent_bracket_color of string * Css.color
+    | Accent_bracket_raw of string * string
+      (* accent-[notacolour]: the colour is this family's last resort, so a
+         bracket no reader took reaches [accent-color] verbatim. *)
     | Accent_bracket_color_opacity of string * Css.color * opacity_modifier
     (* Caret colors *)
     | Caret of color * int
@@ -1778,6 +1792,9 @@ module Handler = struct
     | Caret_inherit
     | Caret_transparent
     | Caret_bracket_color of string * Css.color
+    | Caret_bracket_raw of string * string
+      (* caret-[notacolour]: the colour is this family's last resort, so a
+         bracket no reader took reaches [caret-color] verbatim. *)
     | Caret_bracket_color_opacity of string * Css.color * opacity_modifier
     (* Outline colors *)
     | Outline of color * int
@@ -1788,6 +1805,9 @@ module Handler = struct
     | Outline_transparent
     | Outline_bracket_color of string * Css.color
       (* outline-[#0088cc], outline-[black] *)
+    | Outline_bracket_raw of string * string
+      (* outline-[notacolour]: the colour is this family's last resort, the way
+         it is for [text-]. *)
     | Outline_bracket_color_opacity of string * Css.color * opacity_modifier
     | Outline_bracket_var of string (* outline-[var(--value)] *)
     | Outline_bracket_var_opacity of string * opacity_modifier
@@ -1801,6 +1821,8 @@ module Handler = struct
     | Placeholder_current_opacity of opacity_modifier
     | Placeholder_inherit
     | Placeholder_bracket_color of string * Css.color
+    | Placeholder_bracket_raw of string * string
+      (* placeholder-[notacolour]: the colour is this family's last resort. *)
     | Placeholder_bracket_color_opacity of string * Css.color * opacity_modifier
 
   (** Extensible variant for color utilities *)
@@ -1935,29 +1957,31 @@ module Handler = struct
      [Css.user_select] [Text] constructors. *)
   let priority = function
     | Border_opacity _ | Border _ | Border_transparent | Border_current
-    | Border_current_opacity _ | Border_bracket_color _ | Border_side_color _
-    | Border_bracket_color_opacity _ ->
+    | Border_current_opacity _ | Border_bracket_color _ | Border_bracket_raw _
+    | Border_side_color _ | Border_bracket_color_opacity _ ->
         19
     | Text_opacity _ | Text _ | Text_transparent | Text_current
     | Text_current_opacity _ | Text_inherit | Text_bracket_color _
-    | Text_bracket_color_opacity _ | Text_bracket_var _
+    | Text_bracket_raw _ | Text_bracket_color_opacity _ | Text_bracket_var _
     | Text_bracket_var_opacity _ | Text_bracket_typed_var _
     | Text_bracket_typed_var_opacity _ | Placeholder_opacity _ | Placeholder _
     | Placeholder_transparent | Placeholder_current
     | Placeholder_current_opacity _ | Placeholder_inherit
-    | Placeholder_bracket_color _ | Placeholder_bracket_color_opacity _
-    | Caret_opacity _ | Caret _ | Caret_transparent | Caret_current
-    | Caret_current_opacity _ | Caret_inherit | Caret_bracket_color _
-    | Caret_bracket_color_opacity _ | Accent_opacity _ | Accent _
-    | Accent_transparent | Accent_current | Accent_current_opacity _
-    | Accent_inherit | Accent_bracket_color _ | Accent_bracket_color_opacity _
-      ->
+    | Placeholder_bracket_color _ | Placeholder_bracket_raw _
+    | Placeholder_bracket_color_opacity _ | Caret_opacity _ | Caret _
+    | Caret_transparent | Caret_current | Caret_current_opacity _
+    | Caret_inherit | Caret_bracket_color _ | Caret_bracket_color_opacity _
+    | Accent_opacity _ | Accent _ | Accent_transparent | Accent_current
+    | Accent_current_opacity _ | Accent_inherit | Accent_bracket_color _
+    | Accent_bracket_color_opacity _ | Accent_bracket_raw _
+    | Caret_bracket_raw _ ->
         26
     | Outline_opacity _ | Outline _ | Outline_current
     | Outline_current_opacity _ | Outline_inherit | Outline_transparent
-    | Outline_bracket_color _ | Outline_bracket_color_opacity _
-    | Outline_bracket_var _ | Outline_bracket_var_opacity _
-    | Outline_bracket_typed_var _ | Outline_bracket_typed_var_opacity _ ->
+    | Outline_bracket_color _ | Outline_bracket_raw _
+    | Outline_bracket_color_opacity _ | Outline_bracket_var _
+    | Outline_bracket_var_opacity _ | Outline_bracket_typed_var _
+    | Outline_bracket_typed_var_opacity _ ->
         28
 
   (* Helper to check if a string contains an opacity modifier *)
@@ -2056,6 +2080,16 @@ module Handler = struct
     | Some (hint, _) when List.mem hint not_mine -> None
     | _ -> Stdlib.Option.bind (Parse.value_after_hint inner) parse_bracket_color
 
+  (* The colour is a colour family's last resort: a bracket no reader took is
+     still a declaration, forwarded verbatim under the token-stream contract.
+     [not_mine] is the family's own list of hints another handler owns - a
+     [line-width:] bracket is the border width's, not the border colour's - so
+     the last resort must decline those too, or two handlers claim one class. *)
+  let last_resort ?(not_mine = []) inner : string option =
+    match Parse.data_type_hint inner with
+    | Some (hint, _) when List.mem hint not_mine -> None
+    | _ -> Parse.arbitrary_declaration_value inner
+
   let parse_bracket_hint inner =
     if String.starts_with ~prefix:"color:" inner then
       let value = String.sub inner 6 (String.length inner - 6) in
@@ -2107,7 +2141,14 @@ module Handler = struct
             | _ ->
                 Ok (Text_bracket_color_opacity (base_inner, css_color, opacity))
             )
-        | None -> Error (`Msg ("Invalid text bracket value: " ^ base_inner)))
+        | None -> (
+            (* The colour is this family's last resort, so a bracket no reader
+               took still reaches [color]. An opacity modifier has nothing to
+               mix - the value is not a colour - so that form stays refused,
+               where the CLI writes a color-mix around the raw token. *)
+            match (opacity, Parse.arbitrary_declaration_value base_inner) with
+            | No_opacity, Some raw -> Ok (Text_bracket_raw (base_inner, raw))
+            | _ -> Error (`Msg ("Invalid text bracket value: " ^ base_inner))))
     | "text" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -2143,7 +2184,14 @@ module Handler = struct
                 Ok
                   (Border_bracket_color_opacity (base_inner, css_color, opacity))
             )
-        | None -> Error (`Msg ("Invalid border bracket value: " ^ base_inner)))
+        | None -> (
+            match
+              ( opacity,
+                last_resort ~not_mine:[ "length"; "line-width" ] base_inner )
+            with
+            | No_opacity, Some raw -> Ok (Border_bracket_raw (base_inner, raw))
+            | _ -> Error (`Msg ("Invalid border bracket value: " ^ base_inner)))
+        )
     | "border" :: side :: rest
       when rest <> []
            &&
@@ -2178,7 +2226,13 @@ module Handler = struct
             | Some css_color ->
                 Ok
                   (Border_side_color (bs, Side_color.Bracket (inner, css_color)))
-            | None -> Error (`Msg ("Invalid border side bracket: " ^ v)))
+            | None -> (
+                match
+                  last_resort ~not_mine:[ "length"; "line-width" ] inner
+                with
+                | Some raw ->
+                    Ok (Border_side_color (bs, Side_color.Raw (inner, raw)))
+                | None -> Error (`Msg ("Invalid border side bracket: " ^ v))))
         | color_parts when List.exists has_opacity color_parts -> (
             match shade_and_opacity_of_strings ~theme color_parts with
             | Ok (color, shade, opacity) ->
@@ -2224,7 +2278,11 @@ module Handler = struct
                 Ok
                   (Accent_bracket_color_opacity (base_inner, css_color, opacity))
             )
-        | None -> Error (`Msg ("Invalid accent bracket value: " ^ base_inner)))
+        | None -> (
+            match (opacity, last_resort base_inner) with
+            | No_opacity, Some raw -> Ok (Accent_bracket_raw (base_inner, raw))
+            | _ -> Error (`Msg ("Invalid accent bracket value: " ^ base_inner)))
+        )
     | "accent" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -2258,7 +2316,10 @@ module Handler = struct
                 Ok
                   (Caret_bracket_color_opacity (base_inner, css_color, opacity))
             )
-        | None -> Error (`Msg ("Invalid caret bracket value: " ^ base_inner)))
+        | None -> (
+            match (opacity, last_resort base_inner) with
+            | No_opacity, Some raw -> Ok (Caret_bracket_raw (base_inner, raw))
+            | _ -> Error (`Msg ("Invalid caret bracket value: " ^ base_inner))))
     | "caret" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -2300,7 +2361,11 @@ module Handler = struct
                 Ok
                   (Outline_bracket_color_opacity (base_inner, css_color, opacity))
             )
-        | None -> Error (`Msg ("Invalid outline bracket value: " ^ base_inner)))
+        | None -> (
+            match (opacity, Parse.arbitrary_declaration_value base_inner) with
+            | No_opacity, Some raw -> Ok (Outline_bracket_raw (base_inner, raw))
+            | _ -> Error (`Msg ("Invalid outline bracket value: " ^ base_inner))
+            ))
     | "outline" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -2335,8 +2400,13 @@ module Handler = struct
                 Ok
                   (Placeholder_bracket_color_opacity
                      (base_inner, css_color, opacity)))
-        | None ->
-            Error (`Msg ("Invalid placeholder bracket value: " ^ base_inner)))
+        | None -> (
+            match (opacity, last_resort base_inner) with
+            | No_opacity, Some raw ->
+                Ok (Placeholder_bracket_raw (base_inner, raw))
+            | _ ->
+                Error
+                  (`Msg ("Invalid placeholder bracket value: " ^ base_inner))))
     | "placeholder" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -2388,6 +2458,19 @@ module Handler = struct
   let border_current = style [ Css.border_color Current ]
 
   (* Per-side border colour emission. *)
+  (* The longhand each side names, for a value no typed setter can hold. *)
+  let properties_of_side : Side.t -> string list = function
+    | Side.Top -> [ "border-top-color" ]
+    | Side.Right -> [ "border-right-color" ]
+    | Side.Bottom -> [ "border-bottom-color" ]
+    | Side.Left -> [ "border-left-color" ]
+    | Side.Inline_axis -> [ "border-inline-color" ]
+    | Side.Block_axis -> [ "border-block-color" ]
+    | Side.Inline_start -> [ "border-inline-start-color" ]
+    | Side.Inline_end -> [ "border-inline-end-color" ]
+    | Side.Block_start -> [ "border-block-start-color" ]
+    | Side.Block_end -> [ "border-block-end-color" ]
+
   let setters_of_side : Side.t -> (Css.color -> Css.declaration) list = function
     | Side.Top -> [ Css.border_top_color ]
     | Side.Right -> [ Css.border_right_color ]
@@ -2858,6 +2941,11 @@ module Handler = struct
         colors_with_opacity_style ~properties:sides color shade opacity
     | Side_color.Bracket (_, css_color) ->
         bracket_colors_style ~theme ~properties:sides css_color
+    | Side_color.Raw (_, value) ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property value)
+             (properties_of_side side))
     | Side_color.Transparent -> apply (Css.hex "#0000")
     | Side_color.Current -> apply Css.Current
 
@@ -3031,6 +3119,8 @@ module Handler = struct
     | Text_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"text-" ~property:Css.color
           css_color
+    | Text_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "color" value))
     | Text_bracket_color_opacity (_orig, css_color, opacity) ->
         bracket_color_opacity_style ~theme ~property:Css.color css_color opacity
     | Text_bracket_var v ->
@@ -3083,6 +3173,8 @@ module Handler = struct
     | Border_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"border-"
           ~property:Css.border_color css_color
+    | Border_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "border-color" value))
     | Border_bracket_color_opacity (_orig, css_color, opacity) ->
         bracket_color_opacity_style ~theme ~property:Css.border_color css_color
           opacity
@@ -3097,6 +3189,8 @@ module Handler = struct
     | Accent_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"accent-"
           ~property:Css.accent_color css_color
+    | Accent_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "accent-color" value))
     | Accent_bracket_color_opacity (_orig, css_color, opacity) ->
         bracket_color_opacity_style ~theme ~property:Css.accent_color css_color
           opacity
@@ -3111,6 +3205,8 @@ module Handler = struct
     | Caret_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"caret-" ~property:Css.caret_color
           css_color
+    | Caret_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "caret-color" value))
     | Caret_bracket_color_opacity (_orig, css_color, opacity) ->
         bracket_color_opacity_style ~theme ~property:Css.caret_color css_color
           opacity
@@ -3125,6 +3221,8 @@ module Handler = struct
     | Outline_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"outline-"
           ~property:Css.outline_color css_color
+    | Outline_bracket_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "outline-color" value))
     | Outline_bracket_color_opacity (inner, css_color, opacity) ->
         outline_bracket_color_opacity_style ~theme inner css_color opacity
     | Outline_bracket_var v -> outline_bracket_var_style v
@@ -3151,6 +3249,9 @@ module Handler = struct
     | Placeholder_bracket_color (_orig, css_color) ->
         with_pseudo Css.Selector.Placeholder
           (bracket_color_style ~theme ~property:Css.color css_color)
+    | Placeholder_bracket_raw (_, value) ->
+        with_pseudo Css.Selector.Placeholder
+          (style (Option.to_list (Parse.opaque_declaration "color" value)))
     | Placeholder_bracket_color_opacity (_orig, css_color, opacity) ->
         with_pseudo Css.Selector.Placeholder
           (bracket_color_opacity_style ~theme ~property:Css.color css_color
@@ -3174,7 +3275,7 @@ module Handler = struct
     | Text_current -> 8350
     | Text_current_opacity _ -> 8350
     | Text_inherit -> 8350
-    | Text_bracket_color _ -> 8350
+    | Text_bracket_color _ | Text_bracket_raw _ -> 8350
     | Text_bracket_color_opacity _ -> 8350
     | Text_bracket_var _ -> 8350
     | Text_bracket_var_opacity _ -> 8350
@@ -3192,7 +3293,7 @@ module Handler = struct
     | Border_transparent -> 1500
     | Border_current -> 1500
     | Border_current_opacity _ -> 1500
-    | Border_bracket_color _ -> 1500
+    | Border_bracket_color _ | Border_bracket_raw _ -> 1500
     | Border_bracket_color_opacity _ -> 1500
     (* Per-side border colours sort after the all-sides ones, and side-major:
        every colour a side names writes a colour another side writes too, so
@@ -3222,7 +3323,7 @@ module Handler = struct
     | Placeholder_current -> 80000
     | Placeholder_current_opacity _ -> 80000
     | Placeholder_inherit -> 80000
-    | Placeholder_bracket_color _ -> 80000
+    | Placeholder_bracket_color _ | Placeholder_bracket_raw _ -> 80000
     | Placeholder_bracket_color_opacity _ -> 80000
     | Caret (color, shade) ->
         let _ = (color, shade) in
@@ -3234,7 +3335,7 @@ module Handler = struct
     | Caret_current_opacity _ -> 81000
     | Caret_inherit -> 81000
     | Caret_transparent -> 81000
-    | Caret_bracket_color _ -> 81000
+    | Caret_bracket_color _ | Caret_bracket_raw _ -> 81000
     | Caret_bracket_color_opacity _ -> 81000
     | Accent (color, shade) ->
         let _ = (color, shade) in
@@ -3246,7 +3347,7 @@ module Handler = struct
     | Accent_current -> 82000
     | Accent_current_opacity _ -> 82000
     | Accent_inherit -> 82000
-    | Accent_bracket_color _ -> 82000
+    | Accent_bracket_color _ | Accent_bracket_raw _ -> 82000
     | Accent_bracket_color_opacity _ -> 82000
     (* Outline colors run at priority 28 with the rest of the outline family
        (see [priority]): the 3000 base puts them after borders.ml's outline
@@ -3277,7 +3378,7 @@ module Handler = struct
     (* i -> after every indigo shade and before lime(10) *)
     | Outline_transparent -> 3000 + (22 * 1000)
     (* t -> between teal and violet *)
-    | Outline_bracket_color _ -> 3000
+    | Outline_bracket_color _ | Outline_bracket_raw _ -> 3000
     | Outline_bracket_color_opacity _ -> 3000
     | Outline_bracket_var _ -> 3000
     | Outline_bracket_var_opacity _ -> 3000
@@ -3300,7 +3401,7 @@ module Handler = struct
     | Text_current -> "text-current"
     | Text_current_opacity opacity -> "text-current" ^ opacity_suffix opacity
     | Text_inherit -> "text-inherit"
-    | Text_bracket_color (v, _) -> "text-[" ^ v ^ "]"
+    | Text_bracket_color (v, _) | Text_bracket_raw (v, _) -> "text-[" ^ v ^ "]"
     | Text_bracket_color_opacity (v, _, opacity) ->
         "text-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Text_bracket_var v -> "text-[" ^ v ^ "]"
@@ -3322,7 +3423,8 @@ module Handler = struct
     | Border_current -> "border-current"
     | Border_current_opacity opacity ->
         "border-current" ^ opacity_suffix opacity
-    | Border_bracket_color (v, _) -> "border-[" ^ v ^ "]"
+    | Border_bracket_color (v, _) | Border_bracket_raw (v, _) ->
+        "border-[" ^ v ^ "]"
     | Border_side_color (side, value) ->
         let s =
           match side with
@@ -3346,7 +3448,8 @@ module Handler = struct
               (if is_shadeless c then color_to_string c
                else color_to_string c ^ "-" ^ string_of_int shade)
               ^ opacity_suffix opacity
-          | Side_color.Bracket (orig, _) -> "[" ^ orig ^ "]"
+          | Side_color.Bracket (orig, _) | Side_color.Raw (orig, _) ->
+              "[" ^ orig ^ "]"
           | Side_color.Transparent -> "transparent"
           | Side_color.Current -> "current"
         in
@@ -3367,7 +3470,8 @@ module Handler = struct
     | Accent_current_opacity opacity ->
         "accent-current" ^ opacity_suffix opacity
     | Accent_inherit -> "accent-inherit"
-    | Accent_bracket_color (v, _) -> "accent-[" ^ v ^ "]"
+    | Accent_bracket_color (v, _) | Accent_bracket_raw (v, _) ->
+        "accent-[" ^ v ^ "]"
     | Accent_bracket_color_opacity (v, _, opacity) ->
         "accent-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Caret (c, shade) ->
@@ -3383,7 +3487,8 @@ module Handler = struct
     | Caret_current_opacity opacity -> "caret-current" ^ opacity_suffix opacity
     | Caret_inherit -> "caret-inherit"
     | Caret_transparent -> "caret-transparent"
-    | Caret_bracket_color (v, _) -> "caret-[" ^ v ^ "]"
+    | Caret_bracket_color (v, _) | Caret_bracket_raw (v, _) ->
+        "caret-[" ^ v ^ "]"
     | Caret_bracket_color_opacity (v, _, opacity) ->
         "caret-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Outline (c, shade) ->
@@ -3400,7 +3505,8 @@ module Handler = struct
         "outline-current" ^ opacity_suffix opacity
     | Outline_inherit -> "outline-inherit"
     | Outline_transparent -> "outline-transparent"
-    | Outline_bracket_color (v, _) -> "outline-[" ^ v ^ "]"
+    | Outline_bracket_color (v, _) | Outline_bracket_raw (v, _) ->
+        "outline-[" ^ v ^ "]"
     | Outline_bracket_color_opacity (v, _, opacity) ->
         "outline-[" ^ v ^ "]" ^ opacity_suffix opacity
     | Outline_bracket_var v -> "outline-[" ^ v ^ "]"
@@ -3423,7 +3529,8 @@ module Handler = struct
     | Placeholder_current_opacity opacity ->
         "placeholder-current" ^ opacity_suffix opacity
     | Placeholder_inherit -> "placeholder-inherit"
-    | Placeholder_bracket_color (v, _) -> "placeholder-[" ^ v ^ "]"
+    | Placeholder_bracket_color (v, _) | Placeholder_bracket_raw (v, _) ->
+        "placeholder-[" ^ v ^ "]"
     | Placeholder_bracket_color_opacity (v, _, opacity) ->
         "placeholder-[" ^ v ^ "]" ^ opacity_suffix opacity
 

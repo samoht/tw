@@ -147,6 +147,28 @@ let read_candidate d start =
   in
   loop start 0 0 None false
 
+(* Tailwind's extractor refuses a candidate whose [/modifier] opens on [-] or
+   [_], and refuses the whole candidate rather than truncating it: the CLI emits
+   nothing at all for [bg-red-500/-2]. Only a [/] the utility itself carries
+   counts, so one inside a bracket or a paren group - [aspect-[16/9]],
+   [bg-[url(a/_b)]] - is the value's, not a modifier's. *)
+let modifier_opens_badly candidate =
+  let len = String.length candidate in
+  let rec loop i bracket paren =
+    if i >= len then false
+    else
+      match candidate.[i] with
+      | '[' -> loop (i + 1) (bracket + 1) paren
+      | ']' when bracket > 0 -> loop (i + 1) (bracket - 1) paren
+      | '(' -> loop (i + 1) bracket (paren + 1)
+      | ')' when paren > 0 -> loop (i + 1) bracket (paren - 1)
+      | '/' when bracket = 0 && paren = 0 ->
+          (i + 1 < len && (candidate.[i + 1] = '-' || candidate.[i + 1] = '_'))
+          || loop (i + 1) bracket paren
+      | _ -> loop (i + 1) bracket paren
+  in
+  loop 0 0 0
+
 let candidates source =
   let d = decoded_utf_8 source in
   let len = Array.length d.chars in
@@ -161,7 +183,10 @@ let candidates source =
           String.sub source byte_start (byte_stop - byte_start)
           |> trim_candidate
         in
-        let acc = if candidate = "" then acc else candidate :: acc in
+        let acc =
+          if candidate = "" || modifier_opens_badly candidate then acc
+          else candidate :: acc
+        in
         loop stop acc
       else loop (i + 1) acc
     else loop (i + 1) acc

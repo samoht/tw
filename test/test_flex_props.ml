@@ -130,9 +130,10 @@ let test_basis_named_prefers_spacing () =
     | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
     | Error (`Msg m) -> Alcotest.failf "basis-sm: %s" m
   in
-  Alcotest.(check bool)
-    "basis-sm reads --spacing-sm" true
-    (Astring.String.is_infix ~affix:"var(--spacing-sm)" css);
+  (* The whole declaration, which also says the token reached [flex-basis]. *)
+  Test_helpers.check_declarations ~theme ~minify:false "basis-sm"
+    [ "flex-basis: var(--spacing-sm)" ];
+  (* The binding is a :root declaration, left out of the list by design. *)
   Alcotest.(check bool)
     "basis-sm declares --spacing-sm" true
     (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css)
@@ -149,16 +150,36 @@ let test_basis_arbitrary_keeps_the_authored_spelling () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          let css = Tw.to_css ~base:false [ u ] |> Tw.Css.to_string in
-          Alcotest.(check bool)
-            (cls ^ " selects itself") true
-            (Astring.String.is_infix ~affix:escaped css))
+          (* The whole selector list, which is where "names its rule with the
+             bracket text" is said: an affix of the selector is satisfied by a
+             longer one that starts the same way. *)
+          Alcotest.(check (list string))
+            (cls ^ " selects itself") [ escaped ]
+            (Test_helpers.selectors_of_utility u))
     [
       ("basis-[0.5ch]", {|.basis-\[0\.5ch\]|});
       ("basis-[0.0]", {|.basis-\[0\.0\]|});
       ("basis-[1px/*x]", {|.basis-\[1px\/\*x\]|});
       ("basis-[10px]", {|.basis-\[10px\]|});
     ]
+
+(* A data-type hint chooses which longhand a bracket lands in and says nothing
+   about the value. [basis-] writes one longhand, so every hint lands there and
+   the flex-basis reader is handed what follows it; the hint stays in the class
+   name, which is what the markup carries. The reader used to be given the hint
+   as well, so it read nothing and the class was refused where Tailwind emits
+   [flex-basis: 10px]. *)
+let test_basis_arbitrary_peels_a_hint () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
+          (* The whole list, which is where "lands in one longhand" is said. *)
+          Test_helpers.check_declarations ~minify:false cls
+            [ "flex-basis: 10px" ])
+    [ "basis-[length:10px]"; "basis-[foo:10px]" ]
 
 (* [order-[...]] takes an order value. A bracket the order grammar cannot read
    is accepted and then raises out of [to_css], a pure conversion, so the
@@ -174,9 +195,12 @@ let test_invalid_arbitrary_order () =
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  rejected "order-[foo]";
-  rejected "order-[1abc]";
-  rejected "order-[1.5]";
+  (* A bracket the order grammar declines still names [order], which is this
+     family's longhand, so it reaches the sheet as the token stream it is. What
+     is ruled out is the negated form, which has nothing to negate. *)
+  Test_helpers.check_declarations "order-[foo]" [ "order:foo" ];
+  Test_helpers.check_declarations "order-[1abc]" [ "order:1abc" ];
+  Test_helpers.check_declarations "order-[1.5]" [ "order:1.5" ];
   rejected "-order-[foo]";
   renders "order-[13]";
   renders "order-[var(--x)]";
@@ -258,6 +282,8 @@ let tests =
     test_case "arbitrary flex order" `Quick test_arbitrary_flex_order;
     test_case "basis-[...] keeps the authored spelling" `Quick
       test_basis_arbitrary_keeps_the_authored_spelling;
+    test_case "basis-[...] peels a data-type hint" `Quick
+      test_basis_arbitrary_peels_a_hint;
   ]
 
 let suite = ("flex_props", tests)

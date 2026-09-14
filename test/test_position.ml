@@ -38,36 +38,20 @@ let test_fractions () =
 (* Negative fractions negate the percentage; an improper fraction resolves past
    100% (6/5 -> 120%). *)
 let test_negative_and_improper_fractions () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "-left-6/5 is -120%" true
-    (Astring.String.is_infix ~affix:"left: -120%" (css "-left-6/5"));
-  Alcotest.(check bool)
-    "left-6/5 is 120%" true
-    (Astring.String.is_infix ~affix:"left: 120%" (css "left-6/5"));
-  Alcotest.(check bool)
-    "-inset-x-1/2 is -50%" true
-    (Astring.String.is_infix ~affix:"inset-inline: -50%" (css "-inset-x-1/2"))
+  (* One declaration each, which is half the claim: an inset side writes its own
+     longhand and nothing beside it. *)
+  Test_helpers.check_declarations ~minify:false "-left-6/5" [ "left: -120%" ];
+  Test_helpers.check_declarations ~minify:false "left-6/5" [ "left: 120%" ];
+  Test_helpers.check_declarations ~minify:false "-inset-x-1/2"
+    [ "inset-inline: -50%" ]
 
 (* Tailwind reads any numerator over any denominator, the same rule the sizing
    families follow: [top-1/7] and [top-3/8] are as good as [top-1/2], and a zero
    numerator is a position of its own. Restricting the denominator to a hand
    picked list refused classes the CLI emits. *)
 let test_any_fraction_denominator () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " contains " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+  let has cls decl =
+    Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
   has "top-1/7" "top: 14.2857%";
   has "top-3/8" "top: 37.5%";
@@ -116,17 +100,10 @@ let named_inset_requires_theme_token () =
    directly; they used to be unknown classes because the bracket parser only
    accepted numeric lengths. *)
 let test_arbitrary_var () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "top-[var(--t)] sets top: var(--t)" true
-    (Astring.String.is_infix ~affix:"top: var(--t)" (css "top-[var(--t)]"));
-  Alcotest.(check bool)
-    "inset-[var(--i)] sets inset: var(--i)" true
-    (Astring.String.is_infix ~affix:"inset: var(--i)" (css "inset-[var(--i)]"));
+  Test_helpers.check_declarations ~minify:false "top-[var(--t)]"
+    [ "top: var(--t)" ];
+  Test_helpers.check_declarations ~minify:false "inset-[var(--i)]"
+    [ "inset: var(--i)" ];
   (* round-trips the class name *)
   check "top-[var(--t)]";
   check "left-[var(--l)]"
@@ -134,25 +111,11 @@ let test_arbitrary_var () =
 (* Fractional spacing steps (top-2.5) resolve to calc(var(--spacing) * n) and
    the px step (left-px) to 1px, on the physical/axis inset sides. *)
 let test_spacing_steps () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "top-2.5 uses calc(var(--spacing)*2.5)" true
-    (Astring.String.is_infix ~affix:"top:calc(var(--spacing)*2.5)"
-       (css "top-2.5"));
-  Alcotest.(check bool)
-    "inset-y-0.5 uses the block axis" true
-    (Astring.String.is_infix ~affix:"inset-block:calc(var(--spacing)*.5)"
-       (css "inset-y-0.5"));
-  Alcotest.(check bool)
-    "left-px is 1px" true
-    (Astring.String.is_infix ~affix:"left:1px" (css "left-px"));
-  Alcotest.(check bool)
-    "inset-px is 1px" true
-    (Astring.String.is_infix ~affix:"inset:1px" (css "inset-px"));
+  Test_helpers.check_declarations "top-2.5" [ "top:calc(var(--spacing)*2.5)" ];
+  Test_helpers.check_declarations "inset-y-0.5"
+    [ "inset-block:calc(var(--spacing)*.5)" ];
+  Test_helpers.check_declarations "left-px" [ "left:1px" ];
+  Test_helpers.check_declarations "inset-px" [ "inset:1px" ];
   (* round-trip the class names, escaped dot included *)
   check "top-2.5";
   check "right-1.5";
@@ -163,19 +126,10 @@ let test_spacing_steps () =
 (* Arbitrary calc() insets go through the full length grammar (the bracket
    parser used to accept only plain <number><unit>). *)
 let test_arbitrary_calc () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "left-[calc(5%-2px)] spaces the operator" true
-    (Astring.String.is_infix ~affix:"left: calc(5% - 2px)"
-       (css "left-[calc(5%-2px)]"));
-  Alcotest.(check bool)
-    "left-[calc(50%+var(--offset))] keeps the var" true
-    (Astring.String.is_infix ~affix:"left: calc(50% + var(--offset))"
-       (css "left-[calc(50%+var(--offset))]"));
+  Test_helpers.check_declarations ~minify:false "left-[calc(5%-2px)]"
+    [ "left: calc(5% - 2px)" ];
+  Test_helpers.check_declarations ~minify:false "left-[calc(50%+var(--offset))]"
+    [ "left: calc(50% + var(--offset))" ];
   check "left-[calc(5%-2px)]"
 
 (* An arbitrary value is read by the whole decoder, not by its last stage alone:
@@ -304,35 +258,28 @@ let logical_inline_keeps_the_spacing_product () =
     | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  let check_css cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
+  let check_css cls decl = Test_helpers.check_declarations cls [ decl ] in
   check_css "start-0" "inset-inline-start:calc(var(--spacing)*0)";
   check_css "start-1" "inset-inline-start:calc(var(--spacing)*1)";
   check_css "start-2" "inset-inline-start:calc(var(--spacing)*2)";
   check_css "-start-4" "inset-inline-start:calc(var(--spacing)*-4)";
   check_css "end-0" "inset-inline-end:calc(var(--spacing)*0)";
   check_css "end-1" "inset-inline-end:calc(var(--spacing)*1)";
-  check_css "start-0" "--spacing:.25rem";
-  check_css "end-0" "--spacing:.25rem"
+  (* The carrier the product reads is a :root binding, which
+     declarations_of_class leaves out by design, so these two stay searches over
+     the sheet - and keeping the carrier is half of what this test is for. *)
+  let declares_the_carrier cls =
+    Alcotest.(check bool)
+      (cls ^ " keeps --spacing") true
+      (Astring.String.is_infix ~affix:"--spacing:.25rem" (css cls))
+  in
+  declares_the_carrier "start-0";
+  declares_the_carrier "end-0"
 
 (* The logical inline sides carry the same scale as the physical ones: the px
    step, the fractional steps and the fractions, in both signs. *)
 let logical_inline_scale_steps () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let check_css cls affix =
-    Alcotest.(check bool)
-      (cls ^ " emits " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
-  in
+  let check_css cls decl = Test_helpers.check_declarations cls [ decl ] in
   check_css "start-px" "inset-inline-start:1px";
   check_css "-start-px" "inset-inline-start:-1px";
   check_css "end-px" "inset-inline-end:1px";
@@ -377,19 +324,19 @@ let arbitrary_length_on_every_inset_side () =
   check_declarations "end-[4px]" [ "inset-inline-end:4px" ];
   check_declarations "start-[var(--x)]" [ "inset-inline-start:var(--x)" ];
   check_declarations "end-[calc(5%-2px)]" [ "inset-inline-end:calc(5% - 2px)" ];
-  check_declarations "-start-[4px]" [ "inset-inline-start:-4px" ];
-  check_declarations "-end-[4px]" [ "inset-inline-end:-4px" ];
-  check_declarations "-top-[4px]" [ "top:-4px" ];
-  check_declarations "-right-[4px]" [ "right:-4px" ];
-  check_declarations "-bottom-[4px]" [ "bottom:-4px" ];
-  check_declarations "-left-[4px]" [ "left:-4px" ];
-  check_declarations "-inset-[4px]" [ "inset:-4px" ];
-  check_declarations "-inset-x-[4px]" [ "inset-inline:-4px" ];
-  check_declarations "-inset-y-[4px]" [ "inset-block:-4px" ];
-  check_declarations "-inset-s-[4px]" [ "inset-inline-start:-4px" ];
-  check_declarations "-inset-e-[4px]" [ "inset-inline-end:-4px" ];
-  check_declarations "-inset-bs-[4px]" [ "inset-block-start:-4px" ];
-  check_declarations "-inset-be-[4px]" [ "inset-block-end:-4px" ];
+  check_declarations "-start-[4px]" [ "inset-inline-start:calc(4px*-1)" ];
+  check_declarations "-end-[4px]" [ "inset-inline-end:calc(4px*-1)" ];
+  check_declarations "-top-[4px]" [ "top:calc(4px*-1)" ];
+  check_declarations "-right-[4px]" [ "right:calc(4px*-1)" ];
+  check_declarations "-bottom-[4px]" [ "bottom:calc(4px*-1)" ];
+  check_declarations "-left-[4px]" [ "left:calc(4px*-1)" ];
+  check_declarations "-inset-[4px]" [ "inset:calc(4px*-1)" ];
+  check_declarations "-inset-x-[4px]" [ "inset-inline:calc(4px*-1)" ];
+  check_declarations "-inset-y-[4px]" [ "inset-block:calc(4px*-1)" ];
+  check_declarations "-inset-s-[4px]" [ "inset-inline-start:calc(4px*-1)" ];
+  check_declarations "-inset-e-[4px]" [ "inset-inline-end:calc(4px*-1)" ];
+  check_declarations "-inset-bs-[4px]" [ "inset-block-start:calc(4px*-1)" ];
+  check_declarations "-inset-be-[4px]" [ "inset-block-end:calc(4px*-1)" ];
   check_declarations "-top-[var(--t)]" [ "top:calc(var(--t)*-1)" ];
   (* the bracket text is the class name, so it has to survive the round trip *)
   check "start-[4px]";
@@ -561,14 +508,11 @@ let negative_named_inset_on_every_side () =
      accepts *)
   check_themed theme "-top-[(var(--a)+var(--b))]"
     [ "top:calc((var(--a) + var(--b))*-1)" ];
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "Tailwind writes the group out unwrapped, as top: (var(--a) + \
-          var(--b)); tw refuses the class rather than emit a declaration no \
-          browser reads")
-    (module Tw.Position.Handler)
-    "top-[(var(--a)+var(--b))]";
+  (* Unsigned, the group is no length either, so it goes to the side's own
+     longhand as the token stream it is - the same text the CLI writes, which no
+     browser reads and both sides therefore agree on. *)
+  Test_helpers.check_declarations "top-[(var(--a)+var(--b))]"
+    [ "top:(var(--a)+var(--b))" ];
   (* and a name the theme binds in neither namespace is still no utility *)
   Test_helpers.check_invalid_input (module Tw.Position.Handler) "-top-level";
   Test_helpers.check_invalid_input (module Tw.Position.Handler) "-bottom-right"
@@ -639,7 +583,7 @@ let test_data_type_hint_before_the_length_reader () =
   let open Test_helpers in
   check_declarations "top-[length:4px]" [ "top:4px" ];
   check_declarations "inset-[foo:4px]" [ "inset:4px" ];
-  check_declarations "-top-[length:4px]" [ "top:-4px" ];
+  check_declarations "-top-[length:4px]" [ "top:calc(4px*-1)" ];
   check_declarations "left-[length:var(--x)]" [ "left:var(--x)" ];
   List.iter
     (check_handler_roundtrip (module Tw.Position.Handler))
@@ -653,8 +597,26 @@ let test_data_type_hint_before_the_length_reader () =
     (check_invalid_input (module Tw.Position.Handler))
     [ "top-[:4px]"; "top-[length:]" ]
 
+(* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
+   writes for every unit. Folding the sign into the number instead was done from
+   a unit table that listed a few of them, so [4px] came out [-4px] while [2em]
+   and [10vh], which the table missed, already carried the calc. The two compute
+   the same length, so only the raw sheets show it; what makes it worth settling
+   is that the upstream fixtures record the CLI's spelling. *)
+let test_position_negated_arbitrary_is_a_calc () =
+  List.iter
+    (fun (cls, decl) ->
+      Test_helpers.check_declarations ~minify:false cls [ decl ])
+    [
+      ("-top-[4px]", "top: calc(4px * -1)");
+      ("-left-[50%]", "left: calc(50% * -1)");
+      ("-inset-[2rem]", "inset: calc(2rem * -1)");
+    ]
+
 let tests =
   [
+    test_case "negated arbitrary length is a calc" `Quick
+      test_position_negated_arbitrary_is_a_calc;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;
     test_case "inset and z" `Quick test_inset_and_z;

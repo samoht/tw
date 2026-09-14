@@ -141,8 +141,13 @@ let check_css_inline_with_base () =
   let css_str = Css.(css |> inline_vars |> to_string) in
   check bool "no layer wrappers" false
     (Astring.String.is_infix ~affix:"@layer" css_str);
+  (* The whole rule. [.p-4] alone is satisfied by the selector [.p-40], and says
+     nothing about the declaration inside. The sheet is read after
+     [inline_vars], which [declarations_of_class] cannot do, so this stays a
+     search over the text. *)
   check bool "has padding rule" true
-    (Astring.String.is_infix ~affix:".p-4" css_str)
+    (Astring.String.is_infix
+       ~affix:".p-4 {\n  padding: calc(var(--spacing) * 4);\n}" css_str)
 
 let check_css_inline_without_base () =
   let config = { Tw.Build.base = false; forms = None; layers = true } in
@@ -151,7 +156,8 @@ let check_css_inline_without_base () =
   check bool "no layer wrappers" false
     (Astring.String.is_infix ~affix:"@layer" css_str);
   check bool "has padding rule" true
-    (Astring.String.is_infix ~affix:".p-4" css_str)
+    (Astring.String.is_infix
+       ~affix:".p-4 {\n  padding: calc(var(--spacing) * 4);\n}" css_str)
 
 let check_inline_style () =
   let style = Tw.Build.to_inline_style [ p 4; m 2; bg blue ] in
@@ -799,6 +805,16 @@ let selectors_in_container ~condition css =
       | _ -> acc)
     [] css
 
+(* Conditions of every [@media] block in the sheet, nested ones included. *)
+let media_conditions css =
+  Css.fold
+    (fun acc stmt ->
+      match Css.as_media stmt with
+      | Some (cond, _) -> Css.Media.to_string cond :: acc
+      | None -> acc)
+    [] css
+  |> List.rev
+
 let supports_conditions css =
   Css.fold
     (fun acc stmt ->
@@ -833,6 +849,21 @@ let test_container_query_merge () =
     "container block keeps rule order"
     [ Css.Selector.class_ "@sm:m-2"; Css.Selector.class_ "@sm:p-4" ]
     (selectors_in_container ~condition:"(width >= 24rem)" css)
+
+(* A [sm:dark:] utility nests one conditional group inside another, so merging
+   the two outer blocks builds a body that is itself a run of two dark blocks.
+   Collapsing that run needs the merge run over what the merge produced, which
+   is what [~optimize_merged_block] carries. Tailwind emits one block at each
+   level. *)
+let test_nested_media_merge () =
+  let css =
+    Tw.Build.to_css
+      ~config:{ base = false; forms = None; layers = true }
+      [ sm [ dark [ p 4 ] ]; sm [ dark [ m 2 ] ] ]
+  in
+  check (list string) "outer and inner each merge to one block"
+    [ "(min-width: 40rem)"; "(prefers-color-scheme: dark)" ]
+    (media_conditions css)
 
 (* The same for [@supports], whose blocks carry a condition to compare in the
    same way. *)
@@ -1093,14 +1124,18 @@ let check_spacing_zero_prune () =
     Tw.Build.to_css ~config [ utility ] |> Css.to_string ~minify:true
   in
   let check_zero name property utility =
-    let css = css utility in
-    Alcotest.(check bool)
-      (name ^ " emits zero") true
-      (Astring.String.is_infix ~affix:(property ^ ":0") css);
+    (* The whole list. The substring this replaces was [property ^ ":0"], which
+       matched [padding:0px] on its prefix, so it could not have told a zero
+       length from any value starting with one. The CLI writes [0px] and so does
+       tw. *)
+    Test_helpers.check_declarations name [ property ^ ":0px" ];
+    (* The carrier is a [:root] binding, which [declarations_of_class] leaves
+       out by design, so its absence cannot be read off the list above and this
+       one stays a search over the sheet. *)
     Alcotest.(check bool)
       (name ^ " omits unused --spacing")
       false
-      (Astring.String.is_infix ~affix:"--spacing" css)
+      (Astring.String.is_infix ~affix:"--spacing" (css utility))
   in
   check_zero "p-0" "padding" (p 0);
   check_zero "mb-0" "margin-bottom" (mb 0);
@@ -1118,9 +1153,17 @@ let check_nested_spacing_keeps_runtime_carrier () =
     | Error (`Msg msg) -> Alcotest.fail msg
   in
   let css = Tw.to_css ~base:false [ utility ] |> Css.to_string ~minify:true in
-  Alcotest.(check bool)
-    "utility still reads --spacing" true
-    (Astring.String.is_infix ~affix:"var(--spacing)" css);
+  (* The whole list: the carrier has to survive in both margin declarations,
+     which a single search of the sheet for [var(--spacing)] never said. *)
+  Test_helpers.check_declarations "space-x-2.5"
+    [
+      "--tw-space-x-reverse:0";
+      "margin-inline-start:calc(calc(var(--spacing)*2.5)*var(--tw-space-x-reverse))";
+      "margin-inline-end:calc(calc(var(--spacing)*2.5)*calc(1 - \
+       var(--tw-space-x-reverse)))";
+    ];
+  (* The carrier's own binding is a :root declaration, which the list above
+     leaves out by design, so this one stays a search over the sheet. *)
   Alcotest.(check bool)
     "theme keeps referenced --spacing" true
     (Astring.String.is_infix ~affix:"--spacing:" css)
@@ -1337,6 +1380,7 @@ let tests =
     test_case "consecutive supports merge" `Quick test_supports_merge;
     test_case "container merge keeps conditions apart" `Quick
       test_container_merge_keeps_conditions_apart;
+    test_case "nested media merge" `Quick test_nested_media_merge;
     test_case "media query deduplication" `Quick test_media_query_deduplication;
     test_case "rule_sets" `Quick test_rule_sets;
     test_case "build_utilities_layer" `Quick test_build_utilities_layer;

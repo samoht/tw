@@ -426,10 +426,10 @@ let test_axis_arbitrary_width () =
   side "border-bs-[3px]" "block-start" "3px";
   side "border-be-[3px]" "block-end" "3px";
   side "border-x-[0.5rem]" "inline" ".5rem";
-  (* a bracket that is not a length is still not a width *)
-  Alcotest.(check bool)
-    "border-x-[1e] is rejected" true
-    (Result.is_error (Tw.of_string "border-x-[1e]"))
+  (* A bracket that is not a length is not a width; it is the axis colour, which
+     is this family's last resort, so it reaches the sheet rather than being
+     refused. *)
+  check_declarations "border-x-[1e]" [ "border-inline-color:1e" ]
 
 (* Every axis and logical side writes a width some other side writes too, so
    their relative order decides which one wins. The families were packed into
@@ -492,21 +492,25 @@ let test_axis_arbitrary_width_order () =
       "border-t-[3px]";
     ]
 
-(* A bracket whose content is not a length is not an outline or border width:
-   the parser rejects it, rather than accepting it and raising from the length
-   conversion once the sheet is rendered. *)
+(* A bracket whose content is not a length is not a width, and the colour is
+   each of these families' last resort, so it goes there rather than being
+   refused - a refusal drops the selector, where a declaration the browser
+   discards leaves the rule in place. It used to be refused by the parser, which
+   at least did not raise from the length conversion once the sheet was
+   rendered, the defect before that. *)
 let test_invalid_bracket_widths () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "outline-[.]";
-  rejected "outline-[1e]";
-  rejected "outline-[-]";
-  rejected "border-[.]";
-  rejected "border-[abc]";
-  rejected "border-t-[1e]"
+  (* [outline-] falls through to its colour, which is the family's last resort,
+     so a bracket the width reader declines is a declaration rather than a
+     refusal - the CLI writes [outline-color: .] for the first of these. *)
+  check_declarations "outline-[.]" [ "outline-color:." ];
+  check_declarations "outline-[1e]" [ "outline-color:1e" ];
+  check_declarations "outline-[-]" [ "outline-color:-" ];
+  (* [border-] falls through the same way, into its colour. *)
+  check_declarations "border-[.]" [ "border-color:." ];
+  check_declarations "border-[abc]" [ "border-color:abc" ];
+  (* The per-side colours are a last resort too, one longhand per side. *)
+  check_declarations "border-t-[1e]" [ "border-top-color:1e" ];
+  check_declarations "border-s-[#zz]" [ "border-inline-start-color:#zz" ]
 
 (* A data-type hint says how to read the value written after it; it does not
    make that value the name of a custom property. [outline-[length:3px]] wrote
@@ -526,12 +530,21 @@ let test_bracket_data_type_hint_reads_the_value () =
   Alcotest.(check string)
     "outline-[length:3px] round-trips" "outline-[length:3px]"
     (Tw.pp (Result.get_ok (Tw.of_string "outline-[length:3px]")));
-  (* A value the width reader refuses is held open, not settled: Tailwind writes
-     the bracket out whatever it says, so refusing is an intermediate. *)
-  check_invalid_input
-    ~why:(Diverges "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Borders.Handler)
-    "outline-[length:notawidth]"
+  (* The hint says the bracket is a width whatever the value turns out to be, so
+     a value no width grammar reads is still a width, forwarded verbatim under
+     the token-stream contract. The style declaration travels with it, so the
+     browser drops the width and keeps the style. *)
+  check_declarations "outline-[length:notawidth]"
+    [ "outline-style:var(--tw-outline-style)"; "outline-width:notawidth" ];
+  check_declarations "border-[line-width:red]"
+    [ "border-style:var(--tw-border-style)"; "border-width:red" ];
+  check_declarations "border-t-[line-width:red]"
+    [ "border-top-style:var(--tw-border-style)"; "border-top-width:red" ];
+  check_declarations "border-x-[length:red]"
+    [ "border-inline-style:var(--tw-border-style)"; "border-inline-width:red" ];
+  Alcotest.(check string)
+    "outline-[length:notawidth] round-trips" "outline-[length:notawidth]"
+    (Tw.pp (Result.get_ok (Tw.of_string "outline-[length:notawidth]")))
 
 (* [border-[…]] routes on the hint: [length:] and [line-width:] name the width,
    and the width reader sees only what follows. [rounded-[…]] names its longhand

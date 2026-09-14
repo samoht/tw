@@ -79,6 +79,9 @@ let test_transparent_keeps_its_keyword () =
         |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "scrollbar-thumb-transparent: %s" m
   in
+  (* The whole declaration, and it stays a search over this sheet rather than an
+     exact list: what is under test is what the optimizer above leaves, which
+     declarations_of_class does not run. *)
   Alcotest.(check bool)
     "the utility keeps the transparent keyword" true
     (Astring.String.is_infix ~affix:"--tw-scrollbar-thumb:transparent" css)

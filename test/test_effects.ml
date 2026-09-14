@@ -256,17 +256,43 @@ let test_inset_shadow_theme_override () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("inset-shadow-sm", "inset 0 1px 1px rgb(0 0 0 / 0.05)") ]
   in
-  let css =
-    Tw.to_css ~theme ~base:false
-      [ Result.get_ok (Tw.of_string ~theme "inset-shadow-sm") ]
-    |> Tw.Css.to_string ~minify:true
+  (* The whole list, which is where "drops the default" is said: it used to be a
+     second search for a spelling that must not appear, and a sheet with no rule
+     in it satisfies that too. *)
+  Test_helpers.check_declarations ~theme "inset-shadow-sm"
+    [
+      "--tw-inset-shadow:inset 0 1px 1px var(--tw-inset-shadow-color,rgb(0 0 \
+       0/.05))";
+      composes_box_shadow;
+    ]
+
+(* The override is read through the CSS shadow grammar, so it carries whatever
+   that grammar allows: a length in any unit, a fourth length for the spread,
+   and the colour in the spelling the project wrote. The reader used to take a
+   [px] or [rem] suffix and a three-length body only, and answered nothing for
+   the rest, which put the built-in [inset 0 2px 4px] in the sheet and lost the
+   override without saying so. *)
+let test_inset_shadow_theme_override_grammar () =
+  (* The whole list per override. "The default is not substituted" was a search
+     for a spelling that must not appear; the list says it by construction, and
+     also that the colour the project wrote reached the fallback slot. *)
+  let holds ~override body =
+    let theme =
+      Tw.Scheme.with_overrides Tw.Scheme.default
+        [ ("inset-shadow-sm", override) ]
+    in
+    Test_helpers.check_declarations ~theme "inset-shadow-sm"
+      [
+        "--tw-inset-shadow:" ^ body
+        ^ " var(--tw-inset-shadow-color,rgb(0 0 0/.05))";
+        composes_box_shadow;
+      ]
   in
-  Alcotest.(check bool)
-    "inset-shadow-sm @theme override flows to [inset 0 1px 1px]" true
-    (Astring.String.is_infix ~affix:"inset 0 1px 1px" css);
-  Alcotest.(check bool)
-    "inset-shadow-sm @theme override drops the default [inset 0 2px 4px]" false
-    (Astring.String.is_infix ~affix:"inset 0 2px 4px" css)
+  (* an em override keeps its unit *)
+  holds ~override:"inset 0 0.125em 0.25em rgb(0 0 0 / 0.05)"
+    "inset 0 .125em .25em";
+  (* a fourth length is the spread *)
+  holds ~override:"inset 0 1px 2px 3px rgb(0 0 0 / 0.05)" "inset 0 1px 2px 3px"
 
 (* A shadeless colour has no shade segment, so shadow-white never reached the
    colour parse: the size cases claimed the segment and rejected it. The class
@@ -579,14 +605,9 @@ let test_bracket_hex_opacity_var () =
    comes from a separate, correctly-scaled computation, so --tw-shadow-alpha
    here is a plain, unconverted echo of what the class wrote. *)
 let test_shadow_bracket_alpha_tracking () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let lacks cls affix =
-    Alcotest.(check bool) cls false (Astring.String.is_infix ~affix (css cls))
-  in
+  (* The [lacks] checks that used to sit beside each list here - "no
+     --tw-shadow-alpha:2500%" - said nothing the list does not already say, and
+     passed on a sheet with no rule in it. *)
   let shadow_lg alpha painted =
     [
       "--tw-shadow-alpha:" ^ alpha;
@@ -597,7 +618,6 @@ let test_shadow_bracket_alpha_tracking () =
   in
   Test_helpers.check_declarations "shadow-lg/[25]"
     (shadow_lg "25" "oklab(0%0 0/25)");
-  lacks "shadow-lg/[25]" "--tw-shadow-alpha:2500%";
   Test_helpers.check_declarations "shadow-[0_1px_2px_#000]/[25]"
     [
       "--tw-shadow-alpha:25";
@@ -611,7 +631,6 @@ let test_shadow_bracket_alpha_tracking () =
        0/25))";
       composes_box_shadow;
     ];
-  lacks "inset-shadow-sm/[25]" "--tw-inset-shadow-alpha:2500%";
   (* A bracket alpha that does carry a [%] sign, or the plain percent form, both
      keep behaving as a percentage. *)
   Test_helpers.check_declarations "shadow-lg/[25%]"
@@ -754,13 +773,13 @@ let test_project_shadow_tokens () =
         ("inset-shadow-dent", "inset 0 1px 2px #000");
       ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  let emits decl cls =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [
+        decl;
+        "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+         var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)";
+      ]
   in
   emits "--tw-shadow: 0 0 8px var(--tw-shadow-color, #f00)" "shadow-halo";
   emits "--tw-inset-shadow: inset 0 1px 2px var(--tw-inset-shadow-color, #000)"
@@ -849,6 +868,8 @@ let tests =
       test_inset_shadow_default_scale;
     test_case "inset-shadow @theme override threads through" `Quick
       test_inset_shadow_theme_override;
+    test_case "inset-shadow @theme override reads the whole grammar" `Quick
+      test_inset_shadow_theme_override_grammar;
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
     test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;

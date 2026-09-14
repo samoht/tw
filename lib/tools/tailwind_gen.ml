@@ -187,13 +187,16 @@ let pinned_cli_relative = "node_modules/.bin/tailwindcss"
    scratch root sends its generated entrypoints into that checkout instead. An
    installed binary has no such tree and keeps the caller-relative root, which
    resolves against whatever project the caller stands in. *)
-let tmp_root () =
+let executable_dir () =
   let self = Sys.executable_name in
   let self =
     if Filename.is_relative self then Filename.concat (Sys.getcwd ()) self
     else self
   in
-  match dir_containing pinned_cli_relative (Filename.dirname self) with
+  Filename.dirname self
+
+let tmp_root () =
+  match dir_containing pinned_cli_relative (executable_dir ()) with
   | Some root -> Filename.concat root "tmp"
   | None -> Filename.concat (Sys.getcwd ()) "tmp"
 
@@ -302,9 +305,28 @@ let describe_candidate cmd present =
    read-only while tests run. Do not put npx between the harness and the pinned
    binary, because concurrent npx processes coordinate through npm's shared
    cache and can starve one another for minutes. *)
+(* The caller's directory is searched first, and the tree the running executable
+   was built in only when that finds nothing. The order is what lets a caller
+   point tw at the CLI pinned beside the project being measured, which the
+   option tests rely on to stand a stub in front of the real one; reversing it
+   would make the binary's own pin unconditional and take that away.
+
+   The fallback is for the case that used to fail outright: run from a directory
+   with no [node_modules] above it, discovery found nothing and the run died
+   reporting the pinned CLI "not installed", even though the binary was built in
+   a tree carrying it. Note this is the opposite order from [tmp_root], which
+   writes scratch files and must not put them in a checkout the caller merely
+   happens to stand in. Either answer still has to satisfy
+   [command_is_required], so a tree pinning the wrong version is declined rather
+   than measured against. *)
 let project_tailwindcss_command () =
   let relative = pinned_cli_relative in
-  match dir_containing relative (Sys.getcwd ()) with
+  let root =
+    match dir_containing relative (Sys.getcwd ()) with
+    | Some root -> Some root
+    | None -> dir_containing relative (executable_dir ())
+  in
+  match root with
   | None -> None
   | Some root ->
       let path = Filename.concat root relative in

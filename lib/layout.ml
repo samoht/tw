@@ -90,20 +90,19 @@ let z_auto_style ?theme () =
      token nothing declares. *)
   | None -> Style.style [ Css.z_index Auto ]
 
-(* An [object-[...]] value that is not a var() reference is a position: one or
-   two lengths, with [_] for the space. *)
+(* An [object-[...]] value that is not a var() reference is a <position>, read
+   with cascade's grammar for it rather than a local one. Splitting on the space
+   and reading each side as a length took the two-length and one-length forms
+   and nothing else, so every keyword the grammar allows was refused. The
+   [bg-position-] bracket reads the same CSS type through the same reader; the
+   two families must not disagree about what a position is. *)
 let parse_object_position raw : Css.position_value option =
-  let decoded = Parse.decode_arbitrary_value raw in
-  match String.split_on_char ' ' decoded |> List.filter (fun s -> s <> "") with
-  | [ x; y ] -> (
-      match (Css.parse_length x, Css.parse_length y) with
-      | Some xv, Some yv -> Some (XY (xv, yv))
-      | _ -> None)
-  | [ v ] ->
-      Option.map
-        (fun (l : Css.length) : Css.position_value -> Single l)
-        (Css.parse_length v)
-  | _ -> None
+  let cursor = Cascade.Cursor.of_string (Parse.decode_arbitrary_value raw) in
+  match
+    Cascade.Cursor.try_parse_full_err Css.Properties.read_position_value cursor
+  with
+  | Ok pos -> Some pos
+  | Error _ -> None
 
 module Handler = struct
   open Style
@@ -174,6 +173,9 @@ module Handler = struct
     | Object_top_left
     | Object_top_right
     | Object_arbitrary of string
+    | Object_raw of string * string
+      (* object-[foo]: the family writes one longhand, so a bracket no reader
+         took still names it and the value is forwarded verbatim. *)
     | (* Float *)
       Float_left
     | Float_right
@@ -239,7 +241,7 @@ module Handler = struct
     | Object_left | Object_right | Object_bottom_left | Object_bottom_right
     | Object_left_bottom | Object_left_top | Object_right_bottom
     | Object_right_top | Object_top_left | Object_top_right | Object_arbitrary _
-      ->
+    | Object_raw _ ->
         22
     | Break_before_all | Break_before_auto | Break_before_avoid
     | Break_before_avoid_page | Break_before_column | Break_before_left
@@ -323,7 +325,7 @@ module Handler = struct
     | Object_top -> Svg.suborder_ceiling + 710
     | Object_top_left -> Svg.suborder_ceiling + 711
     | Object_top_right -> Svg.suborder_ceiling + 712
-    | Object_arbitrary _ -> Svg.suborder_ceiling + 650
+    | Object_arbitrary _ | Object_raw _ -> Svg.suborder_ceiling + 650
     (* Float (priority 1) - after the grid-column/grid-row group (up to ~2.6K in
        grid_item.ml), before .container (9M). Alphabetical: end, left, none,
        right, start *)
@@ -425,7 +427,7 @@ module Handler = struct
     | Object_right_top -> "object-right-top"
     | Object_top_left -> "object-top-left"
     | Object_top_right -> "object-top-right"
-    | Object_arbitrary s -> "object-[" ^ s ^ "]"
+    | Object_arbitrary s | Object_raw (s, _) -> "object-[" ^ s ^ "]"
     | Float_left -> "float-left"
     | Float_right -> "float-right"
     | Float_none -> "float-none"
@@ -542,9 +544,15 @@ module Handler = struct
     | Object_right_top -> object_position_style theme "right-top" Right_top
     | Object_top_left -> object_position_style theme "top-left" Top_left
     | Object_top_right -> object_position_style theme "top-right" Top_right
-    | Object_arbitrary raw -> (
+    | Object_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "object-position" v))
+    | Object_arbitrary bracket -> (
         (* Only a var() reference names a variable; anything else is a position
-           value, which [object-[50%]] used to turn into [var(--50)]. *)
+           value, which [object-[50%]] used to turn into [var(--50)]. [of_class]
+           refused an empty hint, so the peel succeeds here. *)
+        let raw =
+          Stdlib.Option.value (Parse.value_after_hint bracket) ~default:bracket
+        in
         match parse_object_position raw with
         | Some pos -> style [ object_position pos ]
         | None ->
@@ -709,13 +717,23 @@ module Handler = struct
     | [ "object"; "right"; "top" ] -> Ok Object_right_top
     | [ "object"; "top"; "left" ] -> Ok Object_top_left
     | [ "object"; "top"; "right" ] -> Ok Object_top_right
-    | [ "object"; value ] when Parse.is_bracket_value value ->
+    | [ "object"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
         (* Only a var() reference names a variable; anything the position parser
-           rejects is not a utility. *)
-        if parse_object_position inner = None && not (Parse.is_var inner) then
-          Error (`Msg ("Invalid object-position value: " ^ inner))
-        else Ok (Object_arbitrary inner)
+           rejects is not a utility. A data-type hint chooses which longhand a
+           bracket lands in and says nothing about the value, and this family
+           writes one, so the reader is handed what follows it. The constructor
+           keeps the bracket whole, because the class name is what the markup
+           carries. *)
+        let readable v = parse_object_position v <> None || Parse.is_var v in
+        if
+          Stdlib.Option.fold ~none:false ~some:readable
+            (Parse.value_after_hint inner)
+        then Ok (Object_arbitrary inner)
+        else
+          match Parse.arbitrary_declaration_value inner with
+          | Some raw -> Ok (Object_raw (inner, raw))
+          | None -> Error (`Msg ("Invalid object-position value: " ^ inner)))
     | [ "float"; "left" ] -> Ok Float_left
     | [ "float"; "right" ] -> Ok Float_right
     | [ "float"; "none" ] -> Ok Float_none

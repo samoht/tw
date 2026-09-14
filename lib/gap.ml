@@ -11,6 +11,9 @@ module Handler = struct
     | Bare_var of string (* gap-(--value), raw kept for round-trip/order *)
     | Arbitrary of string * Css.length (* gap-[4px], raw kept for round-trip *)
     | Arbitrary_var of string * string (* raw inner, then the var() text *)
+    | Arbitrary_raw of string * string
+  (* gap-[foo]: each axis names one longhand, so a bracket no length reader took
+     still reaches it and the value is forwarded verbatim. *)
 
   type t =
     | Gap of { axis : [ `All | `X | `Y ]; value : gap_value }
@@ -63,8 +66,18 @@ module Handler = struct
     let bare_name = Parse.extract_var_name var_str in
     Css.Var (Var.bracket bare_name)
 
+  (* The longhand each axis names, for a value no typed setter can hold. *)
+  let property_of_axis = function
+    | `All -> "gap"
+    | `X -> "column-gap"
+    | `Y -> "row-gap"
+
   let gap_value ?theme axis (v : gap_value) =
     match v with
+    | Arbitrary_raw (_, value) ->
+        style
+          (Option.to_list
+             (Parse.opaque_declaration (property_of_axis axis) value))
     | Standard s -> (
         match axis with
         | `All -> gap_standard ?theme s
@@ -339,7 +352,7 @@ module Handler = struct
     | Standard `Px -> 2100
     | Standard s -> spacing_value_order s
     | Arbitrary _ -> 2000
-    | Arbitrary_var _ -> 2000
+    | Arbitrary_var _ | Arbitrary_raw _ -> 2000
 
   (* gap and space share priority 17 with the alignment utilities. Tailwind
      emits them in CSS-property registration order, which interleaves the two
@@ -370,7 +383,7 @@ module Handler = struct
     | Standard s -> Spacing.pp_spacing_suffix s
     | Bare_var raw -> raw
     | Arbitrary (raw, _) -> "[" ^ raw ^ "]"
-    | Arbitrary_var (raw, _) -> "[" ^ raw ^ "]"
+    | Arbitrary_var (raw, _) | Arbitrary_raw (raw, _) -> "[" ^ raw ^ "]"
 
   let to_class = function
     | Gap { axis; value } -> (
@@ -399,15 +412,18 @@ module Handler = struct
          readers below are handed what follows it. *)
       match Parse.value_after_hint inner with
       | None -> None
-      | Some value ->
+      | Some value -> (
           if Parse.is_var value then Some (Arbitrary_var (inner, value))
           else
             (* Route the value through the whole arbitrary decoder and the full
                length grammar (percent, container-query units, calc), keeping
                the raw token for round-trip. *)
-            Option.map
-              (fun l -> Arbitrary (inner, l))
-              (Parse.arbitrary_length value)
+            match Parse.arbitrary_length value with
+            | Some l -> Some (Arbitrary (inner, l))
+            | None ->
+                Option.map
+                  (fun raw -> Arbitrary_raw (inner, raw))
+                  (Parse.arbitrary_declaration_value inner))
     else None
 
   (* Shared with padding and margin, so a named spacing reaches gap too:

@@ -1731,7 +1731,10 @@ let case_faults cases =
 
 let test_random_utilities_with_minimization () =
   let entries = pool_entries () in
-  let rng = Test_helpers.test_rng in
+  (* Its own state, so the seed a failing run prints replays this test on its
+     own. Drawing from the shared one made that impossible: a real ordering
+     defect here passed every attempt to reproduce it from the CI seed. *)
+  let rng = Test_helpers.rng_named "sort/random-utilities-with-minimization" in
   let sample i =
     let initial =
       List.map
@@ -1788,6 +1791,53 @@ let test_mask_type_arbitrary_order () =
       "[mask-type:luminance]";
       "mask-type-alpha";
     ]
+
+(* Family order, checked without the CLI.
+
+   Each family runs shorthand, then axis, then side. The expected sequence is
+   Tailwind's, read off the CLI once and frozen here, so this is tw against a
+   recorded answer rather than against itself.
+
+   {b It does not cover suborder}, which was the reason it was written. Measured
+   2026-09-13: disabling the suborder tier of [compare_order] in [lib/sort.ml]
+   leaves this test green, because the order below is settled by priority. The
+   suborder tier is load-bearing — without it the whole-sheet gate reports 418
+   of 3961 statements out of place — but its effect is emergent across the whole
+   sheet and does not reproduce on any small set of classes tried. See the
+   backlog entry on suborder coverage before adding to this. *)
+let test_family_order_without_the_cli () =
+  let classes =
+    [
+      "m-2";
+      "mx-2";
+      "mt-2";
+      "border-2";
+      "border-x-2";
+      "border-t-2";
+      "p-4";
+      "px-4";
+      "py-4";
+      "pt-4";
+      "pr-4";
+      "pb-4";
+      "pl-4";
+    ]
+  in
+  let utilities =
+    List.map
+      (fun c ->
+        match Tw.of_string c with
+        | Ok u -> u
+        | Error (`Msg m) -> Alcotest.failf "%s: %s" c m)
+      classes
+  in
+  let sheet =
+    Tw.to_css ~base:false utilities |> Tw.Css.to_string ~minify:true
+  in
+  Alcotest.(check (list string))
+    "each family runs shorthand, axis, then side"
+    (List.map (fun c -> "." ^ c) classes)
+    (Test_helpers.layer_statement_keys sheet ~layer:"utilities")
 
 let test_known_inversions_are_exact () =
   let measured = measured_inversions () in
@@ -1975,6 +2025,21 @@ let test_container_query_call_order () =
    with - it only reads the suborder for two rules whose whole variant prefix is
    equal - so they cancel, and this pins the order they were meant to produce
    across the families that carry them. *)
+(* A [peer-] variant sorts inside the peer group by the variant it wraps, the
+   way a [group-] one does: Tailwind writes peer-checked, then peer-hover, then
+   peer-focus. [peer-hover] used to be special-cased into [group-hover]'s slot,
+   which pulled it out of the group entirely and put it in front of every other
+   [peer-] spelling. The fuzzer found it as
+   [peer-checked:contain-layout **:peer-hover:contain-strict] and it read as a
+   flake for a session, because the seed that failed the whole suite passed
+   when the sort tests were run alone. *)
+let test_peer_variant_group_order () =
+  Test_helpers.check_class_order ~test_name:"peer variants sort as Tailwind"
+    [ "peer-checked:grid"; "peer-hover:block"; "peer-focus:flex" ];
+  (* The group- family is the shape peer- now follows. *)
+  Test_helpers.check_class_order ~test_name:"group variants sort as Tailwind"
+    [ "group-checked:grid"; "group-hover:block"; "group-focus:flex" ]
+
 let test_variant_family_order () =
   Test_helpers.check_class_order ~test_name:"variant families sort as Tailwind"
     [
@@ -3223,12 +3288,16 @@ let tests =
       rules_of_grouped_prose_bug;
     test_case "suborder within group" `Slow test_suborder_within_group;
     test_case "pool covers every family" `Quick test_pool_covers_every_family;
+    test_case "family order without the CLI" `Quick
+      test_family_order_without_the_cli;
     test_case "known inversions are exact" `Slow test_known_inversions_are_exact;
     test_case "mask type arbitrary order" `Slow test_mask_type_arbitrary_order;
     test_case "pool covers every handler" `Quick test_pool_covers_every_handler;
     test_case "pool variants all compile" `Quick test_variants_all_compile;
     test_case "random utilities with minimization" `Slow
       test_random_utilities_with_minimization;
+    test_case "peer variants sort inside their group" `Quick
+      test_peer_variant_group_order;
     test_case "variant families sort as Tailwind" `Quick
       test_variant_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;

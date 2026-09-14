@@ -148,7 +148,10 @@ module Handler = struct
      is a plain decimal and a name a CSS identifier; anything else the bracket
      holds - the docs' [<value>] placeholder included - is passed through as
      written, which is what Tailwind does with it. *)
-  let span_arbitrary property_name property s =
+  let span_arbitrary property_name property raw =
+    (* The stored text is the class name's, hint included; the value is what
+       follows the hint. *)
+    let s = Stdlib.Option.value (Parse.value_after_hint raw) ~default:raw in
     match Parse.decimal_int s with
     | Some n -> style [ property (Span n, Span n) ]
     | None ->
@@ -323,10 +326,29 @@ module Handler = struct
   let parse_arbitrary s =
     (* The bracket text, through the arbitrary-value pipeline: [_] becomes a
        space, [\_] a literal underscore, and a CSS math function gets the spaces
-       its grammar needs around a binary operator. *)
+       its grammar needs around a binary operator. This is what the class name
+       carries, so any data-type hint stays on it. *)
     if Parse.is_bracket_value s then
       Some (Parse.decode_arbitrary_value (Parse.bracket_inner s))
     else None
+
+  (* The same text with a data-type hint taken off, which is what a value reader
+     wants: the hint chooses which longhand a bracket lands in and says nothing
+     about the value, and every family here writes one longhand. [None] is a
+     bracket whose hint is empty, which names no utility. Without this,
+     [col-span-[foo:2]] wrote the hint into the declaration. *)
+  let parse_arbitrary_value s =
+    if Parse.is_bracket_value s then
+      Stdlib.Option.map Parse.decode_arbitrary_value
+        (Parse.value_after_hint (Parse.bracket_inner s))
+    else None
+
+  (* The pair a family stores: the class name's text, and the value read off the
+     peeled one. *)
+  let parse_arbitrary_pair read s =
+    match (parse_arbitrary s, parse_arbitrary_value s) with
+    | Some raw, Some value -> Stdlib.Option.map (fun x -> (raw, x)) (read value)
+    | _ -> None
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -343,10 +365,7 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "col"; "start"; "auto" ] -> Ok Col_start_auto
     | [ "col"; "start"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        match
-          Option.bind (parse_arbitrary n) (fun v ->
-              Option.map (fun x -> (v, x)) (read_gl v))
-        with
+        match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Col_start_arbitrary (v, x))
         | None -> err_not_utility)
     | [ "col"; "start"; n ] -> (
@@ -366,10 +385,7 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "col"; "end"; "auto" ] -> Ok Col_end_auto
     | [ "col"; "end"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        match
-          Option.bind (parse_arbitrary n) (fun v ->
-              Option.map (fun x -> (v, x)) (read_gl v))
-        with
+        match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Col_end_arbitrary (v, x))
         | None -> err_not_utility)
     | [ "col"; "end"; n ] -> (
@@ -389,10 +405,7 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "col"; n ] when String.length n > 0 && n.[0] = '[' -> (
         (* Calc col: col-[span_123/span_123] *)
-        match
-          Option.bind (parse_arbitrary n) (fun v ->
-              Option.map (fun x -> (v, x)) (read_grid_line_pair v))
-        with
+        match parse_arbitrary_pair read_grid_line_pair n with
         | Some (v, x) -> Ok (Col_arbitrary (v, x))
         | None -> err_not_utility)
     | [ "col"; n ] -> (
@@ -416,10 +429,7 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "row"; n ] when String.length n > 0 && n.[0] = '[' -> (
         (* Calc row: row-[span_123/span_123] *)
-        match
-          Option.bind (parse_arbitrary n) (fun v ->
-              Option.map (fun x -> (v, x)) (read_grid_line_pair v))
-        with
+        match parse_arbitrary_pair read_grid_line_pair n with
         | Some (v, x) -> Ok (Row_arbitrary (v, x))
         | None -> err_not_utility)
     | [ "row"; n ] -> (
@@ -433,10 +443,7 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "row"; "start"; "auto" ] -> Ok Row_start_auto
     | [ "row"; "start"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        match
-          Option.bind (parse_arbitrary n) (fun v ->
-              Option.map (fun x -> (v, x)) (read_gl v))
-        with
+        match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Row_start_arbitrary (v, x))
         | None -> err_not_utility)
     | [ "row"; "start"; n ] -> (
@@ -455,10 +462,7 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ "row"; "end"; "auto" ] -> Ok Row_end_auto
     | [ "row"; "end"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        match
-          Option.bind (parse_arbitrary n) (fun v ->
-              Option.map (fun x -> (v, x)) (read_gl v))
-        with
+        match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Row_end_arbitrary (v, x))
         | None -> err_not_utility)
     | [ "row"; "end"; n ] -> (

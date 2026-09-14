@@ -26,17 +26,25 @@ let test_invalid () =
 let test_arbitrary_width_units () =
   check "divide-x-[2em]";
   check "divide-y-[3vw]";
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  Alcotest.(check bool)
-    "divide-x-[2em] carries the em unit into the calc" true
-    (Astring.String.is_infix ~affix:"calc(2em*" (css "divide-x-[2em]"));
-  Alcotest.(check bool)
-    "divide-y-[3vw] carries the vw unit into the calc" true
-    (Astring.String.is_infix ~affix:"calc(3vw*" (css "divide-y-[3vw]"))
+  (* [calc(2em*] said only that the unit reached a calc. The whole list says
+     which sides carry the width, which carries the reverse factor, and that the
+     style longhand travels with them. *)
+  Test_helpers.check_declarations ~minify:false "divide-x-[2em]"
+    [
+      "--tw-divide-x-reverse: 0";
+      "border-inline-style: var(--tw-border-style)";
+      "border-inline-start-width: calc(2em * var(--tw-divide-x-reverse))";
+      "border-inline-end-width: calc(2em * calc(1 - \
+       var(--tw-divide-x-reverse)))";
+    ];
+  Test_helpers.check_declarations ~minify:false "divide-y-[3vw]"
+    [
+      "--tw-divide-y-reverse: 0";
+      "border-bottom-style: var(--tw-border-style)";
+      "border-top-style: var(--tw-border-style)";
+      "border-top-width: calc(3vw * var(--tw-divide-y-reverse))";
+      "border-bottom-width: calc(3vw * calc(1 - var(--tw-divide-y-reverse)))";
+    ]
 
 (* Every arbitrary width the reader accepts is spelled back exactly as it was
    written, so the selector matches the class in the markup. A width the reader
@@ -48,20 +56,21 @@ let test_arbitrary_width_roundtrip () =
   check "divide-x-[1rem]";
   check "divide-y-[0.5rem]";
   check "divide-x-[0.5rem]";
-  let selector cls =
+  (* The whole selector. An affix of it says the class name appears somewhere,
+     which [.divide-x-\[1rem\]x] would satisfy too; what this test is about is
+     that each width names its own rule. *)
+  let selects cls sel =
     match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u ->
+        Alcotest.(check bool)
+          (cls ^ " selects the class the author wrote")
+          true
+          (List.mem sel (Test_helpers.selectors_of_utility u))
   in
-  Alcotest.(check bool)
-    "divide-x-[1rem] selects the class the author wrote" true
-    (Astring.String.is_infix ~affix:".divide-x-\\[1rem\\]"
-       (selector "divide-x-[1rem]"));
+  selects "divide-x-[1rem]" {|:where(.divide-x-\[1rem\] > :not(:last-child))|};
   (* Two rem widths are two class names, not one. *)
-  Alcotest.(check bool)
-    "divide-x-[2rem] is its own class" true
-    (Astring.String.is_infix ~affix:".divide-x-\\[2rem\\]"
-       (selector "divide-x-[2rem]"))
+  selects "divide-x-[2rem]" {|:where(.divide-x-\[2rem\] > :not(:last-child))|}
 
 (* The typed constructor spells the width itself, and builds exactly the classes
    the bracket reader accepts. Tailwind takes a line-width keyword there -
@@ -205,23 +214,14 @@ let test_arbitrary_bracket_color_token_stream () =
   List.iter
     (fun cls -> ignore (css cls))
     [ "divide-[#zz]"; "divide-[#]"; "divide-[#12345]"; "divide-[#zz]/50" ];
-  Alcotest.(check bool)
-    "divide-[#ff0000] still emits the colour" true
-    (Astring.String.is_infix ~affix:"border-color:#f00" (css "divide-[#ff0000]"))
+  Test_helpers.check_declarations "divide-[#ff0000]" [ "border-color:#f00" ]
 
 (* A bracket colour CSS names without spelling it as a function - a named
    colour, a keyword - is a divide colour too. The reader admitted only a [#]
    hex and a colour function, so [divide-[rebeccapurple]] was an unknown class,
    with or without an opacity modifier. *)
 let test_bracket_named_color () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
-  in
+  let emits decl cls = Test_helpers.check_declarations cls [ decl ] in
   emits "border-color:rebeccapurple" "divide-[rebeccapurple]";
   emits "border-color:currentColor" "divide-[currentColor]";
   (* the modifier mixes into the colour the bracket named, not into black *)

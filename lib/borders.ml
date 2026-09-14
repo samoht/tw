@@ -59,6 +59,10 @@ type rounded_size =
   | Rsz_theme of string
     (* radius named by a project [--radius-*] token (rounded-blob) *)
   | Rsz_arbitrary of string * Css.length
+  | Rsz_raw of string * string
+(* rounded-[foo]: a corner names its own longhands, so a bracket no length
+   reader took still reaches them and the value is forwarded verbatim -
+   Tailwind's token-stream contract. *)
 
 module Handler = struct
   open Style
@@ -74,6 +78,12 @@ module Handler = struct
     | Border_width of int
     | Border_width_bracket of string * Css.border_width
     | Border_side_width_bracket of string * string * Css.border_width
+    | (* A [line-width:] hint over a value no width grammar reads
+         (border-[line-width:red]). The hint chooses the longhand and the value
+         is forwarded verbatim, which is Tailwind's token-stream contract; the
+         browser discards the width and keeps the style beside it. *)
+      Border_width_raw of string * string
+    | Border_side_width_raw of string * string * string
       (* a side, physical or logical, and an arbitrary width inner:
          border-t-[1px], border-x-[3px] *)
     | Border_side_width of string * int
@@ -120,12 +130,16 @@ module Handler = struct
          [outline-width] takes none, so the browser keeps only the style
          declaration beside it. *)
     | Outline_width_var of string (* outline-[length:var(...)], etc. *)
+    | (* A width hint over a value no width grammar reads
+         (outline-[length:red]), forwarded verbatim like its border twin. *)
+      Outline_width_raw of string * string
     (* Outline style utilities (dashed, dotted, etc.) are in
        Outline_style_handler *)
     | Outline_hidden
     | Outline_offset of int
     | Outline_offset_var of string (* outline-offset-[var(--value)] *)
     | Outline_offset_arbitrary of string (* outline-offset-[3px] *)
+    | Outline_offset_raw of string * string
     | Neg_outline_offset of int
     | Neg_outline_offset_var of string (* -outline-offset-[var(--value)] *)
 
@@ -137,9 +151,10 @@ module Handler = struct
      28. *)
   let priority = function
     | Outline | Outline_0 | Outline_width _ | Outline_width_bracket _
-    | Outline_width_dropped _ | Outline_width_var _ | Outline_hidden
-    | Outline_offset _ | Outline_offset_var _ | Outline_offset_arbitrary _
-    | Neg_outline_offset _ | Neg_outline_offset_var _ ->
+    | Outline_width_dropped _ | Outline_width_var _ | Outline_width_raw _
+    | Outline_hidden | Outline_offset _ | Outline_offset_var _
+    | Outline_offset_arbitrary _ | Outline_offset_raw _ | Neg_outline_offset _
+    | Neg_outline_offset_var _ ->
         28
     | _ -> 19
 
@@ -230,6 +245,34 @@ module Handler = struct
     | "b" -> [ border_bottom_style (Var border_var); border_bottom_width w ]
     | _ -> [ border_left_style (Var border_var); border_left_width w ]
 
+  (* The style declaration a side writes beside its width, and the width
+     longhand it writes it on. A raw width goes on the same longhand, so the
+     rule is one declaration the browser drops and one it keeps. *)
+  let side_style_props side border_var =
+    match side with
+    | "x" -> [ border_inline_style (logical_border_style (Var border_var)) ]
+    | "y" -> [ border_block_style (logical_border_style (Var border_var)) ]
+    | "s" -> [ border_inline_start_style (Var border_var) ]
+    | "e" -> [ border_inline_end_style (Var border_var) ]
+    | "bs" -> [ border_block_start_style (Var border_var) ]
+    | "be" -> [ border_block_end_style (Var border_var) ]
+    | "t" -> [ border_top_style (Var border_var) ]
+    | "r" -> [ border_right_style (Var border_var) ]
+    | "b" -> [ border_bottom_style (Var border_var) ]
+    | _ -> [ border_left_style (Var border_var) ]
+
+  let side_width_property = function
+    | "x" -> "border-inline-width"
+    | "y" -> "border-block-width"
+    | "s" -> "border-inline-start-width"
+    | "e" -> "border-inline-end-width"
+    | "bs" -> "border-block-start-width"
+    | "be" -> "border-block-end-width"
+    | "t" -> "border-top-width"
+    | "r" -> "border-right-width"
+    | "b" -> "border-bottom-width"
+    | _ -> "border-left-width"
+
   let side_width side w = make_side_util (fun v -> side_width_props side v w)
   let side_width_px side n = side_width side (Px (float_of_int n))
 
@@ -278,6 +321,16 @@ module Handler = struct
     | Some (("length" | "line-width"), value) -> Some value
     | Some _ -> None
     | None -> if looks_like_width inner then Some inner else None
+
+  (* A width hint says the bracket is a width whatever the value turns out to
+     be, so a value no width grammar reads is still a width - forwarded verbatim
+     under the token-stream contract. Without the hint the same text names no
+     utility, because nothing says which side of the family it is for. *)
+  let hinted_token_stream inner =
+    match Parse.data_type_hint inner with
+    | Some (("length" | "line-width" | "number" | "percentage"), _) ->
+        Parse.arbitrary_declaration_value inner
+    | _ -> None
 
   (* cascade's own border-width reader answers the line-width keywords, every
      unit [Css.border_width] names, [calc()] and [var()]. The units only
@@ -364,6 +417,26 @@ module Handler = struct
      Shared by both the sized and arbitrary radius utilities; [Corner.All] uses
      the [border-radius] shorthand, all others target the matching
      corner/logical properties. *)
+  (* The longhands each corner names, for a value no typed setter can hold. *)
+  let radius_properties_for_position = function
+    | Corner.All -> [ "border-radius" ]
+    | Corner.Top -> [ "border-top-left-radius"; "border-top-right-radius" ]
+    | Corner.Right ->
+        [ "border-top-right-radius"; "border-bottom-right-radius" ]
+    | Corner.Bottom ->
+        [ "border-bottom-right-radius"; "border-bottom-left-radius" ]
+    | Corner.Left -> [ "border-top-left-radius"; "border-bottom-left-radius" ]
+    | Corner.Top_left -> [ "border-top-left-radius" ]
+    | Corner.Top_right -> [ "border-top-right-radius" ]
+    | Corner.Bottom_right -> [ "border-bottom-right-radius" ]
+    | Corner.Bottom_left -> [ "border-bottom-left-radius" ]
+    | Corner.Start -> [ "border-start-start-radius"; "border-end-start-radius" ]
+    | Corner.End -> [ "border-start-end-radius"; "border-end-end-radius" ]
+    | Corner.Start_start -> [ "border-start-start-radius" ]
+    | Corner.Start_end -> [ "border-start-end-radius" ]
+    | Corner.End_start -> [ "border-end-start-radius" ]
+    | Corner.End_end -> [ "border-end-end-radius" ]
+
   let radius_decls_for_position pos (len : Css.length) : Css.declaration list =
     match pos with
     | Corner.All -> [ Css.border_radius (radius_value len) ]
@@ -451,6 +524,11 @@ module Handler = struct
                     (decl :: radius_decls_for_position pos (Var r : Css.length))
             ))
     | Rsz_arbitrary (_, len) -> style (radius_decls_for_position pos len)
+    | Rsz_raw (_, value) ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property value)
+             (radius_properties_for_position pos))
 
   (* Outline style variable - used by outline utilities that set the style *)
   let outline_style_var =
@@ -522,6 +600,19 @@ module Handler = struct
       | None -> Css.empty
     in
     style ~property_rules:property_rule [ Css.outline_style (Css.Var oref) ]
+
+  (* A width the grammar declines still names the width longhand, so the rule
+     carries the style declaration and the value the browser will drop. *)
+  let outline_width_raw_style value =
+    let oref = Var.reference outline_style_var in
+    let property_rule =
+      match Var.property_rule outline_style_var with
+      | Some rule -> rule
+      | None -> Css.empty
+    in
+    style ~property_rules:property_rule
+      (Css.outline_style (Css.Var oref)
+      :: Option.to_list (Parse.opaque_declaration "outline-width" value))
 
   (* Outline typed bracket width: outline-[length:var(...)], etc. *)
   let outline_width_var_style v =
@@ -606,6 +697,14 @@ module Handler = struct
     | Border_width n -> border_n n
     | Border_width_bracket (_, w) -> border_width_bracket_style w
     | Border_side_width_bracket (side, _, w) -> side_width side w
+    | Border_width_raw (_, value) ->
+        make_border_util
+          (Option.to_list (Parse.opaque_declaration "border-width" value))
+    | Border_side_width_raw (side, _, value) ->
+        make_side_util (fun v ->
+            side_style_props side v
+            @ Option.to_list
+                (Parse.opaque_declaration (side_width_property side) value))
     | Border_side_width (side, n) -> side_width_px side n
     (* Border side/axis utilities *)
     | Border_t -> side_width_px "t" 1
@@ -639,10 +738,13 @@ module Handler = struct
     | Outline_width n -> outline_width_style n
     | Outline_width_bracket (_, len) -> outline_width_bracket_style len
     | Outline_width_dropped _ -> outline_width_dropped_style
+    | Outline_width_raw (_, value) -> outline_width_raw_style value
     | Outline_width_var v -> outline_width_var_style v
     | Outline_hidden -> outline_hidden
     | Outline_offset n -> outline_offset_px n
     | Outline_offset_var v -> outline_offset_var_style v
+    | Outline_offset_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "outline-offset" v))
     | Outline_offset_arbitrary v -> (
         match parse_length v with
         | Some l -> style [ Css.outline_offset l ]
@@ -749,7 +851,7 @@ module Handler = struct
     | Border_4 -> width_slot "" 4
     | Border_8 -> width_slot "" 8
     | Border_width n -> width_slot "" n
-    | Border_width_bracket _ -> width_bracket_slot ""
+    | Border_width_bracket _ | Border_width_raw _ -> width_bracket_slot ""
     | Border_x -> width_band "x"
     | Border_x_width n -> width_slot "x" n
     | Border_y -> width_band "y"
@@ -762,7 +864,9 @@ module Handler = struct
     | Border_bs_width n -> width_slot "bs" n
     | Border_be -> width_band "be"
     | Border_be_width n -> width_slot "be" n
-    | Border_side_width_bracket (side, _, _) -> width_bracket_slot side
+    | Border_side_width_bracket (side, _, _) | Border_side_width_raw (side, _, _)
+      ->
+        width_bracket_slot side
     | Border_side_width (side, n) -> width_slot side n
     | Border_t -> width_band "t"
     | Border_r -> width_band "r"
@@ -782,14 +886,15 @@ module Handler = struct
     | Outline -> 1999
     | Outline_0 -> 2000
     | Outline_width n -> 2000 + n
-    | Outline_width_bracket _ | Outline_width_dropped _ -> 2009
+    | Outline_width_bracket _ | Outline_width_dropped _ | Outline_width_raw _ ->
+        2009
     | Outline_width_var _ -> 2010
     (* Outline offset — negatives before positives *)
     | Neg_outline_offset n -> 2200 + n
     | Neg_outline_offset_var _ -> 2209
     | Outline_offset n -> 2210 + n
     | Outline_offset_var _ -> 2299
-    | Outline_offset_arbitrary _ -> 2215
+    | Outline_offset_arbitrary _ | Outline_offset_raw _ -> 2215
 
   (* The ten sides a border width can name: the two axes, the four logical sides
      and the four physical ones. *)
@@ -858,7 +963,10 @@ module Handler = struct
         | Some value -> (
             match parse_border_width value with
             | Some w -> Ok (Border_width_bracket (inner, w))
-            | None -> err_not_utility))
+            | None -> (
+                match hinted_token_stream inner with
+                | Some raw -> Ok (Border_width_raw (inner, raw))
+                | None -> err_not_utility)))
     | [ "border"; side; v ] when is_border_side side && Parse.is_bracket_value v
       -> (
         let inner = Parse.bracket_inner v in
@@ -873,7 +981,10 @@ module Handler = struct
         | Some value -> (
             match parse_border_width value with
             | Some w -> Ok (Border_side_width_bracket (side, inner, w))
-            | None -> err_not_utility))
+            | None -> (
+                match hinted_token_stream inner with
+                | Some raw -> Ok (Border_side_width_raw (side, inner, raw))
+                | None -> err_not_utility)))
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
@@ -882,7 +993,10 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         match parse_length inner with
         | Some len -> Ok (Rounded (Corner.All, Rsz_arbitrary (inner, len)))
-        | None -> err_not_utility)
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Rounded (Corner.All, Rsz_raw (inner, raw)))
+            | None -> err_not_utility))
     | [ "rounded"; tok ] -> (
         match rounded_size_of_string tok with
         | Some size -> Ok (Rounded (Corner.All, size))
@@ -897,7 +1011,11 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         match (corner_of_string pos, parse_length inner) with
         | Some pos, Some len -> Ok (Rounded (pos, Rsz_arbitrary (inner, len)))
-        | _ -> err_not_utility)
+        | Some pos, None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Rounded (pos, Rsz_raw (inner, raw)))
+            | None -> err_not_utility)
+        | None, _ -> err_not_utility)
     | [ "rounded"; pos; size ] -> (
         match (corner_of_string pos, rounded_size_of_string size) with
         | Some pos, Some size -> Ok (Rounded (pos, size))
@@ -936,7 +1054,10 @@ module Handler = struct
                    take, the same value [outline-[50%]] infers. *)
                 match parse_length value with
                 | Some (Pct _) -> Ok (Outline_width_dropped inner)
-                | _ -> err_not_utility))
+                | _ -> (
+                    match hinted_token_stream inner with
+                    | Some raw -> Ok (Outline_width_raw (inner, raw))
+                    | None -> err_not_utility)))
         | None ->
             if starts "var(" inner then
               (* Bare var() defaults to color for outline, not width *)
@@ -963,12 +1084,15 @@ module Handler = struct
     (* outline-none/solid/dashed/dotted/double handled by
        Outline_style_handler *)
     | [ "outline"; "hidden" ] -> Ok Outline_hidden
-    | [ "outline"; "offset"; v ] when Parse.is_bracket_value v ->
+    | [ "outline"; "offset"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Outline_offset_var inner)
         else if parse_length inner <> None then
           Ok (Outline_offset_arbitrary inner)
-        else err_not_utility
+        else
+          match Parse.arbitrary_declaration_value inner with
+          | Some raw -> Ok (Outline_offset_raw (inner, raw))
+          | None -> err_not_utility)
     | [ "outline"; "offset"; n ] -> (
         match Parse.decimal_int n with
         | Some i when i >= 0 -> Ok (Outline_offset i)
@@ -994,8 +1118,10 @@ module Handler = struct
     | Border_4 -> "border-4"
     | Border_8 -> "border-8"
     | Border_width n -> "border-" ^ string_of_int n
-    | Border_width_bracket (v, _) -> "border-[" ^ v ^ "]"
-    | Border_side_width_bracket (side, inner, _) ->
+    | Border_width_bracket (v, _) | Border_width_raw (v, _) ->
+        "border-[" ^ v ^ "]"
+    | Border_side_width_bracket (side, inner, _)
+    | Border_side_width_raw (side, inner, _) ->
         "border-" ^ side ^ "-[" ^ inner ^ "]"
     | Border_side_width (side, n) -> "border-" ^ side ^ "-" ^ string_of_int n
     | Border_t -> "border-t"
@@ -1053,20 +1179,22 @@ module Handler = struct
           | Rsz_4xl -> "-4xl"
           | Rsz_full -> "-full"
           | Rsz_theme name -> "-" ^ name
-          | Rsz_arbitrary (raw, _) -> "-[" ^ raw ^ "]"
+          | Rsz_arbitrary (raw, _) | Rsz_raw (raw, _) -> "-[" ^ raw ^ "]"
         in
         "rounded" ^ pos_str ^ size_str
     | Outline -> "outline"
     | Outline_0 -> "outline-0"
     | Outline_width n -> "outline-" ^ string_of_int n
     | Outline_width_bracket (v, _)
+    | Outline_width_raw (v, _)
     | Outline_width_dropped v
     | Outline_width_var v ->
         "outline-[" ^ v ^ "]"
     | Outline_hidden -> "outline-hidden"
     | Outline_offset n -> "outline-offset-" ^ string_of_int n
     | Outline_offset_var v -> "outline-offset-[" ^ v ^ "]"
-    | Outline_offset_arbitrary v -> "outline-offset-[" ^ v ^ "]"
+    | Outline_offset_arbitrary v | Outline_offset_raw (v, _) ->
+        "outline-offset-[" ^ v ^ "]"
     | Neg_outline_offset n -> "-outline-offset-" ^ string_of_int n
     | Neg_outline_offset_var v -> "-outline-offset-[" ^ v ^ "]"
 

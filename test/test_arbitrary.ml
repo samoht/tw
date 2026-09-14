@@ -46,23 +46,15 @@ let test_trailing_text () =
   rejected "[color:red]/-5";
   rejected "[color:red]/50/50"
 
-let css cls =
-  match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-
 (* An arbitrary [property:value] normalises omitted whitespace around calc
    operators, like the utility form: [margin:calc(100%-10px)] emits margin:
    calc(100% - 10px). *)
 let test_property_calc_operators () =
-  Alcotest.(check bool)
-    "[margin:calc(100%-10px)] spaces the operator" true
-    (Astring.String.is_infix ~affix:"margin: calc(100% - 10px)"
-       (css "[margin:calc(100%-10px)]"));
-  Alcotest.(check bool)
-    "[width:calc(var(--a)-var(--b))] spaces the operator" true
-    (Astring.String.is_infix ~affix:"width: calc(var(--a) - var(--b))"
-       (css "[width:calc(var(--a)-var(--b))]"))
+  Test_helpers.check_declarations ~minify:false "[margin:calc(100%-10px)]"
+    [ "margin: calc(100% - 10px)" ];
+  Test_helpers.check_declarations ~minify:false
+    "[width:calc(var(--a)-var(--b))]"
+    [ "width: calc(var(--a) - var(--b))" ]
 
 (* theme() dot-notation inside an arbitrary value resolves statically:
    theme(colors.red.500) to the red-500 oklch, the opacity form to that colour
@@ -71,14 +63,11 @@ let test_theme_dot_notation () =
   let g =
     "bg-[image:linear-gradient(to_right,theme(colors.red.500)_75%,theme(colors.red.500/25%))]"
   in
-  Alcotest.(check bool)
-    "theme(colors.red.500) resolves to the red-500 oklch" true
-    (Astring.String.is_infix ~affix:"oklch(63.7%" (css g));
-  Alcotest.(check bool)
-    "theme(colors.red.500/25%) mixes the alpha in" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, oklch(63.7% .237 25.331) 25%, transparent)"
-       (css g));
+  Test_helpers.check_declarations ~minify:false g
+    [
+      "background-image: linear-gradient(to right, oklch(63.7% .237 25.331) \
+       75%, color-mix(in oklab, oklch(63.7% .237 25.331) 25%, transparent))";
+    ];
   Alcotest.(check string)
     "theme() class round-trips" g
     (Tw.pp (Result.get_ok (Tw.of_string g)))
@@ -86,32 +75,44 @@ let test_theme_dot_notation () =
 (* A var-valued colour with /opacity used to raise invalid_arg; it now emits an
    oklab color-mix under @supports, with a fallback, type-safely. *)
 let test_var_color_opacity () =
-  let out = css "[color:var(--my-color)]/50" in
-  Alcotest.(check bool)
-    "oklab color-mix on the var" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, var(--my-color) 50%, transparent)" out)
+  (* The fallback arm leaves the var() bare, the shape the CLI writes. *)
+  Test_helpers.check_declarations ~minify:false "[color:var(--my-color)]/50"
+    [
+      "color: var(--my-color)";
+      "color: color-mix(in oklab, var(--my-color) 50%, transparent)";
+    ]
 
 (* Arbitrary-value underscores encode spaces before the colour is parsed. The
    plain declaration path already decoded them; the /opacity path did not. *)
 let test_encoded_space_color_opacity () =
-  Alcotest.(check bool)
-    "rgb underscores are decoded" true
-    (Astring.String.is_infix ~affix:"rgb(255 0 0)"
-       (css "[color:rgb(255_0_0)]/50"));
-  Alcotest.(check bool)
-    "oklch underscores are decoded" true
-    (Astring.String.is_infix ~affix:"oklch(.5 .2 250)"
-       (css "[border-color:oklch(0.5_0.2_250)]/[var(--x)]"))
+  (* The whole list, which also says the modifier decodes the colour once and
+     reuses it: both arms name the same rgb(), neither the undecoded spelling. A
+     colour modifier writes an unguarded arm and an oklab arm under @supports;
+     the unguarded value is tw's own, a srgb color-mix where the CLI leaves the
+     colour bare. *)
+  Test_helpers.check_declarations ~minify:false "[color:rgb(255_0_0)]/50"
+    [
+      "color: color-mix(in srgb, rgb(255 0 0) 50%, transparent)";
+      "color: color-mix(in oklab, rgb(255 0 0) 50%, transparent)";
+    ];
+  (* Same two arms for a var() alpha. The oklch value is the spelling already
+     pinned here: cascade drops the leading zero the CLI writes. *)
+  Test_helpers.check_declarations ~minify:false
+    "[border-color:oklch(0.5_0.2_250)]/[var(--x)]"
+    [
+      "border-color: color-mix(in srgb, oklch(.5 .2 250) var(--x), transparent)";
+      "border-color: color-mix(in oklab, oklch(.5 .2 250) var(--x), \
+       transparent)";
+    ]
 
 (* A custom property with /opacity sets the property to a color-mix via the
    typed [Css.var] form (no token stream). *)
 let test_custom_prop_opacity () =
-  let out = css "[--x:#ff0000]/50" in
-  Alcotest.(check bool)
-    "custom property gets a color-mix value" true
-    (Astring.String.is_infix
-       ~affix:"--x: color-mix(in oklab, #ff0000 50%, transparent)" out)
+  Test_helpers.check_declarations ~minify:false "[--x:#ff0000]/50"
+    [
+      "--x: color-mix(in srgb, #ff0000 50%, transparent)";
+      "--x: color-mix(in oklab, #ff0000 50%, transparent)";
+    ]
 
 (* A class either compiles or is refused; an exception escaping [of_string] or
    [to_css] is neither. Swallowing [Error] here is the point - Tailwind refuses
@@ -225,23 +226,20 @@ let test_adversarial_value_sweep () =
 (* Tailwind's [--spacing(N)] shorthand reads the spacing scale, so it has to be
    expanded here too: the value used to reach the sheet verbatim. *)
 let test_property_spacing_fn () =
-  Alcotest.(check bool)
-    "[--gap:--spacing(10)] reads the spacing scale" true
-    (Astring.String.is_infix ~affix:"--gap: calc(var(--spacing) * 10)"
-       (css "[--gap:--spacing(10)]"))
+  Test_helpers.check_declarations ~minify:false "[--gap:--spacing(10)]"
+    [ "--gap: calc(var(--spacing) * 10)" ]
 
 (* Tailwind's [--alpha(C/P)] is the [/opacity] form written as a function, and a
    reference to a palette token renders from the palette, so the fallback is a
    colour rather than the bare reference. *)
 let test_alpha_fn () =
-  let out = css "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]" in
-  Alcotest.(check bool)
-    "fallback resolves the palette colour" true
-    (Astring.String.is_infix ~affix:"--checkered-bg: #0307121a" out);
-  Alcotest.(check bool)
-    "@supports keeps the token reference" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, var(--color-gray-950) 10%, transparent)" out);
+  Test_helpers.check_declarations ~minify:false
+    "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]"
+    [
+      "--checkered-bg: #0307121a";
+      "--checkered-bg: color-mix(in oklab, var(--color-gray-950) 10%, \
+       transparent)";
+    ];
   Alcotest.(check string)
     "the --alpha() spelling round-trips"
     "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]"
@@ -253,34 +251,35 @@ let test_alpha_fn () =
    with [--alpha()] mixes twice, and both spellings survive the round-trip. *)
 let test_alpha_fn_with_modifier () =
   check "[color:--alpha(red/50%)]/25";
-  Alcotest.(check bool)
-    "the modifier mixes the alpha'd colour" true
-    (Astring.String.is_infix
-       ~affix:
-         "color-mix(in oklab, color-mix(in oklab, red 50%, transparent) 25%, \
-          transparent)"
-       (css "[color:--alpha(red/50%)]/25"))
+  (* Both mixes are nested, and the fallback arm nests its own fallback. *)
+  Test_helpers.check_declarations ~minify:false "[color:--alpha(red/50%)]/25"
+    [
+      "color: color-mix(in oklab, color-mix(in srgb, red 50%, transparent) \
+       25%, transparent)";
+      "color: color-mix(in oklab, color-mix(in oklab, red 50%, transparent) \
+       25%, transparent)";
+    ]
 
 (* An opacity read from a custom property keeps the spelling it was written
    with, in either the bracket or the parenthesised form. *)
 let test_var_opacity_spelling () =
   check "[color:red]/[var(--x)]";
   check "[color:red]/(--x)";
-  Alcotest.(check bool)
-    "the var supplies the mix percentage" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, red var(--x), transparent)"
-       (css "[color:red]/(--x)"))
+  Test_helpers.check_declarations ~minify:false "[color:red]/(--x)"
+    [
+      "color: color-mix(in srgb, red var(--x), transparent)";
+      "color: color-mix(in oklab, red var(--x), transparent)";
+    ]
 
 (* Colour values go through the CSS reader, so every named colour is a colour,
    not a hand-picked subset of them. *)
 let test_named_colour_value () =
   check "[color:rebeccapurple]/50";
-  Alcotest.(check bool)
-    "rebeccapurple mixes like any other named colour" true
-    (Astring.String.is_infix
-       ~affix:"color-mix(in oklab, rebeccapurple 50%, transparent)"
-       (css "[color:rebeccapurple]/50"));
+  Test_helpers.check_declarations ~minify:false "[color:rebeccapurple]/50"
+    [
+      "color: color-mix(in srgb, rebeccapurple 50%, transparent)";
+      "color: color-mix(in oklab, rebeccapurple 50%, transparent)";
+    ];
   (* A value that names no colour has nothing to mix. *)
   rejected "[color:notacolour]/50"
 
@@ -296,9 +295,8 @@ let test_invalid_hex_value () =
   rejected "[color:#zz]";
   rejected "[color:#]";
   rejected "[color:#12345]";
-  Alcotest.(check bool)
-    "[color:#ff0000] still emits the colour" true
-    (Astring.String.is_infix ~affix:"color: #ff0000" (css "[color:#ff0000]"))
+  Test_helpers.check_declarations ~minify:false "[color:#ff0000]"
+    [ "color: #ff0000" ]
 
 (* An arbitrary property sorts where the property it declares sorts, which is
    the same rule a project's own [@utility] follows. They all shared one slot
@@ -315,10 +313,7 @@ let test_sorts_by_declared_property () =
    character of the name. *)
 let test_property_underscore_escape () =
   let has cls affix =
-    Alcotest.(check bool)
-      (cls ^ " declares " ^ affix)
-      true
-      (Astring.String.is_infix ~affix (css cls))
+    Test_helpers.check_declarations ~minify:false cls [ affix ]
   in
   has {|[--my\_var:red]|} "--my_var: red";
   has "[--my_var:red]" "--my_var: red"
@@ -331,40 +326,31 @@ let test_quoted_closing_bracket () =
   check "[content:'a]b']";
   check "[--x:'a]b']";
   check {|[content:"a]b"]|};
-  Alcotest.(check bool)
-    "[content:'a]b'] keeps the bracket in the string" true
-    (Astring.String.is_infix ~affix:"content: 'a]b'" (css "[content:'a]b']"));
+  Test_helpers.check_declarations ~minify:false "[content:'a]b']"
+    [ "content: 'a]b'" ];
   (* Tailwind keeps the quote the class wrote; the quoting is cascade's
      canonical spelling of the same CSS string. *)
-  Alcotest.(check bool)
-    "[--x:'a]b'] keeps the bracket in the string" true
-    (Astring.String.is_infix ~affix:{|--x: "a]b"|} (css "[--x:'a]b']"));
-  Alcotest.(check bool)
-    "[background-image:url('a]b')] keeps the bracket in the url" true
-    (Astring.String.is_infix ~affix:"background-image: url('a]b')"
-       (css "[background-image:url('a]b')]"))
+  Test_helpers.check_declarations ~minify:false "[--x:'a]b']" [ {|--x: "a]b"|} ];
+  Test_helpers.check_declarations ~minify:false "[background-image:url('a]b')]"
+    [ "background-image: url('a]b')" ]
 
 (* A [url()] argument is left verbatim, so a [_] in a file name stays one while
    the [_] separating it from the next value becomes a space. *)
 let test_url_underscore () =
-  Alcotest.(check bool)
-    "the url keeps its underscore" true
-    (Astring.String.is_infix ~affix:"background-image: url('a_b.png')"
-       (css "[background-image:url('a_b.png')]"));
+  Test_helpers.check_declarations ~minify:false
+    "[background-image:url('a_b.png')]"
+    [ "background-image: url('a_b.png')" ];
   (* Outside the url the underscore is a space, in a shorthand that takes both.
      [background-image] does not take a position, and tw declines to write the
      invalid declaration Tailwind emits for it. *)
-  Alcotest.(check bool)
-    "the underscore after the url is a space" true
-    (Astring.String.is_infix ~affix:"background: url(a_b.png) no-repeat"
-       (css "[background:url(a_b.png)_no-repeat]"));
+  Test_helpers.check_declarations ~minify:false
+    "[background:url(a_b.png)_no-repeat]"
+    [ "background: url(a_b.png) no-repeat" ];
   (* Tailwind keeps the inner url quoted; the quoting is cascade's canonical
      spelling of the same URL. *)
-  Alcotest.(check bool)
-    "the underscore inside an image-set url stays" true
-    (Astring.String.is_infix
-       ~affix:"background-image: image-set(url(a_b.png) 1x)"
-       (css "[background-image:image-set(url('a_b.png')_1x)]"))
+  Test_helpers.check_declarations ~minify:false
+    "[background-image:image-set(url('a_b.png')_1x)]"
+    [ "background-image: image-set(url(a_b.png) 1x)" ]
 
 (* The same token-stream contract, read through the named utilities that carry a
    bracket: a candidate is generated when its bracket holds one safe CSS

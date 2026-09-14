@@ -429,6 +429,10 @@ module Typography_early = struct
       (* font-[family-name:var(--x)] or font-[generic-name:var(--x)] *)
     | (* Font feature settings *)
       Font_features_quoted of string (* font-features-["smcp"] *)
+    | Font_features_raw of string * string
+      (* Each of these families writes one longhand, so a bracket no reader took
+         still names it and the value is forwarded verbatim - Tailwind's
+         token-stream contract. *)
     | Font_features_var of string (* font-features-[var(--x)] *)
     | Font_features_bare_var of string (* font-features-(--my-var) *)
     | (* Font families. The flag records whether the theme adds feature
@@ -473,6 +477,11 @@ module Typography_early = struct
       Text_bracket_fs of string
     | (* Arbitrary font-size with line-height (text-[12px]/6) *)
       Text_bracket_fs_lh of string * lh_modifier
+    | (* A font-size hint over a value no font-size grammar reads
+         (text-[length:red]). The hint chooses the longhand and the value is
+         forwarded verbatim, which is Tailwind's token-stream contract; the
+         browser discards the declaration. *)
+      Text_bracket_fs_raw of string * string
 
   and lh_modifier =
     | Spacing of int (* /6 → calc(var(--spacing) * 6) *)
@@ -584,10 +593,31 @@ module Typography_early = struct
     | _ -> (inner, false)
 
   (* A hint settles the ambiguity [try_parse_length_value] guards against, so a
-     hinted [0] is the size zero where a bare one is a colour. *)
+     hinted [0] is the size zero where a bare one is a colour. A bare number
+     after the hint goes through Tailwind's generator as written and its
+     minifier reads it as pixels, which is the spelling [--diff] compares and
+     the one [stroke-[1.5]] already follows; see
+     docs/token-stream-contract.md. *)
   let bracket_font_size_length value ~hinted =
-    if hinted then Parse.arbitrary_length value
+    if hinted then
+      match Parse.arbitrary_length value with
+      | Stdlib.Option.Some _ as len -> len
+      | Stdlib.Option.None -> (
+          match float_of_string_opt value with
+          | Some f -> Stdlib.Option.Some (Css.Px f)
+          | None -> Stdlib.Option.None)
     else try_parse_length_value value
+
+  (* A [length:] hint says the bracket is a font size whatever the value turns
+     out to be, so a value no font-size grammar reads is still a font size -
+     forwarded verbatim under the token-stream contract. Without the hint the
+     same text names no utility, because nothing says which longhand it is
+     for. *)
+  let hinted_font_size_token_stream inner =
+    match split_type_prefix inner with
+    | Stdlib.Option.Some (prefix, _) when is_font_size_hint prefix ->
+        Parse.arbitrary_declaration_value inner
+    | _ -> Stdlib.Option.None
 
   let is_valid_bracket_font_size (inner : string) : bool =
     let value, hinted = bracket_font_size_value inner in
@@ -765,11 +795,14 @@ module Typography_early = struct
               if Parse.decimal_int inner <> None || Parse.is_var inner then
                 weight inner inner
               else family inner inner)
-    | [ "font"; "features"; v ] when Parse.is_bracket_value v ->
+    | [ "font"; "features"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)
         else if is_feature_tag_list inner then Ok (Font_features_quoted inner)
-        else err_not_utility
+        else
+          match Parse.arbitrary_declaration_value inner with
+          | Some raw -> Ok (Font_features_raw (inner, raw))
+          | None -> err_not_utility)
     | [ "font"; "features"; v ] when Parse.is_bare_var v ->
         Ok (Font_features_bare_var v)
     | [ "font"; "thin" ] -> Ok Font_thin
@@ -848,7 +881,11 @@ module Typography_early = struct
               if is_color_bracket inner then err_not_utility
               else if is_valid_bracket_font_size inner then
                 Ok (Text_bracket_fs inner)
-              else err_not_utility
+              else
+                match hinted_font_size_token_stream inner with
+                | Stdlib.Option.Some value ->
+                    Ok (Text_bracket_fs_raw (inner, value))
+                | Stdlib.Option.None -> err_not_utility
             else if is_theme_text_size theme part then Ok (Text_theme part)
             else err_not_utility)
     (* A project token's name may span several segments, and the line-height
@@ -899,7 +936,8 @@ module Typography_early = struct
     | Font_bracket_family_quoted (raw, _) -> "font-[" ^ raw ^ "]"
     | Font_bracket_family_name (raw, _) -> "font-[" ^ raw ^ "]"
     | Font_bracket_family_var (raw, _) -> "font-[" ^ raw ^ "]"
-    | Font_features_quoted raw -> "font-features-[" ^ raw ^ "]"
+    | Font_features_quoted raw | Font_features_raw (raw, _) ->
+        "font-features-[" ^ raw ^ "]"
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
     | Font_features_bare_var raw -> "font-features-" ^ raw
     | Font_named (name, _) -> "font-" ^ name
@@ -932,6 +970,7 @@ module Typography_early = struct
     | Text_theme name -> "text-" ^ name
     | Text_theme_lh (name, lh) -> "text-" ^ name ^ "/" ^ lh_to_string lh
     | Text_bracket_fs raw -> "text-[" ^ raw ^ "]"
+    | Text_bracket_fs_raw (raw, _) -> "text-[" ^ raw ^ "]"
     | Text_bracket_fs_lh (raw, lh) -> "text-[" ^ raw ^ "]/" ^ lh_to_string lh
 
   (** {1 Ordering Support} *)
@@ -1001,7 +1040,7 @@ module Typography_early = struct
     | Text_theme _ -> 2014
     | Text_theme_lh _ -> 2014
     (* Bracket font-size without modifier — after named sizes *)
-    | Text_bracket_fs _ -> 2100
+    | Text_bracket_fs _ | Text_bracket_fs_raw _ -> 2100
     (* Leading comes third — numeric first, then arbitrary, then named
        (alphabetical: loose, none, normal, relaxed, snug, tight) *)
     | Leading n -> 3000 + n
@@ -1029,7 +1068,7 @@ module Typography_early = struct
     | Font_semibold -> 4800
     | Font_thin -> 4900
     (* Font feature settings *)
-    | Font_features_quoted _ -> 1600
+    | Font_features_quoted _ | Font_features_raw _ -> 1600
     | Font_features_var _ -> 1600
     | Font_features_bare_var _ -> 1600
     (* Italic *)
@@ -1535,6 +1574,9 @@ module Typography_early = struct
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_family Css.var = Var.bracket bare_name in
         style [ font_family (Var var_ref) ]
+    | Font_features_raw (_, v) ->
+        style
+          (Option.to_list (Parse.opaque_declaration "font-feature-settings" v))
     | Font_features_quoted s -> (
         match
           Css.parse_declaration "font-feature-settings"
@@ -1620,6 +1662,8 @@ module Typography_early = struct
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         style (text_theme_decls theme name @ lh_extra @ [ line_height lh_value ])
     | Text_bracket_fs raw -> bracket_font_size_style raw
+    | Text_bracket_fs_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "font-size" value))
     | Text_bracket_fs_lh (raw, lh_mod) ->
         let fs_decls = bracket_font_size_decls raw in
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
@@ -1644,6 +1688,14 @@ module Typography_late = struct
     str <> ""
     && String.for_all is_number_char str
     && float_of_string_opt str <> None
+
+  (* A data-type hint chooses which longhand a bracket lands in and says nothing
+     about the value. [indent-] and [underline-offset-] each write one longhand,
+     so every hint lands there and the length reader is handed what follows it.
+     The bracket text kept on the constructor still carries the hint, because
+     the class name is what the markup holds. *)
+  let arbitrary_length_after_hint inner : Css.length option =
+    Stdlib.Option.bind (Parse.value_after_hint inner) Parse.arbitrary_length
 
   (* An arbitrary decoration thickness is any CSS length. *)
   let parse_decoration_thickness inner : Css.length option =
@@ -1731,6 +1783,8 @@ module Typography_late = struct
     | Align_sub
     | Align_super
     | Align_arbitrary_var of string
+    | Align_raw of string * string
+      (* align-[foo]: one longhand, so the value is forwarded verbatim. *)
     | (* List utilities *)
       List_none
     | List_disc
@@ -1742,6 +1796,7 @@ module Typography_late = struct
     | List_image_none
     | List_image_bracket_var of string
     | List_image_bracket of string * Css.list_style_image
+    | List_image_raw of string * string
     | List_image_url of string
     | (* Underline offset *)
       Underline_offset_auto
@@ -1752,6 +1807,7 @@ module Typography_late = struct
     | Underline_offset_8
     | Underline_offset_px of float
     | Underline_offset_arbitrary of string * Css.length
+    | Underline_offset_raw of string * string
     | Underline_offset_var of string
     | Underline_offset_neg_px of float
     | Underline_offset_neg_arbitrary of string * Css.length
@@ -1809,6 +1865,7 @@ module Typography_late = struct
     | Indent_px
     | Indent_neg_px
     | Indent_arbitrary of string
+    | Indent_raw of string * string
     | Indent_neg_arbitrary of string
     | Line_clamp of int
     | Line_clamp_arbitrary of int
@@ -1834,7 +1891,8 @@ module Typography_late = struct
   let priority = function
     | List_none | List_disc | List_decimal | List_inside | List_outside
     | List_image_none | List_image_url _ | List_bracket_var _
-    | List_image_bracket_var _ | List_bracket _ | List_image_bracket _ ->
+    | List_image_bracket_var _ | List_bracket _ | List_image_bracket _
+    | List_image_raw _ ->
         11
     (* line-clamp (rank 26) sits between box-sizing and the display family, so
        it shares box-sizing's priority and sorts after it on suborder. *)
@@ -1843,9 +1901,9 @@ module Typography_late = struct
         3
     | Truncate -> 17
     | Indent _ | Indent_neg _ | Indent_px | Indent_neg_px | Indent_arbitrary _
-    | Indent_neg_arbitrary _ | Align_baseline | Align_top | Align_middle
-    | Align_bottom | Align_sub | Align_super | Align_text_top
-    | Align_text_bottom | Align_arbitrary_var _ ->
+    | Indent_raw _ | Indent_neg_arbitrary _ | Align_baseline | Align_top
+    | Align_middle | Align_bottom | Align_sub | Align_super | Align_text_top
+    | Align_text_bottom | Align_arbitrary_var _ | Align_raw _ ->
         24
     | Content_none | Content _ | Content_squote _ | Content_raw _
     | Content_named _ ->
@@ -2038,6 +2096,11 @@ module Typography_late = struct
     | [ "whitespace"; "break"; "spaces" ] -> Ok Whitespace_break_spaces
     | [ "align"; v ] when Parse.is_bracket_var v ->
         Ok (Align_arbitrary_var (Parse.bracket_inner v))
+    | [ "align"; v ] when Parse.is_bracket_value v -> (
+        let inner = Parse.bracket_inner v in
+        match Parse.arbitrary_declaration_value inner with
+        | Some raw -> Ok (Align_raw (inner, raw))
+        | None -> err_not_utility)
     | [ "align"; "baseline" ] -> Ok Align_baseline
     | [ "align"; "top" ] -> Ok Align_top
     | [ "align"; "middle" ] -> Ok Align_middle
@@ -2073,7 +2136,10 @@ module Typography_late = struct
           Css.parse_list_style_image (Parse.decode_arbitrary_value inner)
         with
         | Some i -> Ok (List_image_bracket (inner, i))
-        | None -> err_not_utility)
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (List_image_raw (inner, raw))
+            | None -> err_not_utility))
     | "list" :: "image" :: rest when rest <> [] ->
         let url = String.concat "-" rest in
         if Parse.is_valid_theme_name url then Ok (List_image_url url)
@@ -2088,9 +2154,12 @@ module Typography_late = struct
         let inner = Parse.bracket_inner n in
         if Parse.is_var inner then Ok (Underline_offset_var inner)
         else
-          match Parse.arbitrary_length inner with
+          match arbitrary_length_after_hint inner with
           | Some len -> Ok (Underline_offset_arbitrary (inner, len))
-          | None -> err_not_utility)
+          | None -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some raw -> Ok (Underline_offset_raw (inner, raw))
+              | None -> err_not_utility))
     | [ "underline"; "offset"; n ] -> (
         match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_px px)
@@ -2099,7 +2168,7 @@ module Typography_late = struct
         let inner = Parse.bracket_inner n in
         if Parse.is_var inner then Ok (Underline_offset_neg_var inner)
         else
-          match Parse.arbitrary_length inner with
+          match arbitrary_length_after_hint inner with
           | Some len -> Ok (Underline_offset_neg_arbitrary (inner, len))
           | None -> err_not_utility)
     | [ ""; "underline"; "offset"; n ] -> (
@@ -2155,13 +2224,17 @@ module Typography_late = struct
     | [ "stacked"; "fractions" ] -> Ok Stacked_fractions
     | [ "indent"; "px" ] -> Ok Indent_px
     | [ ""; "indent"; "px" ] -> Ok Indent_neg_px
-    | [ "indent"; n ] when Parse.is_bracket_value n ->
+    | [ "indent"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        if Parse.arbitrary_length inner = None then err_not_utility
-        else Ok (Indent_arbitrary inner)
+        match arbitrary_length_after_hint inner with
+        | Some _ -> Ok (Indent_arbitrary inner)
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Indent_raw (inner, raw))
+            | None -> err_not_utility))
     | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
-        if Parse.arbitrary_length inner = None then err_not_utility
+        if arbitrary_length_after_hint inner = None then err_not_utility
         else Ok (Indent_neg_arbitrary inner)
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
@@ -2292,6 +2365,7 @@ module Typography_late = struct
     | Whitespace_pre_wrap -> "whitespace-pre-wrap"
     | Whitespace_break_spaces -> "whitespace-break-spaces"
     | Align_arbitrary_var s -> "align-[" ^ s ^ "]"
+    | Align_raw (s, _) -> "align-[" ^ s ^ "]"
     | Align_baseline -> "align-baseline"
     | Align_top -> "align-top"
     | Align_middle -> "align-middle"
@@ -2311,7 +2385,8 @@ module Typography_late = struct
     | List_image_bracket_var s ->
         if Parse.is_bare_var s then "list-image-" ^ s
         else "list-image-[" ^ s ^ "]"
-    | List_image_bracket (raw, _) -> "list-image-[" ^ raw ^ "]"
+    | List_image_bracket (raw, _) | List_image_raw (raw, _) ->
+        "list-image-[" ^ raw ^ "]"
     | List_image_url url -> "list-image-" ^ url
     | Underline_offset_auto -> "underline-offset-auto"
     | Underline_offset_0 -> "underline-offset-0"
@@ -2327,7 +2402,8 @@ module Typography_late = struct
           else s
         in
         "underline-offset-" ^ s
-    | Underline_offset_arbitrary (raw, _) -> "underline-offset-[" ^ raw ^ "]"
+    | Underline_offset_arbitrary (raw, _) | Underline_offset_raw (raw, _) ->
+        "underline-offset-[" ^ raw ^ "]"
     | Underline_offset_var v -> "underline-offset-[" ^ v ^ "]"
     | Underline_offset_neg_px px ->
         let s = string_of_float px in
@@ -2384,6 +2460,7 @@ module Typography_late = struct
     | Indent_px -> "indent-px"
     | Indent_neg_px -> "-indent-px"
     | Indent_arbitrary s -> "indent-[" ^ s ^ "]"
+    | Indent_raw (s, _) -> "indent-[" ^ s ^ "]"
     | Indent_neg_arbitrary s -> "-indent-[" ^ s ^ "]"
     | Line_clamp n -> "line-clamp-" ^ string_of_int n
     | Line_clamp_arbitrary n -> "line-clamp-[" ^ string_of_int n ^ "]"
@@ -2466,7 +2543,7 @@ module Typography_late = struct
     | Whitespace_pre_wrap -> 8335
     (* Vertical align (priority 24) - between text-align (~1005) and font-family
        (~1501) in the early handler's suborder space. Alphabetical. *)
-    | Align_arbitrary_var _ -> 1200
+    | Align_arbitrary_var _ | Align_raw _ -> 1200
     | Align_baseline -> 1200
     | Align_bottom -> 1201
     | Align_middle -> 1202
@@ -2482,8 +2559,8 @@ module Typography_late = struct
     | List_bracket_var _ | List_bracket _ | List_decimal | List_disc | List_none
       ->
         2_010_000
-    | List_image_bracket_var _ | List_image_bracket _ | List_image_none
-    | List_image_url _ ->
+    | List_image_bracket_var _ | List_image_bracket _ | List_image_raw _
+    | List_image_none | List_image_url _ ->
         2_020_000
     (* Underline offset — negatives first, then positives, then auto *)
     | Underline_offset_neg_px px -> 50000 + int_of_float px
@@ -2495,7 +2572,7 @@ module Typography_late = struct
     | Underline_offset_4 -> 60003
     | Underline_offset_8 -> 60004
     | Underline_offset_px px -> 60005 + int_of_float px
-    | Underline_offset_arbitrary _ -> 69989
+    | Underline_offset_arbitrary _ | Underline_offset_raw _ -> 69989
     | Underline_offset_var _ -> 69990
     | Underline_offset_auto -> 69999
     (* Both simple smoothing rules lead the placeholder pseudo-element band.
@@ -2588,7 +2665,7 @@ module Typography_late = struct
        One slot also keeps an [indent-<n>] of any size inside it, where an
        offset derived from [n] would eventually reach [Align_*]. *)
     | Indent _ | Indent_neg _ | Indent_px | Indent_neg_px | Indent_arbitrary _
-    | Indent_neg_arbitrary _ ->
+    | Indent_raw _ | Indent_neg_arbitrary _ ->
         1100
     | Line_clamp n -> 10000 + n
     | Line_clamp_arbitrary _ | Line_clamp_raw _ -> 11000
@@ -2996,13 +3073,21 @@ module Typography_late = struct
     style [ spacing_decl; text_indent_length length ]
 
   let indent_arbitrary s =
-    match Parse.arbitrary_length s with
+    match arbitrary_length_after_hint s with
     | Some len -> style [ text_indent_length (Length len) ]
     | None -> style [ text_indent_length (Length (Px 0.)) ]
 
+  (* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
+     writes whatever the unit. [negate_length] still folds the sign for
+     [-indent-px], where the CLI writes [-1px] itself. *)
   let indent_neg_arbitrary s =
-    match Parse.arbitrary_length s with
-    | Some len -> style [ text_indent_length (Length (negate_length len)) ]
+    match arbitrary_length_after_hint s with
+    | Some len ->
+        style
+          [
+            text_indent_length
+              (Length (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))));
+          ]
     | None -> style [ text_indent_length (Length (Px 0.)) ]
 
   let line_clamp n =
@@ -3399,6 +3484,8 @@ module Typography_late = struct
     | Align_arbitrary_var var_str ->
         let bare_name = Parse.extract_var_name var_str in
         style [ vertical_align (Var (Var.bracket bare_name)) ]
+    | Align_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "vertical-align" v))
     | Align_baseline -> align_baseline
     | Align_top -> align_top
     | Align_middle -> align_middle
@@ -3417,6 +3504,8 @@ module Typography_late = struct
     | List_image_none -> list_image_none ()
     | List_image_bracket_var s -> list_image_bracket_var s
     | List_image_bracket (_, i) -> style [ list_style_image i ]
+    | List_image_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "list-style-image" v))
     | List_image_url url -> list_image_url url
     | Underline_offset_auto -> underline_offset_auto ()
     | Underline_offset_0 -> underline_offset_0
@@ -3426,6 +3515,9 @@ module Typography_late = struct
     | Underline_offset_8 -> underline_offset_8
     | Underline_offset_px px -> style [ text_underline_offset (Px px) ]
     | Underline_offset_arbitrary (_, len) -> style [ text_underline_offset len ]
+    | Underline_offset_raw (_, v) ->
+        style
+          (Option.to_list (Parse.opaque_declaration "text-underline-offset" v))
     | Underline_offset_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
@@ -3493,6 +3585,8 @@ module Typography_late = struct
     | Indent_px -> style [ text_indent_length (Length (Px 1.)) ]
     | Indent_neg_px -> style [ text_indent_length (Length (Px (-1.))) ]
     | Indent_arbitrary s -> indent_arbitrary s
+    | Indent_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "text-indent" v))
     | Indent_neg_arbitrary s -> indent_neg_arbitrary s
     | Line_clamp n -> line_clamp n
     | Line_clamp_arbitrary n -> line_clamp n

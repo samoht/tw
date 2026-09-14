@@ -45,14 +45,14 @@ runs Lightning CSS, which rewrites values as well as whitespace, and the
 snapshots in `test/upstream/utilities.txt` come from a run that was minified
 too. So a value read off an unminified CLI sheet is not on its own a target.
 
-Three families already differ that way and are right as they stand.
+Four families already differ that way and are right as they stand.
 `outline-[2]` writes `outline-width: 2` unminified and `outline-width: 2px`
 minified; `stroke-2` and `stroke-[1.5]` write `2` and `1.5` against `2px` and
-`1.5px`; `decoration-[10%]` writes `text-decoration-thickness: 10%` against
-`.1em`. tw writes the minified spelling in all three, `--diff` finds no
-difference because it minifies both sides, and the corpus agrees. Minify both
-sheets before calling one of these a divergence, or what you report is the
-minifier's.
+`1.5px`; `text-[length:12]` writes `font-size: 12` against `12px`; and
+`decoration-[10%]` writes `text-decoration-thickness: 10%` against `.1em`. tw
+writes the minified spelling in all four, `--diff` finds no difference because
+it minifies both sides, and the corpus agrees. Minify both sheets before
+calling one of these a divergence, or what you report is the minifier's.
 
 ## What routes a bracket
 
@@ -97,14 +97,18 @@ rather than chasing it.
 
 ## What each family does
 
-The families below still refuse a bracket the CLI writes out; the mask family,
-which no longer does, is the worked example at the end. The longhand column is
+**None of the families below still refuses a bracket the CLI writes out.** The
+table is kept as the inventory it is - the longhand each falls through to, which
+is what a reader needs when touching one - but the sweep that produced it now
+reports zero. Re-run it before trusting that: two hostile values per family
+through `tw --single=... --variables --no-base`, counting the declarations tw
+emits. The mask family is the worked example at the end. The longhand column is
 what the CLI writes it into, measured through `@apply` against tailwindcss
 v4.3.3. Five value shapes cover most of it: a bare identifier
 (`foo`), a colour keyword (`red`), a dashed identifier (`--c`), a unitless
 `calc(1+2)`, and a `url()` with a word after it (`url(x.png)_center`).
 
-There are 150 of them. 96 refuse the same five shapes:
+There are 150 of them. 96 used to refuse the same five shapes:
 
 | family | longhand Tailwind falls through to |
 | --- | --- |
@@ -309,14 +313,26 @@ class exists and then build the declaration from the raw bracket again, so the
 hint reaches the sheet: `transition-[foo:color]` writes `transition-property:
 foo:color` where the CLI writes `color`. Each needs the `(spelling, value)`
 payload the other families carry, so `to_class` keeps the hint and `to_style`
-does not. `text-[…]` and `outline-[…]` read only the hints they already know,
-because both route between longhands two modules own and an unknown hint on
-either falls to the colour, which wants the opaque colour case as well as the
-peel: `text-[foo:1.25rem]`, `text-[foo:red]` and `outline-[foo:red]` are
-refused where the CLI writes `color: 1.25rem`, `color: red` and
-`outline-color: red`. And the `length:` hint in `lib/typography.ml`,
-`lib/borders.ml` and `lib/svg.ml` refuses a value its width reader declines,
-which is the same one-line shape in three modules.
+does not. `text-[…]` and `outline-[…]` now write a bracket
+no reader took into their colour, which is each family's last resort, so
+`text-[foo:1.25rem]`, `text-[foo:red]`, `text-[notacolour]`,
+`outline-[foo:red]` and a malformed hex all reach the sheet. `border-`, `fill-`, `stroke-`, `accent-`,
+`caret-`, `placeholder-` and `bg-` followed. `bg-` took the most work, for the
+reason a family with several readers always will: its bracket runs through a
+size, a position, an image and a url, so each reader forwards its own value and
+only the unhinted fall-through reaches the colour. The fall-through is gated on
+the text being one bracket value, or `bg-[10px][20px]` would be accepted as a
+single declaration. The per-side border colours followed, one longhand per
+side, which closes the colour families. An opacity modifier over a value that is not a colour
+stays refused everywhere: the CLI writes a `color-mix()` around the raw token,
+and cascade's colour types hold colours, not token streams. The width hints in `lib/typography.ml`,
+`lib/borders.ml` and `lib/svg.ml` no longer refuse a value their reader
+declines: each carries a variant holding `(spelling, value)` and writes the
+value through `opaque_declaration` on the longhand the hint named, with the
+bare-number-as-pixels rule above settling the one case the hint makes
+unambiguous. Where the family writes a style declaration beside the width -
+`border-`, `outline-` - that declaration travels with the raw value, so the
+browser drops the width and keeps the style.
 
 These families still refuse a bracket that opens with a hint, each because the
 hint reaches a typed reader that has not been shown it: `basis-[…]`,

@@ -32,7 +32,8 @@ val properties_of_class : string -> Css.Declaration.prop_key list
 (** [properties_of_class cls] is every property [cls] declares, custom
     properties included: two utilities can conflict on a [--tw-*] alone. *)
 
-val declarations_of_class : ?minify:bool -> string -> string list
+val declarations_of_class :
+  ?theme:Tw.Scheme.t -> ?minify:bool -> string -> string list
 (** [declarations_of_class cls] is what [cls] writes on an element carrying it,
     in source order. Only selectors holding a [.] count, so the theme bindings
     the class drags in and the [*, ::before] property defaults are left out, the
@@ -40,14 +41,19 @@ val declarations_of_class : ?minify:bool -> string -> string list
 
     [minify] defaults to [true]. Pass [false] where the spelling a value keeps
     is what is under test: minified printing folds a colour to its shortest hex,
-    so [#f00] and an expanded [#ff0000] read the same there. *)
+    so [#f00] and an expanded [#ff0000] read the same there.
 
-val check_declarations : ?minify:bool -> string -> string list -> unit
+    [theme] is the project palette the class is read and rendered against, for a
+    test whose subject is an override. It bypasses the compiled-sheet cache,
+    which is keyed on the class alone. *)
+
+val check_declarations :
+  ?theme:Tw.Scheme.t -> ?minify:bool -> string -> string list -> unit
 (** [check_declarations cls expected] checks [cls] writes exactly [expected].
     Prefer it to a substring search: an affix that is a prefix of a longer
     generated class matches it, so [.bg-blue-500] is satisfied by
     [.bg-blue-500\/50] alone, and a [check bool] failure prints neither the
-    class nor the CSS. [minify] is {!declarations_of_class}'s. *)
+    class nor the CSS. [theme] and [minify] are {!declarations_of_class}'s. *)
 
 val check_declarations_match : string -> string list -> unit
 (** [check_declarations_match cls patterns] checks each PCRE in [patterns]
@@ -82,9 +88,14 @@ val check_no_dropped_declarations :
     dropped from that side's AST before the comparison. Such a drop makes the
     comparison read as a phantom addition on the side that parsed, or as no
     difference at all when both sides collapse to the same AST, so it is a
-    finding rather than noise. Tailwind's bare-number [color-mix] mixing amount,
-    which CSS Color 5 sec. 3.1 does not admit and a browser drops too, is the
-    one allowed exception. *)
+    finding rather than noise.
+
+    A value the property's grammar refused is the exception, on either side: a
+    browser drops it too, so the comparison is held to what the browser keeps.
+    Tailwind's bare-number [color-mix] mixing amount is one; a bracket no reader
+    took, which the token-stream contract sends to the sheet verbatim, is
+    another. Every other drop - a rule, a selector, any construct that failed
+    for another reason - stays a finding. *)
 
 val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
 (** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
@@ -105,9 +116,26 @@ val minimize_failing_case : ('a list -> bool) -> 'a list -> 'a list option
 
 val check_ordering_matches :
   ?forms:bool -> test_name:string -> Tw.t list -> unit
-(** [check_ordering_matches ?forms ~test_name utilities] compares the ordering
-    of utilities between our implementation and Tailwind CSS, failing the test
-    if they differ. *)
+(** [check_ordering_matches ?forms ~test_name utilities] fails when tw's sheet
+    for [utilities] is not canonically equivalent to the pinned Tailwind CLI's.
+
+    {b It does not check the order its name claims.} It runs {!ordering_diff},
+    which is the canonical differ, and that suppresses every reorder it can
+    prove cascade-neutral: two rules reorder observably only where they overlap
+    in both dimensions, matching a common element {e and} writing a common
+    property, which is the pairing {!interacting_pairs} finds. So a family
+    emitted in the wrong band passes here whenever nothing in the band between
+    contends with it, which is the usual case.
+
+    What it does catch is a reorder that can change the cascade, and every
+    difference in what the utilities emit: a wrong value, a dropped or surplus
+    declaration, a rule that is not there. That is most of what the callers
+    named "... suborder matches Tailwind" are relying on, and it is worth
+    having; only the ordering half of the name is unearned.
+
+    {!check_class_order} reads positions back and does check order, for the
+    classes it is given. The whole-sheet answer is {!sheet_order_gap}, which the
+    gate in [test/parity/] pins at zero. *)
 
 val tree_diff_css :
   expected:string -> actual:string -> Cascade_diff.Css_compare.t
@@ -184,6 +212,19 @@ type order_gap = {
           and on tw's *)
 }
 (** What separates two sheets' statement order, in one number. *)
+
+val layer_statement_identities : string -> layer:string -> string list
+(** [layer_statement_identities sheet ~layer] is {!layer_statement_keys} with an
+    at-rule's key carrying a fingerprint of the statements nested in it, so two
+    blocks sharing a prelude stay distinguishable. This is the sequence
+    {!sheet_order_gap} compares, and what a frozen order fixture records. *)
+
+val order_gap_of_identities :
+  tailwind:string list -> tw:string list -> order_gap
+(** [order_gap_of_identities ~tailwind ~tw] is {!sheet_order_gap} over two
+    identity sequences that have already been read out. Taking the sequences
+    rather than the sheets is what lets Tailwind's side come from a committed
+    fixture instead of the pinned CLI. *)
 
 val sheet_order_gap : layer:string -> tailwind:string -> tw:string -> order_gap
 (** [sheet_order_gap ~layer ~tailwind ~tw] measures how far tw's statement order
@@ -343,9 +384,18 @@ val spacing_values : int list
     utilities. *)
 
 val test_rng : Random.State.t
-(** [test_rng] is the global RNG for randomized tests. Initialized with a random
-    seed printed to stderr. Set [TEST_SEED] env var to replay a specific seed.
-*)
+(** [test_rng] is the shared RNG behind {!shuffle}. Initialized from the seed
+    printed to stderr; set [TEST_SEED] to replay one.
+
+    Sharing it couples every drawer: what one test sees depends on how much
+    randomness ran before it, so a seed that fails the whole suite passes when
+    that test is run alone, and a real failure reads as a flake. A test that
+    draws enough to matter should take {!rng_named} instead. *)
+
+val rng_named : string -> Random.State.t
+(** [rng_named name] is a state of its own, seeded from the run's seed and
+    [name]. It draws the same sequence whatever else the run does, so the seed a
+    failing run prints reproduces that test on its own. *)
 
 val shuffle : 'a list -> 'a list
 (** [shuffle lst] returns a shuffled copy of the list using Fisher-Yates

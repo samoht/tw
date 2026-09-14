@@ -556,8 +556,36 @@ let declaration_value_of s =
 
 (* Every family reaches its last resort with the bracket as the author wrote it,
    so refusing an empty hint here refuses it everywhere. *)
+(* A [theme()] or [--theme()] call is resolved before a family's reader sees
+   the bracket, so one still standing in the text is a lookup that declined.
+   Tailwind emits nothing for such a class, so it is not a token stream to
+   forward: [p-[--theme(spacing.4)]] is the v4 spelling over a v3 dot path,
+   which resolves to nothing and names no utility. *)
+let holds_unresolved_theme_call s =
+  (* [theme(] preceded by anything that cannot continue an identifier, so a
+     function whose name merely ends in "theme" does not match. *)
+  let needle = "theme(" in
+  let n = String.length needle and len = String.length s in
+  let rec scan i =
+    match Strings.index ~sub:needle (String.sub s i (len - i)) with
+    | None -> false
+    | Some off ->
+        let at = i + off in
+        let before = if at = 0 then ' ' else s.[at - 1] in
+        let opens_a_name =
+          match before with
+          | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' -> true
+          | '-' -> at >= 2 && s.[at - 2] <> '-'
+          | _ -> false
+        in
+        if opens_a_name then scan (at + n) else true
+  in
+  scan 0
+
 let arbitrary_declaration_value s =
-  Option.bind (value_after_hint s) declaration_value_of
+  match Option.bind (value_after_hint s) declaration_value_of with
+  | Some value when holds_unresolved_theme_call value -> None
+  | answer -> answer
 
 let wrap_declaration_value ~before ~after value =
   if value = "" || not (is_declaration_value value) then None

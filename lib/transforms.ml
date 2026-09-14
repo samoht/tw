@@ -24,11 +24,13 @@ module Handler = struct
     | Translate_x_px
     | Translate_x_step of float
     | Translate_x_arbitrary of string * Css.length
+    | Translate_x_raw of string * string
     | Translate_y of int
     | Translate_y_full
     | Translate_y_px
     | Translate_y_step of float
     | Translate_y_arbitrary of string * Css.length
+    | Translate_y_raw of string * string
     | Scale of int
     | Scale_x of int
     | Scale_x_arbitrary of string * [ `Num of float | `Raw of string ]
@@ -53,6 +55,7 @@ module Handler = struct
     | Translate_1_2
     | Translate_fraction of int * int
     | Translate_arbitrary of string * Css.length
+    | Translate_raw of string * string
     | (* Negative translate utilities *)
       Neg_translate of int
     | Neg_translate_arbitrary of string
@@ -80,16 +83,19 @@ module Handler = struct
     | Translate_3d
     | Rotate_x of int
     | Rotate_x_arbitrary of string * Css.angle
+    | Rotate_x_raw of string * string
     | Rotate_x_bare_var of string
     | Neg_rotate_x_bare_var of string
     | Neg_rotate_x_arbitrary of string * Css.angle
     | Rotate_y of int
     | Rotate_y_arbitrary of string * Css.angle
+    | Rotate_y_raw of string * string
     | Rotate_y_bare_var of string
     | Neg_rotate_y_bare_var of string
     | Neg_rotate_y_arbitrary of string * Css.angle
     | Rotate_z of int
     | Rotate_z_arbitrary of string * Css.angle
+    | Rotate_z_raw of string * string
     | Rotate_z_bare_var of string
     | Neg_rotate_z_bare_var of string
     | Neg_rotate_z_arbitrary of string * Css.angle
@@ -106,6 +112,7 @@ module Handler = struct
     | Perspective_midrange
     | Perspective_distant
     | Perspective_arbitrary of string * Css.length
+    | Perspective_raw of string * string
     | (* Perspective origin *)
       Perspective_origin_center
     | Perspective_origin_top
@@ -119,6 +126,7 @@ module Handler = struct
     (* The author's bracket text travels with the value it denotes, so the class
        name is spelled exactly as it was written. *)
     | Perspective_origin_arbitrary of string * Css.perspective_origin
+    | Perspective_origin_raw of string * string
     | (* Transform style *)
       Transform_style_3d
     | Transform_style_flat
@@ -137,6 +145,10 @@ module Handler = struct
     | Transform_none
     | Transform_gpu
     | Transform_arbitrary of string * Css.transform list
+    | Transform_raw of string * string
+      (* A bracket no reader took, on any of these families: the class names one
+         longhand or one channel, so the value goes there verbatim - Tailwind's
+         token-stream contract. *)
     | (* Transform origin *)
       Origin_center
     | Origin_top
@@ -148,6 +160,7 @@ module Handler = struct
     | Origin_bottom_left
     | Origin_bottom_right
     | Origin_arbitrary of string * Css.transform_origin
+    | Origin_raw of string * string
 
   (** Priority for transform utilities *)
   let name = "transforms"
@@ -159,17 +172,18 @@ module Handler = struct
   let priority = function
     | Origin_center | Origin_top | Origin_bottom | Origin_left | Origin_right
     | Origin_top_left | Origin_top_right | Origin_bottom_left
-    | Origin_bottom_right | Origin_arbitrary _ ->
+    | Origin_bottom_right | Origin_arbitrary _ | Origin_raw _ ->
         8
     | Backface_visible | Backface_hidden -> 38
     | Perspective_none | Perspective_theme _ | Perspective_dramatic
     | Perspective_near | Perspective_normal | Perspective_midrange
-    | Perspective_distant | Perspective_arbitrary _ | Perspective_origin_center
-    | Perspective_origin_top | Perspective_origin_bottom
-    | Perspective_origin_left | Perspective_origin_right
-    | Perspective_origin_top_left | Perspective_origin_top_right
-    | Perspective_origin_bottom_left | Perspective_origin_bottom_right
-    | Perspective_origin_arbitrary _ ->
+    | Perspective_distant | Perspective_arbitrary _ | Perspective_raw _
+    | Perspective_origin_center | Perspective_origin_top
+    | Perspective_origin_bottom | Perspective_origin_left
+    | Perspective_origin_right | Perspective_origin_top_left
+    | Perspective_origin_top_right | Perspective_origin_bottom_left
+    | Perspective_origin_bottom_right | Perspective_origin_arbitrary _
+    | Perspective_origin_raw _ ->
         40
     | Transform_style_3d | Transform_style_flat | Transform_box_border
     | Transform_box_content | Transform_box_fill | Transform_box_stroke
@@ -722,6 +736,47 @@ module Handler = struct
               Var skew_y_ref;
             ];
         ])
+
+  (* A bracket no reader took, written into the channel the class names and into
+     the transform chain that reads it. [raw_skew_style] above is the same shape
+     for the skew channels; this is the rotate one. *)
+  let raw_rotate_style var fn value =
+    let binding =
+      Parse.wrap_declaration_value ~before:(fn ^ "(") ~after:")" value
+      |> Option.map (Css.custom_property ~layer:"utilities" (Var.css_name var))
+    in
+    let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
+    let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
+    let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
+    let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
+    let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
+    style ~property_rules:rotate_skew_props
+      ~metadata:[ Var.metadata var ]
+      (Option.to_list binding
+      @ [
+          transforms
+            [
+              Var rotate_x_ref;
+              Var rotate_y_ref;
+              Var rotate_z_ref;
+              Var skew_x_ref;
+              Var skew_y_ref;
+            ];
+        ])
+
+  (* The translate channels take the value itself rather than a function call,
+     so the raw form writes the text straight into the channel. *)
+  let raw_translate_style vars value =
+    let binding var =
+      Css.custom_property ~layer:"utilities" (Var.css_name var) value
+    in
+    let props =
+      collect_property_rules
+        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
+    in
+    style ~property_rules:props
+      ~metadata:(List.map Var.metadata vars)
+      (List.map binding vars @ [ translate_xy_refs ])
 
   (* Combined translate utilities *)
   let translate_full =
@@ -1329,6 +1384,21 @@ module Handler = struct
     | Translate_x_px -> translate_x_px
     | Translate_x_step f -> translate_x_step f
     | Translate_x_arbitrary (_, len) -> translate_x_arbitrary len
+    | Translate_x_raw (_, v) -> raw_translate_style [ tw_translate_x_var ] v
+    | Translate_y_raw (_, v) -> raw_translate_style [ tw_translate_y_var ] v
+    | Translate_raw (_, v) ->
+        raw_translate_style [ tw_translate_x_var; tw_translate_y_var ] v
+    | Rotate_x_raw (_, v) -> raw_rotate_style tw_rotate_x_var "rotateX" v
+    | Rotate_y_raw (_, v) -> raw_rotate_style tw_rotate_y_var "rotateY" v
+    | Rotate_z_raw (_, v) -> raw_rotate_style tw_rotate_z_var "rotateZ" v
+    | Perspective_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "perspective" v))
+    | Perspective_origin_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "perspective-origin" v))
+    | Origin_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "transform-origin" v))
+    | Transform_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "transform" v))
     | Translate_x_fraction (num, denom) -> translate_x_fraction num denom
     | Translate_y n -> translate_y n
     | Translate_y_full -> translate_y_full
@@ -1449,7 +1519,7 @@ module Handler = struct
 
   let suborder = function
     | Transform -> 2000
-    | Transform_arbitrary _ -> 2001
+    | Transform_arbitrary _ | Transform_raw _ -> 2001
     | Transform_cpu -> 2002
     | Transform_gpu -> 2003
     | Transform_none -> 2004
@@ -1460,22 +1530,22 @@ module Handler = struct
     | Neg_translate _ | Neg_translate_arbitrary _ | Neg_translate_full
     | Neg_translate_px | Neg_translate_fraction _ ->
         20
-    | Translate _ | Translate_arbitrary _ | Translate_full | Translate_px
-    | Translate_1_2 | Translate_fraction _ ->
+    | Translate _ | Translate_arbitrary _ | Translate_raw _ | Translate_full
+    | Translate_px | Translate_1_2 | Translate_fraction _ ->
         21
     | Translate_x n when n < 0 -> 100
     | Neg_translate_x_arbitrary _ | Neg_translate_x_full | Neg_translate_x_px
     | Neg_translate_x_1_2 | Neg_translate_x_fraction _ ->
         100
     | Translate_x _ | Translate_x_fraction _ | Translate_x_full | Translate_x_px
-    | Translate_x_step _ | Translate_x_arbitrary _ ->
+    | Translate_x_step _ | Translate_x_arbitrary _ | Translate_x_raw _ ->
         101
     | Translate_y n when n < 0 -> 200
     | Neg_translate_y_arbitrary _ | Neg_translate_y_full | Neg_translate_y_px
     | Neg_translate_y_1_2 | Neg_translate_y_fraction _ ->
         200
     | Translate_y _ | Translate_y_fraction _ | Translate_y_full | Translate_y_px
-    | Translate_y_step _ | Translate_y_arbitrary _ ->
+    | Translate_y_step _ | Translate_y_arbitrary _ | Translate_y_raw _ ->
         201
     | Translate_z n when n < 0 -> 300
     | Neg_translate_z_arbitrary _ | Neg_translate_z_px -> 300
@@ -1503,13 +1573,19 @@ module Handler = struct
         802
     | Rotate_x n when n < 0 -> 900
     | Neg_rotate_x_bare_var _ | Neg_rotate_x_arbitrary _ -> 900
-    | Rotate_x _ | Rotate_x_bare_var _ | Rotate_x_arbitrary _ -> 901
+    | Rotate_x _ | Rotate_x_bare_var _ | Rotate_x_arbitrary _ | Rotate_x_raw _
+      ->
+        901
     | Rotate_y n when n < 0 -> 1000
     | Neg_rotate_y_bare_var _ | Neg_rotate_y_arbitrary _ -> 1000
-    | Rotate_y _ | Rotate_y_bare_var _ | Rotate_y_arbitrary _ -> 1001
+    | Rotate_y _ | Rotate_y_bare_var _ | Rotate_y_arbitrary _ | Rotate_y_raw _
+      ->
+        1001
     | Rotate_z n when n < 0 -> 1100
     | Neg_rotate_z_bare_var _ | Neg_rotate_z_arbitrary _ -> 1100
-    | Rotate_z _ | Rotate_z_bare_var _ | Rotate_z_arbitrary _ -> 1101
+    | Rotate_z _ | Rotate_z_bare_var _ | Rotate_z_arbitrary _ | Rotate_z_raw _
+      ->
+        1101
     (* Combined skew precedes skew-x, then skew-y. *)
     | Skew n when n < 0 -> 1200
     | Skew _ | Skew_arbitrary _ -> 1201
@@ -1519,11 +1595,11 @@ module Handler = struct
     | Skew_y _ | Skew_y_arbitrary _ -> 1301
     (* Perspective depths are one candidate band; Tailwind orders their class
        spellings rather than their semantic distance. *)
-    | Perspective_arbitrary _ | Perspective_dramatic | Perspective_none
-    | Perspective_theme _ | Perspective_normal | Perspective_near
-    | Perspective_midrange | Perspective_distant ->
+    | Perspective_arbitrary _ | Perspective_raw _ | Perspective_dramatic
+    | Perspective_none | Perspective_theme _ | Perspective_normal
+    | Perspective_near | Perspective_midrange | Perspective_distant ->
         1400
-    | Perspective_origin_arbitrary _ -> 1499
+    | Perspective_origin_arbitrary _ | Perspective_origin_raw _ -> 1499
     | Perspective_origin_bottom -> 1500
     | Perspective_origin_bottom_left -> 1501
     | Perspective_origin_bottom_right -> 1502
@@ -1556,7 +1632,7 @@ module Handler = struct
     | Origin_top -> 1706
     | Origin_top_left -> 1707
     | Origin_top_right -> 1708
-    | Origin_arbitrary _ -> 1699
+    | Origin_arbitrary _ | Origin_raw _ -> 1699
 
   (* A fractional spacing step: [0.5], [2.5]. Integers keep the existing
      path. *)
@@ -1575,14 +1651,21 @@ module Handler = struct
      [_] stands for a space, [--spacing(n)] expands, and a binary [+] gets the
      spaces CSS math wants, so [calc(1px+1px)] is a value rather than a parse
      error. [None] is a bracket that grammar refuses, and [of_class] declines
-     the utility rather than leaving [to_style] to raise. *)
+     the utility rather than leaving [to_style] to raise.
+
+     A data-type hint chooses which longhand a bracket lands in and says nothing
+     about the value. Every family reading through here writes one longhand, so
+     the hint lands there and [read] is handed what follows it. A bracket whose
+     hint is empty names no utility, which is the other [None]. The caller keeps
+     the bracket whole for the class name, which is what the markup carries. *)
   let arbitrary_value read inner =
-    let cursor =
-      Cascade.Cursor.of_string (Parse.decode_arbitrary_value inner)
-    in
-    match Cascade.Cursor.try_parse_full_err read cursor with
-    | Ok v -> Some v
-    | Error _ -> None
+    Stdlib.Option.bind (Parse.value_after_hint inner) (fun value ->
+        let cursor =
+          Cascade.Cursor.of_string (Parse.decode_arbitrary_value value)
+        in
+        match Cascade.Cursor.try_parse_full_err read cursor with
+        | Ok v -> Some v
+        | Error _ -> None)
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -1630,7 +1713,11 @@ module Handler = struct
         | Ok len ->
             Ok
               (Translate_x_arbitrary (String.sub n 1 (String.length n - 2), len))
-        | Error _ -> err_not_utility)
+        | Error _ -> (
+            let raw = Parse.bracket_inner n in
+            match Parse.arbitrary_declaration_value raw with
+            | Some v -> Ok (Translate_x_raw (raw, v))
+            | None -> err_not_utility))
     | [ "translate"; "x"; "full" ] -> Ok Translate_x_full
     | [ "translate"; "x"; "px" ] -> Ok Translate_x_px
     | [ "translate"; "x"; n ] when String.contains n '/' -> (
@@ -1645,7 +1732,11 @@ module Handler = struct
         | Ok len ->
             Ok
               (Translate_y_arbitrary (String.sub n 1 (String.length n - 2), len))
-        | Error _ -> err_not_utility)
+        | Error _ -> (
+            let raw = Parse.bracket_inner n in
+            match Parse.arbitrary_declaration_value raw with
+            | Some v -> Ok (Translate_y_raw (raw, v))
+            | None -> err_not_utility))
     | [ "translate"; "y"; "full" ] -> Ok Translate_y_full
     | [ "translate"; "y"; "px" ] -> Ok Translate_y_px
     | [ "translate"; "y"; n ] when String.contains n '/' -> (
@@ -1691,7 +1782,12 @@ module Handler = struct
             Ok
               (Translate_arbitrary
                  (String.sub value 1 (String.length value - 2), len))
-        | Error _ -> err_not_utility)
+        | Error _ when not (Parse.is_bracket_value value) -> err_not_utility
+        | Error _ -> (
+            let raw = Parse.bracket_inner value in
+            match Parse.arbitrary_declaration_value raw with
+            | Some v -> Ok (Translate_raw (raw, v))
+            | None -> err_not_utility))
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
     | [ ""; "translate"; value ] when Parse.is_bracket_value value ->
@@ -1821,21 +1917,39 @@ module Handler = struct
     | [ "rotate"; "x"; n ] when Parse.is_bracket_value n -> (
         match parse_bracket_angle n with
         | Ok (raw, a) -> Ok (Rotate_x_arbitrary (raw, a))
-        | Error _ -> err_not_utility)
+        | Error _ -> (
+            (* The channel is this family's longhand, so a bracket no angle
+               reader took still reaches it. *)
+            let raw = Parse.bracket_inner n in
+            match Parse.arbitrary_declaration_value raw with
+            | Some value -> Ok (Rotate_x_raw (raw, value))
+            | None -> err_not_utility))
     | [ "rotate"; "x"; n ] -> Parse.int_any n >|= fun n -> Rotate_x n
     | [ "rotate"; "y"; n ] when Parse.is_bare_var n ->
         Ok (Rotate_y_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; "y"; n ] when Parse.is_bracket_value n -> (
         match parse_bracket_angle n with
         | Ok (raw, a) -> Ok (Rotate_y_arbitrary (raw, a))
-        | Error _ -> err_not_utility)
+        | Error _ -> (
+            (* The channel is this family's longhand, so a bracket no angle
+               reader took still reaches it. *)
+            let raw = Parse.bracket_inner n in
+            match Parse.arbitrary_declaration_value raw with
+            | Some value -> Ok (Rotate_y_raw (raw, value))
+            | None -> err_not_utility))
     | [ "rotate"; "y"; n ] -> Parse.int_any n >|= fun n -> Rotate_y n
     | [ "rotate"; "z"; n ] when Parse.is_bare_var n ->
         Ok (Rotate_z_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; "z"; n ] when Parse.is_bracket_value n -> (
         match parse_bracket_angle n with
         | Ok (raw, a) -> Ok (Rotate_z_arbitrary (raw, a))
-        | Error _ -> err_not_utility)
+        | Error _ -> (
+            (* The channel is this family's longhand, so a bracket no angle
+               reader took still reaches it. *)
+            let raw = Parse.bracket_inner n in
+            match Parse.arbitrary_declaration_value raw with
+            | Some value -> Ok (Rotate_z_raw (raw, value))
+            | None -> err_not_utility))
     | [ "rotate"; "z"; n ] -> Parse.int_any n >|= fun n -> Rotate_z n
     (* Negative rotate: -rotate-N, -rotate-(--var), -rotate-[123deg] *)
     | [ ""; "rotate"; n ] when Parse.is_bare_var n ->
@@ -1900,7 +2014,12 @@ module Handler = struct
         let value = String.concat "-" rest in
         match parse_bracket_length value with
         | Ok len -> Ok (Perspective_arbitrary (Parse.bracket_inner value, len))
-        | Error _ -> err_not_utility)
+        | Error _ when not (Parse.is_bracket_value value) -> err_not_utility
+        | Error _ -> (
+            let inner = Parse.bracket_inner value in
+            match Parse.arbitrary_declaration_value inner with
+            | Some v -> Ok (Perspective_raw (inner, v))
+            | None -> err_not_utility))
     | [ "perspective"; "origin"; "center" ] -> Ok Perspective_origin_center
     | [ "perspective"; "origin"; "top" ] -> Ok Perspective_origin_top
     | [ "perspective"; "origin"; "bottom" ] -> Ok Perspective_origin_bottom
@@ -1922,11 +2041,14 @@ module Handler = struct
             arbitrary_value Css.Properties.read_perspective_origin inner
           with
           | Some po -> Ok (Perspective_origin_arbitrary (inner, po))
-          | None ->
-              Error
-                (`Msg
-                   ("perspective-origin-[" ^ inner
-                  ^ "]: not a valid perspective-origin"))
+          | None -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some value -> Ok (Perspective_origin_raw (inner, value))
+              | None ->
+                  Error
+                    (`Msg
+                       ("perspective-origin-[" ^ inner
+                      ^ "]: not a valid perspective-origin")))
         else err_not_utility
     | [ "transform"; "style"; "3d" ] -> Ok Transform_style_3d
     | [ "transform"; "style"; "flat" ] -> Ok Transform_style_flat
@@ -1943,9 +2065,13 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         match arbitrary_value Css.Properties.read_transforms inner with
         | Some ts -> Ok (Transform_arbitrary (inner, ts))
-        | None ->
-            Error
-              (`Msg ("transform-[" ^ inner ^ "]: not a valid transform list")))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Transform_raw (inner, value))
+            | None ->
+                Error
+                  (`Msg ("transform-[" ^ inner ^ "]: not a valid transform list"))
+            ))
     | [ "transform" ] -> Ok Transform
     | [ "transform"; "cpu" ] -> Ok Transform_cpu
     | [ "transform"; "none" ] -> Ok Transform_none
@@ -1965,9 +2091,14 @@ module Handler = struct
           let inner = Parse.bracket_inner value in
           match arbitrary_value Css.Properties.read_transform_origin inner with
           | Some t -> Ok (Origin_arbitrary (inner, t))
-          | None ->
-              Error
-                (`Msg ("origin-[" ^ inner ^ "]: not a valid transform-origin"))
+          | None -> (
+              match Parse.arbitrary_declaration_value inner with
+              | Some value -> Ok (Origin_raw (inner, value))
+              | None ->
+                  Error
+                    (`Msg
+                       ("origin-[" ^ inner ^ "]: not a valid transform-origin"))
+              )
         else err_not_utility
     | _ -> err_not_utility
 
@@ -1996,7 +2127,10 @@ module Handler = struct
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"
     | Translate_x_step f -> step_class "translate-x" f
-    | Translate_x_arbitrary (raw, _) -> "translate-x-[" ^ raw ^ "]"
+    | Translate_x_arbitrary (raw, _) | Translate_x_raw (raw, _) ->
+        "translate-x-[" ^ raw ^ "]"
+    | Translate_y_raw (raw, _) -> "translate-y-[" ^ raw ^ "]"
+    | Translate_raw (raw, _) -> "translate-[" ^ raw ^ "]"
     | Translate_x_fraction (num, denom) ->
         "translate-x-" ^ string_of_int num ^ "/" ^ string_of_int denom
     | Translate_y n -> neg_class "translate-y-" n
@@ -2058,7 +2192,10 @@ module Handler = struct
     | Skew n -> neg_class "skew-" n
     | Skew_arbitrary (raw, _) -> "skew-" ^ "[" ^ raw ^ "]"
     | Rotate_x n -> neg_class "rotate-x-" n
-    | Rotate_x_arbitrary (raw, _) -> "rotate-x-" ^ "[" ^ raw ^ "]"
+    | Rotate_x_arbitrary (raw, _) | Rotate_x_raw (raw, _) ->
+        "rotate-x-[" ^ raw ^ "]"
+    | Rotate_y_raw (raw, _) -> "rotate-y-[" ^ raw ^ "]"
+    | Rotate_z_raw (raw, _) -> "rotate-z-[" ^ raw ^ "]"
     | Rotate_x_bare_var name -> "rotate-x-(" ^ name ^ ")"
     | Neg_rotate_x_bare_var name -> "-rotate-x-(" ^ name ^ ")"
     | Neg_rotate_x_arbitrary (raw, _) -> "-rotate-x-" ^ "[" ^ raw ^ "]"
@@ -2079,7 +2216,8 @@ module Handler = struct
     | Perspective_normal -> "perspective-normal"
     | Perspective_midrange -> "perspective-midrange"
     | Perspective_distant -> "perspective-distant"
-    | Perspective_arbitrary (raw, _) -> "perspective-[" ^ raw ^ "]"
+    | Perspective_arbitrary (raw, _) | Perspective_raw (raw, _) ->
+        "perspective-[" ^ raw ^ "]"
     | Perspective_origin_center -> "perspective-origin-center"
     | Perspective_origin_top -> "perspective-origin-top"
     | Perspective_origin_bottom -> "perspective-origin-bottom"
@@ -2089,7 +2227,8 @@ module Handler = struct
     | Perspective_origin_top_right -> "perspective-origin-top-right"
     | Perspective_origin_bottom_left -> "perspective-origin-bottom-left"
     | Perspective_origin_bottom_right -> "perspective-origin-bottom-right"
-    | Perspective_origin_arbitrary (s, _) -> "perspective-origin-[" ^ s ^ "]"
+    | Perspective_origin_arbitrary (s, _) | Perspective_origin_raw (s, _) ->
+        "perspective-origin-[" ^ s ^ "]"
     | Transform_style_3d -> "transform-3d"
     | Transform_style_flat -> "transform-flat"
     | Transform_box_border -> "transform-border"
@@ -2103,7 +2242,8 @@ module Handler = struct
     | Transform_cpu -> "transform-cpu"
     | Transform_none -> "transform-none"
     | Transform_gpu -> "transform-gpu"
-    | Transform_arbitrary (s, _) -> "transform-[" ^ s ^ "]"
+    | Transform_arbitrary (s, _) | Transform_raw (s, _) ->
+        "transform-[" ^ s ^ "]"
     | Origin_center -> "origin-center"
     | Origin_top -> "origin-top"
     | Origin_bottom -> "origin-bottom"
@@ -2113,7 +2253,7 @@ module Handler = struct
     | Origin_top_right -> "origin-top-right"
     | Origin_bottom_left -> "origin-bottom-left"
     | Origin_bottom_right -> "origin-bottom-right"
-    | Origin_arbitrary (s, _) -> "origin-[" ^ s ^ "]"
+    | Origin_arbitrary (s, _) | Origin_raw (s, _) -> "origin-[" ^ s ^ "]"
 
   let examples =
     [

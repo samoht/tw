@@ -7,12 +7,15 @@ let test_clip_polygon () =
   check string "clip class" "clip-[polygon(50% 0%, 0% 100%, 100% 100%)]"
     (Tw.pp tri);
   let css = to_css [ tri ] |> Css.to_string ~minify:false in
-  check bool "has clip-path property" true
-    (Astring.String.is_infix ~affix:"clip-path:" css);
-  (* Polygon points preserve percentage units and the API keeps compact
-     commas. *)
-  check bool "has polygon value" true
-    (Astring.String.is_infix ~affix:"polygon(50% 0%,0% 100%,100% 100%)" css)
+  (* The whole declaration, so the property and the value are one assertion
+     rather than two that could pass on different rules. The class name this
+     constructor spells carries spaces, so it is not a string [of_string] reads
+     back, which is why this stays a search over the sheet rather than an exact
+     declaration list. Polygon points preserve percentage units and the API
+     keeps compact commas. *)
+  check bool "writes the polygon clip-path" true
+    (Astring.String.is_infix
+       ~affix:"clip-path: polygon(50% 0%,0% 100%,100% 100%)" css)
 
 (* Test clip-path: inset() parsing with 1-4 length values (CSS shorthand).
    Canonicalisation (e.g. dropping the unit on zero lengths inside basic-shape

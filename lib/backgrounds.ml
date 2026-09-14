@@ -200,8 +200,18 @@ module Handler = struct
     | Bg_opacity of Color.color * int * Color.opacity_modifier
     (* bg-[length:...] - explicit length prefix for bracket size *)
     | Bg_bracket_length of string
+    | (* A bracket no reader took. The hint chooses the longhand and the value
+         is forwarded verbatim, which is Tailwind's token-stream contract; with
+         no hint, or one this family does not know, the colour is the last
+         resort. The browser discards the declaration; the selector is what the
+         class was for. *)
+      Bg_bracket_raw_color of string * string
+    | Bg_bracket_raw_image of string * string
+    | Bg_bracket_raw_position of string * string
     (* bg-position-[...] bracket notation *)
     | Bg_position_bracket of string * Css.position_value
+    | Bg_position_raw of string * string
+    (* bg-position-[foo]: one longhand, so the value is forwarded verbatim. *)
     (* bg-size-[...] bracket notation *)
     | Bg_size_bracket of string
 
@@ -305,6 +315,10 @@ module Handler = struct
     | Bg_bracket_cover -> "bg-[cover]"
     | Bg_bracket_size v -> "bg-[size:" ^ v ^ "]"
     | Bg_bracket_length v -> "bg-[length:" ^ v ^ "]"
+    | Bg_bracket_raw_color (v, _)
+    | Bg_bracket_raw_image (v, _)
+    | Bg_bracket_raw_position (v, _) ->
+        "bg-[" ^ v ^ "]"
     | Bg_bracket_position (v, _) -> "bg-[" ^ v ^ "]"
     | Bg_bracket_typed_position (inner, _) -> "bg-[" ^ inner ^ "]"
     | Bg_bracket_color_var v -> "bg-[color:" ^ v ^ "]"
@@ -374,7 +388,8 @@ module Handler = struct
     | Bg_radial -> "bg-radial"
     | Bg_radial_interp (interp, _) -> "bg-radial/" ^ interp
     | Bg_radial_bracket v -> "bg-radial-[" ^ v ^ "]"
-    | Bg_position_bracket (v, _) -> "bg-position-[" ^ v ^ "]"
+    | Bg_position_bracket (v, _) | Bg_position_raw (v, _) ->
+        "bg-position-[" ^ v ^ "]"
     | Bg_size_bracket v -> "bg-size-[" ^ v ^ "]"
 
   let to_spec (dir : direction) : Css.gradient_direction =
@@ -419,7 +434,7 @@ module Handler = struct
     | Bg _ | Bg_opacity _ | Bg_inherit | Bg_current | Bg_current_opacity _
     | Bg_transparent | Bg_bracket_color _ | Bg_bracket_color_opacity _
     | Bg_bracket_color_var _ | Bg_bracket_color_var_opacity _ | Bg_bracket_var _
-    | Bg_bracket_var_opacity _ ->
+    | Bg_bracket_var_opacity _ | Bg_bracket_raw_color _ ->
         198
     | Bg_gradient_to _ | Bg_linear_to _ | Bg_linear_to_interp _
     | Bg_linear_angle _ | Bg_linear_angle_neg _ | Bg_linear_angle_interp _
@@ -429,7 +444,8 @@ module Handler = struct
     | Bg_conic_angle_neg_interp _ | Bg_radial | Bg_radial_interp _
     | Bg_conic_bracket _ | Bg_radial_bracket _ | Bg_bracket_image_var _
     | Bg_bracket_image _ | Bg_bracket_linear_gradient _ | Bg_bracket_url _
-    | Bg_bracket_image_url _ | Bg_bracket_url_var _ | Bg_none ->
+    | Bg_bracket_image_url _ | Bg_bracket_url_var _ | Bg_bracket_raw_image _
+    | Bg_none ->
         199
     | Via_none -> 202
     | Gradient_color (From, _) -> 203
@@ -447,7 +463,7 @@ module Handler = struct
     | Bg_fixed | Bg_local | Bg_scroll -> 252
     | Bg_clip_border | Bg_clip_padding | Bg_clip_content | Bg_clip_text -> 253
     | Bg_position _ | Bg_bracket_position _ | Bg_bracket_typed_position _
-    | Bg_position_bracket _ ->
+    | Bg_position_bracket _ | Bg_position_raw _ | Bg_bracket_raw_position _ ->
         254
     | Bg_repeat | Bg_no_repeat | Bg_repeat_x | Bg_repeat_y | Bg_repeat_round
     | Bg_repeat_space ->
@@ -728,14 +744,25 @@ module Handler = struct
     | Ok pos -> Some pos
     | Error _ -> None
 
+  (* A data-type hint chooses which longhand a bracket lands in and says nothing
+     about the value. [bg-position-] and [bg-size-] each write one longhand, so
+     every hint lands there and the readers are handed what follows it. The
+     constructors keep the bracket whole, because the class name is what the
+     markup carries, so the peel has to happen again wherever one re-reads it.
+     [None] is a bracket whose hint is empty, which names no utility. *)
+  let bracket_value_after_hint = Parse.value_after_hint
+
   (* The bracket forms that also accept a var() reference read it as one. *)
   let bracket_position_value inner : Css.position_value option =
-    if Parse.is_var inner then
-      let ref : Css.position_value Css.var =
-        Var.bracket (Parse.extract_var_name inner)
-      in
-      Some (Css.Var ref)
-    else parse_bracket_position inner
+    let read value : Css.position_value option =
+      if Parse.is_var value then
+        let ref : Css.position_value Css.var =
+          Var.bracket (Parse.extract_var_name value)
+        in
+        Some (Css.Var ref)
+      else parse_bracket_position value
+    in
+    Stdlib.Option.bind (bracket_value_after_hint inner) read
 
   (* A bracket background-image: a gradient, a url(), or a comma-separated layer
      list. [None] means the bracket is not an image, which [of_class] rejects:
@@ -1505,9 +1532,15 @@ module Handler = struct
     | Bg_bracket_contain -> style [ Css.background_size Contain ]
     | Bg_bracket_cover -> style [ Css.background_size Cover ]
     | Bg_bracket_size inner -> (
+        (* A value the size grammar declines is forwarded verbatim, not replaced
+           by [auto]: the hint chose the longhand, and substituting a value the
+           class never asked for paints something rather than nothing. *)
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
-        | None -> style [ Css.background_size Auto ])
+        | None ->
+            style
+              (Option.to_list
+                 (Parse.opaque_declaration "background-size" inner)))
     | Bg_bracket_position (_, pos) -> style [ Css.background_position [ pos ] ]
     | Bg_bracket_typed_position (_, pos) ->
         style [ Css.background_position [ pos ] ]
@@ -1579,19 +1612,45 @@ module Handler = struct
     | Bg_current_opacity opacity -> Color.bg_current_with_opacity ~theme opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
     | Bg_opacity (color, shade, opacity) -> bg_with_opacity color shade opacity
+    | Bg_bracket_raw_color (_, value) ->
+        style
+          (Option.to_list (Parse.opaque_declaration "background-color" value))
+    | Bg_bracket_raw_image (_, value) ->
+        style
+          (Option.to_list (Parse.opaque_declaration "background-image" value))
+    | Bg_bracket_raw_position (_, value) ->
+        style
+          (Option.to_list
+             (Parse.opaque_declaration "background-position" value))
     | Bg_bracket_length inner -> (
         match parse_bracket_size inner with
         | Some decl -> style [ decl ]
-        | None -> style [ Css.background_size Auto ])
+        | None ->
+            style
+              (Option.to_list
+                 (Parse.opaque_declaration "background-size" inner)))
     | Bg_position_bracket (_, pos) -> style [ Css.background_position [ pos ] ]
+    | Bg_position_raw (_, v) ->
+        style
+          (Option.to_list (Parse.opaque_declaration "background-position" v))
     | Bg_size_bracket inner -> (
-        match parse_bracket_size inner with
+        (* [of_class] refused an empty hint, so the peel succeeds here. *)
+        let value =
+          Stdlib.Option.value (bracket_value_after_hint inner) ~default:inner
+        in
+        match parse_bracket_size value with
         | Some decl -> style [ decl ]
-        | None when Parse.is_var inner ->
-            let var_name = Parse.extract_var_name inner in
+        | None when Parse.is_var value ->
+            let var_name = Parse.extract_var_name value in
             let ref : Css.background_size Css.var = Var.bracket var_name in
             style [ Css.background_size (Var ref) ]
-        | None -> style [ Css.background_size Auto ])
+        | None ->
+            (* A value the size grammar declines is forwarded verbatim, not
+               replaced by [auto]: substituting a value the class never asked
+               for paints something rather than nothing. *)
+            style
+              (Option.to_list
+                 (Parse.opaque_declaration "background-size" value)))
 
   (** Split a string on the first '/' into (base, modifier_opt). E.g. "r/oklab"
       → ("r", Some "oklab"), "45" → ("45", None) *)
@@ -1887,13 +1946,26 @@ module Handler = struct
         let inner = Parse.bracket_inner bracket in
         match bracket_position_value inner with
         | Some pos -> Ok (Bg_position_bracket (inner, pos))
-        | None -> Error (`Msg "Invalid background-position value"))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Bg_position_raw (inner, raw))
+            | None -> Error (`Msg "Invalid background-position value")))
     (* bg-size-[...] bracket notation *)
     | [ "bg"; "size"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
-        if parse_bracket_size inner = None && not (Parse.is_var inner) then
-          Error (`Msg "Invalid background-size value")
-        else Ok (Bg_size_bracket inner)
+        let readable value =
+          parse_bracket_size value <> None || Parse.is_var value
+        in
+        if
+          Stdlib.Option.fold ~none:false ~some:readable
+            (bracket_value_after_hint inner)
+        then Ok (Bg_size_bracket inner)
+        else if
+          (* The size reader keeps its own spelling; a value it declines still
+             names background-size, which Bg_size_bracket forwards verbatim. *)
+          Parse.arbitrary_declaration_value inner <> None
+        then Ok (Bg_size_bracket inner)
+        else Error (`Msg "Invalid background-size value")
     (* Bracket notation: bg-[...] and bg-[...]/opacity *)
     | [ "bg"; bracket_stuff ]
       when String.length bracket_stuff > 1 && bracket_stuff.[0] = '[' -> (
@@ -1909,6 +1981,15 @@ module Handler = struct
               if !depth = 0 then close := i)
         done;
         let parse_opacity s = Color.opacity_of_string ~theme s in
+        (* The last resort forwards a value verbatim, so it has to be handed one
+           value: [bg-[10px][20px]] is two brackets glued together, which is no
+           utility to Tailwind either. Every reader above answers for a shape it
+           recognises; only the fall-through needs this. *)
+        let last_resort inner =
+          if Parse.is_bracket_value bracket_stuff then
+            Parse.arbitrary_declaration_value inner
+          else None
+        in
         if !close >= 0 && !close + 1 < len && bracket_stuff.[!close + 1] = '/'
         then
           (* Bracket with opacity: [color:var(--x)]/50 *)
@@ -1966,7 +2047,12 @@ module Handler = struct
               in
               match bracket_position_value v with
               | Some pos -> Ok (Bg_bracket_typed_position (inner, pos))
-              | None -> Error (`Msg ("Unknown bg bracket position: " ^ v)))
+              | None -> (
+                  (* The hint chose the longhand, so the value goes there
+                     whatever the position grammar makes of it. *)
+                  match last_resort inner with
+                  | Some raw -> Ok (Bg_bracket_raw_position (inner, raw))
+                  | None -> Error (`Msg ("Unknown bg bracket position: " ^ v))))
           | _ when has_bracket_color_hint inner -> (
               (* The hint says how to read the value written after it; only a
                  var() reference there names a custom property. *)
@@ -1975,23 +2061,31 @@ module Handler = struct
               else
                 match Color.parse_bracket_color v with
                 | Some css_color -> Ok (Bg_bracket_color (inner, css_color))
-                | None -> Error (`Msg ("Unknown bg bracket color: " ^ v)))
+                | None -> (
+                    match last_resort inner with
+                    | Some raw -> Ok (Bg_bracket_raw_color (inner, raw))
+                    | None -> Error (`Msg ("Unknown bg bracket color: " ^ v))))
           | _ when String.length inner > 6 && String.sub inner 0 6 = "image:"
             -> (
               (* The [image:] data-type hint forces a background-image. The
                  value is a [url(...)] literal, a [var(...)] reference, or a
                  literal image (e.g. a gradient). *)
               let v = String.sub inner 6 (String.length inner - 6) in
+              let raw_image () =
+                match last_resort inner with
+                | Some raw -> Ok (Bg_bracket_raw_image (inner, raw))
+                | None -> Error (`Msg ("Unknown bg bracket image: " ^ v))
+              in
               if String.starts_with ~prefix:"url(" v then
                 match Parse.url_token (Parse.decode_arbitrary_value v) with
                 | Some _ -> Ok (Bg_bracket_image_url v)
-                | None -> Error (`Msg ("Unknown bg bracket image: " ^ v))
+                | None -> raw_image ()
               else if Parse.is_var v then Ok (Bg_bracket_image_var v)
               else
                 match parse_bracket_image v with
                 | Some img -> Ok (Bg_bracket_image (v, img))
-                | None -> Error (`Msg ("Unknown bg bracket image: " ^ v)))
-          | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
+                | None -> raw_image ())
+          | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" -> (
               (* The [url:] data-type hint forces a background-image the way
                  [image:] does. Only a var() reference names a custom property;
                  any other spelling is the image itself. *)
@@ -2001,11 +2095,19 @@ module Handler = struct
                 Parse.url_token (Parse.decode_arbitrary_value v) <> None
                 || parse_bracket_image v <> None
               then Ok (Bg_bracket_url_var v)
-              else Error (`Msg ("Unknown bg bracket url: " ^ v))
+              else
+                match last_resort inner with
+                | Some raw -> Ok (Bg_bracket_raw_image (inner, raw))
+                | None -> Error (`Msg ("Unknown bg bracket url: " ^ v)))
           | _ when String.starts_with ~prefix:"url(" inner -> (
               match Parse.url_token (Parse.decode_arbitrary_value inner) with
               | Some _ -> Ok (Bg_bracket_url inner)
-              | None -> Error (`Msg ("Unknown bg bracket url: " ^ inner)))
+              | None -> (
+                  (* No hint, so the colour is the last resort even though the
+                     text opens with [url(]. *)
+                  match last_resort inner with
+                  | Some raw -> Ok (Bg_bracket_raw_color (inner, raw))
+                  | None -> Error (`Msg ("Unknown bg bracket url: " ^ inner))))
           | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
           | _ -> (
               (* Try parsing as background-image (gradients, urls,
@@ -2018,9 +2120,15 @@ module Handler = struct
                   | None -> (
                       match parse_bracket_position inner with
                       | Some pos -> Ok (Bg_bracket_position (inner, pos))
-                      | None ->
-                          Error (`Msg ("Unknown bg bracket value: " ^ inner)))))
-        )
+                      | None -> (
+                          (* The colour is this family's last resort, which an
+                             unknown hint reaches as well as no hint at all. *)
+                          match last_resort inner with
+                          | Some raw -> Ok (Bg_bracket_raw_color (inner, raw))
+                          | None ->
+                              Error
+                                (`Msg ("Unknown bg bracket value: " ^ inner)))))
+              ))
     | "bg" :: rest when List.exists has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ~theme rest with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))

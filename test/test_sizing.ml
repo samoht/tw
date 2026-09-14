@@ -192,9 +192,9 @@ let test_logical_size_fractions () =
    Tailwind does not define. *)
 let test_aspect_square_inlined () =
   let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.to_string ~minify:true in
+  (* The exact list already says the utility references no var. What it cannot
+     say is that no token was minted for it, which is a :root binding. *)
   check_declarations "aspect-square" [ "aspect-ratio:1" ];
-  Alcotest.check bool "aspect-square references no var" false
-    (Astring.String.is_infix ~affix:"var(--aspect-square)" css);
   Alcotest.check bool "aspect-square emits no --aspect-square token" false
     (Astring.String.is_infix ~affix:"--aspect-square" css)
 
@@ -448,21 +448,22 @@ let test_named_size_prefers_spacing () =
       [ ("spacing-sm", "8px"); ("container-sm", "256px") ]
   in
   List.iter
-    (fun cls ->
+    (fun (cls, prop) ->
       let css =
         match Tw.of_string ~theme cls with
         | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Css.to_string
         | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       in
-      Alcotest.(check bool)
-        (cls ^ " reads --spacing-sm")
-        true
-        (Astring.String.is_infix ~affix:"var(--spacing-sm)" css);
+      (* The whole declaration, which also says the spacing token reached the
+         property the class names rather than some neighbour of it. *)
+      Test_helpers.check_declarations ~theme ~minify:false cls
+        [ prop ^ ": var(--spacing-sm)" ];
+      (* The binding is a :root declaration, left out of the list by design. *)
       Alcotest.(check bool)
         (cls ^ " declares --spacing-sm")
         true
         (Astring.String.is_infix ~affix:"--spacing-sm: 8px" css))
-    [ "w-sm"; "min-w-sm"; "max-w-sm" ]
+    [ ("w-sm", "width"); ("min-w-sm", "min-width"); ("max-w-sm", "max-width") ]
 
 (* [aspect-[<w>/<h>]] names its class after the bracket, so the ratio has to
    come back out spelled as the author wrote it rather than re-printed. *)
@@ -531,13 +532,8 @@ let test_project_theme_tokens () =
         ("container-tiny", "12rem");
       ]
   in
-  let css cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  let emits decl cls =
+    Test_helpers.check_declarations ~theme ~minify:false cls [ decl ]
   in
   emits "aspect-ratio: var(--aspect-golden)" "aspect-golden";
   emits "max-width: var(--container-tiny)" "max-w-tiny";
@@ -598,15 +594,12 @@ let test_data_type_hint_before_the_length_reader () =
     ];
   (* The name is a run of [a-z] and [-], so an upper-case letter or a digit ends
      it without a hint and the whole bracket stays the value, which the length
-     reader declines. Tailwind writes it out because [w-[…]] has a token-stream
-     last resort and tw has none yet. *)
-  let reject ?why c = check_invalid_input ?why (module Tw.Sizing.Handler) c in
-  let no_last_resort =
-    Diverges "w-[…] has no token-stream last resort, so the value is refused"
-  in
-  reject ~why:no_last_resort "w-[FOO:10px]";
-  reject ~why:no_last_resort "w-[a1:10px]";
+     reader declines. The family's last resort then writes it out, colon and
+     all, which is what the CLI does. *)
+  check_declarations "w-[FOO:10px]" [ "width:FOO:10px" ];
+  check_declarations "w-[a1:10px]" [ "width:a1:10px" ];
   (* An empty hint, and a hint with nothing after it, name no utility. *)
+  let reject c = check_invalid_input (module Tw.Sizing.Handler) c in
   reject "w-[:10px]";
   reject "w-[length:]"
 
