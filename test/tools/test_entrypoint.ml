@@ -238,7 +238,9 @@ let test_authored_color_mix_fallbacks () =
       (fun () -> splice_into_entrypoint ~theme ~path (Cascade.Css.v []))
   in
   check string "fallback immediately precedes each guarded authored value"
-    ".article{--prose-color:var(--color-brand);--marker-color:#fb2c3640}@supports(color:color-mix(in \
+    "@layer theme{:root,:host{--color-brand:oklch(63.7%.237 \
+     25.331)}:root,:host{--color-gray-700:oklch(37.3%.034 \
+     259.733)}}.article{--prose-color:var(--color-brand);--marker-color:#fb2c3640}@supports(color:color-mix(in \
      lab,red,red)){.article{--marker-color:color-mix(in \
      oklab,var(--color-brand) \
      25%,transparent)}}.article{color:#fb2c3640}@supports(color:color-mix(in \
@@ -251,8 +253,7 @@ let test_authored_color_mix_fallbacks () =
      oklab,var(--color-brand) \
      25%,transparent)}}.applied{background-color:#36415366}@supports(color:color-mix(in \
      lab,red,red)){.applied{background-color:color-mix(in \
-     oklab,var(--color-gray-700) 40%,transparent)}}@layer \
-     theme{:root,:host{--color-gray-700:oklch(37.3%.034 259.733)}}"
+     oklab,var(--color-gray-700) 40%,transparent)}}"
     (Cascade.Css.to_string ~minify:true out)
 
 (* Each utility an [@apply] pulls in hoists an [@property] block for every
@@ -662,6 +663,23 @@ let test_apply_declares_every_token_it_reads () =
 
 (* An animation utility names a [@keyframes] block, which is not a declaration
    and so not covered by the [var()] invariant above. *)
+(* The same invariant for author CSS that never mentions [@apply]. The value
+   shorthands read a theme token as surely as a utility does, and a token the
+   sheet does not declare leaves the declaration resolving to nothing.
+
+   A project [@theme] token is not covered here: the theme it declares is built
+   by the caller, and [splice_into_entrypoint] is handed one rather than
+   reading it back. That path is measured against the CLI instead. *)
+let test_author_css_declares_every_token_it_reads () =
+  List.iter
+    (fun body -> check_no_dangling_var body (applied_sheet body))
+    [
+      ".btn { padding: --spacing(4); }";
+      ".btn { margin: --spacing(2.5); }";
+      ".btn { color: theme(--color-red-500); }";
+      ".btn { color: theme(colors.red.500); }";
+    ]
+
 let test_apply_keeps_the_keyframes () =
   let css = applied_sheet ".card { @apply animate-spin; }" in
   check bool "the @keyframes the animation names survives" true
@@ -708,6 +726,8 @@ let tests =
     test_case "@apply declares every token it reads" `Quick
       test_apply_declares_every_token_it_reads;
     test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
+    test_case "author CSS declares every token it reads" `Quick
+      test_author_css_declares_every_token_it_reads;
   ]
 
 let suite = ("entrypoint", tests)
