@@ -191,8 +191,11 @@ let test_apply_merges_one_rule () =
     |> List.filter (Cascade.Selector.equal btn)
   in
   check int "one .btn rule" 1 (List.length rules);
-  check string "holding both declarations"
-    ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}"
+  (* The theme block comes with them: both declarations read [--spacing], and a
+     sheet that does not declare it resolves them to nothing. *)
+  check string "holding both declarations and the token they read"
+    ".btn{margin:calc(var(--spacing)*4);padding:calc(var(--spacing)*4)}@layer \
+     theme{:root,:host{--spacing:.25rem}}"
     (Cascade.Css.to_string ~minify:true out)
 
 (* Lightning CSS lowers a dynamic [color-mix()] in author CSS as progressive
@@ -248,7 +251,8 @@ let test_authored_color_mix_fallbacks () =
      oklab,var(--color-brand) \
      25%,transparent)}}.applied{background-color:#36415366}@supports(color:color-mix(in \
      lab,red,red)){.applied{background-color:color-mix(in \
-     oklab,var(--color-gray-700) 40%,transparent)}}"
+     oklab,var(--color-gray-700) 40%,transparent)}}@layer \
+     theme{:root,:host{--color-gray-700:oklch(37.3%.034 259.733)}}"
     (Cascade.Css.to_string ~minify:true out)
 
 (* Each utility an [@apply] pulls in hoists an [@property] block for every
@@ -559,6 +563,110 @@ let test_malformed_utility_spares_the_others () =
       check string "the good utility stands on its own" ".line-ok{padding:5px}"
         (Cascade.Css.to_string ~minify:true (Cascade.Css.v statements))
 
+(* An [@apply] must leave no [var()] the sheet does not declare.
+
+   This is the invariant a parity comparison misses: the rule [@apply] emits is
+   byte-identical to the reference in every one of these cases, so a diff of
+   the utilities layer passes while the page renders unstyled, because nothing
+   declares the token the rule reads. Colours and spacing hid it for a long
+   time - those two are rescued downstream by [Build.referenced_theme_decls],
+   so the families that carry their own namespace were the only ones broken.
+
+   The check is self-contained rather than a comparison, so it needs no CLI and
+   holds for any utility added later. *)
+(* Only a read with no fallback has to be declared. [var(--tw-leading,
+   var(--text-lg--line-height))] is the documented shape of a channel variable
+   a utility reads but never sets, and the fallback is what covers it. *)
+let var_re =
+  Re.compile
+    (Re.seq
+       [
+         Re.str "var(--";
+         Re.group (Re.rep1 (Re.compl [ Re.set ",) " ]));
+         Re.char ')';
+       ])
+
+let declared_re =
+  Re.compile
+    (Re.seq
+       [
+         Re.char '-';
+         Re.char '-';
+         Re.group (Re.rep1 (Re.compl [ Re.set ":;{} " ]));
+         Re.char ':';
+       ])
+
+let names re s =
+  Re.all re s |> List.map (fun g -> Re.Group.get g 1) |> List.sort_uniq compare
+
+let applied_sheet body =
+  let path = Filename.temp_file "apply-token" ".css" in
+  Fun.protect
+    ~finally:(fun () -> Sys.remove path)
+    (fun () ->
+      let oc = open_out path in
+      Fun.protect
+        ~finally:(fun () -> close_out_noerr oc)
+        (fun () ->
+          output_string oc
+            (String.concat "" [ "@import \"tailwindcss\";\n"; body; "\n" ]));
+      splice_into_entrypoint ~theme:Tw.Scheme.default ~path (Cascade.Css.v [])
+      |> Cascade.Css.to_string ~minify:true)
+
+let check_no_dangling_var label css =
+  let read = names var_re css and set = names declared_re css in
+  let dangling = List.filter (fun v -> not (List.mem v set)) read in
+  match dangling with
+  | [] -> ()
+  | missing ->
+      Alcotest.failf "%s reads --%s with nothing declaring it@.%s" label
+        (String.concat ", --" missing)
+        css
+
+(* One per theme namespace a utility reads through [var()]. The six spellings
+   that were always right are here too, so a fix that trades one for the other
+   cannot pass. *)
+let applied_utilities =
+  [
+    "rounded-lg";
+    "text-lg";
+    "blur-sm";
+    "ease-in-out";
+    "animate-spin";
+    "max-w-md";
+    "perspective-near";
+    "tracking-wide";
+    "leading-relaxed";
+    "p-6";
+    "gap-4";
+    "text-blue-500";
+    "bg-red-200";
+    "border-gray-300";
+    "ring-blue-400";
+    "shadow-sm";
+    "font-mono";
+    "duration-200";
+  ]
+
+let test_apply_declares_every_token_it_reads () =
+  List.iter
+    (fun cls ->
+      check_no_dangling_var
+        (String.concat "" [ ".card { @apply "; cls; " }" ])
+        (applied_sheet (String.concat "" [ ".card { @apply "; cls; "; }" ]));
+      check_no_dangling_var
+        (String.concat "" [ "@utility card { @apply "; cls; " }" ])
+        (applied_sheet
+           (String.concat "" [ "@utility card { @apply "; cls; "; }" ])))
+    applied_utilities
+
+(* An animation utility names a [@keyframes] block, which is not a declaration
+   and so not covered by the [var()] invariant above. *)
+let test_apply_keeps_the_keyframes () =
+  let css = applied_sheet ".card { @apply animate-spin; }" in
+  check bool "the @keyframes the animation names survives" true
+    (Astring.String.is_infix ~affix:"@keyframes spin" css)
+
 let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
@@ -597,6 +705,9 @@ let tests =
     test_case "functional routing" `Quick test_functional_routing;
     test_case "malformed utility spares the others" `Quick
       test_malformed_utility_spares_the_others;
+    test_case "@apply declares every token it reads" `Quick
+      test_apply_declares_every_token_it_reads;
+    test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
   ]
 
 let suite = ("entrypoint", tests)
