@@ -875,9 +875,7 @@ let cases =
          utilities alone"
       "@import \"tailwindcss/theme.css\" layer(theme);\n\
        @import \"tailwindcss/utilities.css\" layer(utilities) source(none);\n";
-    case "transition-discrete" ~classes:[ "transition-discrete" ]
-      ~why:"two --default-transition-* tokens are declared that nothing reads"
-      (fenced "");
+    case "transition-discrete" ~classes:[ "transition-discrete" ] (fenced "");
   ]
 
 let write_file path contents =
