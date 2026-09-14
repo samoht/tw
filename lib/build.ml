@@ -707,9 +707,13 @@ let apply_token_override theme decl =
   | Some full_name
     when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
       let bare = String.sub full_name 2 (String.length full_name - 2) in
-      match Scheme.token_override theme bare with
-      | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
-      | None -> if Scheme.is_removed theme bare then None else Some decl)
+      (* An [@theme reference] token is declared somewhere else, so it has no
+         declaration here to override. *)
+      if Scheme.is_reference_token theme bare then None
+      else
+        match Scheme.token_override theme bare with
+        | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
+        | None -> if Scheme.is_removed theme bare then None else Some decl)
   | _ -> Some decl
 
 (* Check if declaration name is a default font family indirection *)
@@ -1923,6 +1927,26 @@ let declared_outputs ~theme order_map extra =
       ))
     extra
 
+(* Every reference the generated sheet makes to an [@theme reference] token
+   carries the block's value as its fallback, since nothing here declares the
+   token and the sheet has to resolve where no declaration reaches. The author's
+   own CSS is not generated, and keeps the references it wrote. *)
+let with_reference_fallbacks ~theme sheet =
+  match theme.Scheme.reference_tokens with
+  | [] -> sheet
+  | _ ->
+      Css.add_var_fallbacks
+        (fun name ->
+          let bare =
+            if String.length name > 2 && String.sub name 0 2 = "--" then
+              String.sub name 2 (String.length name - 2)
+            else name
+          in
+          if Scheme.is_reference_token theme bare then
+            Scheme.token_override theme bare
+          else None)
+        sheet
+
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     tw_classes =
   (* [Rule.outputs ~order_tbl] records each base utility's order under the class
@@ -1955,7 +1979,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     layers ~theme ~layers:config.layers ~include_base:config.base
       ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements
   in
-  Css.concat layer_results
+  Css.concat layer_results |> with_reference_fallbacks ~theme
 
 let rec collect_declarations acc = function
   | Style.Style { props; rules; _ } ->

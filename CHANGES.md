@@ -119,6 +119,10 @@
 - `theme(static)` declares every `--text-*--line-height` token and emits the
   `@keyframes` of the default animations, which the whole theme carries and
   tw left out (#794).
+- An `@theme reference` block declares nothing: its tokens stay out of the theme
+  layer, and a utility reading one carries the block's value as its `var()`
+  fallback, as it resolves in the reference. They were declared like any other
+  token (#NNN).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).

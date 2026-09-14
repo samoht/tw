@@ -2332,9 +2332,12 @@ let author_theme_tokens ~theme stmts =
   |> List.filter_map (fun (Css.V var) ->
       (* [var_name] is the bare name, without the [--] a declaration carries. *)
       let bare = Cascade.Css.var_name var in
-      Option.map
-        (fun value -> ("--" ^ bare, value))
-        (theme_token_value theme bare))
+      (* A reference token is declared somewhere else, by definition. *)
+      if Tw.Scheme.is_reference_token theme bare then None
+      else
+        Option.map
+          (fun value -> ("--" ^ bare, value))
+          (theme_token_value theme bare))
   |> List.sort_uniq compare
 
 (* Declared anywhere in [stmts], at any depth. *)
@@ -2525,8 +2528,10 @@ let theme_of_css css =
   let base =
     { base with prefix = import_prefix css; important = imports_important css }
   in
-  let static = theme_tokens_with "static" (theme_blocks css) in
-  Tw.Scheme.with_overrides ~inline ~static base overrides
+  let blocks = theme_blocks css in
+  let static = theme_tokens_with "static" blocks in
+  let reference = theme_tokens_with "reference" blocks in
+  Tw.Scheme.with_overrides ~inline ~reference ~static base overrides
 
 let entry_variant_defs = entry_defs take_custom_variants
 let entry_utility_defs = entry_defs take_custom_utilities
