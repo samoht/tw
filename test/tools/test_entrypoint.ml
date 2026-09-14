@@ -700,8 +700,9 @@ let test_apply_keeps_the_keyframes () =
   check bool "the @keyframes the animation names survives" true
     (Astring.String.is_infix ~affix:"@keyframes spin" css)
 
-(* A sweep over the author-CSS dialect, each idiom measured against the pinned
-   CLI rather than against an expectation written here.
+(* A sweep over Tailwind's CSS dialect: each case is an entrypoint, compiled by
+   tw the way the [tw] CLI compiles a project and by the pinned CLI, and the two
+   sheets compared whole.
 
    Every defect found in this area since the corpus went in has been invisible
    to the markup sweeps: the utility rules were byte-identical and only the
@@ -709,81 +710,323 @@ let test_apply_keeps_the_keyframes () =
    browser dropped the declaration. A class list cannot reach any of it, so the
    entrypoint is the unit under test.
 
-   Adding a line here is how the next one gets found. The entrypoint fences its
-   own sources, so the generated sheet is empty and what is compared is the
-   author's CSS and the theme layer it pulls in. *)
-let cases =
-  [
-    ("apply-plain", ".btn { @apply p-4 rounded-lg; }");
-    ("apply-colour", ".btn { @apply bg-blue-500 text-white; }");
-    ("apply-important", ".btn { @apply bg-blue-500!; }");
-    ("apply-namespaced", ".btn { @apply blur-sm ease-in-out tracking-wide; }");
-    ("apply-animation", ".btn { @apply animate-spin; }");
-    ("apply-nested", ".btn { &:hover { @apply underline; } }");
-    ("apply-in-layer", "@layer components { .btn { @apply p-4; } }");
-    ("utility-apply", "@utility card { @apply rounded-lg; }");
-    ("spacing-fn", ".btn { padding: --spacing(4); }");
-    ("spacing-fn-fraction", ".btn { margin: --spacing(2.5); }");
-    ("alpha-fn", ".btn { color: --alpha(var(--color-red-500) / 50%); }");
-    ("theme-fn", ".btn { color: theme(--color-red-500); }");
-    ("theme-fn-v3", ".btn { color: theme(colors.red.500); }");
-    ( "theme-in-media",
-      "@media (width >= theme(--breakpoint-md)) { .btn { display: flex; } }" );
-    ( "theme-block",
-      "@theme { --color-brand: #1da1f2; } .btn { color: var(--color-brand); }"
-    );
-    ( "theme-keyframes",
-      "@theme { --animate-wiggle: wiggle 1s; @keyframes wiggle { to { \
-       transform: rotate(3deg); } } } .btn { animation: var(--animate-wiggle); \
-       }" );
-    ( "custom-variant",
-      "@custom-variant dark (&:where(.dark, .dark *)); .btn { @apply p-4; }" );
-    ("variant-at-rule", ".btn { @variant dark { color: white; } }");
-    ( "colour-mix-author",
-      "@theme { --color-brand: #1da1f2; } .btn { color: color-mix(in oklab, \
-       var(--color-brand) 25%, transparent); }" );
-  ]
+   A case declares what the CLI says about it: parity, or a divergence with the
+   reason it is one. Either verdict can fail. A divergence that starts matching
+   fails as surely as a parity case that stops, so a gap that gets fixed reports
+   itself rather than going quiet, and the change that fixes it moves the case
+   to parity. *)
+type verdict = Parity | Diverges of string
 
-let entrypoint body =
+type case = {
+  name : string;
+  entry : string;
+  classes : string list;
+      (** The markup's classes. tw is handed them; the CLI reads them from an
+          [@source inline] the sweep appends to the entrypoint. *)
+  files : (string * string) list;
+      (** Files the entrypoint reads, written beside it. *)
+  verdict : verdict;
+}
+
+let case ?(classes = []) ?(files = []) ?why name entry =
+  let verdict = match why with None -> Parity | Some why -> Diverges why in
+  { name; entry; classes; files; verdict }
+
+(* An entrypoint that imports all of Tailwind and fences its sources, so nothing
+   is scanned and what is generated is what the case asks for. *)
+let fenced body =
   String.concat "" [ "@import \"tailwindcss\" source(none);\n"; body; "\n" ]
 
-let compare_with_cli (name, body) =
+let cases =
+  [
+    case "apply-plain" (fenced ".btn { @apply p-4 rounded-lg; }");
+    case "apply-colour" (fenced ".btn { @apply bg-blue-500 text-white; }");
+    case "apply-important" (fenced ".btn { @apply bg-blue-500!; }");
+    case "apply-namespaced"
+      (fenced ".btn { @apply blur-sm ease-in-out tracking-wide; }");
+    case "apply-animation" (fenced ".btn { @apply animate-spin; }");
+    case "apply-nested" (fenced ".btn { &:hover { @apply underline; } }");
+    case "apply-in-layer" (fenced "@layer components { .btn { @apply p-4; } }");
+    case "utility-apply" (fenced "@utility card { @apply rounded-lg; }");
+    case "apply-declared-utility"
+      ~why:
+        "an @apply naming a utility the same file declares finds none, so the \
+         rule loses the declarations"
+      (fenced "@utility card { tab-size: 8; } .btn { @apply card; }");
+    case "utility-functional"
+      ~classes:[ "foo-2"; "foo-2/3"; "foo-2/[7]" ]
+      (fenced
+         "@utility foo-* { z-index: --value(integer); order: \
+          --modifier(integer, [integer]); }");
+    case "spacing-fn" (fenced ".btn { padding: --spacing(4); }");
+    case "spacing-fn-fraction" (fenced ".btn { margin: --spacing(2.5); }");
+    case "alpha-fn"
+      (fenced ".btn { color: --alpha(var(--color-red-500) / 50%); }");
+    case "theme-fn" (fenced ".btn { color: theme(--color-red-500); }");
+    case "theme-fn-dashed"
+      ~why:"--theme() passes through unexpanded, which no browser reads"
+      (fenced ".btn { color: --theme(--color-red-500); }");
+    case "theme-fn-v3" (fenced ".btn { color: theme(colors.red.500); }");
+    case "theme-in-media"
+      (fenced
+         "@media (width >= theme(--breakpoint-md)) { .btn { display: flex; } }");
+    case "theme-block"
+      (fenced
+         "@theme { --color-brand: #1da1f2; } .btn { color: var(--color-brand); \
+          }");
+    case "theme-inline"
+      (fenced
+         "@theme inline { --color-brand: #1da1f2; } .btn { color: \
+          var(--color-brand); }");
+    case "theme-reference"
+      ~why:"a reference token author CSS reads is declared, where none may be"
+      (fenced
+         "@theme reference { --color-brand: #1da1f2; } .btn { color: \
+          var(--color-brand); }");
+    case "theme-default"
+      (fenced
+         "@theme default { --color-brand: #1da1f2; } .btn { color: \
+          var(--color-brand); }");
+    case "theme-static" ~why:"the block's tokens are not declared"
+      (fenced "@theme static { --color-brand: #1da1f2; }");
+    case "theme-keyframes"
+      (fenced
+         "@theme { --animate-wiggle: wiggle 1s; @keyframes wiggle { to { \
+          transform: rotate(3deg); } } } .btn { animation: \
+          var(--animate-wiggle); }");
+    case "custom-variant"
+      (fenced
+         "@custom-variant dark (&:where(.dark, .dark *)); .btn { @apply p-4; }");
+    case "custom-variant-slot"
+      (fenced
+         "@custom-variant hocus { &:hover, &:focus { @slot; } } .btn { \
+          @variant hocus { color: red; } }");
+    case "variant-at-rule" (fenced ".btn { @variant dark { color: white; } }");
+    case "colour-mix-author"
+      (fenced
+         "@theme { --color-brand: #1da1f2; } .btn { color: color-mix(in oklab, \
+          var(--color-brand) 25%, transparent); }");
+    case "property-author"
+      ~why:"an author @property gets no @supports initial-value fallback"
+      (fenced
+         "@property --my-x { syntax: \"<length>\"; inherits: false; \
+          initial-value: 0px; } .a { --my-x: 2px; }");
+    case "plugin-typography"
+      ~why:
+        "@apply prose swaps the plugin's inner .prose for the applying class \
+         too"
+      (fenced "@plugin \"@tailwindcss/typography\"; .btn { @apply prose; }");
+    case "config-js"
+      ~files:
+        [
+          ( "sweep-config.js",
+            "module.exports = { theme: { extend: { colors: { brand: '#1da1f2' \
+             } } } };\n" );
+        ]
+      ~why:
+        "tw does not evaluate a JavaScript config, so a colour it adds \
+         resolves to nothing"
+      (fenced
+         "@config \"./sweep-config.js\"; .btn { color: theme(colors.brand); }");
+    case "import-important"
+      ~classes:[ "p-4"; "hover:underline" ]
+      ~why:"the option is read by nothing, so no utility is important"
+      "@import \"tailwindcss\" important source(none);\n";
+    case "import-prefix" ~classes:[ "tw:p-4" ]
+      "@import \"tailwindcss\" prefix(tw) source(none);\n";
+    case "import-theme-static"
+      ~why:
+        "the static theme leaves out the --text-*--line-height tokens and the \
+         keyframes"
+      "@import \"tailwindcss\" theme(static) source(none);\n";
+    case "reference"
+      ~why:
+        "tw emits the theme layer a reference exists to leave out, and each \
+         var() loses its fallback"
+      "@reference \"tailwindcss\";\n\
+       .btn { @apply rounded-lg bg-blue-600 p-4; }\n";
+    case "source-inline"
+      ~why:
+        "the safelist is read by nothing, so none of its classes is generated"
+      (fenced "@source inline(\"underline hover:bg-red-500\");");
+    case "source-not-inline" ~classes:[ "p-4"; "m-2" ]
+      ~why:
+        "the exclusion is read by nothing, so the class it names is generated"
+      (fenced "@source not inline(\"m-2\");");
+    case "tailwind-utilities" ~classes:[ "p-4" ]
+      ~why:
+        "tw emits the whole sheet where the file asks for the theme and the \
+         utilities alone"
+      "@import \"tailwindcss/theme.css\" layer(theme);\n\
+       @tailwind utilities source(none);\n";
+    case "sub-imports" ~classes:[ "p-4" ]
+      ~why:
+        "tw emits the whole sheet where the file asks for the theme and the \
+         utilities alone"
+      "@import \"tailwindcss/theme.css\" layer(theme);\n\
+       @import \"tailwindcss/utilities.css\" layer(utilities) source(none);\n";
+    case "transition-discrete" ~classes:[ "transition-discrete" ]
+      ~why:"two --default-transition-* tokens are declared that nothing reads"
+      (fenced "");
+  ]
+
+let write_file path contents =
+  let oc = open_out path in
+  Fun.protect
+    ~finally:(fun () -> close_out_noerr oc)
+    (fun () -> output_string oc contents)
+
+let inline_source = function
+  | [] -> ""
+  | classes ->
+      String.concat ""
+        [ "@source inline(\""; String.concat " " classes; "\");\n" ]
+
+(* The sheet the [tw] CLI prints for the project, rendered the way the sweep has
+   always rendered it. *)
+let tw_sheet ~path classes =
+  let theme =
+    Tw_tools.Entrypoint.theme_of_css (Tw_tools.Entrypoint.read_file path)
+  in
+  let _, sheet =
+    Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base:true classes
+  in
+  let rename_custom_property = Tw.theme_token_rename ~theme in
+  Cascade.Css.optimize sheet
+  |> Cascade.Css.to_string ~minify:true ?rename_custom_property
+
+let matches_cli case =
   (* Beside the other entrypoints these tests write, so the CLI resolves
      [@import "tailwindcss"] against the project's own node_modules. *)
-  let path = "sweep-" ^ name ^ ".css" in
+  let path = "sweep-" ^ case.name ^ ".css" in
+  let written = path :: List.map fst case.files in
   Fun.protect
-    ~finally:(fun () -> Sys.remove path)
+    ~finally:(fun () ->
+      List.iter (fun p -> if Sys.file_exists p then Sys.remove p) written)
     (fun () ->
-      let oc = open_out path in
-      Fun.protect
-        ~finally:(fun () -> close_out_noerr oc)
-        (fun () -> output_string oc (entrypoint body));
-      let css = Tw_tools.Entrypoint.read_file path in
-      let theme = Tw_tools.Entrypoint.theme_of_css css in
-      (* The CLI emits preflight from the same [@import], so the generated half
-         carries the base layer too. Nothing is scanned: the entrypoint pins
-         [source(none)], so what is compared is the author's CSS and the theme
-         layer it pulls in. *)
-      let generated = Tw.to_css ~theme ~base:true [] in
-      let tw =
-        Tw_tools.Entrypoint.splice_into_entrypoint ~theme ~path generated
-        |> Cascade.Css.optimize
-        |> Cascade.Css.to_string ~minify:true
-      in
+      List.iter (fun (p, contents) -> write_file p contents) case.files;
+      write_file path (case.entry ^ inline_source case.classes);
+      let tw = tw_sheet ~path case.classes in
       let cli = Tw_tools.Tailwind_gen.generate_entrypoint ~minify:true path in
-      let diff = Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw in
-      match diff.Cascade_diff.Css_compare.result with
-      | Cascade_diff.Css_compare.No_diff -> None
-      | _ -> Some name)
+      match (Tw_tools.Parity_compare.diff ~mode:`Canonical cli tw).result with
+      | Cascade_diff.Css_compare.No_diff -> true
+      | _ -> false)
 
-let test_author_css_sweep () =
+let misjudged case =
+  match (case.verdict, matches_cli case) with
+  | Parity, true | Diverges _, false -> None
+  | Parity, false -> Some (case.name ^ " diverges from the CLI")
+  | Diverges why, true ->
+      Some
+        (String.concat ""
+           [
+             case.name;
+             " matches the CLI now, so move it to parity (it diverged because ";
+             why;
+             ")";
+           ])
+
+let test_dialect_sweep () =
   Test_helpers.require_tailwind_cli ();
-  match List.filter_map compare_with_cli cases with
+  match List.filter_map misjudged cases with
   | [] -> ()
-  | diverging ->
-      Alcotest.failf "%d of %d author-CSS idioms diverge from the CLI: %s"
-        (List.length diverging) (List.length cases)
-        (String.concat ", " diverging)
+  | wrong -> Alcotest.fail (String.concat "; " wrong)
+
+(* The inventory is read off the pinned bundle rather than written from memory:
+   a list its author wrote can only hold what its author already knew. The
+   bundle quotes every at-keyword it handles, CSS's own included, and keys its
+   value functions by name, so what is left once CSS's at-rules are set aside is
+   the dialect. A directive a Tailwind upgrade adds then fails here until a case
+   covers it. *)
+let css_at_rules =
+  [
+    "@charset";
+    "@container";
+    "@custom-media";
+    "@keyframes";
+    "@layer";
+    "@media";
+    "@namespace";
+    "@page";
+    "@property";
+    "@starting-style";
+    "@supports";
+    "@view-transition";
+    (* Not at-rules: the bundle quotes the [@min-*] and [@max-*] container
+       variant roots the same way. *)
+    "@max";
+    "@min";
+  ]
+
+let quoted_at_keyword_re =
+  Re.compile
+    (Re.seq
+       [
+         Re.char '"';
+         Re.group
+           (Re.seq
+              [ Re.char '@'; Re.rep1 (Re.alt [ Re.rg 'a' 'z'; Re.char '-' ]) ]);
+         Re.char '"';
+       ])
+
+let value_function_key_re =
+  Re.compile
+    (Re.seq
+       [
+         Re.char '"';
+         Re.group (Re.seq [ Re.str "--"; Re.rep1 (Re.rg 'a' 'z') ]);
+         Re.str "\":";
+       ])
+
+let rec dir_above name dir =
+  let candidate = Filename.concat dir name in
+  if Sys.file_exists candidate then Some candidate
+  else
+    let parent = Filename.dirname dir in
+    if String.equal parent dir then None else dir_above name parent
+
+let bundle_sources () =
+  match dir_above "node_modules/tailwindcss/dist" (Sys.getcwd ()) with
+  | None ->
+      Test_helpers.require_tailwind_cli ();
+      Alcotest.fail "the CLI runs but its bundle is not under node_modules"
+  | Some dist ->
+      Sys.readdir dist |> Array.to_list
+      |> List.filter (fun f -> Filename.check_suffix f ".mjs")
+      |> List.map (fun f ->
+          Tw_tools.Entrypoint.read_file (Filename.concat dist f))
+
+let uses_at_keyword keyword entry =
+  Re.execp
+    (Re.compile
+       (Re.seq [ Re.str keyword; Re.alt [ Re.set " ;{(\"'\n"; Re.eos ] ]))
+    entry
+
+let uses_function name entry = Astring.String.is_infix ~affix:(name ^ "(") entry
+
+let test_dialect_surface_is_covered () =
+  let bundle = bundle_sources () in
+  let named re =
+    List.concat_map
+      (fun src -> List.map (fun g -> Re.Group.get g 1) (Re.all re src))
+      bundle
+    |> List.sort_uniq String.compare
+  in
+  let entries = List.map (fun case -> case.entry) cases in
+  let uncovered uses names =
+    List.filter
+      (fun name -> not (List.exists (fun entry -> uses name entry) entries))
+      names
+  in
+  let directives =
+    List.filter
+      (fun name -> not (List.mem name css_at_rules))
+      (named quoted_at_keyword_re)
+  in
+  check string_list "every directive the bundle handles has a case" []
+    (uncovered uses_at_keyword directives);
+  check string_list "every value function the bundle defines has a case" []
+    (uncovered uses_function (named value_function_key_re))
 
 let tests =
   [
@@ -827,7 +1070,9 @@ let tests =
       test_apply_declares_every_token_it_reads;
     test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
     test_case "prefix() on the import" `Quick test_import_prefix;
-    test_case "author CSS sweep against the CLI" `Slow test_author_css_sweep;
+    test_case "dialect sweep against the CLI" `Slow test_dialect_sweep;
+    test_case "dialect surface is covered" `Quick
+      test_dialect_surface_is_covered;
     test_case "author CSS declares every token it reads" `Quick
       test_author_css_declares_every_token_it_reads;
   ]
