@@ -409,6 +409,14 @@ let imports_important css =
       List.mem "important"
         (split_top_level ' ' (String.map blank import.prelude)))
 
+(* [@reference "tailwindcss"] brings the theme into scope for [@apply] without
+   emitting any of it. The prelude is the URL alone. *)
+let references_tailwind css =
+  let index = Index.v css in
+  Index.at_statements index ~name:"@reference"
+  |> List.exists (fun (_, (statement : Index.statement)) ->
+      is_tailwind_import (String.trim statement.prelude))
+
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
    [drop_directives] takes the whole block out of the emitted CSS; lift actual
@@ -2495,8 +2503,11 @@ let splice_into_entrypoint ~theme ~path generated =
                   | Some part -> generated_part part ~layer generated
                   | None -> [ s ])
               | s -> [ s ])
+          (* A stylesheet that only references the package declares no token,
+             its own [@theme]'s included. *)
           |> declare_author_theme_tokens
-               (author_theme_tokens ~theme (Css.statements inlined))
+               (if theme.Tw.Scheme.reference_theme then []
+                else author_theme_tokens ~theme (Css.statements inlined))
           |> add_author_property_fallbacks (Css.statements inlined)
           |> merge_named_layers |> collapse_property_fallbacks
           |> hoist_layer_blocks |> lead_properties_layer
@@ -2526,7 +2537,12 @@ let theme_of_css css =
     else Tw.Scheme.default
   in
   let base =
-    { base with prefix = import_prefix css; important = imports_important css }
+    {
+      base with
+      prefix = import_prefix css;
+      important = imports_important css;
+      reference_theme = references_tailwind css && tailwind_parts css = [];
+    }
   in
   let blocks = theme_blocks css in
   let static = theme_tokens_with "static" blocks in

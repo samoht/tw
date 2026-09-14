@@ -1927,25 +1927,35 @@ let declared_outputs ~theme order_map extra =
       ))
     extra
 
-(* Every reference the generated sheet makes to an [@theme reference] token
-   carries the block's value as its fallback, since nothing here declares the
-   token and the sheet has to resolve where no declaration reaches. The author's
-   own CSS is not generated, and keeps the references it wrote. *)
+(* The value a reference token carries as its fallback: the project's own, the
+   registered default, or the palette's, which [Scheme] does not hold. *)
+let reference_value ~theme bare =
+  match Scheme.token theme bare with
+  | Some _ as value -> value
+  | None ->
+      Option.map
+        (fun decl -> String.trim (Css.declaration_value decl))
+        (Color.Handler.theme_color_decl ~theme bare)
+
+(* Every reference the generated sheet makes to a reference token carries its
+   value as the fallback, since nothing here declares the token and the sheet
+   has to resolve where no declaration reaches: an [@theme reference] block's
+   tokens, and under [@reference "tailwindcss"] the whole default theme. The
+   author's own CSS is not generated, and keeps the references it wrote. *)
 let with_reference_fallbacks ~theme sheet =
-  match theme.Scheme.reference_tokens with
-  | [] -> sheet
-  | _ ->
-      Css.add_var_fallbacks
-        (fun name ->
-          let bare =
-            if String.length name > 2 && String.sub name 0 2 = "--" then
-              String.sub name 2 (String.length name - 2)
-            else name
-          in
-          if Scheme.is_reference_token theme bare then
-            Scheme.token_override theme bare
-          else None)
-        sheet
+  if theme.Scheme.reference_tokens = [] && not theme.Scheme.reference_theme then
+    sheet
+  else
+    Css.add_var_fallbacks
+      (fun name ->
+        let bare =
+          if String.length name > 2 && String.sub name 0 2 = "--" then
+            String.sub name 2 (String.length name - 2)
+          else name
+        in
+        if Scheme.is_reference_token theme bare then reference_value ~theme bare
+        else None)
+      sheet
 
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     tw_classes =

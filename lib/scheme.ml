@@ -48,6 +48,7 @@ type t = {
   token_overrides : (string * string) list;
   inline_tokens : string list;
   reference_tokens : string list;
+  reference_theme : bool;
   static_tokens : string list;
   static_theme : bool;
   important : bool;
@@ -96,6 +97,7 @@ let default : t =
     token_overrides = [];
     inline_tokens = [];
     reference_tokens = [];
+    reference_theme = false;
     static_tokens = [];
     static_theme = false;
     important = false;
@@ -309,5 +311,9 @@ let with_overrides ?(inline = []) ?(reference = []) ?(static = []) scheme
   }
 
 let is_inline_token scheme name = List.mem name scheme.inline_tokens
-let is_reference_token scheme name = List.mem name scheme.reference_tokens
+
+let is_reference_token scheme name =
+  List.mem name scheme.reference_tokens
+  || (scheme.reference_theme && not (List.mem_assoc name scheme.token_overrides))
+
 let is_static_token scheme name = List.mem name scheme.static_tokens

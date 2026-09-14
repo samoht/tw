@@ -58,6 +58,11 @@ type t = {
           block. The block declares the token elsewhere, so the theme layer
           emits no declaration for it and a reader spells the value as the
           fallback of its own reference. *)
+  reference_theme : bool;
+      (** Whether the stylesheet only references the package, with
+          [\@reference "tailwindcss"], rather than importing it. Every token but
+          the ones the stylesheet's own [\@theme] declares is then a reference
+          token. *)
   static_tokens : string list;
       (** Names of the tokens a project declared in an [\@theme static] block.
           The theme layer declares each of them whether or not a utility reads
