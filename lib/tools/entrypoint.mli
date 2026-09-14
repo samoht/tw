@@ -37,6 +37,12 @@ val imports_important : string -> bool
     [@import "tailwindcss" important], which marks every declaration a utility
     emits [!important]. *)
 
+val forms_base : string -> bool
+(** [forms_base css] is [true] when [css] loads [@tailwindcss/forms] with its
+    default strategy, which resets native form controls in the base layer, and
+    [false] when it names no such plugin or its options ask for
+    [strategy: "class"]. *)
+
 val config_directives : string -> string list
 (** [config_directives css] is what each [\@config] directive in [css] names, as
     written and in source order: a v3 JavaScript config, which tw does not

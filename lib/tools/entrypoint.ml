@@ -417,6 +417,47 @@ let references_tailwind css =
   |> List.exists (fun (_, (statement : Index.statement)) ->
       is_tailwind_import (String.trim statement.prelude))
 
+(* [@plugin "@tailwindcss/forms"] resets native form controls in the base layer,
+   which is the plugin's default strategy. An options block naming [strategy:
+   "class"] leaves the controls alone and styles only the [form-*] classes. *)
+let forms_base css =
+  let index = Index.v css in
+  let unquote s =
+    let s = String.trim s in
+    let n = String.length s in
+    if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
+      String.sub s 1 (n - 2)
+    else s
+  in
+  let names_forms prelude =
+    String.equal (unquote prelude) "@tailwindcss/forms"
+  in
+  let class_strategy body =
+    split_top_level ';' body
+    |> List.exists (fun option ->
+        match String.index_opt option ':' with
+        | None -> false
+        | Some i ->
+            let value =
+              String.sub option (i + 1) (String.length option - i - 1)
+            in
+            String.equal (String.trim (String.sub option 0 i)) "strategy"
+            && String.equal (unquote value) "class")
+  in
+  let len = String.length css in
+  let rec block i =
+    if i >= len then false
+    else
+      match Index.at_rule index ~name:"@plugin" i with
+      | Some { prelude; block = { body; next }; _ } when names_forms prelude ->
+          (not (class_strategy body)) || block next
+      | _ -> block (i + 1)
+  in
+  Index.at_statements index ~name:"@plugin"
+  |> List.exists (fun (_, (statement : Index.statement)) ->
+      names_forms statement.prelude)
+  || block 0
+
 (* The JavaScript configs the entrypoint's [@config] directives name, as written
    and in source order. *)
 let config_directives css =
