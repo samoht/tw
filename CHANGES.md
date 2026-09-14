@@ -62,6 +62,10 @@
   reset of native form controls, unless its options ask for
   `strategy: "class"`. The line was ignored, so inputs kept the browser's look
   (#804).
+- `@source "<path>"` in the entrypoint is scanned, relative to the stylesheet:
+  a directory is walked, a glob matches under its root, and `@source not`
+  takes files back out. The paths were ignored, and `tw --input-css app.css`
+  with no path of its own was refused (#NNN).
 - A `theme(static)` entrypoint declares its theme and keyframes once. Each
   `@apply`, and each class under a `@custom-variant`, repeated the whole theme
   block and every `@keyframes` beside the generated sheet's (#801).

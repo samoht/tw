@@ -200,3 +200,67 @@ let read_file filename =
     (fun () -> really_input_string ic (in_channel_length ic))
 
 let candidates_from_file filename = filename |> read_file |> candidates
+
+let is_glob path =
+  String.exists (function '*' | '?' | '{' -> true | _ -> false) path
+
+let glob_root pattern =
+  let rec split root = function
+    | segment :: rest when not (is_glob segment) -> split (segment :: root) rest
+    | rest -> (List.rev root, rest)
+  in
+  let root, rest = split [] (String.split_on_char '/' pattern) in
+  let root =
+    match root with [] -> "." | [ "" ] -> "/" | _ -> String.concat "/" root
+  in
+  (root, String.concat "/" rest)
+
+(* [{a,b}] alternatives are expanded before anything is matched. *)
+let rec glob_alternatives pattern =
+  match String.index_opt pattern '{' with
+  | None -> [ pattern ]
+  | Some opening -> (
+      match String.index_from_opt pattern opening '}' with
+      | None -> [ pattern ]
+      | Some closing ->
+          let prefix = String.sub pattern 0 opening in
+          let body = String.sub pattern (opening + 1) (closing - opening - 1) in
+          let suffix =
+            String.sub pattern (closing + 1)
+              (String.length pattern - closing - 1)
+          in
+          String.split_on_char ',' body
+          |> List.concat_map (fun alternative ->
+              glob_alternatives (prefix ^ alternative ^ suffix)))
+
+(* One path segment against one pattern segment: [*] is any run of characters,
+   [?] any one character. *)
+let segment_matches pattern segment =
+  let p = String.length pattern and s = String.length segment in
+  let rec go i j =
+    if i = p then j = s
+    else
+      match pattern.[i] with
+      | '*' -> go (i + 1) j || (j < s && go i (j + 1))
+      | '?' -> j < s && go (i + 1) (j + 1)
+      | c -> j < s && Char.equal c segment.[j] && go (i + 1) (j + 1)
+  in
+  go 0 0
+
+let glob_matches ~pattern path =
+  let segments s =
+    String.split_on_char '/' s
+    |> List.filter (fun segment -> segment <> "" && segment <> ".")
+  in
+  let rec go patterns path =
+    match (patterns, path) with
+    | [], [] -> true
+    | "**" :: rest, _ -> (
+        go rest path
+        || match path with [] -> false | _ :: tl -> go patterns tl)
+    | p :: rest, segment :: tl -> segment_matches p segment && go rest tl
+    | _ -> false
+  in
+  List.exists
+    (fun alternative -> go (segments alternative) (segments path))
+    (glob_alternatives pattern)

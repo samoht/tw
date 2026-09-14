@@ -398,6 +398,29 @@ let source_inline css =
                  else (safelist @ candidates, blocklist)))
        ([], [])
 
+(* [@source "<path>"] names files to scan for candidates, relative to the
+   stylesheet, and [@source not "<path>"] takes files back out. The [inline()]
+   forms are the safelist above: their argument is a call, not a quoted path. *)
+let source_paths css =
+  let index = Index.v css in
+  let blank c = c = ' ' || c = '\t' || c = '\n' || c = '\r' in
+  Index.at_statements index ~name:"@source"
+  |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+  |> List.fold_left
+       (fun (included, excluded) (_, (source : Index.statement)) ->
+         let prelude = String.trim source.prelude in
+         let n = String.length prelude in
+         let negated, argument =
+           if n > 3 && String.sub prelude 0 3 = "not" && blank prelude.[3] then
+             (true, String.sub prelude 3 (n - 3))
+           else (false, prelude)
+         in
+         match quoted_contents argument with
+         | None -> (included, excluded)
+         | Some path when negated -> (included, excluded @ [ path ])
+         | Some path -> (included @ [ path ], excluded))
+       ([], [])
+
 (* [@import "tailwindcss" important] marks every utility declaration
    [!important]. The option is a bare word in the import's prelude rather than a
    call, so it is read off the prelude's top-level words. *)

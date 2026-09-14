@@ -56,6 +56,13 @@ val theme_overrides_of_css : string -> (string * string) list * string list
 
 (** {1 Sources} *)
 
+val source_paths : string -> string list * string list
+(** [source_paths css] is the paths the [@source "<path>"] directives of [css]
+    name for scanning, and those its [@source not "<path>"] directives take back
+    out, each as written and in source order. A path is relative to the
+    stylesheet and may be a glob; the [inline()] forms are {!source_inline}'s.
+*)
+
 val source_inline : string -> string list * string list
 (** [source_inline css] is the candidates the [@source inline("...")] directives
     of [css] safelist, and those its [@source not inline("...")] directives
