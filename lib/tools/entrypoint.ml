@@ -417,6 +417,15 @@ let references_tailwind css =
   |> List.exists (fun (_, (statement : Index.statement)) ->
       is_tailwind_import (String.trim statement.prelude))
 
+(* The JavaScript configs the entrypoint's [@config] directives name, as written
+   and in source order. *)
+let config_directives css =
+  let index = Index.v css in
+  Index.at_statements index ~name:"@config"
+  |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+  |> List.map (fun (_, (statement : Index.statement)) ->
+      String.trim statement.prelude)
+
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
    [drop_directives] takes the whole block out of the emitted CSS; lift actual

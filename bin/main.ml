@@ -301,6 +301,28 @@ let process_files paths flag ~(opts : gen_opts) =
           ))
   | Native -> native_files paths flag ~opts
 
+(* A v3 [@config] names a JavaScript config, which tw does not evaluate, so an
+   entrypoint carrying one is refused rather than compiled without the theme it
+   would add. The Tailwind backend reads the config itself, so only tw's own
+   compile refuses it. *)
+let js_config_refusal ~backend ~input_css css_content =
+  match (backend, input_css, css_content) with
+  | (Native | Diff), Some path, Some css -> (
+      match Entrypoint.config_directives css with
+      | [] -> None
+      | config :: _ ->
+          Some
+            (String.concat ""
+               [
+                 "Error: ";
+                 path;
+                 ": @config ";
+                 config;
+                 " loads a JavaScript config, which tw does not evaluate; \
+                  declare its theme in an @theme block instead";
+               ]))
+  | _ -> None
+
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     ~input_css ~diff_mode paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
@@ -337,12 +359,16 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       diff_mode;
     }
   in
-  match single_class with
-  | Some class_str -> process_single_class class_str base_flag ~opts
+  match js_config_refusal ~backend ~input_css css_content with
+  | Some message -> `Error (false, message)
   | None -> (
-      match paths with
-      | [] -> `Error (true, "Either provide -s <class> or file/directory paths")
-      | paths -> process_files paths base_flag ~opts)
+      match single_class with
+      | Some class_str -> process_single_class class_str base_flag ~opts
+      | None -> (
+          match paths with
+          | [] ->
+              `Error (true, "Either provide -s <class> or file/directory paths")
+          | paths -> process_files paths base_flag ~opts))
 
 (* Command-line arguments *)
 let single_flag =

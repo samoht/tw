@@ -37,6 +37,11 @@ val imports_important : string -> bool
     [@import "tailwindcss" important], which marks every declaration a utility
     emits [!important]. *)
 
+val config_directives : string -> string list
+(** [config_directives css] is what each [\@config] directive in [css] names, as
+    written and in source order: a v3 JavaScript config, which tw does not
+    evaluate. The CLI refuses an entrypoint for which this is not empty. *)
+
 val theme_overrides_of_css : string -> (string * string) list * string list
 (** [theme_overrides_of_css css] is the [(bare-name, value)] pairs the [@theme]
     blocks of [css] declare, together with the names among them that came from

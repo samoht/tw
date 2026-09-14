@@ -137,6 +137,9 @@
 - `tw -s CLASS --input-css ENTRY` generates a utility the entrypoint declares
   with `@utility`, as the scanning form does, `--diff` included. It answered
   "Unknown class" (#798).
+- An entrypoint carrying a v3 `@config` is refused: `tw` exits with an error
+  naming the file and pointing at `@theme`. It compiled the sheet without the
+  JavaScript config's theme and dropped every rule that read it (#NNN).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
