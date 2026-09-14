@@ -1651,6 +1651,28 @@ let resolve_dashed_theme_fn ~theme css =
    selector with the ancestor's class instead, so it is picked out by name among
    the classes the [@apply] asked for. A selector naming none of them keeps the
    leftmost class, which is what the variants tw generates put there. *)
+let rec heads_with_class pick = function
+  | Cascade.Selector.Class name -> pick name
+  | Compound parts -> List.exists (heads_with_class pick) parts
+  | Combined (left, _, right) ->
+      heads_with_class pick left || heads_with_class pick right
+  | List arms -> List.exists (heads_with_class pick) arms
+  | _ -> false
+
+let rec swap_heading pick = function
+  | Cascade.Selector.Class name when pick name -> Cascade.Selector.Nesting
+  | Compound parts -> Compound (List.map (swap_heading pick) parts)
+  | Combined (left, combinator, right) ->
+      Combined (swap_heading pick left, combinator, swap_heading pick right)
+  | List arms -> List (List.map (swap_heading pick) arms)
+  | node -> node
+
+(* The utility's class can also stand inside a pseudo-class argument, as the
+   typography plugin's [:where(.prose > ul > li p)] under [.prose] does. Where
+   the class also stands outside every argument, that occurrence is the one the
+   applying rule takes the place of, and the one inside is a descendant test
+   that stays. Only a class found nowhere else, as [divide-*] puts it in
+   [:where()], is swapped where it sits. *)
 let nest_on_ampersand ~classes sel =
   let swap pick =
     Cascade.Selector.map (function
@@ -1659,7 +1681,8 @@ let nest_on_ampersand ~classes sel =
   in
   let own name = List.mem name classes in
   let arm a =
-    if Cascade.Selector.exists_class own a then swap own a
+    if heads_with_class own a then swap_heading own a
+    else if Cascade.Selector.exists_class own a then swap own a
     else
       match Cascade.Selector.first_class a with
       | Some name -> swap (String.equal name) a
