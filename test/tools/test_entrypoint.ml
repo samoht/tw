@@ -802,8 +802,7 @@ let cases =
       (fenced
          "@theme default { --color-brand: #1da1f2; } .btn { color: \
           var(--color-brand); }");
-    case "theme-static" ~why:"the block's tokens are not declared"
-      (fenced "@theme static { --color-brand: #1da1f2; }");
+    case "theme-static" (fenced "@theme static { --color-brand: #1da1f2; }");
     case "theme-keyframes"
       (fenced
          "@theme { --animate-wiggle: wiggle 1s; @keyframes wiggle { to { \

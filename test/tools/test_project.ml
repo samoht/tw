@@ -119,6 +119,25 @@ let test_import_important_scope () =
     ~present:[ ".p-4{padding:calc(var(--spacing)*4)}" ]
     ~absent:[ "!important" ]
 
+(* A [@theme static] block's tokens are declared whether or not anything reads
+   them, which is what the modifier is for: a token JavaScript or an inline
+   style reads at runtime has no reader in the sheet. An override of a default
+   token is declared with the project's value, and a plain block beside it still
+   declares only what is read. *)
+let test_theme_static_block () =
+  check_rules
+    (compiled "theme-static"
+       "@theme static { --color-brand: #123457; --spacing-huge: 10rem; \
+        --color-red-500: #fe0102; }\n\
+        @theme { --color-plain: #234568; }\n")
+    ~present:
+      [
+        "--color-brand:#123457";
+        "--spacing-huge:10rem";
+        "--color-red-500:#fe0102";
+      ]
+    ~absent:[ "--color-plain" ]
+
 let suite =
   ( "project",
     [
@@ -128,4 +147,5 @@ let suite =
       test_case "@source inline scope" `Quick test_source_inline_scope;
       test_case "important on the import" `Quick test_import_important;
       test_case "important elsewhere" `Quick test_import_important_scope;
+      test_case "@theme static block" `Quick test_theme_static_block;
     ] )
