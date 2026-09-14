@@ -916,30 +916,27 @@ let media_condition_of_modifier = function
 
 (** Compute variant_order from base_class and selector. A stacked candidate is
     placed by its highest-order modifier, matching the descending key list used
-    by the comparator. For before/after, the base_class is the raw utility name
-    without prefix, so we detect them from the selector content. [selector_str]
-    is the caller's already-rendered selector: [Build.add_index] renders it two
-    lines before calling this. *)
-let compute_variant_order ~selector_str base_class =
-  let from_base_class bc =
-    let modifiers, _ = Modifiers.of_string bc in
+    by the comparator. *)
+let compute_variant_order ~selector base_class =
+  let order_of_candidate c =
+    let modifiers, _ = Modifiers.of_string c in
     List.fold_left
       (fun order modifier ->
         Int.max order (Modifiers.variant_order_of_prefix modifier))
       0 modifiers
   in
-  let vo = match base_class with None -> 0 | Some bc -> from_base_class bc in
-  (* If no variant_order from base_class, check selector for modifier-based
-     pseudo-elements (before:/after: modifiers). Only detect when the selector
-     class name contains the escaped modifier prefix (e.g., "before\:absolute")
-     to avoid matching utility-generated pseudo-elements like prose's
-     ::before. *)
+  let vo =
+    match base_class with None -> 0 | Some bc -> order_of_candidate bc
+  in
   if vo > 0 then vo
-  else if Strings.contains ~sub:"before\\:" selector_str then
-    Modifiers.variant_order_of_prefix "before"
-  else if Strings.contains ~sub:"after\\:" selector_str then
-    Modifiers.variant_order_of_prefix "after"
-  else 0
+  else
+    (* A [before:]/[after:] prefix is stripped from the base class, which keeps
+       the raw utility name, so the selector's own class node is the only place
+       it survives. Reading the class structurally also leaves a utility's
+       ::before alone, since prose's is a pseudo-element, not a class. *)
+    match Css.Selector.first_class selector with
+    | Some c -> order_of_candidate c
+    | None -> 0
 
 (** Build the class name prefix for a not-* inner modifier. Handles shorthand
     forms like data-foo, has-checked, nth-2 that need different class names than
