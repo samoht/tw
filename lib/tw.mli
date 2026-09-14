@@ -4563,4 +4563,3 @@ module Touch = Touch
 module Arbitrary = Arbitrary
 module Property = Property
 module Parse = Parse
-module Strings = Strings

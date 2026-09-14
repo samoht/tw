@@ -1,5 +1,21 @@
 module Css = Cascade.Css
 
+(* The patterns are literal, so they are compiled once here rather than per
+   call. [Re.str] quotes its argument, which matters for the wildcard ones: [-*]
+   is text the utility grammar spells, not a repetition operator. *)
+let wildcard_re = Re.compile (Re.str "-*")
+let double_wildcard_re = Re.compile (Re.str "-*-*")
+let bracket_opener_re = Re.compile (Re.str "-[")
+let paren_opener_re = Re.compile (Re.str "-(")
+
+let value_or_modifier_re =
+  Re.compile (Re.alt [ Re.str "--value("; Re.str "--modifier(" ])
+
+let re_index re s =
+  match Re.exec_opt re s with
+  | Some group -> Some (fst (Re.Group.offset group 0))
+  | None -> None
+
 let read_file path =
   let ic = open_in_bin path in
   Fun.protect
@@ -547,6 +563,8 @@ let segment sep s =
   done;
   List.rev (Buffer.contents buf :: !pieces)
 
+let is_digit c = c >= '0' && c <= '9'
+
 (* A [<number>] as a candidate spells one: an optional sign, digits with at most
    one decimal point, and an optional exponent. *)
 let is_number text =
@@ -555,7 +573,7 @@ let is_number text =
   if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
   let digits () =
     let from = !i in
-    while !i < n && Tw.Strings.is_digit text.[!i] do
+    while !i < n && is_digit text.[!i] do
       incr i
     done;
     !i - from
@@ -599,7 +617,7 @@ let is_canonical_number text =
         ( String.sub text 0 i,
           Some (String.sub text (i + 1) (String.length text - i - 1)) )
   in
-  let digits s = s <> "" && String.for_all Tw.Strings.is_digit s in
+  let digits s = s <> "" && String.for_all is_digit s in
   digits whole
   && (String.length whole = 1 || whole.[0] <> '0')
   &&
@@ -683,10 +701,11 @@ let math_functions =
 
 (* A math function stands for the value it computes, so it reads as every
    numeric type. *)
-let has_math_fn text =
-  List.exists
-    (fun name -> Tw.Strings.contains ~sub:(name ^ "(") text)
-    math_functions
+let math_fn_re =
+  Re.compile
+    (Re.alt (List.map (fun name -> Re.str (name ^ "(")) math_functions))
+
+let has_math_fn text = Re.execp math_fn_re text
 
 let is_length text =
   has_math_fn text
@@ -745,7 +764,7 @@ let is_named_value s =
   s <> ""
   && String.for_all
        (fun c ->
-         Tw.Strings.is_digit c
+         is_digit c
          || (c >= 'a' && c <= 'z')
          || (c >= 'A' && c <= 'Z')
          || c = '_' || c = '.' || c = '%' || c = '-')
@@ -871,18 +890,18 @@ let parse_functional_candidates ~is_root cls =
         (* An arbitrary value ends the base, so what stands before its opener is
            the root outright rather than one of several the base could name. *)
         let arbitrary opener read =
-          match Tw.Strings.index ~sub:opener base with
+          match re_index opener base with
           | Some idx when is_root (String.sub base 0 idx) ->
               read (String.sub base 0 idx) idx
           | _ -> []
         in
         if base.[n - 1] = ']' then
-          arbitrary "-[" (fun root idx ->
+          arbitrary bracket_opener_re (fun root idx ->
               Option.to_list
                 (with_value
                    (root, Some (String.sub base (idx + 1) (n - idx - 1)))))
         else if base.[n - 1] = ')' then
-          arbitrary "-(" (fun root idx ->
+          arbitrary paren_opener_re (fun root idx ->
               Option.to_list
                 (Option.map
                    (fun value -> candidate root (Some value) None)
@@ -927,7 +946,7 @@ let normalize_value_arg arg =
     Buffer.contents buf
   in
   let rec collapse s =
-    match Tw.Strings.index ~sub:"-*-*" s with
+    match re_index double_wildcard_re s with
     | None -> s
     | Some i ->
         collapse
@@ -941,7 +960,7 @@ let normalize_value_arg arg =
     String.length arg >= 2
     && String.sub arg 0 2 = "--"
     && (not (String.contains arg '('))
-    && not (Tw.Strings.contains ~sub:"-*" arg)
+    && not (Re.execp wildcard_re arg)
   then arg ^ "-*"
   else arg
 
@@ -966,15 +985,7 @@ let theme_token_css ~theme name =
 (* Split [arg] on the wildcard [-*]: [--text-*--line-height] is the namespace
    [--text] and the sub-key [--line-height], and [--example-*] is a namespace
    with nothing behind it. *)
-let split_wildcard arg =
-  let rec go acc s =
-    match Tw.Strings.index ~sub:"-*" s with
-    | None -> List.rev (s :: acc)
-    | Some i ->
-        go (String.sub s 0 i :: acc)
-          (String.sub s (i + 2) (String.length s - i - 2))
-  in
-  go [] arg
+let split_wildcard arg = Re.split_delim wildcard_re arg
 
 (* A [--value] argument naming a theme namespace reads the entry the candidate
    names in it, and one naming a sub-key ([--text-*--line-height]) reads that
@@ -1185,10 +1196,8 @@ let functional_body ~theme ~body candidate =
         match piece with
         | Punctuation _ -> (piece, Keep "")
         | Declaration text ->
-            if
-              Tw.Strings.contains ~sub:"--value(" text
-              || Tw.Strings.contains ~sub:"--modifier(" text
-            then (piece, resolve_declaration ~theme ~candidate ~state text)
+            if Re.execp value_or_modifier_re text then
+              (piece, resolve_declaration ~theme ~candidate ~state text)
             else (piece, Keep text))
       (body_pieces body)
   in

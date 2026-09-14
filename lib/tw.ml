@@ -475,7 +475,6 @@ module Touch = Touch
 module Parse = Parse
 module Mask_gradient = Mask_gradient
 module Property = Property
-module Strings = Strings
 
 (* Include flex utilities *)
 include Flex

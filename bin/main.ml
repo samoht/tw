@@ -234,7 +234,7 @@ let print_stats ~quiet ~candidate_count ~known_count =
 let declares_plugin css name =
   match css with
   | None -> false
-  | Some css -> Tw.Strings.contains ~sub:("@tailwindcss/" ^ name) css
+  | Some css -> Re.execp (Re.compile (Re.str ("@tailwindcss/" ^ name))) css
 
 let is_prose_class cls =
   cls = "prose"
