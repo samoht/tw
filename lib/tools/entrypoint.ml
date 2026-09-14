@@ -2604,6 +2604,31 @@ let generated_part part ~layer generated =
       @ place (contents "utilities")
       @ List.filter (fun s -> not (is_layer s)) stmts
 
+(* An imported file under [layer(...)] is expanded before its layer wraps it, so
+   what its [@apply]s hoisted - a [@layer theme] or [@layer properties] block,
+   an [@property] registration, an [@keyframes] - arrives inside that layer.
+   Tailwind keeps them at the top of the sheet, where [merge_named_layers] folds
+   the blocks into the generated sheet's own. A class-less rule the author wrote
+   in the import stays where it is: the expansion never leaves one bare, it
+   wraps its theme rule in [@layer theme]. *)
+let lift_hoisted_out_of_layers stmts =
+  let hoisted stmt =
+    (match Css.as_layer stmt with
+      | Some (Some name, _) ->
+          equal_layer name [ "theme" ] || equal_layer name [ "properties" ]
+      | _ -> false)
+    || Css.as_property stmt <> None
+    || Css.as_keyframes stmt <> None
+  in
+  List.concat_map
+    (fun stmt ->
+      match Css.as_layer stmt with
+      | Some (Some name, inner) when List.exists hoisted inner ->
+          let lifted, kept = List.partition hoisted inner in
+          lifted @ [ Css.layer ~name kept ]
+      | _ -> [ stmt ])
+    stmts
+
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
@@ -2651,8 +2676,9 @@ let splice_into_entrypoint ~theme ~path generated =
                (if theme.Tw.Scheme.reference_theme then []
                 else author_theme_tokens ~theme (Css.statements inlined))
           |> add_author_property_fallbacks (Css.statements inlined)
-          |> merge_named_layers |> collapse_property_fallbacks
-          |> join_theme_rules |> hoist_layer_blocks |> lead_properties_layer
+          |> lift_hoisted_out_of_layers |> merge_named_layers
+          |> collapse_property_fallbacks |> join_theme_rules
+          |> hoist_layer_blocks |> lead_properties_layer
           |> drop_unread_inline_tokens ~theme
           |> collect_properties_at_end |> Css.v)
 
