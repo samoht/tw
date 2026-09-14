@@ -1344,6 +1344,24 @@ let test_valid_bracket_modifiers () =
   check_utilities "supports-[display:grid]:flex"
     {|@supports(display:grid){.supports-\[display\:grid\]\:flex{display:flex}}|}
 
+(* A [supports-[...]] condition that is not a bare [prop:value] pair goes to the
+   condition reader whole. [not(display:grid)] was split at its colon into the
+   property [not(display] and the value [grid)], which cascade refused with a
+   [Failure] out of a pure render, exit 125. Tailwind 4.3.3 writes [@supports
+   not (display:grid)], spacing a keyword the function-token spelling would hide
+   from the [@supports] grammar, and passes [selector(...)] through. A condition
+   the grammar has no production for is refused, not raised. *)
+let test_supports_condition_text () =
+  check_utilities "supports-[not(display:grid)]:flex"
+    {|@supports not (display:grid){.supports-\[not\(display\:grid\)\]\:flex{display:flex}}|};
+  check_utilities "supports-[not_(display:grid)]:flex"
+    {|@supports not (display:grid){.supports-\[not_\(display\:grid\)\]\:flex{display:flex}}|};
+  check_utilities "supports-[selector(:has(a))]:flex"
+    {|@supports selector(:has(a)){.supports-\[selector\(\:has\(a\)\)\]\:flex{display:flex}}|};
+  match Tw.of_string "supports-[display:)]:flex" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "supports-[display:)]:flex should be refused"
+
 (* A [supports-<property>] test names the property the author wrote, even for a
    property browsers once shipped behind a vendor prefix: Tailwind emits
    [@supports (hyphens: var(--tw))], so the shorthand and the bracket spelling
@@ -1472,6 +1490,7 @@ let tests =
       test_case "invalid bracket modifiers" `Quick
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
+      test_case "supports condition text" `Quick test_supports_condition_text;
       test_case "supports property is unprefixed" `Quick
         test_supports_property_is_unprefixed;
       test_case "at-rule variant over a media query" `Quick
