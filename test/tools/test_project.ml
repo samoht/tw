@@ -4,22 +4,30 @@ open Alcotest
    entrypoints these tests write. Nothing is scanned: the import fences its
    sources, so a class reaches the sheet from [classes] or from the entrypoint
    itself. *)
-let compiled ?(classes = []) name body =
+let compiled_with ?(classes = []) ~import name body =
   let path = "project-" ^ name ^ ".css" in
   let oc = open_out path in
   Fun.protect
     ~finally:(fun () -> close_out_noerr oc)
     (fun () ->
-      output_string oc "@import \"tailwindcss\" source(none);\n";
+      output_string oc import;
       output_string oc body);
   Fun.protect
     ~finally:(fun () -> Sys.remove path)
     (fun () ->
+      (* The theme is the one the entrypoint asks for, as the CLI builds it: an
+         option on the import is part of what is being compiled. *)
+      let theme =
+        Tw_tools.Entrypoint.theme_of_css (Tw_tools.Entrypoint.read_file path)
+      in
       let _, sheet =
-        Tw_tools.Project.stylesheet ~theme:Tw.Scheme.default ~entrypoint:path
-          ~base:false classes
+        Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base:false classes
       in
       Cascade.Css.to_string ~minify:true sheet)
+
+let compiled ?classes name body =
+  compiled_with ?classes ~import:"@import \"tailwindcss\" source(none);\n" name
+    body
 
 let check_rules css ~present ~absent =
   List.iter
@@ -78,6 +86,39 @@ let test_source_inline_scope () =
     (compiled "scope" "@source \"./nowhere\";\n.a { --x: inline(\"flex\"); }\n")
     ~present:[] ~absent:[ ".flex{" ]
 
+(* [important] on the import marks every declaration a utility emits, whatever
+   dresses it: a variant, the [!] suffix, an arbitrary property, a utility the
+   project declares. The author's own CSS is not a utility and neither is what
+   an [@apply] pulls into it, so both keep their declarations as written. *)
+let test_import_important () =
+  check_rules
+    (compiled_with
+       ~classes:
+         [ "p-4"; "hover:underline"; "bg-blue-500!"; "[color:red]"; "card" ]
+       ~import:"@import \"tailwindcss\" important source(none);\n" "important"
+       "@utility card { tab-size: 8; }\n\
+        .btn { @apply m-2; }\n\
+        .x { color: blue; }\n")
+    ~present:
+      [
+        ".p-4{padding:calc(var(--spacing)*4)!important}";
+        ".hover\\:underline:hover{text-decoration-line:underline!important}";
+        ".bg-blue-500\\!{background-color:var(--color-blue-500)!important}";
+        ".\\[color\\:red\\]{color:red!important}";
+        ".card{tab-size:8!important}";
+        ".btn{margin:calc(var(--spacing)*2)}";
+        ".x{color:";
+      ]
+    ~absent:
+      [ "margin:calc(var(--spacing)*2)!important"; "color:blue!important" ]
+
+(* The word is an option only where the import carries it. *)
+let test_import_important_scope () =
+  check_rules
+    (compiled ~classes:[ "p-4" ] "important-scope" ".a { --flag: important; }\n")
+    ~present:[ ".p-4{padding:calc(var(--spacing)*4)}" ]
+    ~absent:[ "!important" ]
+
 let suite =
   ( "project",
     [
@@ -85,4 +126,6 @@ let suite =
       test_case "@source inline braces" `Quick test_source_inline_braces;
       test_case "@source not inline" `Quick test_source_not_inline;
       test_case "@source inline scope" `Quick test_source_inline_scope;
+      test_case "important on the import" `Quick test_import_important;
+      test_case "important elsewhere" `Quick test_import_important_scope;
     ] )

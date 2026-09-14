@@ -845,7 +845,6 @@ let cases =
          "@config \"./sweep-config.js\"; .btn { color: theme(colors.brand); }");
     case "import-important"
       ~classes:[ "p-4"; "hover:underline" ]
-      ~why:"the option is read by nothing, so no utility is important"
       "@import \"tailwindcss\" important source(none);\n";
     case "import-prefix" ~classes:[ "tw:p-4" ]
       "@import \"tailwindcss\" prefix(tw) source(none);\n";
