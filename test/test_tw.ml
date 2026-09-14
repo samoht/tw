@@ -1321,6 +1321,48 @@ let unterminated_theme_call () =
   Test_helpers.check_declarations ~minify:false "bg-[theme(colors.red.500)]"
     [ "background-color: oklch(63.7% .237 25.331)" ]
 
+(* A v3 opacity utility is refused, as Tailwind 4.3.3 refuses it, but the reader
+   is told which v4 spelling replaces it rather than that the name is
+   unfamiliar. The v3 spellings v4 still emits are not in this set: 4.3.3
+   compiles [flex-grow] and [overflow-ellipsis], so tw must too. *)
+let v3_opacity_rejection_message () =
+  let message cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error (`Msg m) -> m
+  in
+  List.iter
+    (fun (cls, replacement) ->
+      let m = message cls in
+      Alcotest.(check string)
+        (cls ^ " names the v4 spelling")
+        ("Tailwind v4 removed '" ^ cls
+       ^ "': write the opacity on the colour, as " ^ replacement)
+        m)
+    [
+      ("bg-opacity-50", "bg-<color>/50");
+      ("text-opacity-25", "text-<color>/25");
+      ("border-opacity-75", "border-<color>/75");
+      ("divide-opacity-50", "divide-<color>/50");
+      ("ring-opacity-10", "ring-<color>/10");
+      ("placeholder-opacity-5", "placeholder-<color>/5");
+    ];
+  (* A family that never had a v3 opacity utility, and a truncated spelling,
+     stay plain unknowns rather than borrowing the v3 advice. *)
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " is a plain unknown")
+        ("Unknown class: " ^ cls) (message cls))
+    [ "foo-opacity-50"; "bg-opacity-"; "opacity-50-bg" ];
+  (* The v3 spellings v4 kept must still compile. *)
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok _ -> ()
+      | Error (`Msg m) -> Alcotest.failf "expected %s to compile: %s" cls m)
+    [ "flex-grow"; "flex-shrink-0"; "overflow-ellipsis"; "decoration-slice" ]
+
 (* The rejection an unrecognised [prop:value] candidate gets has to describe the
    shape one must have. Plain [--name:value] declarations and non-colour
    properties are emitted, so the message must not point the reader at those. *)
@@ -1717,6 +1759,7 @@ let core_tests =
       theme_function_rejects_an_unknown_key;
     test_case "arbitrary property rejection message" `Quick
       arbitrary_property_rejection_message;
+    test_case "v3 opacity rejection message" `Quick v3_opacity_rejection_message;
     test_case "responsive classes" `Slow responsive_classes;
     test_case "multiple classes" `Slow multiple_classes;
     test_case "all colors same shade" `Slow all_colors_same_shade;

@@ -328,6 +328,21 @@ let resolve_theme_functions ~theme s =
   done;
   if !missing then None else Some (Buffer.contents buf, List.rev !bindings)
 
+(* Tailwind v4 removed the v3 opacity utilities: the opacity is written on the
+   colour as a [/modifier]. The verdict does not change - the pinned CLI emits
+   nothing for these either - but "unknown" reads as a typo, and a v3 class is
+   not one. Only these six families are worth naming: every other v3 spelling
+   that v4 renamed ([flex-grow], [overflow-ellipsis], [decoration-slice]) is
+   still emitted by 4.3.3, so tw compiles it and must keep doing so. *)
+let v3_opacity_replacement base_class =
+  match String.split_on_char '-' base_class with
+  | [ family; "opacity"; amount ]
+    when amount <> ""
+         && List.mem family
+              [ "bg"; "text"; "border"; "divide"; "ring"; "placeholder" ] ->
+      Some (String.concat "" [ family; "-<color>/"; amount ])
+  | _ -> None
+
 (* The rejection a class gets once no handler has claimed it. A bracket class
    that looks like an arbitrary property but that nothing accepted is malformed
    rather than unsupported: the bracket has no property name or does not end the
@@ -343,7 +358,14 @@ let unknown_class_error ~base_class class_str =
          ("Invalid arbitrary property '" ^ class_str
         ^ "': expected [property:value], optionally followed by an /opacity \
            modifier on a colour value (e.g. [color:var(--x)]/50)"))
-  else Error (`Msg ("Unknown class: " ^ class_str))
+  else
+    match v3_opacity_replacement base_class with
+    | Some replacement ->
+        Error
+          (`Msg
+             ("Tailwind v4 removed '" ^ class_str
+            ^ "': write the opacity on the colour, as " ^ replacement))
+    | None -> Error (`Msg ("Unknown class: " ^ class_str))
 
 (* Parse a single class string into a Tw.t *)
 let of_string ?(theme = Scheme.default) class_str =
