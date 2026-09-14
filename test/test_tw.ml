@@ -1332,14 +1332,27 @@ let unterminated_theme_call () =
    pinned CLI does: it compiles [p-4] to nothing once the import asks for one. *)
 let prefixed_candidates () =
   let theme = { Tw.Scheme.default with prefix = Some "tw" } in
-  let class_of cls =
+  (* The written spelling is what lands in the selector. It is put there on the
+     finished rule, not carried on the utility, so [Tw.to_classes] still reports
+     the utility's own name. *)
+  let sheet cls =
     match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_classes [ u ]
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   List.iter
-    (fun cls -> Alcotest.(check string) cls cls (class_of cls))
-    [ "tw:flex"; "tw:p-4"; "tw:hover:underline"; "tw:md:dark:flex" ];
+    (fun (cls, selector) ->
+      Alcotest.(check bool)
+        (cls ^ " renders as " ^ selector)
+        true
+        (Astring.String.is_infix ~affix:selector (sheet cls)))
+    [
+      ("tw:flex", ".tw\\:flex{");
+      ("tw:p-4", ".tw\\:p-4{");
+      ("tw:hover:underline", ".tw\\:hover\\:underline:hover{");
+      ("tw:group-hover:underline", ".tw\\:group");
+    ];
   List.iter
     (fun cls ->
       match Tw.of_string ~theme cls with
