@@ -95,3 +95,16 @@ stub tw's own output must come back with nothing to report:
   1
   $ TW_STUB_CSS="$PWD/expected.css" tw --diff --input-css decl.css decl.html
   ✓ No differences found
+
+A run that finds differences says so in its exit status, so [--diff] can gate a
+CI job: 1 when the two sheets differ, 0 when they do not, as above.
+
+  $ sed 's/border-color:red/border-color:blue/' expected.css > different.css
+  $ TW_STUB_CSS="$PWD/different.css" tw --diff --input-css decl.css decl.html > diff.txt
+  [1]
+  $ grep -c 'Differences found' diff.txt
+  1
+  $ TW_STUB_CSS="$PWD/different.css" tw --diff -s flex > single.txt
+  [1]
+  $ grep -c 'Differences found' single.txt
+  1
