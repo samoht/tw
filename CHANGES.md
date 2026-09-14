@@ -500,7 +500,7 @@
 
 - A bracket `@media` variant compiles as Tailwind reads it:
   `[@media_print]:underline` and `[@media(width>=600px)]:flex` wrap the utility
-  in that query. Only `@supports` and `@starting-style` were read (#NNN).
+  in that query. Only `@supports` and `@starting-style` were read (#814).
 - `supports-[…]` reads a condition that is not a property test the way
   Tailwind does: `not(display:grid)` becomes `@supports not (display:grid)`
   and `selector(:has(a))` passes through. The first crashed with an uncaught
