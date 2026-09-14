@@ -253,7 +253,7 @@ let test_authored_color_mix_fallbacks () =
   in
   check string "fallback immediately precedes each guarded authored value"
     "@layer theme{:root,:host{--color-brand:oklch(63.7%.237 \
-     25.331)}:root,:host{--color-gray-700:oklch(37.3%.034 \
+     25.331);--color-gray-700:oklch(37.3%.034 \
      259.733)}}.article{--prose-color:var(--color-brand);--marker-color:#fb2c3640}@supports(color:color-mix(in \
      lab,red,red)){.article{--marker-color:color-mix(in \
      oklab,var(--color-brand) \

@@ -1808,6 +1808,10 @@ let at_top_of_sheet stmt =
   | Some _ -> Css.layer ~name:[ "theme" ] [ stmt ]
 
 let nested_utilities ~theme names =
+  (* The generated sheet already declares a [theme(static)] theme whole, with
+     every keyframe, so a render that only lends its declarations to author CSS
+     or a routed variant must not declare it again. *)
+  let theme = { theme with Tw.Scheme.static_theme = false } in
   let of_name n =
     match Tw.of_string ~theme n with Ok s -> Some s | Error _ -> None
   in
@@ -2121,6 +2125,48 @@ let collapse_property_fallbacks stmts =
           Css.layer ~name
             (Css.Optimize.merge_consecutive_supports
                ~optimize_merged_block:join_fallback_rules inner)
+      | _ -> stmt)
+    stmts
+
+(* A token declared twice keeps the place its first declaration holds, so the
+   theme's own order survives, and takes the value its last one gives, which is
+   the value the cascade settled on. *)
+let join_theme_declarations decls =
+  let last = Hashtbl.create 16 in
+  List.iter
+    (fun d ->
+      Option.iter
+        (fun name -> Hashtbl.replace last name d)
+        (Css.custom_declaration_name d))
+    decls;
+  let placed = Hashtbl.create 16 in
+  List.filter_map
+    (fun d ->
+      match Css.custom_declaration_name d with
+      | None -> Some d
+      | Some name when Hashtbl.mem placed name -> None
+      | Some name ->
+          Hashtbl.add placed name ();
+          Some (Hashtbl.find last name))
+    decls
+
+(* Every [@apply] hoists a [:root, :host] rule of its own, declaring the tokens
+   its utilities read, and the generated sheet declares the theme too. Folded
+   into the one [@layer theme], they line up as a run of rules Tailwind writes
+   as one; under [theme(static)] every token in the later ones is already in the
+   first. *)
+let join_theme_rules stmts =
+  List.map
+    (fun stmt ->
+      match Css.as_layer stmt with
+      | Some (Some name, inner) when equal_layer name [ "theme" ] ->
+          Css.layer ~name
+            (merge_same_selector inner
+            |> List.map (fun stmt ->
+                match Css.as_rule stmt with
+                | Some (selector, decls, []) ->
+                    Css.rule ~selector (join_theme_declarations decls)
+                | _ -> stmt))
       | _ -> stmt)
     stmts
 
@@ -2542,7 +2588,7 @@ let splice_into_entrypoint ~theme ~path generated =
                 else author_theme_tokens ~theme (Css.statements inlined))
           |> add_author_property_fallbacks (Css.statements inlined)
           |> merge_named_layers |> collapse_property_fallbacks
-          |> hoist_layer_blocks |> lead_properties_layer
+          |> join_theme_rules |> hoist_layer_blocks |> lead_properties_layer
           |> drop_unread_inline_tokens ~theme
           |> collect_properties_at_end |> Css.v)
 
