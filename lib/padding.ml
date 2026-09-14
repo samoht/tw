@@ -234,20 +234,35 @@ open Handler
 module Utility_factory = Utility.Make (Handler)
 
 let utility axis value = Utility_factory.v { axis; value }
-let p n = utility `All (Handler.Standard (Spacing.int n))
-let px n = utility `X (Handler.Standard (Spacing.int n))
-let py n = utility `Y (Handler.Standard (Spacing.int n))
-let pt n = utility `T (Handler.Standard (Spacing.int n))
-let pr n = utility `R (Handler.Standard (Spacing.int n))
-let pb n = utility `B (Handler.Standard (Spacing.int n))
-let pl n = utility `L (Handler.Standard (Spacing.int n))
-let p' n = utility `All (Handler.Standard (Spacing.float n))
-let px' n = utility `X (Handler.Standard (Spacing.float n))
-let py' n = utility `Y (Handler.Standard (Spacing.float n))
-let pt' n = utility `T (Handler.Standard (Spacing.float n))
-let pr' n = utility `R (Handler.Standard (Spacing.float n))
-let pb' n = utility `B (Handler.Standard (Spacing.float n))
-let pl' n = utility `L (Handler.Standard (Spacing.float n))
+
+(* Padding has no negative form in Tailwind, and the class printer writes a
+   size's absolute value, so a negative one would come back as a different,
+   valid utility. It is refused instead, as a shade the palette lacks is. *)
+let checked_size name n =
+  if n < 0 then
+    invalid_arg (name ^ ": padding has no negative size, got " ^ string_of_int n)
+  else Spacing.int n
+
+let checked_size' name n =
+  if n < 0. then
+    invalid_arg
+      (name ^ ": padding has no negative size, got " ^ Float.to_string n)
+  else Spacing.float n
+
+let p n = utility `All (Handler.Standard (checked_size "p" n))
+let px n = utility `X (Handler.Standard (checked_size "px" n))
+let py n = utility `Y (Handler.Standard (checked_size "py" n))
+let pt n = utility `T (Handler.Standard (checked_size "pt" n))
+let pr n = utility `R (Handler.Standard (checked_size "pr" n))
+let pb n = utility `B (Handler.Standard (checked_size "pb" n))
+let pl n = utility `L (Handler.Standard (checked_size "pl" n))
+let p' n = utility `All (Handler.Standard (checked_size' "p'" n))
+let px' n = utility `X (Handler.Standard (checked_size' "px'" n))
+let py' n = utility `Y (Handler.Standard (checked_size' "py'" n))
+let pt' n = utility `T (Handler.Standard (checked_size' "pt'" n))
+let pr' n = utility `R (Handler.Standard (checked_size' "pr'" n))
+let pb' n = utility `B (Handler.Standard (checked_size' "pb'" n))
+let pl' n = utility `L (Handler.Standard (checked_size' "pl'" n))
 let p_px = utility `All (Handler.Standard `Px)
 let p_full = utility `All (Handler.Standard `Full)
 let px_px = utility `X (Handler.Standard `Px)

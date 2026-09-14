@@ -608,6 +608,9 @@
 
 ### Public OCaml API
 
+- The typed padding and gap constructors raise `Invalid_argument` on a
+  negative size. Neither has a negative form, and `p (-3)` printed `p-3`, a
+  different utility, with nothing to say so (#NNN).
 - Add the typed `divide` constructors, from `divide_x` to `divide_style`: only
   the two reverse utilities were exposed, so the rest of the family was
   reachable from a class string but not from OCaml (#239, closes #5).

@@ -4,7 +4,10 @@
 
 open Utility
 
-(** {1 Gap Utilities} *)
+(** {1 Gap Utilities}
+
+    Gap has no negative form, so every gap constructor below raises
+    [Invalid_argument] when its size is negative. *)
 
 val gap : int -> t
 (** [gap n] sets gap to [n] × 0.25rem. *)

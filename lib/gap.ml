@@ -542,12 +542,26 @@ let space_util negative axis value = utility (Space { negative; axis; value })
 
 (** {2 Int-based Gap Utilities} *)
 
-let gap n = gap_util `All (Handler.Standard (Spacing.int n))
-let gap_x n = gap_util `X (Handler.Standard (Spacing.int n))
-let gap_y n = gap_util `Y (Handler.Standard (Spacing.int n))
-let gap' n = gap_util `All (Handler.Standard (Spacing.float n))
-let gap_x' n = gap_util `X (Handler.Standard (Spacing.float n))
-let gap_y' n = gap_util `Y (Handler.Standard (Spacing.float n))
+(* Gap has no negative form in Tailwind, and the class printer writes a size's
+   absolute value, so a negative one is refused rather than printed as a
+   different gap. The space utilities below keep their sign: [-space-x-4] is a
+   Tailwind class. *)
+let checked_size name n =
+  if n < 0 then
+    invalid_arg (name ^ ": gap has no negative size, got " ^ string_of_int n)
+  else Spacing.int n
+
+let checked_size' name n =
+  if n < 0. then
+    invalid_arg (name ^ ": gap has no negative size, got " ^ Float.to_string n)
+  else Spacing.float n
+
+let gap n = gap_util `All (Handler.Standard (checked_size "gap" n))
+let gap_x n = gap_util `X (Handler.Standard (checked_size "gap_x" n))
+let gap_y n = gap_util `Y (Handler.Standard (checked_size "gap_y" n))
+let gap' n = gap_util `All (Handler.Standard (checked_size' "gap'" n))
+let gap_x' n = gap_util `X (Handler.Standard (checked_size' "gap_x'" n))
+let gap_y' n = gap_util `Y (Handler.Standard (checked_size' "gap_y'" n))
 
 (** {2 Special Gap Values} *)
 
