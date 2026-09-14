@@ -1329,8 +1329,38 @@ let test_bare_selector_variant_attribute_operators () =
   (* a combinator really is one, and none of these is a compound *)
   rejected "[p_~_span]:underline";
   rejected "[>img]:underline";
-  rejected "[.a_.b]:underline";
-  rejected "[@media_print]:underline"
+  rejected "[.a_.b]:underline"
+
+(* An at-rule in brackets is a variant, [@media] as much as [@supports].
+   Tailwind 4.3.3 wraps the utility in [@media print] for
+   [[@media_print]:underline], reading the underscore as a space, and in the
+   written query for [[@media(prefers-contrast:more)]] and
+   [[@media(width>=600px)]]. Only [@supports] and [@starting-style] were read,
+   so each of these was an unknown modifier. A query with no reading is
+   refused. *)
+let test_bracket_media_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "[@media_print]:underline"
+    {|@media print{.\[\@media_print\]\:underline{text-decoration-line:underline}}|};
+  has "[@media(prefers-contrast:more)]:underline" "@media";
+  has "[@media(prefers-contrast:more)]:underline"
+    {|.\[\@media\(prefers-contrast\:more\)\]\:underline{text-decoration-line:underline}|};
+  has "[@media(width>=600px)]:flex" "@media";
+  has "[@media(width>=600px)]:flex"
+    {|.\[\@media\(width\>\=600px\)\]\:flex{display:flex}|};
+  match Tw.of_string "[@media(]:flex" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "[@media(]:flex should be refused"
 
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
@@ -1506,6 +1536,7 @@ let tests =
       test_case "data bracket operators" `Quick test_data_bracket_operators;
       test_case "bare selector variant attribute operators" `Quick
         test_bare_selector_variant_attribute_operators;
+      test_case "bracket media variant" `Quick test_bracket_media_variant;
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
       test_case "group arbitrary prefix anchor" `Quick
