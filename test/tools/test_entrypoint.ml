@@ -99,6 +99,20 @@ let test_nest_on_ampersand () =
   check string "no class of ours: the leftmost goes" "& .other"
     (nested ~classes:[ "nothing" ] ".first .other")
 
+(* A utility may name its own class a second time inside its selector, as the
+   typography plugin writes [:where(.prose > ul > li p)] under [.prose]. The
+   occurrence that heads the selector is the one the applying rule stands for;
+   the one inside the argument is a descendant test, and it stays. A class that
+   only occurs inside an argument is still the utility's own, as for
+   [divide-*]. *)
+let test_nest_on_ampersand_keeps_nested_mentions () =
+  check string "only the heading occurrence is swapped"
+    "& :where(.prose>ul>li p)"
+    (nested ~classes:[ "prose" ] ".prose :where(.prose > ul > li p)");
+  check string "an argument-only occurrence is still swapped"
+    ":where(&>:not(:last-child))"
+    (nested ~classes:[ "divide-x" ] ":where(.divide-x > :not(:last-child))")
+
 (* Text passes over the source. *)
 
 let test_strip_tailwind_import_options () =
@@ -825,9 +839,6 @@ let cases =
          "@property --my-x { syntax: \"<length>\"; inherits: false; \
           initial-value: 0px; } .a { --my-x: 2px; }");
     case "plugin-typography"
-      ~why:
-        "@apply prose swaps the plugin's inner .prose for the applying class \
-         too"
       (fenced "@plugin \"@tailwindcss/typography\"; .btn { @apply prose; }");
     case "config-js"
       ~files:
@@ -1030,6 +1041,8 @@ let tests =
     test_case "theme namespace reset" `Quick test_theme_namespace_reset;
     test_case "static theme import" `Quick test_imports_static_theme;
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
+    test_case "nest on ampersand keeps nested mentions" `Quick
+      test_nest_on_ampersand_keeps_nested_mentions;
     test_case "import options stripped" `Quick
       test_strip_tailwind_import_options;
     test_case "slots filled" `Quick test_fill_slots;
