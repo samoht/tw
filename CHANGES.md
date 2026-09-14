@@ -501,7 +501,7 @@
 - `group-has-` and `peer-has-` take any variant as their inner, as `has-` does:
   `group-has-data-[state=open]:ring-2` compiles to Tailwind's
   `:where(.group):has([data-state=open])` scope. It was an unknown modifier
-  (#NNN).
+  (#815).
 - A bracket `@media` variant compiles as Tailwind reads it:
   `[@media_print]:underline` and `[@media(width>=600px)]:flex` wrap the utility
   in that query. Only `@supports` and `@starting-style` were read (#814).
