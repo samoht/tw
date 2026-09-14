@@ -410,6 +410,13 @@
 
 ### Variants and selectors
 
+- `@apply` declares the theme tokens the utilities it pulls in read. The rule
+  it emitted was already right, so nothing warned, but `@layer theme` came back
+  without `--radius-lg`, `--text-lg`, `--blur-sm` and the rest of the families
+  carrying their own namespace, and the page rendered as if the declarations
+  were absent. `@apply animate-spin` also lost its `@keyframes` block, and the
+  `@layer properties` an applied utility hoists now precedes the layers that
+  read it (#779).
 - `not-[:pseudo]` negates the pseudo-class rather than a class that happens to
   be spelled like one. Only nine pseudo-classes were tabled, so
   `not-[:target]`, `not-[:nth-child(2)]` and `not-[:has(.x)]` each negated a
