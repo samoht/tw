@@ -44,6 +44,16 @@ let parse_known_candidates ~theme ?input_css candidates =
    failed to emit. *)
 let stylesheet ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
+  (* The entrypoint's safelist joins the markup's classes, and its blocklist
+     takes a class out whichever of the two it came from. *)
+  let classes =
+    match input_css with
+    | None -> classes
+    | Some css ->
+        let safelist, blocklist = Entrypoint.source_inline css in
+        List.sort_uniq String.compare (classes @ safelist)
+        |> List.filter (fun cls -> not (List.mem cls blocklist))
+  in
   let defs = Entrypoint.entry_variant_defs entrypoint in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
   let routed, normal =

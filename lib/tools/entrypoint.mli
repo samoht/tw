@@ -38,6 +38,16 @@ val theme_overrides_of_css : string -> (string * string) list * string list
     an [@theme inline] block. Both feed {!Tw.Scheme.with_overrides}, so tw
     renders with the tokens Tailwind reads from the same file. *)
 
+(** {1 Sources} *)
+
+val source_inline : string -> string list * string list
+(** [source_inline css] is the candidates the [@source inline("...")] directives
+    of [css] safelist, and those its [@source not inline("...")] directives
+    block. Each argument is a space-separated list of patterns, expanded the way
+    Tailwind expands braces: [{hover:,}bg-red-{500,600}] is four candidates and
+    [p-{0..8..4}] three. A blocked candidate is left out wherever it comes from,
+    the markup included. *)
+
 (** {1 Declared variants and utilities} *)
 
 val strip_tailwind_import_options : string -> string

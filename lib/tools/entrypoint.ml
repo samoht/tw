@@ -251,6 +251,138 @@ let import_prefix css =
   | name :: _ -> Some name
   | [] -> None
 
+(* Split [s] on [sep] where no bracket is open, so a [,] or a space inside
+   [[...]], [(...)] or a nested [{...}] stays in its segment. *)
+let split_top_level sep s =
+  let len = String.length s in
+  let rec go depth start i acc =
+    if i >= len then List.rev (String.sub s start (len - start) :: acc)
+    else
+      match s.[i] with
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
+      | c when c = sep && depth = 0 ->
+          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | _ -> go depth start (i + 1) acc
+  in
+  go 0 0 0 []
+
+let brace_bound = Re.seq [ Re.opt (Re.char '-'); Re.rep1 Re.digit ]
+
+let brace_range_re =
+  Re.compile
+    (Re.whole_string
+       (Re.seq
+          [
+            Re.group brace_bound;
+            Re.str "..";
+            Re.group brace_bound;
+            Re.opt (Re.seq [ Re.str ".."; Re.group brace_bound ]);
+          ]))
+
+(* [{from..to..step}] counts from [from] to [to] inclusive. The step defaults to
+   one, and a step pointing away from [to] is turned round rather than never
+   arriving, as the bundle does. A zero step is an error there, so the pattern
+   names nothing here. *)
+let brace_range inner =
+  let bound g k = Option.bind (Re.Group.get_opt g k) int_of_string_opt in
+  match Re.exec_opt brace_range_re inner with
+  | None -> None
+  | Some g -> (
+      match (bound g 1, bound g 2) with
+      | Some first, Some last ->
+          let step = Option.fold ~none:1 ~some:abs (bound g 3) in
+          let step = if first <= last then step else -step in
+          let past n = if step > 0 then n > last else n < last in
+          let rec count n acc =
+            if past n then List.rev acc
+            else count (n + step) (string_of_int n :: acc)
+          in
+          Some (if step = 0 then [] else count first [])
+      | _ -> None)
+
+(* Tailwind's brace expansion: the first [{...}] is a comma list or a range,
+   each alternative is expanded in turn, and so is what follows the brace. An
+   unbalanced brace is refused by the bundle, so it names nothing. *)
+let rec expand_braces pattern =
+  match String.index_opt pattern '{' with
+  | None -> [ pattern ]
+  | Some opening -> (
+      let len = String.length pattern in
+      let rec closing depth i =
+        if i >= len then None
+        else
+          match pattern.[i] with
+          | '{' -> closing (depth + 1) (i + 1)
+          | '}' when depth = 1 -> Some i
+          | '}' -> closing (depth - 1) (i + 1)
+          | _ -> closing depth (i + 1)
+      in
+      match closing 0 opening with
+      | None -> []
+      | Some close ->
+          let prefix = String.sub pattern 0 opening in
+          let inner = String.sub pattern (opening + 1) (close - opening - 1) in
+          let suffix = String.sub pattern (close + 1) (len - close - 1) in
+          let alternatives =
+            match brace_range inner with
+            | Some range -> range
+            | None -> List.concat_map expand_braces (split_top_level ',' inner)
+          in
+          List.concat_map
+            (fun rest ->
+              List.map
+                (fun alt -> String.concat "" [ prefix; alt; rest ])
+                alternatives)
+            (expand_braces suffix))
+
+(* The text of a quoted argument. The bundle refuses an unquoted one. *)
+let quoted_contents body =
+  let body = String.trim body in
+  let n = String.length body in
+  if n >= 2 && (body.[0] = '"' || body.[0] = '\'') && body.[n - 1] = body.[0]
+  then Some (String.sub body 1 (n - 2))
+  else None
+
+(* [@source inline("...")] is the safelist and [@source not inline("...")] the
+   blocklist. The argument is read off the [inline()] call inside the statement,
+   and what stands between the at-keyword and that call says which of the two it
+   is; anything else there is not the option. *)
+let source_inline css =
+  let index = Index.v css in
+  let calls = Index.calls index ~name:"inline" in
+  let keyword = String.length "@source" in
+  let argument at (source : Index.statement) =
+    List.find_map
+      (fun (i, (call : Index.block)) ->
+        if at + keyword <= i && call.next <= source.next then
+          match
+            String.trim (String.sub css (at + keyword) (i - at - keyword))
+          with
+          | "" -> Some (false, call.body)
+          | "not" -> Some (true, call.body)
+          | _ -> None
+        else None)
+      calls
+  in
+  Index.at_statements index ~name:"@source"
+  |> List.fold_left
+       (fun (safelist, blocklist) (at, source) ->
+         match argument at source with
+         | None -> (safelist, blocklist)
+         | Some (negated, body) -> (
+             match quoted_contents body with
+             | None -> (safelist, blocklist)
+             | Some patterns ->
+                 let candidates =
+                   split_top_level ' ' patterns
+                   |> List.filter (fun p -> p <> "")
+                   |> List.concat_map expand_braces
+                 in
+                 if negated then (safelist, blocklist @ candidates)
+                 else (safelist @ candidates, blocklist)))
+       ([], [])
+
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
    [drop_directives] takes the whole block out of the emitted CSS; lift actual

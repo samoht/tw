@@ -93,6 +93,10 @@
   comparisons keep author custom properties, and a folded zero-spacing utility
   omits the internal `--spacing` carrier it no longer reads (#650, #651, #655).
 - Every `@utility` declared for one name applies, not only the first (#550).
+- `@source inline("…")` safelists its classes and `@source not inline("…")`
+  blocks them, markup included, with Tailwind's brace patterns
+  (`{hover:,}bg-red-{500,600}`, `p-{0..8..4}`). Both were dropped unread, so a
+  runtime-only class got no rule (#NNN).
 - A routed candidate keeps the utility that owns it, so a class a declared
   variant routes is generated once by the right handler (#564).
 - Reject conflicting CLI backends instead of silently selecting one (#317).
