@@ -354,6 +354,27 @@ let test_forms_plugin_base () =
        "@plugin \"@tailwindcss/forms\" { strategy: \"class\"; }\n");
   check bool "no plugin, no reset" false (resets "forms-none" "")
 
+(* The forms reset is the plugin's, not preflight's: an entrypoint importing
+   Tailwind in parts without [tailwindcss/preflight.css] still gets it from
+   4.3.3, in [@layer base] and with no preflight beside it. tw built the reset
+   into the base layer it writes only with preflight, and placed base content
+   only for a preflight import, so the sheet had neither. *)
+let test_forms_plugin_base_without_preflight () =
+  let css =
+    compiled_with ~base:true ~classes:[ "p-2" ] "forms-no-preflight"
+      ~import:
+        "@layer theme, base, components, utilities;\n\
+         @import \"tailwindcss/theme.css\" layer(theme);\n\
+         @import \"tailwindcss/utilities.css\" layer(utilities) source(none);\n"
+      "@plugin \"@tailwindcss/forms\";\n"
+  in
+  check bool "the reset is written" true
+    (Astring.String.is_infix ~affix:"input:where([type=text])" css);
+  check bool "in the base layer" true
+    (Astring.String.is_infix ~affix:"@layer base{" css);
+  check bool "without preflight" false
+    (Astring.String.is_infix ~affix:"box-sizing:border-box" css)
+
 let suite =
   ( "project",
     [
@@ -373,4 +394,6 @@ let suite =
         test_static_theme_declared_once;
       test_case "static theme routed once" `Quick test_static_theme_routed_once;
       test_case "forms plugin base" `Quick test_forms_plugin_base;
+      test_case "forms plugin base without preflight" `Quick
+        test_forms_plugin_base_without_preflight;
     ] )
