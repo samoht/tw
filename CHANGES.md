@@ -156,6 +156,12 @@
 
 ### Arbitrary values and validation
 
+- A v3 opacity utility says so. `bg-opacity-50` and the `text-`, `border-`,
+  `divide-`, `ring-` and `placeholder-` spellings are still refused, as
+  Tailwind refuses them, but the message names the v4 replacement
+  (`bg-<color>/50`) instead of reporting an unfamiliar name. The CLI's
+  `Warning:` line now carries whatever the parser said rather than always
+  `Unknown class` (#777).
 - A data-type hint comes off the front of any bracket, whatever the family does
   with what follows, and the value written after it is the one that reaches the
   sheet. `z-[integer:5]` wrote `z-index: integer:5` and
