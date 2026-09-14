@@ -47,6 +47,9 @@
 
 ### Project stylesheets
 
+- The forms plugin's base reset reaches an entrypoint that imports Tailwind
+  without preflight, in `@layer base`, as Tailwind writes it. It was built into
+  the preflight layer and dropped with it (#NNN).
 - An `@apply` in a file imported under `layer(…)` puts its theme tokens,
   `@property` registrations and keyframes at the top of the sheet, as Tailwind
   does. They stayed inside the import's layer and declared a second theme

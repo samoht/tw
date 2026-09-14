@@ -2576,7 +2576,7 @@ let imports_preflight css =
    beside them: the [@layer properties] fallbacks and the [@property] and
    [@keyframes] rules. No part brings the components layer, which the generated
    sheet only ever declares empty. *)
-let generated_part part ~layer generated =
+let generated_part ?(with_base = false) part ~layer generated =
   let stmts = Css.statements generated in
   let layer_named name stmt =
     match Css.as_layer stmt with
@@ -2600,7 +2600,17 @@ let generated_part part ~layer generated =
   | Theme_part -> place (contents "theme")
   | Preflight_part -> place (contents "base")
   | Utilities_part ->
+      (* Without a preflight import the generated base layer holds only what a
+         plugin adds, the forms reset, and Tailwind writes that in [@layer base]
+         whichever part the entrypoint imports. *)
+      let base =
+        match contents "base" with
+        | [] -> []
+        | inner ->
+            if with_base then [ Css.layer ~name:[ "base" ] inner ] else []
+      in
       List.filter (fun s -> Option.is_some (layer_named "properties" s)) stmts
+      @ base
       @ place (contents "utilities")
       @ List.filter (fun s -> not (is_layer s)) stmts
 
@@ -2634,6 +2644,7 @@ let splice_into_entrypoint ~theme ~path generated =
   | exception Sys_error _ -> generated
   | raw -> (
       let raw = tailwind_utilities_as_import raw in
+      let with_base = not (imports_preflight raw) in
       let css =
         apply_variants ~theme
           (hoist_theme_keyframes (strip_tailwind_import_options raw))
@@ -2667,7 +2678,7 @@ let splice_into_entrypoint ~theme ~path generated =
               match stmt with
               | Cascade.Stylesheet.Import { url; layer; _ } as s -> (
                   match tailwind_import_part url with
-                  | Some part -> generated_part part ~layer generated
+                  | Some part -> generated_part ~with_base part ~layer generated
                   | None -> [ s ])
               | s -> [ s ])
           (* A stylesheet that only references the package declares no token,

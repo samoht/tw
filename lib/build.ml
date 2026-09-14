@@ -1681,6 +1681,27 @@ let with_static_keyframes ~theme keyframes =
   if not theme.Scheme.static_theme then keyframes
   else keyframes @ List.filter_map Css.as_keyframes Animations.builtin_keyframes
 
+(* The keyframes the utilities name, in the theme's variable order, with the
+   static theme's own when the entrypoint asks for them. *)
+let sheet_keyframes ~theme metadata styles =
+  List.fold_left collect_keyframes [] styles
+  |> List.rev
+  |> sort_keyframes_by_var_order metadata
+  |> with_static_keyframes ~theme
+
+(* The forms base layer is the plugin's [base] strategy: a global reset of
+   native form controls. It is opt-in only ([~forms:true]), mirroring Tailwind's
+   [\@plugin '@tailwindcss/forms']. The [.form-*] class-strategy utilities emit
+   their own per-class styles when used, independent of this flag, so utility
+   presence must not auto-enable the global base. The reset is the plugin's, not
+   preflight's: a sheet without preflight still carries it, in a base layer of
+   its own. *)
+let written_base_layer ~include_base ~forms_base base_layer =
+  if include_base then (true, base_layer)
+  else if forms_base then
+    (true, Css.layer_of ~name:[ "base" ] (Forms.base_stylesheet ()))
+  else (false, base_layer)
+
 (** Build all CSS layers from utilities and rules *)
 let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
     tw_classes statements =
@@ -1711,27 +1732,20 @@ let layers ~theme ~layers ~include_base ?forms ~selector_props ~sorted_rules
       explicit_property_rules
   in
   let fallback_order = property_statement_order all_property_statements in
-  (* The forms base layer is the plugin's [base] strategy: a global reset of
-     native form controls. It is opt-in only ([~forms:true]), mirroring
-     Tailwind's [\@plugin '@tailwindcss/forms']. The [.form-*] class-strategy
-     utilities emit their own per-class styles when used, independent of this
-     flag, so utility presence must not auto-enable the global base. *)
-  let forms_base = match forms with Some f -> f | None -> false in
+  let forms_base = Option.value forms ~default:false in
   let individual =
     individual_layers ~theme ~layers ~include_base ~forms_base
       ~has_transition:(has_transition_utility tw_classes)
       ~metadata ~fallback_order first_usage_order selector_props
       all_property_statements statements
   in
-  let keyframes =
-    List.fold_left collect_keyframes [] styles
-    |> List.rev
-    |> sort_keyframes_by_var_order metadata
-    |> with_static_keyframes ~theme
+  let keyframes = sheet_keyframes ~theme metadata styles in
+  let include_base_layer, base_layer =
+    written_base_layer ~include_base ~forms_base individual.base_layer
   in
-  assemble_all_layers ~layers ~include_base
+  assemble_all_layers ~layers ~include_base:include_base_layer
     ~properties_layer:individual.properties_layer
-    ~theme_layer:individual.theme_layer ~base_layer:individual.base_layer
+    ~theme_layer:individual.theme_layer ~base_layer
     ~utilities_layer:individual.utilities_layer
     ~property_rules_for_end:individual.property_rules ~keyframes ~metadata
     ~fallback_order ~first_usage_order
