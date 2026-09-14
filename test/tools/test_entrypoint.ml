@@ -778,9 +778,7 @@ let cases =
     case "alpha-fn"
       (fenced ".btn { color: --alpha(var(--color-red-500) / 50%); }");
     case "theme-fn" (fenced ".btn { color: theme(--color-red-500); }");
-    case "theme-fn-dashed"
-      ~why:"--theme() passes through unexpanded, which no browser reads"
-      (fenced ".btn { color: --theme(--color-red-500); }");
+    case "theme-fn-dashed" (fenced ".btn { color: --theme(--color-red-500); }");
     case "theme-fn-v3" (fenced ".btn { color: theme(colors.red.500); }");
     case "theme-in-media"
       (fenced

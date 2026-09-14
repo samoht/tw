@@ -168,6 +168,37 @@ let test_author_property_fallback () =
       ]
     ~absent:[ "--e:2px"; "--d:" ]
 
+(* [--theme()] reads a theme token from author CSS: a reference the theme layer
+   then declares, with a fallback threaded into it; the value itself where the
+   call says [inline] or stands where [var()] cannot, in a media query; and the
+   fallback alone when the token does not exist. None of it is CSS, so a call
+   left in place is a declaration the browser drops. *)
+let test_dashed_theme_function () =
+  check_rules
+    (compiled "dashed-theme"
+       "@theme { --color-brand: #123457; }\n\
+        .a { color: --theme(--color-brand); }\n\
+        .b { color: --theme(--color-red-500, #fe0102); }\n\
+        .c { padding: calc(--theme(--spacing) * 2); }\n\
+        .d { color: --theme(--color-nope, #fe0102); }\n\
+        .e { width: --theme(--breakpoint-md inline); }\n\
+        .g { color: --theme(--color-blue-500 inline); }\n\
+        @media (width >= --theme(--breakpoint-md)) { .f { display: flex; } }\n")
+    ~present:
+      [
+        ".a{color:var(--color-brand)}";
+        "--color-brand:#123457";
+        ".b{color:var(--color-red-500,#fe0102)}";
+        "--color-red-500:";
+        ".c{padding:calc(var(--spacing)*2)}";
+        "--spacing:.25rem";
+        ".d{color:#fe0102}";
+        ".e{width:48rem}";
+        ".g{color:oklch(";
+        "@media(width>=48rem){.f{display:flex}}";
+      ]
+    ~absent:[ "--theme("; "--color-blue-500" ]
+
 let suite =
   ( "project",
     [
@@ -179,4 +210,5 @@ let suite =
       test_case "important elsewhere" `Quick test_import_important_scope;
       test_case "@theme static block" `Quick test_theme_static_block;
       test_case "author @property fallback" `Quick test_author_property_fallback;
+      test_case "--theme() in author CSS" `Quick test_dashed_theme_function;
     ] )
