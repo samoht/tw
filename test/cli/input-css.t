@@ -89,6 +89,24 @@ leave the reference dangling.
   $ tw --minify --input-css inline.css inline.html | grep -cF -- '--font-a:var(--font-a)'
   1
 
+The spacing token is the one theme token built as a runtime override point,
+and an inline one folds like any other: the multiplier is written over the
+value, as Tailwind writes it, the unit step is the value itself, and no
+[--spacing] is declared.
+
+  $ cat > spacing.css <<EOF
+  > @import "tailwindcss" source(none);
+  > @theme inline { --spacing: .25rem; }
+  > EOF
+  $ cat > spacing.html <<EOF
+  > <div class="p-1 p-4 -mt-2 gap-x-2.5 top-3 inset-0"></div>
+  > EOF
+  $ tw --minify --no-base --input-css spacing.css spacing.html | grep -o '@layer utilities{.*'
+  @layer utilities{.inset-0{inset:0px}.top-3{top:calc(.25rem*3)}.-mt-2{margin-top:calc(.25rem*-2)}.gap-x-2\.5{column-gap:calc(.25rem*2.5)}.p-1{padding:.25rem}.p-4{padding:calc(.25rem*4)}}
+  $ tw --minify --no-base --input-css spacing.css spacing.html | grep -c -- '--spacing:'
+  0
+  [1]
+
 The modifiers are read from the at-rule's prelude, so [inline] counts wherever
 it sits among them:
 

@@ -94,19 +94,36 @@ let explicit_spacing_length ?theme (n : float) =
           Some (decl, neg_len)
         else Some (decl, (Css.Var spacing_ref : Css.length))
 
-(* The spacing step times [n], written out as calc(var(--spacing) * n). The
-   product is what a utility emits when the scheme binds no token for the step
-   and the multiplier is not one Tailwind folds. *)
+(* The step itself: the [var(--spacing)] reference, or the value the project
+   gave the token when it declared it in an [@theme inline] block, which has no
+   declaration of its own for a reference to read. The declaration carried
+   beside it is the dependency carrier the utility attaches either way; an
+   unreferenced runtime one is dropped at the sheet. *)
+let spacing_step ?theme () : Css.declaration * Css.length =
+  let decl, spacing_ref = Var.binding spacing_var spacing_base in
+  let inline =
+    match theme with
+    | Some t when Scheme.is_inline_token t (Var.name spacing_var) ->
+        Option.bind
+          (Scheme.theme_value theme (Var.name spacing_var))
+          Css.parse_length
+    | Some _ | None -> None
+  in
+  match inline with
+  | Some length -> (decl, length)
+  | None -> (decl, (Css.Var spacing_ref : Css.length))
+
+(* The spacing step times [n], written out as calc(var(--spacing) * n), or
+   calc(.25rem * n) over an inline token. The product is what a utility emits
+   when the scheme binds no token for the step and the multiplier is not one
+   Tailwind folds. *)
 let spacing_product ?theme (n : float) : Css.declaration * Css.length =
   match explicit_spacing_length ?theme n with
   | Some result -> result
   | None ->
-      let decl, spacing_ref = Var.binding spacing_var spacing_base in
+      let decl, step = spacing_step ?theme () in
       let len : Css.length =
-        Css.Calc
-          (Css.Calc.mul
-             (Css.Calc.length (Css.Var spacing_ref))
-             (Css.Calc.float n))
+        Css.Calc (Css.Calc.mul (Css.Calc.length step) (Css.Calc.float n))
       in
       (decl, len)
 
@@ -140,9 +157,8 @@ let spacing_calc ?theme n : Css.declaration * Css.length =
          optimiser can see that once [--spacing] is a literal. *)
       if n <> 0 && n <> 1 then spacing_product ?theme (float_of_int n)
       else
-        let decl, spacing_ref = Var.binding spacing_var spacing_base in
-        if n = 0 then (decl, (Px 0. : Css.length))
-        else (decl, (Css.Var spacing_ref : Css.length))
+        let decl, step = spacing_step ?theme () in
+        if n = 0 then (decl, (Px 0. : Css.length)) else (decl, step)
 
 (* Create a spacing length value for float multipliers like 2.5. For integer
    values, checks scheme for explicit spacing. Otherwise uses calc. This handles

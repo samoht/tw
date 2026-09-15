@@ -1,7 +1,14 @@
 #!/bin/sh
 # Whole-site parity measurement: tw against Tailwind v4 over the class list of
-# tailwindcss.com. Runs the three commands docs/parity.md documents over the
-# inputs committed beside this script and prints what they print.
+# tailwindcss.com. Runs the commands docs/parity.md documents over the inputs
+# committed beside this script and prints what they print.
+#
+# The contract has two halves. Parity is what a browser renders: the canonical
+# diff between tw's sheet and Tailwind's compiled output reports nothing. The
+# reference is the compiled sheet, before lightningcss, so what the report
+# lists is tw against Tailwind and not cascade against another minifier.
+# Separately, tw's minified sheet is never larger than Tailwind's minified one,
+# which is the one figure the minified reference is built for.
 #
 # It derives no counts of its own. The figure to quote is the differ's summary
 # line together with the top-level entries listed under it: the summary counts
@@ -28,10 +35,20 @@ mkdir -p "$out"
 dune build --root "$root" bin/main.exe cascade/bin/main.exe
 
 "$root"/node_modules/.bin/tailwindcss \
+  -i "$here"/ref-entry.css -o "$out"/ref.css
+"$root"/node_modules/.bin/tailwindcss \
   -i "$here"/ref-entry.css -o "$out"/ref_local.css --minify
 
 "$root"/_build/default/bin/main.exe \
   --input-css "$here"/globals.css --minify "$here"/classlist.txt > "$out"/tw_all.css
+
+tw_bytes=$(wc -c < "$out"/tw_all.css | tr -d ' ')
+ref_bytes=$(wc -c < "$out"/ref_local.css | tr -d ' ')
+echo "minified: tw $tw_bytes bytes, tailwindcss $ref_bytes bytes"
+if [ "$tw_bytes" -gt "$ref_bytes" ]; then
+  echo "tw --minify is larger than tailwindcss --minify" >&2
+  exit 1
+fi
 
 # The differ's exit status carries three measurements and one failure.
 #
@@ -52,7 +69,7 @@ dune build --root "$root" bin/main.exe cascade/bin/main.exe
 # reads as parity. Propagate that instead.
 status=0
 "$root"/_build/default/cascade/bin/main.exe \
-  diff --diff=canonical --limit=none "$out"/tw_all.css "$out"/ref_local.css \
+  diff --diff=canonical --limit=none "$out"/tw_all.css "$out"/ref.css \
   > "$out"/diff.txt 2>&1 || status=$?
 
 if [ "$status" -gt 2 ]; then

@@ -346,6 +346,26 @@ let test_late_typography_before_whitespace () =
       "text-red-500";
     ]
 
+(* Tailwind orders container variants as it orders breakpoints: every [@max-*]
+   block first, widest first, then the [@min-*] blocks narrowest first, so
+   [@max-lg] sits before [@sm] and [@lg]. tw wrote the [@lg] block before
+   [@max-lg], and the canonical differ reads the two as moved once it equates
+   [not (width >= X)] with [(width < X)], which it does since cascade #1250.
+   [@max-lg] and [@lg] are disjoint, and [@max-lg] and [@sm] are not, so the
+   order is what an element carrying both computes under. *)
+let test_container_max_before_min () =
+  Test_helpers.check_class_order
+    ~test_name:"@max-* container variants before @min-*"
+    [ "@lg:flex"; "@sm:block"; "@max-sm:inline"; "@max-lg:hidden" ];
+  (* The pair alone sorted the other way round: the comparator projected a
+     container width onto the breakpoint order through the range feature only,
+     and the compact [Min_width_rem] the parser builds for a bare width had no
+     key, so the two fell through to a tier that put [@lg] first. *)
+  Test_helpers.check_class_order ~test_name:"@max-lg before @lg on their own"
+    [ "@lg:flex"; "@max-lg:hidden" ];
+  Test_helpers.check_class_order ~test_name:"@max-lg before @sm on their own"
+    [ "@sm:flex"; "@max-lg:hidden" ]
+
 (* The word-wrapping families overlap on overflow-wrap/word-break: break-normal
    writes both and so leads its shared prefix, break-words/wrap-anywhere/
    wrap-break-word/wrap-normal tie on overflow-wrap alone, and break-all/
@@ -3300,6 +3320,8 @@ let tests =
       test_peer_variant_group_order;
     test_case "variant families sort as Tailwind" `Quick
       test_variant_family_order;
+    test_case "@max-* container variants before @min-*" `Quick
+      test_container_max_before_min;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;
     test_case "comparator is transitive" `Quick test_comparator_transitivity;
   ]

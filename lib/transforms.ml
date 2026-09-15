@@ -510,49 +510,34 @@ module Handler = struct
     let tz_ref = Var.reference tw_translate_z_var in
     Css.translate (XYZ (Var tx_ref, Var ty_ref, Var tz_ref))
 
-  let translate_axis axis_var n =
-    let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var Theme.spacing_base
-    in
-    (* [calc(var(--spacing) * 0)] is zero whatever the spacing is, and Tailwind
-       writes that zero with a unit. The target is a [--tw-*] custom property,
-       an opaque token stream where [0] and [0px] are not the same token, so the
-       unit has to be written here rather than left to length-level zero
-       folding. *)
-    let spacing_value : Css.length =
-      if n = 0 then Css.Px 0.
-      else if n = 1 then Css.Var spacing_ref
-      else
-        Css.Calc
-          (Css.Calc.mul
-             (Css.Calc.length (Css.Var spacing_ref))
-             (Css.Calc.float (float_of_int n)))
-    in
+  (* The spacing step comes from [Theme], as every spacing family's does, so a
+     project's [--spacing-N] token and an inline [--spacing] reach a translate
+     the way they reach a padding. [calc(var(--spacing) * 0)] is zero whatever
+     the spacing is, and Tailwind writes that zero with a unit: the target is a
+     [--tw-*] custom property, an opaque token stream where [0] and [0px] are
+     not the same token, which is the [0px] [Theme] writes. *)
+  let translate_axis ?theme axis_var n =
+    let spacing_decl, spacing_value = Theme.spacing_calc ?theme n in
     let axis_decl, _ = Var.binding axis_var spacing_value in
     style ~property_rules:translate_props
       (spacing_decl :: axis_decl :: [ translate_xy_refs ])
 
-  let translate_x n = translate_axis tw_translate_x_var n
-  let translate_y n = translate_axis tw_translate_y_var n
+  let translate_x ?theme n = translate_axis ?theme tw_translate_x_var n
+  let translate_y ?theme n = translate_axis ?theme tw_translate_y_var n
 
   (* A fractional spacing step ([translate-x-0.5]), signed so the negative form
      goes through the same path. *)
-  let translate_axis_step axis_var f =
-    let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var Theme.spacing_base
-    in
-    let spacing_value : Css.length =
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float f))
-    in
+  let translate_axis_step ?theme axis_var f =
+    let spacing_decl, spacing_value = Theme.spacing_calc_float ?theme f in
     let axis_decl, _ = Var.binding axis_var spacing_value in
     style ~property_rules:translate_props
       (spacing_decl :: axis_decl :: [ translate_xy_refs ])
 
-  let translate_x_step f = translate_axis_step tw_translate_x_var f
-  let translate_y_step f = translate_axis_step tw_translate_y_var f
+  let translate_x_step ?theme f =
+    translate_axis_step ?theme tw_translate_x_var f
+
+  let translate_y_step ?theme f =
+    translate_axis_step ?theme tw_translate_y_var f
 
   (** Helper to create a fraction percentage value: calc(n/d * 100%) *)
   let make_fraction_pct num denom : Css.length =
@@ -790,15 +775,9 @@ module Handler = struct
 
   (* Combined spacing translate (translate-N / -translate-N): both axes bound to
      calc(var(--spacing) * n); a negative n renders the "* -n" multiplier. *)
-  let translate_spacing n =
-    let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var Theme.spacing_base
-    in
-    let spacing_value : Css.length =
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float (float_of_int n)))
+  let translate_spacing ?theme n =
+    let spacing_decl, spacing_value =
+      Theme.spacing_product ?theme (float_of_int n)
     in
     let dx, _ = Var.binding tw_translate_x_var spacing_value in
     let dy, _ = Var.binding tw_translate_y_var spacing_value in
@@ -981,15 +960,9 @@ module Handler = struct
     let neg : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.))) in
     transform_with_var tw_rotate_z_var (Rotate_z neg)
 
-  let translate_z n =
-    let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var Theme.spacing_base
-    in
-    let spacing_value : Css.length =
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float (float_of_int n)))
+  let translate_z ?theme n =
+    let spacing_decl, spacing_value =
+      Theme.spacing_product ?theme (float_of_int n)
     in
     let axis_decl, _ = Var.binding tw_translate_z_var spacing_value in
     style ~property_rules:translate_props
@@ -997,16 +970,8 @@ module Handler = struct
 
   (* A fractional spacing step ([translate-z-0.5]), mirroring
      [translate_axis_step] for the X/Y axes. *)
-  let translate_z_step f =
-    let spacing_decl, spacing_ref =
-      Var.binding Theme.spacing_var Theme.spacing_base
-    in
-    let spacing_value : Css.length =
-      Css.Calc
-        (Css.Calc.mul
-           (Css.Calc.length (Css.Var spacing_ref))
-           (Css.Calc.float f))
-    in
+  let translate_z_step ?theme f =
+    let spacing_decl, spacing_value = Theme.spacing_product ?theme f in
     let axis_decl, _ = Var.binding tw_translate_z_var spacing_value in
     style ~property_rules:translate_props
       (spacing_decl :: axis_decl :: [ translate_xyz_refs ])
@@ -1379,10 +1344,10 @@ module Handler = struct
     | Rotate_bare_var name -> rotate_bare_var name
     | Neg_rotate_bare_var name -> neg_rotate_bare_var name
     | Neg_rotate_arbitrary (_, a) -> neg_rotate_arbitrary a
-    | Translate_x n -> translate_x n
+    | Translate_x n -> translate_x ~theme n
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
-    | Translate_x_step f -> translate_x_step f
+    | Translate_x_step f -> translate_x_step ~theme f
     | Translate_x_arbitrary (_, len) -> translate_x_arbitrary len
     | Translate_x_raw (_, v) -> raw_translate_style [ tw_translate_x_var ] v
     | Translate_y_raw (_, v) -> raw_translate_style [ tw_translate_y_var ] v
@@ -1400,14 +1365,14 @@ module Handler = struct
     | Transform_raw (_, v) ->
         style (Option.to_list (Parse.opaque_declaration "transform" v))
     | Translate_x_fraction (num, denom) -> translate_x_fraction num denom
-    | Translate_y n -> translate_y n
+    | Translate_y n -> translate_y ~theme n
     | Translate_y_full -> translate_y_full
     | Translate_y_px -> translate_y_px
-    | Translate_y_step f -> translate_y_step f
+    | Translate_y_step f -> translate_y_step ~theme f
     | Translate_y_arbitrary (_, len) -> translate_y_arbitrary len
     | Translate_y_fraction (num, denom) -> translate_y_fraction num denom
-    | Translate n -> translate_spacing n
-    | Neg_translate n -> translate_spacing (-n)
+    | Translate n -> translate_spacing ~theme n
+    | Neg_translate n -> translate_spacing ~theme (-n)
     | Translate_full -> translate_full
     | Translate_none -> style [ Css.translate None ]
     | Translate_px -> translate_px
@@ -1430,8 +1395,8 @@ module Handler = struct
     | Neg_translate_y_1_2 -> neg_translate_y_1_2
     | Neg_translate_y_fraction (num, denom) ->
         neg_translate_y_fraction num denom
-    | Translate_z n -> translate_z n
-    | Translate_z_step f -> translate_z_step f
+    | Translate_z n -> translate_z ~theme n
+    | Translate_z_step f -> translate_z_step ~theme f
     | Translate_z_px -> translate_z_px
     | Translate_z_arbitrary (_, value) -> translate_z_arbitrary value
     | Neg_translate_z_arbitrary s -> neg_translate_z_arbitrary_style s

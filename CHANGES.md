@@ -47,6 +47,11 @@
 
 ### Project stylesheets
 
+- An `@theme inline { --spacing: ... }` token folds into every spacing
+  utility, `p-4` writing `calc(.25rem * 4)` and declaring no `--spacing`, as
+  Tailwind does. The token stayed declared and read through `var()`, the one
+  inline token that did, and the translate family took its step from the
+  default scale rather than the project's (#826).
 - The forms plugin's base reset reaches an entrypoint that imports Tailwind
   without preflight, in `@layer base`, as Tailwind writes it. It was built into
   the preflight layer and dropped with it (#817).
@@ -449,6 +454,9 @@
 
 ### Colours and effects
 
+- A gradient stop with an opacity keeps its theme colour as the palette declares
+  it. `to-gray-950/40` registered `--color-gray-950` as `#030712`, which moved
+  every other use of the token on the page off the palette's oklch (#822).
 - `ring-offset-white` and `ring-offset-black` compile, with an optional opacity,
   as their `ring-` counterparts do. A shadeless colour after `ring-offset-` was
   read as a width and refused (#813).
@@ -505,6 +513,10 @@
 
 ### Variants and selectors
 
+- A `before:` or `after:` utility with an opacity colour declares `content`
+  once, on its rule, as Tailwind does. The `@supports` colour twin repeated
+  `content: var(--tw-content)`, which the canonical parity diff reported
+  (#823).
 - `not-[@supports(…)]` negates the condition, as Tailwind does:
   `not-[@supports(display:grid)]:flex` wraps the utility in
   `@supports not (display:grid)`. It negated the utility's own class, and a
@@ -578,6 +590,11 @@
 
 ### CSS ordering and structure
 
+- A `@max-*` container variant sorts before the `@min-*` one at the same
+  width, as every `@max-*` block does in Tailwind. `@lg:flex @max-lg:hidden`
+  wrote the `@lg` block first when the pair stood alone, though four such
+  classes sorted as Tailwind does; the same-width tie-break meant for `@lg`
+  against `@min-lg` caught the pair (#827).
 - `@lg:` and `@min-lg:` order the way Tailwind orders them. The two spell one
   width and merge into one container block, where the last rule wins, so an
   element carrying both rendered one way under Tailwind and the other under tw

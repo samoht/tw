@@ -38,6 +38,42 @@ let test_gradient_colors () =
   Alcotest.check string "via-blue-600" "via-blue-600" (Utility.to_class via);
   Alcotest.check string "to-green-500" "to-green-500" (Utility.to_class to_)
 
+(* A theme token keeps the palette's value whichever utility references it. A
+   gradient stop with an opacity used to register [--color-gray-950] as the hex
+   its fallback is built from, so one [to-gray-950/40] on a page moved every
+   other use of the token off the palette's oklch. *)
+let test_gradient_stop_opacity_theme_colour () =
+  let key = "--color-gray-950:" in
+  let theme_value cls =
+    match Tw.of_string cls with
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    | Ok u -> (
+        let css =
+          Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+        in
+        match Astring.String.find_sub ~sub:key css with
+        | None -> Alcotest.failf "%s declares no %s" cls key
+        | Some i ->
+            let start = i + String.length key in
+            let ends =
+              List.filter_map
+                (fun c -> String.index_from_opt css start c)
+                [ ';'; '}' ]
+            in
+            String.sub css start (List.fold_left min max_int ends - start))
+  in
+  let palette = theme_value "bg-gray-950" in
+  List.iter
+    (fun cls -> Alcotest.check string cls palette (theme_value cls))
+    [
+      "from-gray-950/40";
+      "via-gray-950/40";
+      "to-gray-950/40";
+      "dark:to-gray-950/40";
+      "to-gray-950/[37%]";
+      "to-gray-950/(--my-alpha)";
+    ]
+
 (* via-none clears the gradient's via stops by resetting the channel var to the
    CSS initial keyword. *)
 let test_via_none () =
@@ -683,6 +719,8 @@ let tests =
     test_case "invalid bracket value" `Quick test_invalid_bracket_value;
     test_case "bare radial and conic gradients" `Quick test_radial_conic;
     test_case "gradient colors" `Quick test_gradient_colors;
+    test_case "gradient stop opacity keeps the theme colour" `Quick
+      test_gradient_stop_opacity_theme_colour;
     test_case "via-none" `Quick test_via_none;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "backgrounds suborder matches Tailwind" `Quick

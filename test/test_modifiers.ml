@@ -1242,6 +1242,41 @@ let test_not_bracket_supports () =
   | Error _ -> ()
   | Ok _ -> Alcotest.fail "a compound supports condition has no single negation"
 
+(* Tailwind declares [content] once on a [before:]/[after:] rule and nests the
+   colour [@supports] twin inside it, so the flattened twin carries the colour
+   alone. tw ran the pseudo-element handler over the twin as over the rule and
+   wrote [content: var(--tw-content)] a second time, ten times over the site
+   sheet, which the canonical differ reports and the byte budget pays for. *)
+let test_pseudo_element_supports_twin_content () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let content = "content:var(--tw-content)" in
+  List.iter
+    (fun cls ->
+      let sheet = css cls in
+      let rule = Astring.String.find_sub ~sub:content sheet in
+      check bool (cls ^ " declares content") true (Option.is_some rule);
+      let twin =
+        Option.bind rule (fun i ->
+            Astring.String.find_sub ~start:(i + 1) ~sub:content sheet)
+      in
+      check bool
+        (cls ^ " repeats no content in the supports twin")
+        true (Option.is_none twin);
+      check bool
+        (cls ^ " keeps the supports twin")
+        true
+        (Astring.String.is_infix ~affix:"@supports" sheet))
+    [
+      "after:bg-red-500/50";
+      "before:text-blue-500/50";
+      "hover:after:bg-red-500/50";
+      "dark:before:border-gray-950/40";
+    ]
+
 (* A group/peer arbitrary variant whose [&] anchor is preceded by a context
    (e.g. group-[:nth-of-type(3)_&]) keeps that prefix ahead of the anchor,
    rather than dropping it down to just :where(.group). *)
@@ -1645,6 +1680,8 @@ let tests =
         test_not_bracket_unreadable_selector_rejected;
       test_case "not-[@supports] negates the condition" `Quick
         test_not_bracket_supports;
+      test_case "pseudo-element supports twin declares content once" `Quick
+        test_pseudo_element_supports_twin_content;
     ]
 
 let suite = ("modifiers", tests)
