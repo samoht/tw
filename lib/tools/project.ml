@@ -69,8 +69,12 @@ let utilities ~theme ?entrypoint ~base classes =
     in
     { theme with custom_variants }
   in
+  (* The forms plugin's reset belongs to the base layer, which [to_css] writes
+     only when it is asked for. *)
+  let forms = Option.fold ~none:false ~some:Entrypoint.forms_base input_css in
   let sheet =
-    Tw.to_css ~theme:sort_theme ~base ~extra:routed_extra (List.map snd known)
+    Tw.to_css ~theme:sort_theme ~base ~forms ~extra:routed_extra
+      (List.map snd known)
   in
   (List.length known + routed_count, Entrypoint.place_routed routed_stmts sheet)
 

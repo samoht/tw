@@ -94,6 +94,11 @@ type modifier =
   | Has_variant of modifier
       (** [has-<variant>]: any variant's own selector inside [:has()], as
           [has-peer-checked] and [has-not-data-active] need. *)
+  | Group_has_variant of modifier * string option
+      (** [group-has-<variant>]: the variant's selector inside the [:has()] a
+          [.group] anchor carries, [group-has-data-[state=open]]. *)
+  | Peer_has_variant of modifier * string option
+      (** [peer-has-<variant>]: the same on a [.peer] anchor. *)
   | Group_has of string * string option
   | Peer_has of string * string option
   | Starting
@@ -383,9 +388,15 @@ val style :
 val important_stmt : Css.statement -> Css.statement
 (** [important_stmt stmt] marks the declarations of [stmt] as [!important], down
     through its nested rules and the [\@supports], [\@media] and [\@container]
-    blocks that hold them. Custom properties keep their declarations, as
-    {!map_important} leaves them. *)
+    blocks that hold them, the custom properties they set included. A theme
+    token stays as it is, as {!map_important} leaves it. *)
 
 val map_important : t -> t
 (** [map_important t] marks every declaration [t] emits as [!important] (the [!]
     utility prefix), recursing through modifiers, groups and nested rules. *)
+
+val rename_class : old_class:string -> new_class:string -> t -> t
+(** [rename_class ~old_class ~new_class t] renames the class [old_class] to
+    [new_class] in the selectors of the rules [t] writes itself, down through
+    their nested rules and the at-rules that hold them. The rule [t]'s own
+    declarations go on is named by whoever renders [t], and is left alone. *)

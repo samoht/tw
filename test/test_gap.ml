@@ -161,8 +161,22 @@ let test_data_type_hint_before_the_length_reader () =
   reject "gap-[:4px]";
   reject "gap-[length:]"
 
+(* Gap has no negative form in Tailwind either, and the class printer writes the
+   absolute value, so [gap (-2)] came back as [gap-2]. It is refused at
+   construction, as a negative padding is. *)
+let typed_negative () =
+  let open Tw in
+  check_raises "gap (-2) is refused"
+    (Invalid_argument "gap: gap has no negative size, got -2") (fun () ->
+      ignore (gap (-2)));
+  check_raises "gap_x' (-0.5) is refused"
+    (Invalid_argument "gap_x': gap has no negative size, got -0.5") (fun () ->
+      ignore (gap_x' (-0.5)));
+  check_typed_class "gap-0" (gap 0)
+
 let tests =
   [
+    test_case "typed constructors: negative size" `Quick typed_negative;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;
     test_case "gap of_string - valid values" `Quick of_string_valid;

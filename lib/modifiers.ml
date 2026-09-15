@@ -1203,17 +1203,106 @@ let is_valid_data_attr_expr expr =
   | _ -> true
   | exception (Invalid_argument _ | Cascade.Cursor.Parse_error _) -> false
 
-(* An at-rule in brackets is a variant too: [[@supports(display:grid)]] and
-   [[@starting-style]] wrap the utility rather than select it. *)
+(* The query a bracket [@media] at-rule names, [[@media_print]] or
+   [[@media(width>=600px)]], with underscores read as spaces; [None] when what
+   follows [@media] is no query the grammar reads, so a half-written one is
+   refused where the modifier is parsed rather than raised from the render. *)
+let bracket_media_condition inner =
+  let n = String.length inner in
+  if
+    n > 7
+    && String.sub inner 0 6 = "@media"
+    && (inner.[6] = '_' || inner.[6] = '(')
+  then
+    let cond =
+      String.trim (Parse.decode_underscores (String.sub inner 6 (n - 6)))
+    in
+    match Css.Media.of_string_strict cond with
+    | media -> Some media
+    | exception Cascade.Cursor.Parse_error _ -> None
+  else None
+
+(* An at-rule in brackets is a variant too: [[@supports(display:grid)]],
+   [[@media_print]] and [[@starting-style]] wrap the utility rather than select
+   it. *)
 let try_bracket_at_rule s =
   if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then
     let inner = String.sub s 1 (String.length s - 2) in
     if
       inner = "@starting-style"
       || (String.length inner > 9 && String.sub inner 0 9 = "@supports")
+      || Option.is_some (bracket_media_condition inner)
     then Some (At_rule inner)
     else None
   else None
+
+let is_supports_ident_char c =
+  (c >= 'a' && c <= 'z')
+  || (c >= 'A' && c <= 'Z')
+  || (c >= '0' && c <= '9')
+  || c = '-'
+
+(* The [@supports] keywords a condition joins or negates with. Written against a
+   parenthesis, [not(display:grid)], the keyword is the name of a function
+   token, which the grammar reads as an unknown feature that never holds, so
+   each gets the spaces Tailwind gives it. Only at the top level: inside
+   [selector(...)] a [:not(a)] is a pseudo-class, not the keyword. *)
+let space_supports_keywords cond =
+  let n = String.length cond in
+  let buf = Buffer.create (n + 8) in
+  let keyword_at i =
+    List.find_opt
+      (fun k ->
+        let l = String.length k in
+        i + l <= n
+        && String.sub cond i l = k
+        && (i = 0 || not (is_supports_ident_char cond.[i - 1]))
+        && (i + l = n || not (is_supports_ident_char cond.[i + l])))
+      [ "and"; "not"; "or" ]
+  in
+  let rec go i depth =
+    if i < n then
+      match cond.[i] with
+      | '(' ->
+          Buffer.add_char buf '(';
+          go (i + 1) (depth + 1)
+      | ')' ->
+          Buffer.add_char buf ')';
+          go (i + 1) (depth - 1)
+      | c when depth = 0 -> (
+          match keyword_at i with
+          | Some k ->
+              let len = Buffer.length buf in
+              if len > 0 && Buffer.nth buf (len - 1) <> ' ' then
+                Buffer.add_char buf ' ';
+              Buffer.add_string buf k;
+              let next = i + String.length k in
+              if next < n && cond.[next] <> ' ' then Buffer.add_char buf ' ';
+              go next depth
+          | None ->
+              Buffer.add_char buf c;
+              go (i + 1) depth)
+      | c ->
+          Buffer.add_char buf c;
+          go (i + 1) depth
+  in
+  go 0 0;
+  String.trim (Buffer.contents buf)
+
+(* [prop: value] is a property test only when what stands before the colon is a
+   property name. In [not(display:grid)] it is [not(display], and splitting
+   there handed the property reader [grid)] for a value. *)
+let supports_property_test cond =
+  match String.index_opt cond ':' with
+  | None -> None
+  | Some i ->
+      let prop = String.trim (String.sub cond 0 i) in
+      if prop <> "" && String.for_all is_supports_ident_char prop then
+        Some
+          ( prop,
+            String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
+          )
+      else None
 
 let normalize_supports_condition condition_str =
   let cond = Parse.decode_underscores condition_str in
@@ -1230,36 +1319,36 @@ let normalize_supports_condition condition_str =
   then
     (* Already parenthesised, so it is the condition the author wrote; only the
        real grammar reader can make sense of arbitrary authored text. *)
-    Css.Supports.of_string cond
-  else if String.contains cond ':' then
-    (* [prop: value], the property test Tailwind emits, built directly. *)
-    let i = String.index cond ':' in
-    let prop = String.trim (String.sub cond 0 i) in
-    let value =
-      String.trim (String.sub cond (i + 1) (String.length cond - i - 1))
-    in
-    Css.Supports.property prop value
-  else if String.contains cond '(' then
-    (* Function call like font-format(opentype) or var(--test); again arbitrary
-       authored text, so the real grammar reader parses it. *)
-    Css.Supports.of_string cond
+    Css.Supports.of_string (space_supports_keywords cond)
   else
-    (* Bare property name: backdrop-filter tests against var(--tw), the same
-       expansion as the bare custom property above. A lone identifier is not a
-       condition the CSS grammar has a production for, so leaving it raised a
-       parse error out of the scanner. *)
-    Css.Supports.property cond "var(--tw)"
+    match supports_property_test cond with
+    | Some (prop, value) ->
+        (* [prop: value], the property test Tailwind emits, built directly. *)
+        Css.Supports.property prop value
+    | None when String.contains cond '(' ->
+        (* A negation, a function such as [selector(...)] or
+           [font-format(opentype)], or a condition joined with [and]/[or]; again
+           arbitrary authored text, so the real grammar reader parses it. *)
+        Css.Supports.of_string (space_supports_keywords cond)
+    | None ->
+        (* Bare property name: backdrop-filter tests against var(--tw), the same
+           expansion as the bare custom property above. A lone identifier is not
+           a condition the CSS grammar has a production for, so leaving it
+           raised a parse error out of the scanner. *)
+        Css.Supports.property cond "var(--tw)"
 
 (* Validate that a supports-[...] bracket normalizes to a condition the
    [@supports] grammar has a production for. An empty or half-written one used
-   to reach the condition reader and raise from there. *)
+   to reach the condition reader and raise from there, and a property test whose
+   value is no declaration value raised [Failure] out of the property reader. *)
 let is_valid_supports_condition cond =
   cond <> ""
   &&
     try
       ignore (normalize_supports_condition cond);
       true
-    with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
+    with Cascade.Cursor.Parse_error _ | Invalid_argument _ | Failure _ ->
+      false
 
 (* Which spelling an [nth-*] argument was written in. A bare number reads both
    ways and they are different classes, so the reader records the one it saw
@@ -1673,6 +1762,16 @@ let is_not_compatible = function
   | Pseudo_first_line | Pseudo_details_content | Starting | Children
   | Descendants | Prose_element _ | Container _ ->
       false
+  (* A bracket [@media] at-rule wraps the utility in a query and has no selector
+     to negate or to look for; [not-[@media ...]] has its own reading, and
+     Tailwind compiles nothing for [has-[@media_print]]. *)
+  | At_rule content when Option.is_some (bracket_media_condition content) ->
+      false
+  (* A bracket [@supports] condition has its own [not-] reading too, which
+     negates the condition; read as a plain variant it negated the class. *)
+  | At_rule content
+    when String.length content > 9 && String.sub content 0 9 = "@supports" ->
+      false
   | _ -> true
 
 (* [not-[...]] whose content is neither a media condition nor a pseudo-class
@@ -1690,6 +1789,26 @@ let reads_as_selector content =
       Cascade.Cursor.ws cursor;
       Cascade.Cursor.is_done cursor
 
+(* The condition a bracket [@supports] at-rule names under [not-], with
+   underscores read as spaces: [(display:grid)] or [not (display:grid)]. [None]
+   for a compound [and]/[or] condition, which has no single negation, and for
+   text the condition grammar does not read. *)
+let bracket_supports_condition content =
+  let n = String.length content in
+  if n > 9 && String.sub content 0 9 = "@supports" then
+    let cond =
+      String.trim (Parse.decode_underscores (String.sub content 9 (n - 9)))
+    in
+    match Css.Supports.of_string cond with
+    | Css.Supports.And _ | Css.Supports.Or _
+    | Css.Supports.Not (Css.Supports.And _ | Css.Supports.Or _) ->
+        None
+    | condition -> Some condition
+    | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _ | Failure _)
+      ->
+        None
+  else None
+
 (** Check if bracket content is valid for not-[...] patterns. Rejects combinator
     selectors (+, >, ~), media conditions with commas, and bare selectors. *)
 let is_valid_not_bracket_content content =
@@ -1703,6 +1822,8 @@ let is_valid_not_bracket_content content =
       (String.length content > 6 && String.sub content 0 6 = "@media")
       || (String.length content > 7 && String.sub content 0 7 = "@media_")
     then not (String.contains content ',')
+    else if String.length content > 9 && String.sub content 0 9 = "@supports"
+    then Option.is_some (bracket_supports_condition content)
     else if first = ':' then true
     else reads_as_selector content
 
@@ -1853,7 +1974,8 @@ let try_not_modifier theme s =
             (fun () -> try_not_bracket inner);
             (fun () ->
               match try_bracketed_modifier inner with
-              | Some m -> Some (Not m)
+              | Some m when is_not_compatible m -> Some (Not m)
+              | Some _ -> None
               | None -> None);
             (fun () -> try_not_shorthand inner);
           ]
@@ -2135,6 +2257,26 @@ and try_has_variant ~theme s =
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some m when is_not_compatible m -> Some (Has_variant m)
     | Some _ | None -> None
+  else
+    match try_scoped_has_variant ~theme "group-has-" s with
+    | Some (m, name) -> Some (Group_has_variant (m, name))
+    | None -> (
+        match try_scoped_has_variant ~theme "peer-has-" s with
+        | Some (m, name) -> Some (Peer_has_variant (m, name))
+        | None -> None)
+
+(* [group-has-<variant>] and [peer-has-<variant>] hold a variant the way [has-]
+   does. A state name or a bracket keeps the reading [try_has_shorthand] and the
+   bracket patterns give it. *)
+and try_scoped_has_variant ~theme prefix s =
+  let n = String.length prefix in
+  if String.length s > n && String.sub s 0 n = prefix then
+    let base, name = split_name (String.sub s n (String.length s - n)) in
+    if base = "" || base.[0] = '[' || is_has_shorthand base then None
+    else
+      match parse_modifier ~theme base with
+      | Some m when is_not_compatible m -> Some (m, name)
+      | Some _ | None -> None
   else None
 
 and try_not_of_modifier ~theme s =
@@ -2367,9 +2509,9 @@ let rec slot_of_modifier : modifier -> Slot.t = function
   | Group_autofill | Group_in_range | Group_out_of_range | Group_focus_within
   | Group_focus_visible | Group_enabled | Group_first | Group_last | Group_only
   | Group_odd | Group_even | Group_first_of_type | Group_last_of_type
-  | Group_only_of_type | Group_hocus | Group_has _ | Group_arbitrary _
-  | Group_not _ | Group_data _ | Group_aria _ | Named_group _
-  | Not_named_group _ | Group_peer_named _ ->
+  | Group_only_of_type | Group_hocus | Group_has _ | Group_has_variant _
+  | Group_arbitrary _ | Group_not _ | Group_data _ | Group_aria _
+  | Named_group _ | Not_named_group _ | Group_peer_named _ ->
       Slot.Group
   | Peer_hover | Peer_focus | Peer_checked | Peer_active | Peer_visited
   | Peer_disabled | Peer_empty | Peer_required | Peer_valid | Peer_invalid
@@ -2379,8 +2521,8 @@ let rec slot_of_modifier : modifier -> Slot.t = function
   | Peer_out_of_range | Peer_focus_within | Peer_focus_visible | Peer_enabled
   | Peer_first | Peer_last | Peer_only | Peer_odd | Peer_even
   | Peer_first_of_type | Peer_last_of_type | Peer_only_of_type | Peer_hocus
-  | Peer_has _ | Peer_arbitrary _ | Peer_not _ | Peer_data _ | Peer_aria _
-  | Named_peer _ ->
+  | Peer_has _ | Peer_has_variant _ | Peer_arbitrary _ | Peer_not _
+  | Peer_data _ | Peer_aria _ | Named_peer _ ->
       Slot.Peer
   | Children -> Slot.Child
   | Descendants -> Slot.Descendant

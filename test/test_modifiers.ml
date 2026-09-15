@@ -633,6 +633,70 @@ let test_important_prefix () =
   check_sheet "!p-4"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--spacing:.25rem}}@layer components;@layer utilities{.\!p-4{padding:calc(var(--spacing)*4)!important}}|}
 
+(* A utility that writes rules of its own names its class inside their
+   selectors, so the [!] spelling has to reach them too. Tailwind 4.3.3 writes
+   [:where(.space-x-4\!>:not(:last-child))] for [space-x-4!] and repeats
+   [.container\!] inside every breakpoint of [container!]; a selector naming the
+   bare class matches no element the markup marked. *)
+let test_important_multi_rule_selectors () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "space-x-4!" {|:where(.space-x-4\!>:not(:last-child))|};
+  has "!space-x-4" {|:where(.\!space-x-4>:not(:last-child))|};
+  has "hover:space-x-4!" {|:where(.hover\:space-x-4\!:hover>:not(:last-child))|};
+  has "container!"
+    {|@media(min-width:40rem){.container\!{max-width:40rem!important}}|}
+
+(* The [!] marks every declaration of the utility's own rule, the variables it
+   sets included: Tailwind 4.3.3 writes [--tw-shadow:...!important] beside
+   [box-shadow:...!important] for [shadow-md!]. Left normal, the [--tw-shadow] a
+   plain [shadow-lg] sets on the same element wins, and the shadow the [!] was
+   meant to force is not the one drawn. The rule is found first: the [@layer
+   properties] fallback declares the same variables earlier in the sheet. *)
+let test_important_custom_properties () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let marked cls ~rule name =
+    let sheet = css cls in
+    let declaration =
+      Option.bind
+        (Astring.String.find_sub ~sub:(rule ^ "{") sheet)
+        (fun r ->
+          Option.map
+            (fun i ->
+              let stop =
+                Option.value ~default:(String.length sheet)
+                  (Astring.String.find ~start:i
+                     (fun c -> c = ';' || c = '}')
+                     sheet)
+              in
+              String.sub sheet i (stop - i))
+            (Astring.String.find_sub ~start:r ~sub:(name ^ ":") sheet))
+    in
+    match declaration with
+    | None -> Alcotest.failf "%s: no %s in %s" cls name rule
+    | Some d ->
+        check bool
+          (cls ^ " marks " ^ d)
+          true
+          (Astring.String.is_suffix ~affix:"!important" d)
+  in
+  marked "shadow-md!" ~rule:{|.shadow-md\!|} "--tw-shadow";
+  marked "translate-x-2!" ~rule:{|.translate-x-2\!|} "--tw-translate-x";
+  marked "font-bold!" ~rule:{|.font-bold\!|} "--tw-font-weight"
+
 (* [not-has-<X>] reads X as a pseudo-class. The shorthand accepted any text and
    left the selector reader to raise out of [to_css], a pure conversion, while
    the bracket form [has-[...]] validated its selector. *)
@@ -650,6 +714,60 @@ let test_not_has_shorthand_selector () =
   rejected "not-has-a\\:flex";
   renders "not-has-checked:flex";
   renders "not-has-hover:flex"
+
+(* [has-] and [not-] take an arbitrary [data-[...]] or [aria-[...]] variant as
+   their inner, and its attribute selector is what goes inside [:has()] or
+   [:not()]. Tailwind 4.3.3 writes [:has([data-state=open])] for
+   [has-data-[state=open]:ring-2], the shape Radix and shadcn markup relies on;
+   a condition naming the utility's own class matches what the author did not
+   mean, or nothing. *)
+let test_has_not_bracket_attribute () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "has-data-[state=open]:flex"
+    {|.has-data-\[state\=open\]\:flex:has([data-state=open]){|};
+  has "not-data-[state=open]:flex"
+    {|.not-data-\[state\=open\]\:flex:not([data-state=open]){|};
+  has "has-aria-[sort=ascending]:flex"
+    {|.has-aria-\[sort\=ascending\]\:flex:has([aria-sort=ascending]){|};
+  has "not-aria-[sort=ascending]:flex"
+    {|.not-aria-\[sort\=ascending\]\:flex:not([aria-sort=ascending]){|}
+
+(* [group-has-] and [peer-has-] take any variant as their inner, the way [has-]
+   does, and that variant's own selector goes inside the anchored [:has()].
+   Tailwind 4.3.3 styles a descendant of [:where(.group):has([data-state=open])]
+   for [group-has-data-[state=open]:ring-2]; the two read only a state name or a
+   bracket selector, so the class was an unknown modifier. *)
+let test_group_peer_has_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "group-has-data-[state=open]:flex"
+    {|.group-has-data-\[state\=open\]\:flex:is(:where(.group):has([data-state=open]) *){display:flex}|};
+  has "group-has-aria-expanded:flex"
+    {|.group-has-aria-expanded\:flex:is(:where(.group):has([aria-expanded=true]) *){display:flex}|};
+  has "peer-has-data-[state=open]:flex"
+    {|.peer-has-data-\[state\=open\]\:flex:is(:where(.peer):has([data-state=open])~*){display:flex}|};
+  (* the state-name shorthand keeps its reading *)
+  has "group-has-checked:flex"
+    {|.group-has-checked\:flex:is(:where(.group):has(:checked) *){display:flex}|}
 
 (* @tailwindcss/typography registers one variant per element it styles, and the
    variant is what puts a utility on that element. Eight of them - h5, h6, dl,
@@ -719,6 +837,10 @@ let test_prose_element_variant_invalid () =
 let tests =
   [
     test_case "important prefix" `Quick test_important_prefix;
+    test_case "important multi-rule selectors" `Quick
+      test_important_multi_rule_selectors;
+    test_case "important custom properties" `Quick
+      test_important_custom_properties;
     test_case "has_responsive_modifier" `Quick test_has_responsive_modifier;
     test_case "validate_no_nested_responsive" `Quick
       test_validate_no_nested_responsive;
@@ -1094,6 +1216,32 @@ let test_not_bracket_unreadable_selector_rejected () =
       "not-[@media_print]:flex";
     ]
 
+(* A bracket [@supports] condition under [not-] negates the condition, the way
+   [not-[@media ...]] negates the query: Tailwind 4.3.3 writes [@supports not
+   (display:grid)] for [not-[@supports(display:grid)]:flex], and the positive
+   query for a doubly negated one. tw read the at-rule as a variant and negated
+   the utility's own class instead. A compound condition has no single negation,
+   and 4.3.3 compiles nothing for it. *)
+let test_not_bracket_supports () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "not-[@supports(display:grid)]:flex"
+    {|@supports not (display:grid){.not-\[\@supports\(display\:grid\)\]\:flex{display:flex}}|};
+  has "not-[@supports_not_(display:grid)]:flex"
+    {|@supports(display:grid){.not-\[\@supports_not_\(display\:grid\)\]\:flex{display:flex}}|};
+  match Tw.of_string "not-[@supports(display:grid)_and_(gap:1px)]:flex" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "a compound supports condition has no single negation"
+
 (* A group/peer arbitrary variant whose [&] anchor is preceded by a context
    (e.g. group-[:nth-of-type(3)_&]) keeps that prefix ahead of the anchor,
    rather than dropping it down to just :where(.group). *)
@@ -1234,8 +1382,38 @@ let test_bare_selector_variant_attribute_operators () =
   (* a combinator really is one, and none of these is a compound *)
   rejected "[p_~_span]:underline";
   rejected "[>img]:underline";
-  rejected "[.a_.b]:underline";
-  rejected "[@media_print]:underline"
+  rejected "[.a_.b]:underline"
+
+(* An at-rule in brackets is a variant, [@media] as much as [@supports].
+   Tailwind 4.3.3 wraps the utility in [@media print] for
+   [[@media_print]:underline], reading the underscore as a space, and in the
+   written query for [[@media(prefers-contrast:more)]] and
+   [[@media(width>=600px)]]. Only [@supports] and [@starting-style] were read,
+   so each of these was an unknown modifier. A query with no reading is
+   refused. *)
+let test_bracket_media_variant () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    check bool
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "[@media_print]:underline"
+    {|@media print{.\[\@media_print\]\:underline{text-decoration-line:underline}}|};
+  has "[@media(prefers-contrast:more)]:underline" "@media";
+  has "[@media(prefers-contrast:more)]:underline"
+    {|.\[\@media\(prefers-contrast\:more\)\]\:underline{text-decoration-line:underline}|};
+  has "[@media(width>=600px)]:flex" "@media";
+  has "[@media(width>=600px)]:flex"
+    {|.\[\@media\(width\>\=600px\)\]\:flex{display:flex}|};
+  match Tw.of_string "[@media(]:flex" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "[@media(]:flex should be refused"
 
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
@@ -1248,6 +1426,24 @@ let test_valid_bracket_modifiers () =
     {|.nth-of-type-\[odd\]\:flex:nth-of-type(odd){display:flex}|};
   check_utilities "supports-[display:grid]:flex"
     {|@supports(display:grid){.supports-\[display\:grid\]\:flex{display:flex}}|}
+
+(* A [supports-[...]] condition that is not a bare [prop:value] pair goes to the
+   condition reader whole. [not(display:grid)] was split at its colon into the
+   property [not(display] and the value [grid)], which cascade refused with a
+   [Failure] out of a pure render, exit 125. Tailwind 4.3.3 writes [@supports
+   not (display:grid)], spacing a keyword the function-token spelling would hide
+   from the [@supports] grammar, and passes [selector(...)] through. A condition
+   the grammar has no production for is refused, not raised. *)
+let test_supports_condition_text () =
+  check_utilities "supports-[not(display:grid)]:flex"
+    {|@supports not (display:grid){.supports-\[not\(display\:grid\)\]\:flex{display:flex}}|};
+  check_utilities "supports-[not_(display:grid)]:flex"
+    {|@supports not (display:grid){.supports-\[not_\(display\:grid\)\]\:flex{display:flex}}|};
+  check_utilities "supports-[selector(:has(a))]:flex"
+    {|@supports selector(:has(a)){.supports-\[selector\(\:has\(a\)\)\]\:flex{display:flex}}|};
+  match Tw.of_string "supports-[display:)]:flex" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "supports-[display:)]:flex should be refused"
 
 (* A [supports-<property>] test names the property the author wrote, even for a
    property browsers once shipped behind a vendor prefix: Tailwind emits
@@ -1377,6 +1573,7 @@ let tests =
       test_case "invalid bracket modifiers" `Quick
         test_invalid_bracket_modifiers;
       test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
+      test_case "supports condition text" `Quick test_supports_condition_text;
       test_case "supports property is unprefixed" `Quick
         test_supports_property_is_unprefixed;
       test_case "at-rule variant over a media query" `Quick
@@ -1392,6 +1589,7 @@ let tests =
       test_case "data bracket operators" `Quick test_data_bracket_operators;
       test_case "bare selector variant attribute operators" `Quick
         test_bare_selector_variant_attribute_operators;
+      test_case "bracket media variant" `Quick test_bracket_media_variant;
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
       test_case "group arbitrary prefix anchor" `Quick
@@ -1422,6 +1620,9 @@ let tests =
         test_nested_modifier_css_generation;
       test_case "not-has shorthand selector" `Quick
         test_not_has_shorthand_selector;
+      test_case "has and not bracket attribute" `Quick
+        test_has_not_bracket_attribute;
+      test_case "group and peer has variant" `Quick test_group_peer_has_variant;
       test_case "arbitrary breakpoint spelling" `Quick
         test_arbitrary_breakpoint_spelling;
       test_case "nth spelling" `Quick test_nth_spelling;
@@ -1442,6 +1643,8 @@ let tests =
       test_case "variant inner order" `Quick test_variant_inner_order;
       test_case "not-[selector] unreadable content rejected" `Quick
         test_not_bracket_unreadable_selector_rejected;
+      test_case "not-[@supports] negates the condition" `Quick
+        test_not_bracket_supports;
     ]
 
 let suite = ("modifiers", tests)

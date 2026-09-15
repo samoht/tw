@@ -4,7 +4,10 @@
 
 open Utility
 
-(** {1 Padding Utilities} *)
+(** {1 Padding Utilities}
+
+    Padding has no negative form, so every constructor below raises
+    [Invalid_argument] when its size is negative. *)
 
 val p : int -> t
 (** [p n] creates padding on all sides. *)

@@ -502,6 +502,24 @@ let test_arbitrary_leading_token_stream () =
   rejected "text-lg/[red]";
   rejected "text-lg/[1zz]"
 
+(* The [(--name)] shorthand stands for [[var(--name)]] after a text size's [/]
+   as well. Tailwind 4.3.3 writes [line-height:var(--lh)] beside the size for
+   [text-sm/(--lh)], whether the size is a theme one or arbitrary; tw read no
+   shorthand there and refused the class. The class keeps the spelling the
+   author wrote rather than coming back as [/[var(--lh)]]. *)
+let test_leading_var_shorthand () =
+  check_declarations "text-sm/(--lh)"
+    [ "font-size:var(--text-sm)"; "line-height:var(--lh)" ];
+  check_declarations "text-lg/(--my-lh)"
+    [ "font-size:var(--text-lg)"; "line-height:var(--my-lh)" ];
+  check_declarations "text-[14px]/(--lh)"
+    [ "font-size:14px"; "line-height:var(--lh)" ];
+  match Tw.of_string "text-sm/(--lh)" with
+  | Ok u ->
+      Alcotest.(check string)
+        "text-sm/(--lh) round-trips" "text-sm/(--lh)" (Tw.pp u)
+  | Error (`Msg m) -> Alcotest.failf "text-sm/(--lh): %s" m
+
 (* [tracking-[...]] forwards any safe declaration value. *)
 let test_arbitrary_tracking_token_stream () =
   let renders cls =
@@ -1313,6 +1331,7 @@ let tests =
       test_text_size_namespace_boundaries;
     test_case "leading modifier from the theme" `Quick
       test_theme_leading_modifier;
+    test_case "leading var shorthand" `Quick test_leading_var_shorthand;
     test_case "decoration undefined colour shade" `Quick
       test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;

@@ -33,7 +33,7 @@ once on both sides are paired, so the number owes nothing to a pairing choice.
 The move count is pinned at 0 for both layers and the pair count at a floor of
 3900 and 45, and the gate ratchets both ways: it fails when a move count rises
 or a pair count falls, and prints the new figure when a move count drops, so
-the ceiling can be tightened. It reads 0 of 3961 and 0 of 50 today. Both other
+the ceiling can be tightened. It reads 0 of 4016 and 0 of 50 today. Both other
 checks run the differ in canonical mode, which normalises cascade-neutral rule
 order on purpose, so this is the only one that sees a family emitted in the
 wrong band. A missing or off-version CLI skips it with a line saying so;
@@ -79,12 +79,12 @@ rather than from `PATH`.
 
 ### Current measurement
 
-Measured 2026-09-13 at b49a649a against cascade 40adb669, with the tailwindcss
+Measured 2026-09-15 at eb46f5e2 against cascade fe29cd31, with the tailwindcss
 4.3.3 that `package-lock.json` pins. The documented command completed without a
 patched differ and reported:
 
 ```text
-CSS: 659001 chars vs 664632 chars (0.9% diff)
+CSS: 660562 chars vs 664632 chars (0.6% diff)
 Changes: 1 removed rule, 3 changed containers
 ├─ .DocSearch-Hit[aria-selected="true"] [title="Remove this search from favorites"]:before:where(.dark, .dark *)
 ├─ @media (prefers-color-scheme: dark) (9 blocks merged into 8)
@@ -111,7 +111,7 @@ Neither of those two rules changes what a browser computes, which is worth
 stating because a reported reorder reads like it does:
 
 - `.line-y` sets exactly one declaration, `position: relative`, on both sides.
-  It sits 1688 bytes earlier in tw's sheet, and the only other `position` rules
+  It sits 1662 bytes earlier in tw's sheet, and the only other `position` rules
   in that span are `.line-y:before` and `.line-y:after`. Those style
   pseudo-element boxes, which never contend with the element's own `position`,
   and nothing else in the span sets `position` at all. `line-y` is a
@@ -153,7 +153,7 @@ flattens it. Measured on the site corpus at the revisions above:
 | harness | top-level entries | utilities layer |
 |---|---|---|
 | minify both sides (current) | 4 | 2 reordered |
-| neither side minified | 8 | 226 modified, 42 reordered |
+| neither side minified | 9 | 180 modified, 40 reordered |
 
 The unminified run also reports `@layer theme`, `@property` and two `@keyframes`
 entries that the minified one does not.

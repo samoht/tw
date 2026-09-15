@@ -291,14 +291,6 @@ let rec bind_props decls = function
   | Style.Modified (m, t) -> Style.Modified (m, bind_props decls t)
   | Style.Group ts -> Style.Group (List.map (bind_props decls) ts)
 
-let rec to_style theme = function
-  | Base u -> base_to_style theme u
-  | Modified (m, u) -> Style.Modified (m, to_style theme u)
-  | Group us -> Style.Group (List.map (to_style theme) us)
-  | Important (_, u) -> Style.map_important (to_style theme u)
-  | Aliased (_, u) -> to_style theme u
-  | Theme_bound (decls, u) -> bind_props decls (to_style theme u)
-
 let rec to_class = function
   | Base u -> class_of_base u
   | Modified (m, u) -> (
@@ -314,6 +306,19 @@ let rec to_class = function
       if suffix then to_class u ^ "!" else "!" ^ to_class u
   | Aliased (class_name, _) -> class_name
   | Theme_bound (_, u) -> to_class u
+
+let rec to_style theme = function
+  | Base u -> base_to_style theme u
+  | Modified (m, u) -> Style.Modified (m, to_style theme u)
+  | Group us -> Style.Group (List.map (to_style theme) us)
+  | Important (suffix, u) ->
+      (* The rules a utility writes itself name its class in their selectors,
+         and the class the markup carries is the one with the [!]. *)
+      Style.map_important (to_style theme u)
+      |> Style.rename_class ~old_class:(to_class u)
+           ~new_class:(to_class (Important (suffix, u)))
+  | Aliased (_, u) -> to_style theme u
+  | Theme_bound (decls, u) -> bind_props decls (to_style theme u)
 
 let rec pp = function
   | Base u -> "Base " ^ class_of_base u

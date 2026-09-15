@@ -1029,6 +1029,18 @@ and extract_not_conditions inner_modifier base_class =
       [ Css.Selector.attribute ("data-" ^ attr) Presence ]
   | Style.Data_custom (attr, value) ->
       [ Css.Selector.attribute ("data-" ^ attr) (Exact value) ]
+  (* An arbitrary [data-[...]] or [aria-[...]] variant is one attribute
+     selector, and that is the whole of what [:not()] or [:has()] holds. *)
+  | Style.Data_bracket expr ->
+      let name, matcher, flag = Modifiers.parse_data_expr expr in
+      [ Css.Selector.attribute ?flag name matcher ]
+  | Style.Aria_bracket expr ->
+      let name, matcher =
+        if Modifiers.is_aria_shorthand expr then
+          ("aria-" ^ expr, Css.Selector.Exact "true")
+        else parse_aria_expr expr
+      in
+      [ Css.Selector.attribute name matcher ]
   | Style.Aria_selected ->
       [ Css.Selector.attribute "aria-selected" (Exact "true") ]
   | Style.Aria_checked ->
@@ -1244,6 +1256,17 @@ let handle_not_bracket content base_class props =
       media_query ~condition ~selector:(Css.Selector.Class modified_class)
         ~props ~base_class:modified_class ();
     ]
+  else if String.length content > 9 && String.sub content 0 9 = "@supports" then
+    (* Supports bracket: not-[@supports(display:grid)] → @supports not
+       (display:grid), and a doubly negated condition → the condition itself. *)
+    let rule condition =
+      supports_query ~condition ~selector:(Css.Selector.Class modified_class)
+        ~props ~base_class:modified_class ()
+    in
+    match Modifiers.bracket_supports_condition content with
+    | Some (Css.Supports.Not condition) -> [ rule condition ]
+    | Some condition -> [ rule (Css.Supports.Not condition) ]
+    | None -> []
   else if content <> "" && content.[0] = ':' then
     (* Pseudo-class bracket: not-[:checked] → :not(:checked) *)
     let pseudo = parse_bracket_pseudo content in
@@ -1532,10 +1555,17 @@ let at_rule_variant ?(inner_has_hover = false) content ~selector base_class
   if content = "@starting-style" then
     starting_style ~selector ~props ~nested ~base_class:modified_class ()
   else
-    let cond = String.trim (String.sub content 9 (String.length content - 9)) in
-    let condition = normalize_supports_condition cond in
-    supports_query ~condition ~selector ~props ~nested
-      ~base_class:modified_class ()
+    match Modifiers.bracket_media_condition content with
+    | Some condition ->
+        media_query ~condition ~selector ~props ~nested
+          ~base_class:modified_class ()
+    | None ->
+        let cond =
+          String.trim (String.sub content 9 (String.length content - 9))
+        in
+        let condition = normalize_supports_condition cond in
+        supports_query ~condition ~selector ~props ~nested
+          ~base_class:modified_class ()
 
 (* A [matchVariant]-registered custom variant. The class name is the token
    ([is-data-foo]); the selector is the template with [&] replaced by the
@@ -1567,6 +1597,28 @@ let modified_selector_rule modifier base_class selector props =
   regular ~selector:new_selector ~props ~base_class:modified_class ()
 
 (* [has-<variant>]: the inner variant's own selector goes inside [:has()]. *)
+(* [group-has-<variant>] and [peer-has-<variant>]: the inner variant's own
+   selector goes inside the [:has()] its anchor carries. *)
+let route_scoped_has_variant ~anchor ~combinator inner name ~selector base_class
+    props =
+  let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
+  let modified_class =
+    anchor ^ "-has-"
+    ^ Modifiers.pp_modifier inner
+    ^ name_suffix ^ ":" ^ base_class
+  in
+  let inner_selector =
+    match extract_not_conditions inner base_class with
+    | [ condition ] -> condition
+    | conditions -> Css.Selector.is_ conditions
+  in
+  let rel = has_anchor_rel ~anchor ~combinator ?name inner_selector in
+  let modified =
+    Css.Selector.compound
+      [ Css.Selector.Class modified_class; Css.Selector.is_ [ rel ] ]
+  in
+  route_regular ~selector ~base_class ~modified_class ~modified props
+
 let route_has_variant inner ~selector base_class props =
   let modified_class =
     "has-" ^ Modifiers.pp_modifier inner ^ ":" ^ base_class
@@ -1678,6 +1730,14 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
       route_has_modifier modifier ~selector base_class props
   | Style.Has_variant inner ->
       route_has_variant inner ~selector base_class props
+  | Style.Group_has_variant (inner, name) ->
+      route_scoped_has_variant ~anchor:"group"
+        ~combinator:Css.Selector.Descendant inner name ~selector base_class
+        props
+  | Style.Peer_has_variant (inner, name) ->
+      route_scoped_has_variant ~anchor:"peer"
+        ~combinator:Css.Selector.Subsequent_sibling inner name ~selector
+        base_class props
   (* Aria bracket and group/peer aria variants *)
   | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _
   | Style.Aria_checked | Style.Aria_expanded | Style.Aria_selected

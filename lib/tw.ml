@@ -103,7 +103,7 @@ let split_whitespace s =
    [(--x)] / [(--x,fallback)] -> [[var(--x...)]] and the typed
    [(family-name:--x)] -> [[family-name:var(--x)]] forms. Returns [None] when
    there is no paren shorthand. *)
-let normalize_paren_var base_class =
+let rewrite_paren_var base_class =
   let n = String.length base_class in
   if n > 4 && base_class.[n - 1] = ')' then
     match String.rindex_opt base_class '(' with
@@ -126,6 +126,30 @@ let normalize_paren_var base_class =
           | _ -> None)
     | _ -> None
   else None
+
+(* The [/modifier] a class ends with, outside any brackets or parentheses, apart
+   from what it modifies. *)
+let split_trailing_modifier s =
+  let n = String.length s in
+  let rec last_slash i depth found =
+    if i >= n then found
+    else
+      match s.[i] with
+      | '(' | '[' -> last_slash (i + 1) (depth + 1) found
+      | ')' | ']' -> last_slash (i + 1) (depth - 1) found
+      | '/' when depth = 0 -> last_slash (i + 1) depth (Some i)
+      | _ -> last_slash (i + 1) depth found
+  in
+  match last_slash 0 0 None with
+  | Some i when i > 0 -> (String.sub s 0 i, String.sub s i (n - i))
+  | _ -> (s, "")
+
+(* A colour utility takes its opacity after the shorthand, [bg-(--c)/50], so the
+   modifier is carried across the rewrite: the class then ends at its [/50]
+   rather than at the [)] the rewrite looks for. *)
+let normalize_paren_var base_class =
+  let base, modifier = split_trailing_modifier base_class in
+  Option.map (fun rewritten -> rewritten ^ modifier) (rewrite_paren_var base)
 
 (* Split the [!] important marker off the base class: the v3 prefix ([!flex],
    [md:!flex]) or the v4 trailing form ([flex!]). Each keeps its form in the

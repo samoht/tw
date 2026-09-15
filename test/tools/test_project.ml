@@ -4,7 +4,7 @@ open Alcotest
    entrypoints these tests write. Nothing is scanned: the import fences its
    sources, so a class reaches the sheet from [classes] or from the entrypoint
    itself. *)
-let compiled_with ?(classes = []) ~import name body =
+let compiled_with ?(base = false) ?(classes = []) ~import name body =
   let path = "project-" ^ name ^ ".css" in
   let oc = open_out path in
   Fun.protect
@@ -21,7 +21,7 @@ let compiled_with ?(classes = []) ~import name body =
         Tw_tools.Entrypoint.theme_of_css (Tw_tools.Entrypoint.read_file path)
       in
       let _, sheet =
-        Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base:false classes
+        Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base classes
       in
       Cascade.Css.to_string ~minify:true sheet)
 
@@ -291,6 +291,90 @@ let test_reference_tailwindcss () =
         "box-sizing";
       ]
 
+let occurrences needle hay =
+  let n = String.length needle and len = String.length hay in
+  let rec go i acc =
+    if i + n > len then acc
+    else if String.sub hay i n = needle then go (i + n) (acc + 1)
+    else go (i + 1) acc
+  in
+  go 0 0
+
+(* [theme(static)] declares the whole theme once, in the generated sheet. An
+   [@apply] renders its utilities on its own, and an expansion that carried the
+   static theme along put another copy of every token, and of the default
+   animations' keyframes, beside each rule that applied something: the
+   tailwindcss.com sheet came out with nine theme blocks where the reference has
+   one. *)
+let test_static_theme_declared_once () =
+  let css =
+    compiled_with ~classes:[ "card" ] "static-once"
+      ~import:"@import \"tailwindcss\" theme(static) source(none);\n"
+      "@utility card { @apply p-4 rounded-lg; }\n\
+       .a { @apply m-2; }\n\
+       .b { @apply rounded-lg shadow-sm; }\n"
+  in
+  check int "one theme block" 1 (occurrences ":root,:host{" css);
+  check int "one @keyframes spin" 1 (occurrences "@keyframes spin" css)
+
+(* A class under a project's [@custom-variant] is routed around the generated
+   sheet: its utility renders on its own and the variant wraps what comes back.
+   That render carried the static theme too, so a [dark:] class brought a second
+   copy of the default keyframes, as tailwindcss.com's [dark:*] classes did. *)
+let test_static_theme_routed_once () =
+  let css =
+    compiled_with ~classes:[ "dark:p-4"; "dark:m-2" ] "static-routed"
+      ~import:"@import \"tailwindcss\" theme(static) source(none);\n"
+      "@custom-variant dark (&:where(.dark, .dark *));\n"
+  in
+  check int "one theme block" 1 (occurrences ":root,:host{" css);
+  check int "one @keyframes spin" 1 (occurrences "@keyframes spin" css)
+
+(* [@plugin "@tailwindcss/forms"] resets native form controls in the base layer
+   unless its options ask for [strategy: "class"]. Tailwind 4.3.3 writes
+   [input:where([type=text])] and the [select] rules there for the default
+   strategy and for [strategy: "base"]; the plugin line never reached tw's
+   sheet, so every input kept the browser's own look and nothing said so. *)
+let test_forms_plugin_base () =
+  let reset = "input:where([type=text])" in
+  let forms name plugin =
+    compiled_with ~base:true ~classes:[ "p-2" ] name
+      ~import:"@import \"tailwindcss\" source(none);\n" plugin
+  in
+  let resets name plugin =
+    Astring.String.is_infix ~affix:reset (forms name plugin)
+  in
+  check bool "default strategy resets inputs" true
+    (resets "forms-default" "@plugin \"@tailwindcss/forms\";\n");
+  check bool "base strategy resets inputs" true
+    (resets "forms-base"
+       "@plugin \"@tailwindcss/forms\" { strategy: \"base\"; }\n");
+  check bool "class strategy leaves inputs" false
+    (resets "forms-class"
+       "@plugin \"@tailwindcss/forms\" { strategy: \"class\"; }\n");
+  check bool "no plugin, no reset" false (resets "forms-none" "")
+
+(* The forms reset is the plugin's, not preflight's: an entrypoint importing
+   Tailwind in parts without [tailwindcss/preflight.css] still gets it from
+   4.3.3, in [@layer base] and with no preflight beside it. tw built the reset
+   into the base layer it writes only with preflight, and placed base content
+   only for a preflight import, so the sheet had neither. *)
+let test_forms_plugin_base_without_preflight () =
+  let css =
+    compiled_with ~base:true ~classes:[ "p-2" ] "forms-no-preflight"
+      ~import:
+        "@layer theme, base, components, utilities;\n\
+         @import \"tailwindcss/theme.css\" layer(theme);\n\
+         @import \"tailwindcss/utilities.css\" layer(utilities) source(none);\n"
+      "@plugin \"@tailwindcss/forms\";\n"
+  in
+  check bool "the reset is written" true
+    (Astring.String.is_infix ~affix:"input:where([type=text])" css);
+  check bool "in the base layer" true
+    (Astring.String.is_infix ~affix:"@layer base{" css);
+  check bool "without preflight" false
+    (Astring.String.is_infix ~affix:"box-sizing:border-box" css)
+
 let suite =
   ( "project",
     [
@@ -306,4 +390,10 @@ let suite =
       test_case "tailwindcss sub-imports" `Quick test_sub_imports;
       test_case "@theme reference block" `Quick test_theme_reference_block;
       test_case "@reference tailwindcss" `Quick test_reference_tailwindcss;
+      test_case "static theme declared once" `Quick
+        test_static_theme_declared_once;
+      test_case "static theme routed once" `Quick test_static_theme_routed_once;
+      test_case "forms plugin base" `Quick test_forms_plugin_base;
+      test_case "forms plugin base without preflight" `Quick
+        test_forms_plugin_base_without_preflight;
     ] )

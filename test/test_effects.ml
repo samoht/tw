@@ -730,6 +730,38 @@ let test_undefined_shade () =
   accepted "inset-ring-red-500";
   accepted "shadow-red-500/50"
 
+(* A shadeless palette colour names the ring offset the way it names the ring:
+   Tailwind 4.3.3 writes [--tw-ring-offset-color:var(--color-white)] for
+   [ring-offset-white], and folds an opacity into [#ffffff80] beside a
+   [color-mix()]. Only the ring had a shadeless arm, so [ring-offset-white] and
+   [ring-offset-black] reached the width reader and were unknown classes. A bare
+   number after [ring-offset-] is still a width. *)
+let test_ring_offset_shadeless_color () =
+  Test_helpers.check_declarations "ring-offset-white"
+    [ "--tw-ring-offset-color:var(--color-white)" ];
+  Test_helpers.check_declarations "ring-offset-black"
+    [ "--tw-ring-offset-color:var(--color-black)" ];
+  Test_helpers.check_declarations "ring-offset-white/50"
+    [
+      "--tw-ring-offset-color:#ffffff80";
+      "--tw-ring-offset-color:color-mix(in oklab,var(--color-white) \
+       50%,transparent)";
+    ];
+  (* The class is spelled as the author wrote it: a shadeless colour has no
+     shade to print, so [ring-offset-white] must not come back as
+     [ring-offset-white-500]. *)
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+    [
+      "ring-offset-white";
+      "ring-offset-black";
+      "ring-offset-white/50";
+      "ring-offset-2";
+    ]
+
 (* [opacity-[<n>]] names its class after the bracket, so the number has to come
    back out spelled as the author wrote it rather than re-printed. *)
 let test_arbitrary_opacity_spelling () =
@@ -877,6 +909,8 @@ let tests =
     test_case "ring-inset @property family" `Quick
       test_ring_inset_property_rules;
     test_case "ring shadeless color opacity" `Quick test_ring_shadeless_color;
+    test_case "ring offset shadeless color" `Quick
+      test_ring_offset_shadeless_color;
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;

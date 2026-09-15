@@ -47,6 +47,13 @@
 
 ### Project stylesheets
 
+- The forms plugin's base reset reaches an entrypoint that imports Tailwind
+  without preflight, in `@layer base`, as Tailwind writes it. It was built into
+  the preflight layer and dropped with it (#817).
+- An `@apply` in a file imported under `layer(…)` puts its theme tokens,
+  `@property` registrations and keyframes at the top of the sheet, as Tailwind
+  does. They stayed inside the import's layer and declared a second theme
+  block there (#816).
 - `@import "tailwindcss" prefix(tw)` compiles. The option was parsed and
   discarded, so every candidate spelled `tw:p-4` was unknown and the sheet came
   back with no utilities at all. `Scheme.prefix` carries it: the candidate is
@@ -58,6 +65,17 @@
   `@import`, `@apply`, `@utility`, `@variant`, `@custom-variant`, `--spacing()`
   and `theme()` all expand in author CSS, down to a declared utility's own
   `@apply` and `@variant` (#136, #138, #139, #140, #141, #143, #195, #206).
+- `@plugin "@tailwindcss/forms"` in the entrypoint writes the plugin's base
+  reset of native form controls, unless its options ask for
+  `strategy: "class"`. The line was ignored, so inputs kept the browser's look
+  (#804).
+- `@source "<path>"` in the entrypoint is scanned, relative to the stylesheet:
+  a directory is walked, a glob matches under its root, and `@source not`
+  takes files back out. The paths were ignored, and `tw --input-css app.css`
+  with no path of its own was refused (#806).
+- A `theme(static)` entrypoint declares its theme and keyframes once. Each
+  `@apply`, and each class under a `@custom-variant`, repeated the whole theme
+  block and every `@keyframes` beside the generated sheet's (#801).
 - Authored input receives browser-compatibility prefixes even when full CSS
   optimization is disabled, preserving the CLI's target coverage (#665).
 - Merge adjacent media queries with identical conditions during utility
@@ -211,6 +229,12 @@
 
 ### Arbitrary values and validation
 
+- A text size's line height takes the `(--name)` shorthand: `text-sm/(--lh)`
+  compiles to `line-height:var(--lh)` beside the size, as Tailwind writes it.
+  It was an unknown class (#812).
+- A colour utility's `(--c)` shorthand takes an opacity modifier, as the bracket
+  spelling does: `bg-(--c)/50`, `text-(--c)/50` and `bg-(--c)/(--o)` compile to
+  Tailwind's `color-mix()` under `@supports`. They were unknown classes (#811).
 - `--alpha(<color> / <percentage>)` in author CSS compiles to the `color-mix()`
   it spells, with the legacy fallback and `@supports` arm beside it. It passed
   through unexpanded, which is not CSS, so the browser dropped the declaration
@@ -425,6 +449,9 @@
 
 ### Colours and effects
 
+- `ring-offset-white` and `ring-offset-black` compile, with an optional opacity,
+  as their `ring-` counterparts do. A shadeless colour after `ring-offset-` was
+  read as a width and refused (#813).
 - Palette box, inset-box and text shadows keep Tailwind's authored OKLCH value
   as their unguarded fallback instead of converting it to sRGB hex (#657).
 - An opacity modifier reaches every colour family. A ring, a per-side border, a
@@ -478,6 +505,31 @@
 
 ### Variants and selectors
 
+- `not-[@supports(…)]` negates the condition, as Tailwind does:
+  `not-[@supports(display:grid)]:flex` wraps the utility in
+  `@supports not (display:grid)`. It negated the utility's own class, and a
+  compound condition is now refused (#818).
+- `group-has-` and `peer-has-` take any variant as their inner, as `has-` does:
+  `group-has-data-[state=open]:ring-2` compiles to Tailwind's
+  `:where(.group):has([data-state=open])` scope. It was an unknown modifier
+  (#815).
+- A bracket `@media` variant compiles as Tailwind reads it:
+  `[@media_print]:underline` and `[@media(width>=600px)]:flex` wrap the utility
+  in that query. Only `@supports` and `@starting-style` were read (#814).
+- `supports-[…]` reads a condition that is not a property test the way
+  Tailwind does: `not(display:grid)` becomes `@supports not (display:grid)`
+  and `selector(:has(a))` passes through. The first crashed with an uncaught
+  `Failure` (exit 125), and a malformed condition is now refused (#808).
+- A `!` on a utility that writes rules of its own reaches their selectors.
+  `space-x-4!`, `container!`, `prose!` and `form-input!` styled the class
+  without the `!`, which no element carries, so nothing applied (#802).
+- A `!` marks the variables a utility sets, as Tailwind marks them:
+  `shadow-md!` left `--tw-shadow` normal, so a plain `shadow-lg` on the same
+  element still chose the shadow drawn (#807).
+- `has-` and `not-` around an arbitrary `data-[…]` or `aria-[…]` variant test
+  its attribute. `has-data-[state=open]:ring-2` read `:has(.ring-2)`, a
+  condition on the utility's own class, where Tailwind reads
+  `:has([data-state=open])` (#803).
 - `@apply` declares the theme tokens the utilities it pulls in read. The rule
   it emitted was already right, so nothing warned, but `@layer theme` came back
   without `--radius-lg`, `--text-lg`, `--blur-sm` and the rest of the families
@@ -583,6 +635,9 @@
 
 ### Public OCaml API
 
+- The typed padding and gap constructors raise `Invalid_argument` on a
+  negative size. Neither has a negative form, and `p (-3)` printed `p-3`, a
+  different utility, with nothing to say so (#809).
 - Add the typed `divide` constructors, from `divide_x` to `divide_style`: only
   the two reverse utilities were exposed, so the rest of the family was
   reachable from a class string but not from OCaml (#239, closes #5).
@@ -594,6 +649,9 @@
 
 ### Parity and packaging
 
+- `tw --diff` exits 1 when the two sheets differ and 2 when it cannot read one
+  of them, so a CI job can gate on it. It printed the differences and exited 0
+  (#810).
 - Require cascade 1.2.0 for the released package pairing. While it remains
   unreleased, CI pins cascade's main branch so builds and tests follow upstream
   rather than an exact development revision (#297, #302, #305, #646).

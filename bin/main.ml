@@ -27,19 +27,15 @@ let scan_warning path message =
 (* Recursively get content files without following directory symlinks or
    descending into generated/dependency/metadata trees. A bad subtree is local
    to that path: readable siblings still contribute their candidates. *)
-let rec files path patterns =
-  let regular_file () =
-    if List.exists (fun pattern -> Filename.check_suffix path pattern) patterns
-    then [ path ]
-    else []
-  in
+let rec files path keep =
+  let regular_file () = if keep path then [ path ] else [] in
   try
     match (Unix.lstat path).st_kind with
     | Unix.S_DIR ->
         Sys.readdir path |> Array.to_list
         |> List.filter (fun entry -> not (ignored_scan_entry entry))
         |> List.concat_map (fun entry ->
-            files (Filename.concat path entry) patterns)
+            files (Filename.concat path entry) keep)
     | Unix.S_LNK -> (
         match (Unix.stat path).st_kind with
         | Unix.S_DIR -> []
@@ -101,15 +97,23 @@ let print_oracle_note classes =
          drops a candidate it cannot read rather than compiling it.@."
         (String.concat ", " scanned)
 
+(* The exit status a comparison answers with, so a CI job can gate on it: 0 when
+   the two sheets are equivalent, 1 when they differ, 2 when one of them could
+   not be read and so nothing was compared. *)
 let print_diff_result label diff =
   match diff.Css_compare.result with
-  | Css_compare.No_diff -> Fmt.pr "✓ No differences found%s@." label
-  | _ ->
+  | Css_compare.No_diff ->
+      Fmt.pr "✓ No differences found%s@." label;
+      0
+  | result -> (
       Fmt.pr "Differences found%s:@.@." label;
       let buf = Buffer.create 256 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"tw" buf diff;
       print_string (Buffer.contents buf);
-      Fmt.pr "@."
+      Fmt.pr "@.";
+      match result with
+      | Css_compare.Both_errors _ | Expected_error _ | Actual_error _ -> 2
+      | Tree_diff _ | String_diff _ | No_diff -> 1)
 
 let render_css ~(opts : gen_opts) stylesheet =
   let stylesheet =
@@ -171,13 +175,15 @@ let diff_single_class class_str ~(opts : gen_opts) =
         let diff =
           Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
         in
-        if class_str = "" then print_diff_result " (empty/base only)" diff
-        else (
-          print_oracle_note [ class_str ];
-          print_diff_result
-            (Fmt.str " between Tailwind and tw for '%s'" class_str)
-            diff);
-        `Ok ()
+        let code =
+          if class_str = "" then print_diff_result " (empty/base only)" diff
+          else (
+            print_oracle_note [ class_str ];
+            print_diff_result
+              (Fmt.str " between Tailwind and tw for '%s'" class_str)
+              diff)
+        in
+        `Ok code
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
@@ -192,7 +198,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
             [ class_str ]
         in
         print_string css;
-        `Ok ()
+        `Ok 0
       with e ->
         `Error
           ( false,
@@ -204,33 +210,35 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
       | Some stylesheet ->
           print_string (render_css ~opts stylesheet);
-          `Ok ())
+          `Ok 0)
+
+(* Classes live outside component sources too: a docs site keeps most of its
+   markup in .md/.mdx, and plain .ts/.js hold class strings just as .tsx does.
+   Skipping them emits a fraction of the utilities the project uses, with
+   nothing to say so. *)
+let is_content path =
+  List.exists
+    (Filename.check_suffix path)
+    [
+      ".html";
+      ".eml";
+      ".ml";
+      ".re";
+      ".js";
+      ".jsx";
+      ".ts";
+      ".tsx";
+      ".vue";
+      ".svelte";
+      ".md";
+      ".mdx";
+    ]
 
 let collect_files paths =
   List.concat_map
     (fun path ->
       if Sys.file_exists path then
-        if Sys.is_directory path then
-          (* Classes live outside component sources too: a docs site keeps most
-             of its markup in .md/.mdx, and plain .ts/.js hold class strings
-             just as .tsx does. Skipping them emits a fraction of the utilities
-             the project uses, with nothing to say so. *)
-          files path
-            [
-              ".html";
-              ".eml";
-              ".ml";
-              ".re";
-              ".js";
-              ".jsx";
-              ".ts";
-              ".tsx";
-              ".vue";
-              ".svelte";
-              ".md";
-              ".mdx";
-            ]
-        else [ path ]
+        if Sys.is_directory path then files path is_content else [ path ]
       else [])
     paths
 
@@ -240,8 +248,43 @@ let print_stats ~quiet ~candidate_count ~known_count =
     Fmt.epr "Candidate tokens scanned: %d@." candidate_count;
     Fmt.epr "Successfully parsed: %d@." known_count)
 
-let scanned_classes paths =
-  collect_files paths
+let relative_to root file =
+  let prefix = if String.ends_with ~suffix:"/" root then root else root ^ "/" in
+  if String.starts_with ~prefix file then
+    String.sub file (String.length prefix)
+      (String.length file - String.length prefix)
+  else file
+
+(* What one [@source] path names, resolved against the stylesheet's directory
+   the way Tailwind resolves it. A directory is walked like a path on the
+   command line, a glob keeps the files under its root that match it, and a path
+   naming nothing is skipped, as Tailwind skips it. *)
+let source_files ~base path =
+  let path =
+    if Filename.is_relative path then Filename.concat base path else path
+  in
+  if Tw_tools.Source_scan.is_glob path then
+    let root, pattern = Tw_tools.Source_scan.glob_root path in
+    if Sys.file_exists root then
+      files root (fun file ->
+          Tw_tools.Source_scan.glob_matches ~pattern (relative_to root file))
+    else []
+  else collect_files [ path ]
+
+(* The files the entrypoint's [@source] directives name, less those its [@source
+   not] directives take back out. *)
+let entrypoint_files ~(opts : gen_opts) =
+  match (opts.input_css_path, opts.input_css) with
+  | Some path, Some css ->
+      let base = Filename.dirname path in
+      let included, excluded = Tw_tools.Entrypoint.source_paths css in
+      let dropped = List.concat_map (source_files ~base) excluded in
+      List.concat_map (source_files ~base) included
+      |> List.filter (fun file -> not (List.exists (String.equal file) dropped))
+  | _ -> []
+
+let scanned_classes ~opts paths =
+  collect_files paths @ entrypoint_files ~opts
   |> List.concat_map Tw_tools.Source_scan.candidates_from_file
   |> List.sort_uniq String.compare
 
@@ -251,7 +294,7 @@ let native_stylesheet ~(opts : gen_opts) ~include_base all_classes =
 
 let diff_files paths ~(opts : gen_opts) =
   try
-    let all_classes = scanned_classes paths in
+    let all_classes = scanned_classes ~opts paths in
     let legacy_css =
       Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
         ~forms:true ?input_css:opts.input_css all_classes
@@ -264,22 +307,21 @@ let diff_files paths ~(opts : gen_opts) =
       Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
     in
     print_oracle_note all_classes;
-    print_diff_result "" diff;
-    `Ok ()
+    `Ok (print_diff_result "" diff)
   with e ->
     `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
   try
-    let all_classes = scanned_classes paths in
+    let all_classes = scanned_classes ~opts paths in
     let known_count, stylesheet =
       native_stylesheet ~opts ~include_base all_classes
     in
     print_string (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
       ~known_count;
-    `Ok ()
+    `Ok 0
   with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
 
 let process_files paths flag ~(opts : gen_opts) =
@@ -290,10 +332,10 @@ let process_files paths flag ~(opts : gen_opts) =
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
             ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
-            (scanned_classes paths)
+            (scanned_classes ~opts paths)
         in
         print_string css;
-        `Ok ()
+        `Ok 0
       with e ->
         `Error
           ( false,
@@ -365,8 +407,15 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       match single_class with
       | Some class_str -> process_single_class class_str base_flag ~opts
       | None -> (
+          (* An entrypoint whose [@source] names paths says what to scan on its
+             own, as Tailwind's CLI takes it. *)
+          let names_sources =
+            match Option.map Entrypoint.source_paths css_content with
+            | Some (_ :: _, _) -> true
+            | _ -> false
+          in
           match paths with
-          | [] ->
+          | [] when not names_sources ->
               `Error (true, "Either provide -s <class> or file/directory paths")
           | paths -> process_files paths base_flag ~opts))
 
@@ -490,7 +539,14 @@ let man =
 
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
-  let info = Cmd.info "tw" ~version:Tw_info.version ~doc ~man in
+  let exits =
+    Cmd.Exit.info 1
+      ~doc:"when $(b,--diff) finds a difference between the two sheets."
+    :: Cmd.Exit.info 2
+         ~doc:"when $(b,--diff) cannot read one of the two sheets."
+    :: Cmd.Exit.defaults
+  in
+  let info = Cmd.info "tw" ~version:Tw_info.version ~doc ~man ~exits in
   Cmd.v info
     Term.(
       ret
@@ -522,4 +578,4 @@ let normalize_argv argv =
       else [ arg ])
   |> Array.of_list
 
-let () = exit (Cmd.eval ~argv:(normalize_argv Sys.argv) cmd)
+let () = exit (Cmd.eval' ~argv:(normalize_argv Sys.argv) cmd)

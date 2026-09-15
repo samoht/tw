@@ -398,6 +398,29 @@ let source_inline css =
                  else (safelist @ candidates, blocklist)))
        ([], [])
 
+(* [@source "<path>"] names files to scan for candidates, relative to the
+   stylesheet, and [@source not "<path>"] takes files back out. The [inline()]
+   forms are the safelist above: their argument is a call, not a quoted path. *)
+let source_paths css =
+  let index = Index.v css in
+  let blank c = c = ' ' || c = '\t' || c = '\n' || c = '\r' in
+  Index.at_statements index ~name:"@source"
+  |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
+  |> List.fold_left
+       (fun (included, excluded) (_, (source : Index.statement)) ->
+         let prelude = String.trim source.prelude in
+         let n = String.length prelude in
+         let negated, argument =
+           if n > 3 && String.sub prelude 0 3 = "not" && blank prelude.[3] then
+             (true, String.sub prelude 3 (n - 3))
+           else (false, prelude)
+         in
+         match quoted_contents argument with
+         | None -> (included, excluded)
+         | Some path when negated -> (included, excluded @ [ path ])
+         | Some path -> (included @ [ path ], excluded))
+       ([], [])
+
 (* [@import "tailwindcss" important] marks every utility declaration
    [!important]. The option is a bare word in the import's prelude rather than a
    call, so it is read off the prelude's top-level words. *)
@@ -416,6 +439,47 @@ let references_tailwind css =
   Index.at_statements index ~name:"@reference"
   |> List.exists (fun (_, (statement : Index.statement)) ->
       is_tailwind_import (String.trim statement.prelude))
+
+(* [@plugin "@tailwindcss/forms"] resets native form controls in the base layer,
+   which is the plugin's default strategy. An options block naming [strategy:
+   "class"] leaves the controls alone and styles only the [form-*] classes. *)
+let forms_base css =
+  let index = Index.v css in
+  let unquote s =
+    let s = String.trim s in
+    let n = String.length s in
+    if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
+      String.sub s 1 (n - 2)
+    else s
+  in
+  let names_forms prelude =
+    String.equal (unquote prelude) "@tailwindcss/forms"
+  in
+  let class_strategy body =
+    split_top_level ';' body
+    |> List.exists (fun option ->
+        match String.index_opt option ':' with
+        | None -> false
+        | Some i ->
+            let value =
+              String.sub option (i + 1) (String.length option - i - 1)
+            in
+            String.equal (String.trim (String.sub option 0 i)) "strategy"
+            && String.equal (unquote value) "class")
+  in
+  let len = String.length css in
+  let rec block i =
+    if i >= len then false
+    else
+      match Index.at_rule index ~name:"@plugin" i with
+      | Some { prelude; block = { body; next }; _ } when names_forms prelude ->
+          (not (class_strategy body)) || block next
+      | _ -> block (i + 1)
+  in
+  Index.at_statements index ~name:"@plugin"
+  |> List.exists (fun (_, (statement : Index.statement)) ->
+      names_forms statement.prelude)
+  || block 0
 
 (* The JavaScript configs the entrypoint's [@config] directives name, as written
    and in source order. *)
@@ -1808,6 +1872,10 @@ let at_top_of_sheet stmt =
   | Some _ -> Css.layer ~name:[ "theme" ] [ stmt ]
 
 let nested_utilities ~theme names =
+  (* The generated sheet already declares a [theme(static)] theme whole, with
+     every keyframe, so a render that only lends its declarations to author CSS
+     or a routed variant must not declare it again. *)
+  let theme = { theme with Tw.Scheme.static_theme = false } in
   let of_name n =
     match Tw.of_string ~theme n with Ok s -> Some s | Error _ -> None
   in
@@ -2121,6 +2189,48 @@ let collapse_property_fallbacks stmts =
           Css.layer ~name
             (Css.Optimize.merge_consecutive_supports
                ~optimize_merged_block:join_fallback_rules inner)
+      | _ -> stmt)
+    stmts
+
+(* A token declared twice keeps the place its first declaration holds, so the
+   theme's own order survives, and takes the value its last one gives, which is
+   the value the cascade settled on. *)
+let join_theme_declarations decls =
+  let last = Hashtbl.create 16 in
+  List.iter
+    (fun d ->
+      Option.iter
+        (fun name -> Hashtbl.replace last name d)
+        (Css.custom_declaration_name d))
+    decls;
+  let placed = Hashtbl.create 16 in
+  List.filter_map
+    (fun d ->
+      match Css.custom_declaration_name d with
+      | None -> Some d
+      | Some name when Hashtbl.mem placed name -> None
+      | Some name ->
+          Hashtbl.add placed name ();
+          Some (Hashtbl.find last name))
+    decls
+
+(* Every [@apply] hoists a [:root, :host] rule of its own, declaring the tokens
+   its utilities read, and the generated sheet declares the theme too. Folded
+   into the one [@layer theme], they line up as a run of rules Tailwind writes
+   as one; under [theme(static)] every token in the later ones is already in the
+   first. *)
+let join_theme_rules stmts =
+  List.map
+    (fun stmt ->
+      match Css.as_layer stmt with
+      | Some (Some name, inner) when equal_layer name [ "theme" ] ->
+          Css.layer ~name
+            (merge_same_selector inner
+            |> List.map (fun stmt ->
+                match Css.as_rule stmt with
+                | Some (selector, decls, []) ->
+                    Css.rule ~selector (join_theme_declarations decls)
+                | _ -> stmt))
       | _ -> stmt)
     stmts
 
@@ -2466,7 +2576,7 @@ let imports_preflight css =
    beside them: the [@layer properties] fallbacks and the [@property] and
    [@keyframes] rules. No part brings the components layer, which the generated
    sheet only ever declares empty. *)
-let generated_part part ~layer generated =
+let generated_part ?(with_base = false) part ~layer generated =
   let stmts = Css.statements generated in
   let layer_named name stmt =
     match Css.as_layer stmt with
@@ -2490,15 +2600,51 @@ let generated_part part ~layer generated =
   | Theme_part -> place (contents "theme")
   | Preflight_part -> place (contents "base")
   | Utilities_part ->
+      (* Without a preflight import the generated base layer holds only what a
+         plugin adds, the forms reset, and Tailwind writes that in [@layer base]
+         whichever part the entrypoint imports. *)
+      let base =
+        match contents "base" with
+        | [] -> []
+        | inner ->
+            if with_base then [ Css.layer ~name:[ "base" ] inner ] else []
+      in
       List.filter (fun s -> Option.is_some (layer_named "properties" s)) stmts
+      @ base
       @ place (contents "utilities")
       @ List.filter (fun s -> not (is_layer s)) stmts
+
+(* An imported file under [layer(...)] is expanded before its layer wraps it, so
+   what its [@apply]s hoisted - a [@layer theme] or [@layer properties] block,
+   an [@property] registration, an [@keyframes] - arrives inside that layer.
+   Tailwind keeps them at the top of the sheet, where [merge_named_layers] folds
+   the blocks into the generated sheet's own. A class-less rule the author wrote
+   in the import stays where it is: the expansion never leaves one bare, it
+   wraps its theme rule in [@layer theme]. *)
+let lift_hoisted_out_of_layers stmts =
+  let hoisted stmt =
+    (match Css.as_layer stmt with
+      | Some (Some name, _) ->
+          equal_layer name [ "theme" ] || equal_layer name [ "properties" ]
+      | _ -> false)
+    || Css.as_property stmt <> None
+    || Css.as_keyframes stmt <> None
+  in
+  List.concat_map
+    (fun stmt ->
+      match Css.as_layer stmt with
+      | Some (Some name, inner) when List.exists hoisted inner ->
+          let lifted, kept = List.partition hoisted inner in
+          lifted @ [ Css.layer ~name kept ]
+      | _ -> [ stmt ])
+    stmts
 
 let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
       let raw = tailwind_utilities_as_import raw in
+      let with_base = not (imports_preflight raw) in
       let css =
         apply_variants ~theme
           (hoist_theme_keyframes (strip_tailwind_import_options raw))
@@ -2532,7 +2678,7 @@ let splice_into_entrypoint ~theme ~path generated =
               match stmt with
               | Cascade.Stylesheet.Import { url; layer; _ } as s -> (
                   match tailwind_import_part url with
-                  | Some part -> generated_part part ~layer generated
+                  | Some part -> generated_part ~with_base part ~layer generated
                   | None -> [ s ])
               | s -> [ s ])
           (* A stylesheet that only references the package declares no token,
@@ -2541,7 +2687,8 @@ let splice_into_entrypoint ~theme ~path generated =
                (if theme.Tw.Scheme.reference_theme then []
                 else author_theme_tokens ~theme (Css.statements inlined))
           |> add_author_property_fallbacks (Css.statements inlined)
-          |> merge_named_layers |> collapse_property_fallbacks
+          |> lift_hoisted_out_of_layers |> merge_named_layers
+          |> collapse_property_fallbacks |> join_theme_rules
           |> hoist_layer_blocks |> lead_properties_layer
           |> drop_unread_inline_tokens ~theme
           |> collect_properties_at_end |> Css.v)

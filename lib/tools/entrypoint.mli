@@ -37,6 +37,12 @@ val imports_important : string -> bool
     [@import "tailwindcss" important], which marks every declaration a utility
     emits [!important]. *)
 
+val forms_base : string -> bool
+(** [forms_base css] is [true] when [css] loads [@tailwindcss/forms] with its
+    default strategy, which resets native form controls in the base layer, and
+    [false] when it names no such plugin or its options ask for
+    [strategy: "class"]. *)
+
 val config_directives : string -> string list
 (** [config_directives css] is what each [\@config] directive in [css] names, as
     written and in source order: a v3 JavaScript config, which tw does not
@@ -49,6 +55,13 @@ val theme_overrides_of_css : string -> (string * string) list * string list
     renders with the tokens Tailwind reads from the same file. *)
 
 (** {1 Sources} *)
+
+val source_paths : string -> string list * string list
+(** [source_paths css] is the paths the [@source "<path>"] directives of [css]
+    name for scanning, and those its [@source not "<path>"] directives take back
+    out, each as written and in source order. A path is relative to the
+    stylesheet and may be a glob; the [inline()] forms are {!source_inline}'s.
+*)
 
 val source_inline : string -> string list * string list
 (** [source_inline css] is the candidates the [@source inline("...")] directives

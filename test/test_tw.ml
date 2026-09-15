@@ -562,6 +562,38 @@ let theme_function_custom_property_spelling () =
     "--color-red-500:oklch(63.7%.237 25.331)"
     {|.bg-\[theme\(--color-red-500\/25\%\)\]{background-color:color-mix(in oklab,oklch(63.7%.237 25.331) 25%,transparent)}|}
 
+(* The [(--c)] shorthand is [[var(--c)]] under its own class name, and a colour
+   utility reading it takes an opacity modifier the same way. Tailwind 4.3.3
+   writes [color-mix(in oklab, var(--c) 50%, transparent)] under [@supports] for
+   [bg-(--c)/50], and the same for every colour prefix. The rewrite to the
+   bracket form only ran when the class ended at the [)], so a trailing [/50]
+   left the class unknown. [bg-[--c]/50] stays refused: 4.3.3 writes
+   [color-mix(in oklab, --c 50%, transparent)] for it, which is not a colour. *)
+let test_paren_var_colour_opacity () =
+  let css cls =
+    match Tw.of_string cls with
+    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (css cls))
+  in
+  has "bg-(--c)/50" {|.bg-\(--c\)\/50{background-color:var(--c)}|};
+  has "bg-(--c)/50"
+    "background-color:color-mix(in oklab,var(--c) 50%,transparent)";
+  has "text-(--c)/50" "color:color-mix(in oklab,var(--c) 50%,transparent)";
+  has "border-(--c)/25"
+    "border-color:color-mix(in oklab,var(--c) 25%,transparent)";
+  has "fill-(--c)/50" "fill:color-mix(in oklab,var(--c) 50%,transparent)";
+  has "bg-(--c)/(--o)"
+    "background-color:color-mix(in oklab,var(--c) var(--o),transparent)";
+  match Tw.of_string "bg-[--c]/50" with
+  | Error _ -> ()
+  | Ok _ -> Alcotest.fail "bg-[--c]/50 should stay refused"
+
 (* The token a [theme(--x)] names is bound once however many classes read it,
    the variants a class carries do not move the binding out of [@layer theme],
    and a [\@theme] override reaches both the binding and the inlined value. *)
@@ -1820,6 +1852,7 @@ let core_tests =
     test_case "arbitrary animations" `Quick arbitrary_animations;
     test_case "arbitrary will-change" `Quick arbitrary_will_change;
     test_case "arbitrary misc" `Quick arbitrary_misc;
+    test_case "paren var colour opacity" `Quick test_paren_var_colour_opacity;
   ]
 
 let suite = ("tw", core_tests)
