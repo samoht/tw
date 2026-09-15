@@ -449,6 +449,9 @@
 
 ### Colours and effects
 
+- A gradient stop with an opacity keeps its theme colour as the palette declares
+  it. `to-gray-950/40` registered `--color-gray-950` as `#030712`, which moved
+  every other use of the token on the page off the palette's oklch (#822).
 - `ring-offset-white` and `ring-offset-black` compile, with an optional opacity,
   as their `ring-` counterparts do. A shadeless colour after `ring-offset-` was
   read as a width and refused (#813).

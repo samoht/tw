@@ -1160,8 +1160,11 @@ module Handler = struct
     in
 
     (* Without a scheme override the palette still has a hex for the colour, and
-       Tailwind emits the same fallback + [@supports] pair either way. A project
-       token has no palette entry, so its value comes from the theme instead. *)
+       Tailwind emits the same fallback + [@supports] pair either way. The hex
+       is the fallback's alone: the theme token keeps the palette's own value,
+       as every other utility declares it, or one stop would re-colour the token
+       for the whole page. A project token has no palette entry, so its value
+       comes from the theme instead. *)
     let hex_pair hex =
       ( Css.hex hex,
         Css.hex
@@ -1173,7 +1176,11 @@ module Handler = struct
       | Some hex -> hex_pair hex
       | None -> (
           match Color.to_oklch_opt color shade with
-          | Some oklch -> hex_pair (Color.rgb_to_hex (Color.oklch_to_rgb oklch))
+          | Some oklch ->
+              let _, fallback =
+                hex_pair (Color.rgb_to_hex (Color.oklch_to_rgb oklch))
+              in
+              (Color.to_css ?theme color shade, fallback)
           | None ->
               let value = Color.to_css ?theme color shade in
               ( value,
