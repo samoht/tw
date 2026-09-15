@@ -2515,6 +2515,57 @@ let test_custom_dark_keeps_builtin_slot () =
     "custom dark retains the built-in slot" classes
     (emitted_classes css classes)
 
+(* A custom variant with two branches, the site's [dark] with a class branch and
+   a [prefers-color-scheme] one, routes its utilities through the custom variant
+   path, and there an opacity colour, which carries a [@supports] twin, sorted
+   after every plain utility of a later family instead of in its family's place:
+   [dark:hover:text-white] came out before [dark:hover:bg-white/50] where
+   Tailwind writes the background first, and on the site the [dark:hover:bg-*]
+   pair in the other order is a cascade difference for an element carrying both.
+   Expected order measured with Tailwind 4.3.3 through the same entrypoint on
+   2026-09-15. *)
+let test_custom_variant_supports_twin_keeps_family_order () =
+  let defs =
+    [
+      ( "dark",
+        "&:where(.dark,.dark *){@slot;}@media \
+         (prefers-color-scheme:dark){&:where(.system,.system *){@slot;}}" );
+    ]
+  in
+  let classes =
+    [
+      "dark:hover:border-white/25";
+      "dark:hover:bg-gray-800";
+      "dark:hover:bg-white/50";
+      "dark:hover:text-white";
+    ]
+  in
+  let _, extra, _ =
+    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+      ~udefs:[] classes
+  in
+  let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
+  let theme =
+    { Tw.Scheme.default with custom_variants = [ ("dark", custom) ] }
+  in
+  let css =
+    Tw.to_css ~theme ~base:false ~extra []
+    |> Css.to_string ~minify:true ~lossless:true
+  in
+  let first_occurrences =
+    let seen = Hashtbl.create 8 in
+    List.filter
+      (fun cls ->
+        if Hashtbl.mem seen cls then false
+        else (
+          Hashtbl.add seen cls ();
+          true))
+      (emitted_classes css classes)
+  in
+  Alcotest.(check (list string))
+    "opacity colours sort with their family under a two-branch custom variant"
+    classes first_occurrences
+
 let test_margin_value_order () =
   (* Margin values sort by raw suffix: numeric, then arbitrary ('['), then
      keywords auto < full < px. -ml-4 and -ml-px conflict on margin-left, so the
@@ -3322,6 +3373,8 @@ let tests =
       test_variant_family_order;
     test_case "@max-* container variants before @min-*" `Quick
       test_container_max_before_min;
+    test_case "custom variant supports twin keeps family order" `Quick
+      test_custom_variant_supports_twin_keeps_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;
     test_case "comparator is transitive" `Quick test_comparator_transitivity;
   ]

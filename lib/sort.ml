@@ -460,6 +460,18 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
         compare_by_priority_suborder_alpha r1.selector_kind r2.selector_kind
           r1.selector_str r2.selector_str r1.order r2.order r1.index r2.index
 
+(* The nested blocks that are variants. A nested [@media] or [@container] is
+   one, the [@media (hover: hover)] of [sm:hover:], and sorts after the plain
+   rules of its group. A nested [@supports] is not: it is the colour twin an
+   opacity utility carries beside its fallback, which Tailwind keeps together,
+   so the rule sorts where a plain rule of that utility does. *)
+let nested_variants nested =
+  List.filter
+    (fun stmt ->
+      Option.is_some (Css.as_media stmt)
+      || Option.is_some (Css.as_container stmt))
+    nested
+
 let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
   let same_utility =
     match (r1.base_class, r2.base_class) with
@@ -473,7 +485,11 @@ let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
        just as the regular-vs-media comparator below does for one utility. *)
     Int.compare r1.index r2.index
   else
-    let nested_cmp = Bool.compare (r1.nested <> []) (r2.nested <> []) in
+    let nested_cmp =
+      Bool.compare
+        (nested_variants r1.nested <> [])
+        (nested_variants r2.nested <> [])
+    in
     if nested_cmp <> 0 then nested_cmp
     else
       let group1, sub1 = extract_media_sort_key r1.rule_type in
@@ -954,7 +970,7 @@ let compare_by_order_then_selector r1 r2 =
 
 (* Compare nested media conditions *)
 let compare_nested_media r1 r2 =
-  match (r1.nested, r2.nested) with
+  match (nested_variants r1.nested, nested_variants r2.nested) with
   | [], [] -> 0
   | [], _ -> -1
   | _, [] -> 1
@@ -1280,7 +1296,7 @@ let compare_bracket_prefixes p1_prefix p2_prefix =
 
 (* Compare rules when both have variant_order > 0 *)
 let nested_order rule_type nested =
-  match nested with
+  match nested_variants nested with
   | [] -> 0 (* non-nested: middle *)
   | [ stmt ] -> (
       match (rule_type, Css.as_media stmt) with
