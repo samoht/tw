@@ -689,6 +689,11 @@
   installed and naming whatever version sat on `PATH`. A `node_modules` above
   the working directory still wins, so a caller can still choose the CLI
   pinned beside the project being measured (#727).
+- `tw --tailwind` and `tw --diff` say when a CLI of the right version cannot
+  compile from the working directory, which a global install cannot from
+  outside a project, and advise running from one. They reported it as
+  `unknown version` and advised the global install the caller already had;
+  the diagnosis also prints as text rather than a quoted `Failure` (#821).
 - `tw --diff` no longer invents a difference for a class Tailwind compiles.
   Building the reference by scanning a file lost every class Tailwind's own
   extractor declines to read back, `group-hover/-2a:underline` among them

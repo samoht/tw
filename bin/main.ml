@@ -115,6 +115,13 @@ let print_diff_result label diff =
       | Css_compare.Both_errors _ | Expected_error _ | Actual_error _ -> 2
       | Tree_diff _ | String_diff _ | No_diff -> 1)
 
+(* The generator reports a missing or unusable CLI as a [Failure] carrying the
+   whole diagnosis, and [Printexc] would print that as a quoted literal with its
+   newlines escaped. *)
+let tailwind_error = function
+  | Failure reason | Sys_error reason -> reason
+  | e -> Printexc.to_string e
+
 let calc_re = Re.compile (Re.str "calc(")
 
 let render_css ~(opts : gen_opts) stylesheet =
@@ -224,8 +231,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       with e ->
         `Error
           ( false,
-            Fmt.str "Error generating with Tailwind: %s" (Printexc.to_string e)
-          ))
+            Fmt.str "Error generating with Tailwind: %s" (tailwind_error e) ))
   | Native -> (
       let include_base = eval_flag flag ~default:false in
       match single_class_sheet ~opts ~base:include_base class_str with
@@ -361,8 +367,7 @@ let process_files paths flag ~(opts : gen_opts) =
       with e ->
         `Error
           ( false,
-            Fmt.str "Error generating with Tailwind: %s" (Printexc.to_string e)
-          ))
+            Fmt.str "Error generating with Tailwind: %s" (tailwind_error e) ))
   | Native -> native_files paths flag ~opts
 
 (* A v3 [@config] names a JavaScript config, which tw does not evaluate, so an
