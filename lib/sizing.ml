@@ -734,9 +734,9 @@ module Handler = struct
              (fun property -> Parse.opaque_declaration property value)
              f.properties)
     | Fraction s -> (
-        match fraction_pct s with
-        | Some pct -> set (Pct pct)
-        | None -> failwith ("Unknown " ^ f.css_name ^ " fraction: " ^ s))
+        match (Parse.fraction s, fraction_pct s) with
+        | Some (n, m), Some _ -> set (Parse.fraction_length n m)
+        | _ -> failwith ("Unknown " ^ f.css_name ^ " fraction: " ^ s))
     | Spacing n ->
         (* [n] is in rem; the class number is [n * 4] because --spacing is
            0.25rem. calc(var(--spacing) * n) keeps v4 compatibility. *)

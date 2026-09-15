@@ -540,21 +540,12 @@ module Handler = struct
     translate_axis_step ?theme tw_translate_y_var f
 
   (** Helper to create a fraction percentage value: calc(n/d * 100%) *)
-  let make_fraction_pct num denom : Css.length =
-    Css.Calc
-      (Css.Calc.mul
-         (Css.Calc.div
-            (Css.Calc.float (float_of_int num))
-            (Css.Calc.float (float_of_int denom)))
-         (Css.Calc.length (Css.Pct 100.)))
+  let make_fraction_pct num denom : Css.length = Parse.fraction_length num denom
 
   (** Helper to create a negated fraction percentage value: calc(calc(n/d *
       100%) * -1) *)
   let make_neg_fraction_pct num denom : Css.length =
-    Css.Calc
-      (Css.Calc.mul
-         (Css.Calc.length (make_fraction_pct num denom))
-         (Css.Calc.float (-1.)))
+    Parse.neg_fraction_length num denom
 
   let translate_x_fraction num denom =
     let axis_decl, _ =

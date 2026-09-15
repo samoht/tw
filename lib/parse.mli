@@ -30,6 +30,19 @@ val fraction_percent : int -> int -> float option
 val fraction_pct : string -> float option
 (** [fraction_pct s] is {!fraction} put through {!fraction_percent}. *)
 
+val fraction_calc : 'a Cascade.Css.calc -> int -> int -> 'a Cascade.Css.calc
+(** [fraction_calc hundred n m] is [n / m * hundred], the expression Tailwind
+    writes a fraction as, with [hundred] the [100%] leaf of the property's own
+    calc type. The browser resolves it exactly, which a percentage folded from
+    it cannot do for a non-terminating fraction. *)
+
+val fraction_length : int -> int -> Cascade.Css.length
+(** [fraction_length n m] is [calc(n / m * 100%)]. *)
+
+val neg_fraction_length : int -> int -> Cascade.Css.length
+(** [neg_fraction_length n m] is [calc(calc(n / m * 100%) * -1)], the spelling
+    Tailwind negates a fraction with. *)
+
 val int_pos : name:string -> string -> (int, [> `Msg of string ]) result
 (** [int_pos ~name s] parses a non-negative integer from [s]. Returns [Ok n] if
     [s] is a decimal integer >= 0, otherwise [Error (`Msg msg)]. [name] is used
