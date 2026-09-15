@@ -598,6 +598,10 @@
   utility of the group, and under a two-branch custom variant such as the
   site's `dark` it carried the whole family with it, so `dark:hover:bg-white/50`
   came after `dark:hover:text-white` (#829).
+- A negative half-step translate, `-translate-y-0.5`, sorts in the negative
+  band of its axis by magnitude with the integers, where Tailwind puts it. It
+  sorted after `-translate-y-10`, so `hover:-translate-y-1` and
+  `hover:-translate-y-0.5` came out in the other order (#831).
 - Every `@max-*` container variant sorts before every `@*` and `@min-*` one,
   as Tailwind groups them, whatever value either names: `@max-[theme(...)]`
   came after `@lg`, and a stacked `@sm:@max-md:` sorted past `@md` instead of

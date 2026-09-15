@@ -1490,6 +1490,7 @@ module Handler = struct
     | Translate_px | Translate_1_2 | Translate_fraction _ ->
         21
     | Translate_x n when n < 0 -> 100
+    | Translate_x_step f when f < 0. -> 100
     | Neg_translate_x_arbitrary _ | Neg_translate_x_full | Neg_translate_x_px
     | Neg_translate_x_1_2 | Neg_translate_x_fraction _ ->
         100
@@ -1497,6 +1498,7 @@ module Handler = struct
     | Translate_x_step _ | Translate_x_arbitrary _ | Translate_x_raw _ ->
         101
     | Translate_y n when n < 0 -> 200
+    | Translate_y_step f when f < 0. -> 200
     | Neg_translate_y_arbitrary _ | Neg_translate_y_full | Neg_translate_y_px
     | Neg_translate_y_1_2 | Neg_translate_y_fraction _ ->
         200
@@ -1504,6 +1506,7 @@ module Handler = struct
     | Translate_y_step _ | Translate_y_arbitrary _ | Translate_y_raw _ ->
         201
     | Translate_z n when n < 0 -> 300
+    | Translate_z_step f when f < 0. -> 300
     | Neg_translate_z_arbitrary _ | Neg_translate_z_px -> 300
     | Translate_z _ | Translate_z_step _ | Translate_z_px
     | Translate_z_arbitrary _ ->
