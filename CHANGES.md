@@ -593,6 +593,11 @@
 
 ### CSS ordering and structure
 
+- An opacity colour under `hover:` keeps its `@supports` twin beside its
+  fallback, as Tailwind writes the pair. The twin sorted after every later
+  utility of the group, and under a two-branch custom variant such as the
+  site's `dark` it carried the whole family with it, so `dark:hover:bg-white/50`
+  came after `dark:hover:text-white` (#829).
 - A `@max-*` container variant sorts before the `@min-*` one at the same
   width, as every `@max-*` block does in Tailwind. `@lg:flex @max-lg:hidden`
   wrote the `@lg` block first when the pair stood alone, though four such
