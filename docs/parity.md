@@ -101,67 +101,66 @@ rather than from `PATH`.
 
 ### Current measurement
 
-Measured 2026-09-15 at tw cce27863 against cascade d6dab811 (the top of
-stack #1253, #1250 to #1255, above `main` at 3dda7012), with the tailwindcss
-4.3.3 that `package-lock.json` pins. The documented command reported:
+Measured 2026-09-15 at the tip of tw stack #832 with the
+`variant-container-breakpoints` branch (#833) above it, against cascade
+`canonical-lifted-subject` (the top of stack #1258, #1256 and #1257, above
+`main` at ab443388), with the tailwindcss 4.3.3 that `package-lock.json`
+pins. The documented command reported:
 
 ```text
-minified: tw 660314 bytes, tailwindcss 664632 bytes
-CSS: 660314 chars vs 769900 chars (16.6% diff)
-Changes: 2 modified rules, 2 changed containers
-├─ selector changed: .DocSearch-Logo svg :where(.dark, .dark *)
-├─ .with-line-numbers .line:before
-├─ @layer utilities (147 modified, 2 reordered)
-└─ @supports (color: color-mix(in lab,red,red)) (5 block split into 6)
+minified: tw 661022 bytes, tailwindcss 664632 bytes
+Changes: 1 changed container
+└─ @layer utilities
+   ├─ @media (prefers-color-scheme: dark) (105 blocks merged into 103)
+   ├─ @media (width >= 40rem) (6 blocks merged into 5)
+   ├─ @media (width >= 48rem) (3 blocks merged into 2)
+   └─ @media (width < 64rem) (3 block split into 4)
 ```
 
 The count is only comparable against the cascade it was taken with, which is
-why the sha is quoted beside it. The 147 entries under `@layer utilities`
-sort into three groups, and the classification is what the contract above
-asks for of each:
+why the sha is quoted beside it. What is left is one shape, and it is
+cascade's: both sheets write the same rules in the same order inside those
+blocks, tw nesting `@media (prefers-color-scheme: dark)` outside the
+breakpoint and Tailwind inside, and the projection sorts a block as one unit
+keyed by whatever rules the input happened to group into it, so the two
+inputs settle into different groupings. Cascade's TODO holds the five-class
+reproducer cut from the site.
 
-- **Colour fallbacks outside `@supports`, 75.** For a colour with an opacity
-  tw writes the hex lightningcss folds Tailwind's `color-mix(in srgb, ...)`
-  fallback to, and the compiled reference keeps the `color-mix()`, which
-  cascade reads as an out-of-gamut `color(srgb ...)` and cannot fold to the
-  same bytes. Only an engine without `color-mix(in lab)` reads the fallback,
-  and no Tailwind target lacks it. Needs a decision: a target-aware canonical
-  mode that drops what no target reads, or tw writing Tailwind's fallback.
-- **Prefixes lightningcss adds, 75 plus the entries outside the layer.**
-  `-webkit-mask-composite` and `-webkit-mask-source-type` on the mask
-  utilities, `-webkit-user-select` on `.with-line-numbers .line:before`, and
-  the `(-webkit-backdrop-filter: X) or (backdrop-filter: X)` twin on a
-  `supports-backdrop-filter:` guard are all things only tw writes against the
-  compiled reference, because lightningcss adds them to Tailwind's minified
-  sheet and tw matches that. Chrome 111 to 119 needs the mask prefixes. The
-  same decision.
-- **Block structure, the rest.** Adjacent `@media` and `@container` blocks
-  with one condition that tw splits where Tailwind merges them, or the
-  reverse, and six moves the report lists inside them. `@media X { A } @media
-  X { B }` computes as `@media X { A B }`, and a same-property pair in either
-  order compares equal in isolation, so these need a reproducer cut from tw's
-  sheet each before any of them reads as a defect; cutting the first found a
-  real one, a `@max-*` container variant sorting after the `@min-*` one at
-  its width (#827), which the four `@container` moves are. The
-  `svg :where()` against `svg *:where()` selector entry at the top is the
-  same shape: the two selectors match the same elements.
+Two decisions taken on 2026-09-15 shaped the measurement:
 
-Nothing in the report is a rendering difference tw owns today. The entries
-this measurement no longer shows, each landed in cascade with a reproducer,
-are the ones a report against the compiled output finds first: nested
-`@media` order (#1240), keyframe declaration order (#1241), a signed number's
-leading zero (#1242), a pixel `stroke-width` (#1243), an infinite length
-(#1244), a static percentage `calc()` in `flex-basis` (#1245), moves the
-cascade cannot see (#1246), a custom property's time unit (#1247), a
+- **The projection judges for the browsers `--minify` targets** (cascade
+  #1256). Tailwind's compiled sheet keeps a `color-mix(in srgb, ...)`
+  fallback before every opacity colour and a `@supports (color: color-mix(in
+  lab, ...))` twin beside it, and lightningcss and tw resolve both for the
+  evergreen browsers, so the compiled reference reported every one of them,
+  150 entries. A guard every target satisfies, the fallback before a value
+  every target parses, and a prefix a target needs are no difference now;
+  `--enforce-spec` names no browser and reports them again. tw keeps writing
+  what lightningcss writes: the WebKit mask prefixes Chrome 111 to 119 need,
+  the hex a fallback folds to.
+- **A reorder the report lists is a reproducer to cut, not a defect to read.**
+  Cutting them found four tw sort defects: a `@max-*` container variant
+  after the `@min-*` one at its width (#827), an opacity colour's `@supports`
+  twin after every later utility of its hover group (#829), an arbitrary
+  `@max-[theme(...)]` after `@lg` and a stacked `@sm:@max-md:` past `@md`
+  (#830), a negative half-step translate after the negative integers (#831),
+  and `md:container`'s breakpoints after `md:max-w-2xl`
+  (#833); and one cascade over-report, `svg
+  :where()` against `svg *:where()` (cascade #1257).
+
+The entries earlier measurements showed, each landed in cascade with a
+reproducer, are the ones a report against the compiled output finds first:
+nested `@media` order (#1240), keyframe declaration order (#1241), a signed
+number's leading zero (#1242), a pixel `stroke-width` (#1243), an infinite
+length (#1244), a static percentage `calc()` in `flex-basis` (#1245), moves
+the cascade cannot see (#1246), a custom property's time unit (#1247), a
 pass-through relative colour (#1248), a negated range bound (#1250), a
 declaration a guard repeats (#1254) and a fraction folded under the
 six-figure budget (#1255): `w-2/3` is `66.6667%` in tw and
 `calc(2 / 3 * 100%)` in the compiled reference, and the two render within a
 layout unit of each other. On tw's side the repeated
 `content: var(--tw-content)` in a `before:`/`after:` colour twin went with
-it (#823). A tw branch that writes the fraction's calc exists
-(`exact-fractions`, on origin) and fails the upstream fixture gate, whose
-`utilities.txt` holds the folded percentage.
+it (#823), and #828 writes the fraction's calc.
 
 **A reorder surviving canonical mode does not mean it can change rendering.**
 Canonical mode suppresses a reorder it can prove cascade-neutral and flags the
