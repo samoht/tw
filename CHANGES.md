@@ -508,6 +508,10 @@
 
 ### Variants and selectors
 
+- A `before:` or `after:` utility with an opacity colour declares `content`
+  once, on its rule, as Tailwind does. The `@supports` colour twin repeated
+  `content: var(--tw-content)`, which the canonical parity diff reported
+  (#823).
 - `not-[@supports(…)]` negates the condition, as Tailwind does:
   `not-[@supports(display:grid)]:flex` wraps the utility in
   `@supports not (display:grid)`. It negated the utility's own class, and a

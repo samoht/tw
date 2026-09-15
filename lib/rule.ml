@@ -821,6 +821,21 @@ let handle_fallback_modifier ?(inner_has_hover = false) modifier base_class
 (* [before:]/[after:] always carry a content declaration. They report the class
    they prefixed, not the bare one, so an outer variant can find it in the
    selector and prefix its own name in turn. *)
+let reads_content_var d =
+  Css.declaration_name d = "content"
+  && Css.declaration_value d = "var(--tw-content)"
+
+(* Tailwind declares [content] once on the [before:]/[after:] rule and nests the
+   colour twin inside it, so the flattened twin carries the colour alone. The
+   pseudo-element handler adds one to every rule it sees, and this takes the
+   twin's back out, unless the utility brought its own. *)
+let without_twin_content modifier ~props =
+  match modifier with
+  | (Style.Pseudo_before | Style.Pseudo_after)
+    when not (List.exists reads_content_var props) ->
+      List.filter (fun d -> not (reads_content_var d))
+  | _ -> Fun.id
+
 let handle_pseudo_element_modifier modifier base_class props =
   let sel = Modifiers.to_selector modifier base_class in
   let modified_class =
@@ -828,10 +843,6 @@ let handle_pseudo_element_modifier modifier base_class props =
   in
   (* [before:]/[after:] need a [content], but a [content-*] utility already
      brings its own; adding a second one leaves it declared twice. *)
-  let reads_content_var d =
-    Css.declaration_name d = "content"
-    && Css.declaration_value d = "var(--tw-content)"
-  in
   let props =
     if List.exists reads_content_var props then props
     else Css.content (Var (Var.reference Typography.content_var)) :: props
@@ -2196,6 +2207,7 @@ and apply_modifier_to_container_query ?theme modifier ~condition ~selector
 and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
     ~base_class ~merge_key =
   let inner = regular ~selector ~props ?base_class ?merge_key () in
+  let props_of = without_twin_content modifier ~props in
   let wrap_supports_in_media outer sel p bc nested =
     (* Nest the @supports inside a media query so the block stays scoped to the
        variant. *)
@@ -2224,6 +2236,7 @@ and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
   apply_modifier_to_rule ?theme modifier inner
   |> List.map (function
     | Regular { selector; props; base_class; has_hover; _ } ->
+        let props = props_of props in
         (* A bare hover: rule carries [has_hover] instead of an outer media;
            wrap the @supports in @media (hover:hover) to match. *)
         if has_hover then
@@ -2234,7 +2247,7 @@ and apply_modifier_to_supports_query ?theme modifier ~condition ~selector ~props
           supports_query ~condition ~selector ~props ?base_class ?merge_key ()
     | Media_query { condition = outer; selector; props; base_class; nested; _ }
       ->
-        wrap_supports_in_media outer selector props base_class nested
+        wrap_supports_in_media outer selector (props_of props) base_class nested
     | (Container_query _ | Supports_query _ | Starting_style _) as outer ->
         wrap_supports_in_at_rule outer)
 
