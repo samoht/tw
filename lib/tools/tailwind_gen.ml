@@ -279,27 +279,48 @@ let extract_version_number line =
 let version_string (a, b, c) =
   string_of_int a ^ "." ^ string_of_int b ^ "." ^ string_of_int c
 
-let command_version cmd =
-  let line, fallback_used = tailwindcss_version cmd in
-  if fallback_used then None else extract_version_number line
+(* What a candidate answered. A CLI that compiles the probe is usable, and its
+   banner names its version; one that only answers [--help] is of a known
+   version but cannot compile from here, which a global install is from any
+   directory with no [node_modules] above it, since [@import "tailwindcss"]
+   resolves against that tree. *)
+type answer =
+  | Absent
+  | Compiles of string option
+  | Help_only of string option
+  | Silent
+
+let probe_candidate cmd present =
+  if not present then Absent
+  else
+    match tailwindcss_version cmd with
+    | line, false -> Compiles (extract_version_number line)
+    | line, true -> Help_only (extract_version_number line)
+    | exception Failure _ -> Silent
 
 (* The reference must be EXACTLY the pinned version: a different release, even a
    newer one, can change the emitted CSS and silently diverge from the snapshot
    fixtures (e.g. the v4.2 -> v4.3 unit-spacing change). *)
-let command_is_required cmd =
-  match command_version cmd with
-  | Some v -> parse_version v = Some required_version
-  | None -> false
+let is_required = function
+  | Compiles (Some v) -> parse_version v = Some required_version
+  | Compiles None | Help_only _ | Silent | Absent -> false
 
-(* What a candidate answered, for the failure message. Naming the native binary
-   alone reports "not installed" on a machine that reaches the CLI through npx,
-   which is every CI runner and the case a lockfile bump breaks. *)
-let describe_candidate cmd present =
-  if not present then cmd ^ ": not installed"
-  else
-    match command_version cmd with
-    | Some v -> cmd ^ ": v" ^ v
-    | None -> cmd ^ ": unknown version"
+(* Naming the native binary alone reports "not installed" on a machine that
+   reaches the CLI through npx, which is every CI runner and the case a lockfile
+   bump breaks. A CLI that answered [--help] and compiled nothing is named with
+   the entrypoint it refused, which is what the caller has to move. *)
+let describe_candidate label = function
+  | Absent -> label ^ ": not installed"
+  | Compiles (Some v) -> label ^ ": v" ^ v
+  | Compiles None | Silent -> label ^ ": unknown version"
+  | Help_only version ->
+      let version =
+        match version with
+        | Some v -> ": v" ^ v ^ " by its --help banner"
+        | None -> ": answers --help"
+      in
+      label ^ version ^ ", but it did not compile the probe entrypoint under "
+      ^ tmp_root ()
 
 (* Worktrees can safely share an installed node_modules tree: the packages are
    read-only while tests run. Do not put npx between the harness and the pinned
@@ -338,29 +359,56 @@ let project_tailwindcss_command () =
       in
       if executable then Some (Filename.quote path) else None
 
+(* Candidates in the order they are tried, and the search stops at the first
+   usable one, so a project pin costs one probe and npx is never run behind it.
+   The answers gathered on the way to a failure are the failure message. The
+   project pin is labelled by its relative path, since the absolute one says
+   nothing a reader of the message does not already know. *)
 let tailwindcss_command () =
   let have cmd = Sys.command ("which " ^ cmd ^ " > /dev/null 2>&1") = 0 in
   let project = project_tailwindcss_command () in
-  let native = have "tailwindcss" in
-  let npx = have "npx" in
-  match project with
-  | Some cmd when command_is_required cmd -> cmd
-  | _ when native && command_is_required "tailwindcss" -> "tailwindcss"
-  | _ when npx && command_is_required "npx tailwindcss" -> "npx tailwindcss"
-  | _ ->
+  let candidates =
+    [
+      ( pinned_cli_relative,
+        Option.value ~default:pinned_cli_relative project,
+        Option.is_some project );
+      ("tailwindcss", "tailwindcss", have "tailwindcss");
+      ("npx tailwindcss", "npx tailwindcss", have "npx");
+    ]
+  in
+  let rec search answers = function
+    | [] -> Error (List.rev answers)
+    | (label, cmd, present) :: rest ->
+        let answer = probe_candidate cmd present in
+        if is_required answer then Ok cmd
+        else search ((label, answer) :: answers) rest
+  in
+  match search [] candidates with
+  | Ok cmd -> cmd
+  | Error answers ->
+      let required = version_string required_version in
+      (* A global install of the right version is not what is missing, so
+         suggesting one would send the caller round again. *)
+      let advice =
+        if
+          List.exists
+            (function
+              | _, Help_only (Some v) -> parse_version v = Some required_version
+              | _ -> false)
+            answers
+        then
+          "Run tw from a project with tailwindcss@" ^ required
+          ^ " installed: @import \"tailwindcss\" resolves against the nearest \
+             node_modules above the entrypoint tw writes."
+        else "Install it with: npm install -g @tailwindcss/cli@" ^ required
+      in
       failwith
-        ("tailwindcss v"
-        ^ version_string required_version
-        ^ " is required ("
-        ^ describe_candidate
-            (Option.value ~default:"node_modules/.bin/tailwindcss" project)
-            (Option.is_some project)
-        ^ ", "
-        ^ describe_candidate "tailwindcss" native
-        ^ ", "
-        ^ describe_candidate "npx tailwindcss" npx
-        ^ ").\nInstall it with: npm install -g @tailwindcss/cli@"
-        ^ version_string required_version)
+        ("tailwindcss v" ^ required ^ " is required ("
+        ^ String.concat ", "
+            (List.map
+               (fun (label, answer) -> describe_candidate label answer)
+               answers)
+        ^ ").\n" ^ advice)
 
 let check_tailwindcss_available () =
   match !availability_result with
