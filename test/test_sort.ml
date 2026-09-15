@@ -366,6 +366,26 @@ let test_container_max_before_min () =
   Test_helpers.check_class_order ~test_name:"@max-lg before @sm on their own"
     [ "@sm:flex"; "@max-lg:hidden" ]
 
+(* Tailwind registers the [@max-*] variants as one group ahead of the group
+   holding [@*] and [@min-*], so every upper bound precedes every lower bound
+   whatever value either names; the value only orders bounds of one kind. An
+   arbitrary [theme()] call is a value like any other, and a stacked
+   [@sm:@max-md:] sorts under its lower bound, the way a stacked breakpoint
+   sorts under its width. *)
+let test_arbitrary_max_container_before_min () =
+  Test_helpers.check_class_order ~test_name:"@max-[theme(...)] before @lg"
+    [ "@lg:flex"; "@max-[theme(--breakpoint-lg)]:hidden" ];
+  Test_helpers.check_class_order
+    ~test_name:"@max-[theme(...)] before @[...] and @min-[theme(...)]"
+    [
+      "@[34rem]:hidden";
+      "@min-[theme(--breakpoint-lg)]:grid-cols-2";
+      "@max-[theme(--breakpoint-sm)]:hidden";
+    ];
+  Test_helpers.check_class_order
+    ~test_name:"@sm:@max-md sorts under @sm, before @md"
+    [ "@md:flex-row"; "@sm:@max-md:flex-col"; "@sm:flex" ]
+
 (* The word-wrapping families overlap on overflow-wrap/word-break: break-normal
    writes both and so leads its shared prefix, break-words/wrap-anywhere/
    wrap-break-word/wrap-normal tie on overflow-wrap alone, and break-all/
@@ -3373,6 +3393,8 @@ let tests =
       test_variant_family_order;
     test_case "@max-* container variants before @min-*" `Quick
       test_container_max_before_min;
+    test_case "an arbitrary @max-* container variant before @min-*" `Quick
+      test_arbitrary_max_container_before_min;
     test_case "custom variant supports twin keeps family order" `Quick
       test_custom_variant_supports_twin_keeps_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;
