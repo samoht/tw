@@ -115,10 +115,32 @@ let print_diff_result label diff =
       | Css_compare.Both_errors _ | Expected_error _ | Actual_error _ -> 2
       | Tree_diff _ | String_diff _ | No_diff -> 1)
 
+let calc_re = Re.compile (Re.str "calc(")
+
 let render_css ~(opts : gen_opts) stylesheet =
   let stylesheet =
     match opts.css_mode with
-    | Inline -> Tw.Css.inline_vars stylesheet
+    | Inline ->
+        (* The spacing token is a runtime override point and its references stay
+           live by default; inline mode is the request to resolve them, and the
+           arithmetic a substitution leaves static, [calc(.25rem * 4)], is
+           resolved with them. Only a declaration holding a [calc()] with no
+           variable left is folded, and only exactly: the pass is not a
+           minifier, so a colour or a keyword keeps the spelling it was
+           generated with. *)
+        let resolved = Tw.Css.inline_vars ~inline_runtime:true stylesheet in
+        let static_calc d =
+          Tw.Css.vars_of_declarations [ d ] = []
+          && Re.execp calc_re (Tw.Css.declaration_value ~minify:true d)
+        in
+        let fold d =
+          if static_calc d then Tw.Css.Declaration.normalize ~lossless:true d
+          else d
+        in
+        let fold_rule selector decls =
+          Tw.Css.rule ~selector (List.map fold decls)
+        in
+        Tw.Css.v (Tw.Css.map fold_rule (Tw.Css.statements resolved))
     | Variables -> stylesheet
   in
   let stylesheet =
