@@ -82,13 +82,12 @@ module Handler = struct
   (* flex-N: flex: N *)
   let flex_n_style n = style [ flex (Grow (Number (float_of_int n))) ]
 
-  (* flex-N/M: flex: (N/M * 100)%, folded the way Tailwind folds it. *)
+  (* The [100%] a fraction's calc multiplies, as a flex-basis leaf. *)
+  let hundred : Css.flex_basis Css.calc = Val (Pct 100.)
+
+  (* flex-N/M: flex: calc(N / M * 100%), the division Tailwind writes. *)
   let flex_fraction_style n m =
-    style
-      [
-        flex
-          (Basis (Pct (Option.value ~default:0. (Parse.fraction_percent n m))));
-      ]
+    style [ flex (Basis (Calc (Parse.fraction_calc hundred n m))) ]
 
   (* A bracket no property grammar reads is still a value Tailwind writes out,
      so it reaches the sheet as the token stream it is. *)
@@ -104,8 +103,8 @@ module Handler = struct
   let flex_shrink_0_utility = style [ flex_shrink 0.0 ]
 
   (* Basis. Tailwind v4.3 emits [var(--spacing)] for [basis-1] and
-     [calc(var(--spacing) * <n>)] otherwise; [basis-full] / [basis-1/1] emit
-     literal [100%]. *)
+     [calc(var(--spacing) * <n>)] otherwise; [basis-full] emits a literal
+     [100%], and [basis-1/1] the division like any other fraction. *)
   let basis_spacing n =
     let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
     let spacing = Var.name Theme.spacing_var in
@@ -121,10 +120,7 @@ module Handler = struct
   let basis_full = style [ flex_basis (Pct 100.0) ]
 
   let basis_fraction_style n m =
-    style
-      [
-        flex_basis (Pct (Option.value ~default:0. (Parse.fraction_percent n m)));
-      ]
+    style [ flex_basis (Calc (Parse.fraction_calc hundred n m)) ]
 
   (* [basis] lists --flex-basis, then --spacing, then --container, so a named
      size reads the first of those the theme defines. *)

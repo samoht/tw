@@ -172,6 +172,9 @@
 
 ### Utility coverage
 
+- A fraction resolves exactly: `w-1/3` writes Tailwind's `calc(1/3 * 100%)`
+  where it wrote `33.3333%`, which rendered 106.984px against 107px in a 321px
+  container. The sizing, inset, flex and basis families share the fix (#828).
 - Typed construction covers clear, background attachment/clip/origin/position,
   repeat and size, outline width/colour, ring offsets, and background blend
   modes (#649).
