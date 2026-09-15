@@ -73,6 +73,30 @@ let test_perspective_candidate_order () =
       "perspective-midrange";
     ]
 
+(* A negative half step is a negative translate and sorts in the negative band
+   of its axis, by magnitude with the integers, as Tailwind sorts it: the sign
+   is the candidate's, whatever the step's shape. *)
+let test_negative_step_translate_order () =
+  Test_helpers.check_class_order
+    ~test_name:"negative translate steps sort by magnitude"
+    [
+      "-translate-y-10";
+      "-translate-y-1.5";
+      "-translate-y-2";
+      "-translate-y-0.5";
+      "-translate-y-1";
+      "translate-y-0.5";
+      "translate-y-1";
+    ];
+  Test_helpers.check_class_order
+    ~test_name:"negative translate-x steps sort by magnitude"
+    [ "-translate-x-1"; "-translate-x-0.5"; "translate-x-0.5" ];
+  Test_helpers.check_class_order
+    ~test_name:"negative translate-z steps sort by magnitude"
+    [ "-translate-z-1"; "-translate-z-0.5"; "translate-z-0.5" ];
+  Test_helpers.check_class_order ~test_name:"the hover pair the site carries"
+    [ "hover:-translate-y-1"; "hover:-translate-y-0.5" ]
+
 (* A translate fraction is any numerator over any denominator, and the translate
    family writes the division out rather than folding it, so even the zero
    denominator Tailwind emits reads here. *)
@@ -506,6 +530,8 @@ let tests =
     test_case "perspective keywords" `Quick test_perspective_keywords;
     test_case "perspective candidate order" `Quick
       test_perspective_candidate_order;
+    test_case "negative translate steps sort by magnitude" `Quick
+      test_negative_step_translate_order;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
     test_case "any translate fraction" `Quick test_any_translate_fraction;
