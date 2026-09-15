@@ -179,13 +179,13 @@ let test_aspect_bracket_number () =
     "aspect-[1.333] round-trips" "aspect-[1.333]"
     (Tw.pp (Result.get_ok (Tw.of_string "aspect-[1.333]")))
 
-(* A fraction on a logical min/max inline or block axis resolves to a
-   percentage, like the physical max-w/max-h families do. *)
+(* A fraction on a logical min/max inline or block axis writes the same calc(n /
+   m * 100%) the physical max-w/max-h families do. *)
 let test_logical_size_fractions () =
-  check_declarations "max-block-1/2" [ "max-block-size:50%" ];
-  check_declarations "min-block-1/3" [ "min-block-size:33.3333%" ];
-  check_declarations "max-inline-3/4" [ "max-inline-size:75%" ];
-  check_declarations "min-inline-2/3" [ "min-inline-size:66.6667%" ]
+  check_declarations "max-block-1/2" [ "max-block-size:calc(1/2*100%)" ];
+  check_declarations "min-block-1/3" [ "min-block-size:calc(1/3*100%)" ];
+  check_declarations "max-inline-3/4" [ "max-inline-size:calc(3/4*100%)" ];
+  check_declarations "min-inline-2/3" [ "min-inline-size:calc(2/3*100%)" ]
 
 (* aspect-square inlines the 1/1 ratio in v4; it used to emit aspect-ratio:
    var(--aspect-square) with a stray --aspect-square theme token that bare
@@ -332,15 +332,13 @@ let aspect_candidate_order_matches_tailwind () =
 
 (* Tailwind interleaves spacing and fractions by magnitude: w-0.5, w-1, w-1.5,
    w-1/2, w-1/3, w-2, w-2/3, w-3/4. tw used to sort all fractions ahead of all
-   spacing (a flat offset), reversing conflicting rules (both set width). *)
+   spacing (a flat offset), reversing conflicting rules (both set width). Order
+   is the claim, so positions are read back: the canonical differ against the
+   CLI's minified sheet also reads lightningcss's rounded 33.3333% as a value
+   the exact calc(1/3 * 100%) is not. *)
 let fraction_interleave_matches_tailwind () =
-  let mk s =
-    match Tw.of_string s with
-    | Ok u -> u
-    | Error (`Msg m) -> failwith (s ^ ": " ^ m)
-  in
-  let utilities =
-    List.map mk
+  let classes =
+    Test_helpers.shuffle
       [
         "w-0";
         "w-0.5";
@@ -358,9 +356,8 @@ let fraction_interleave_matches_tailwind () =
         "w-px";
       ]
   in
-  Test_helpers.check_ordering_matches
-    ~test_name:"sizing fraction interleave matches Tailwind"
-    (Test_helpers.shuffle utilities)
+  Test_helpers.check_class_order
+    ~test_name:"sizing fraction interleave matches Tailwind" classes
 
 (* The whole sheet, theme bindings included, for the one claim that reaches past
    what the class writes on its own element. *)
@@ -377,28 +374,31 @@ let test_fractional_spacing () =
     [ "width:calc(var(--spacing)*.5)"; "height:calc(var(--spacing)*.5)" ];
   check_declarations "h-2.5" [ "height:calc(var(--spacing)*2.5)" ]
 
-(* Fractional sizing accepts any n/m with a Tailwind denominator (2,3,4,5,6,12),
-   not just the originally hardcoded handful; the percentage matches the CLI's
-   folded calc(n/m*100%) at 6 significant figures. *)
+(* Fractional sizing accepts any n/m, and writes the calc(n / m * 100%) Tailwind
+   writes rather than a percentage folded from it. The browser resolves the
+   division exactly, where the six figures lightningcss's minifier keeps put
+   w-1/3 at 106.984px in a 321px container against Tailwind's 107px. *)
 let test_general_fractions () =
-  check_declarations "w-4/12" [ "width:33.3333%" ];
-  check_declarations "w-8/12" [ "width:66.6667%" ];
-  check_declarations "w-1/12" [ "width:8.33333%" ];
-  check_declarations "h-2/6" [ "height:33.3333%" ]
+  check_declarations "w-4/12" [ "width:calc(4/12*100%)" ];
+  check_declarations "w-8/12" [ "width:calc(8/12*100%)" ];
+  check_declarations "w-1/12" [ "width:calc(1/12*100%)" ];
+  check_declarations "h-2/6" [ "height:calc(2/6*100%)" ]
 
 (* Tailwind treats every integer numerator over a positive denominator as a
    sizing fraction. Zero, equal and improper fractions share the same parser and
-   percentage rendering across all thirteen sizing families. *)
+   the same calc(n / m * 100%) across all thirteen sizing families: Tailwind
+   writes 1/1 and 0/3 out as a division too, rather than 100% and 0%. *)
 let test_zero_equal_and_improper_fractions () =
-  check_declarations "w-0/3" [ "width:0%" ];
-  check_declarations "w-1/1" [ "width:100%" ];
-  check_declarations "h-9/9" [ "height:100%" ];
-  check_declarations "w-5/4" [ "width:125%" ];
-  check_declarations "w-100/3" [ "width:3333.33%" ];
-  check_declarations "size-5/4" [ "width:125%"; "height:125%" ];
-  check_declarations "min-w-0/3" [ "min-width:0%" ];
-  check_declarations "max-h-100/3" [ "max-height:3333.33%" ];
-  check_declarations "min-inline-1/1" [ "min-inline-size:100%" ];
+  check_declarations "w-0/3" [ "width:calc(0/3*100%)" ];
+  check_declarations "w-1/1" [ "width:calc(1/1*100%)" ];
+  check_declarations "h-9/9" [ "height:calc(9/9*100%)" ];
+  check_declarations "w-5/4" [ "width:calc(5/4*100%)" ];
+  check_declarations "w-100/3" [ "width:calc(100/3*100%)" ];
+  check_declarations "size-5/4"
+    [ "width:calc(5/4*100%)"; "height:calc(5/4*100%)" ];
+  check_declarations "min-w-0/3" [ "min-width:calc(0/3*100%)" ];
+  check_declarations "max-h-100/3" [ "max-height:calc(100/3*100%)" ];
+  check_declarations "min-inline-1/1" [ "min-inline-size:calc(1/1*100%)" ];
   Alcotest.(check bool)
     "a zero denominator is still rejected" true
     (Result.is_error (Tw.of_string "w-1/0"))
@@ -424,14 +424,14 @@ let test_arbitrary_calc () =
 (* A width fraction is read as a percentage, from any denominator: Tailwind has
    no fixed scale here, and w-3/8 used to be an unknown class. *)
 let test_any_fraction_denominator () =
-  check_declarations "w-3/8" [ "width:37.5%" ];
-  check_declarations "w-7/9" [ "width:77.7778%" ]
+  check_declarations "w-3/8" [ "width:calc(3/8*100%)" ];
+  check_declarations "w-7/9" [ "width:calc(7/9*100%)" ]
 
 (* A [/] inside a bracket belongs to the value, not to a fraction: the fraction
    branch used to claim w-[calc(2px/2)] and reject it. *)
 let test_bracket_keeps_its_slash () =
   check_declarations "w-[calc(2px/2)]" [ "width:calc(2px/2)" ];
-  check_declarations "w-1/2" [ "width:50%" ]
+  check_declarations "w-1/2" [ "width:calc(1/2*100%)" ]
 
 (* The px step exists on the logical sizes too: block-px and inline-px used to
    be unknown classes. *)

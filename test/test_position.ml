@@ -35,15 +35,17 @@ let test_fractions () =
   check "left-6/5";
   check "-left-6/5"
 
-(* Negative fractions negate the percentage; an improper fraction resolves past
-   100% (6/5 -> 120%). *)
+(* A fraction writes Tailwind's calc(n / m * 100%), a negative one wraps it in
+   calc(... * -1), and an improper fraction resolves past 100%. *)
 let test_negative_and_improper_fractions () =
   (* One declaration each, which is half the claim: an inset side writes its own
      longhand and nothing beside it. *)
-  Test_helpers.check_declarations ~minify:false "-left-6/5" [ "left: -120%" ];
-  Test_helpers.check_declarations ~minify:false "left-6/5" [ "left: 120%" ];
+  Test_helpers.check_declarations ~minify:false "-left-6/5"
+    [ "left: calc(calc(6 / 5 * 100%) * -1)" ];
+  Test_helpers.check_declarations ~minify:false "left-6/5"
+    [ "left: calc(6 / 5 * 100%)" ];
   Test_helpers.check_declarations ~minify:false "-inset-x-1/2"
-    [ "inset-inline: -50%" ]
+    [ "inset-inline: calc(calc(1 / 2 * 100%) * -1)" ]
 
 (* Tailwind reads any numerator over any denominator, the same rule the sizing
    families follow: [top-1/7] and [top-3/8] are as good as [top-1/2], and a zero
@@ -53,11 +55,11 @@ let test_any_fraction_denominator () =
   let has cls decl =
     Test_helpers.check_declarations ~minify:false cls [ decl ]
   in
-  has "top-1/7" "top: 14.2857%";
-  has "top-3/8" "top: 37.5%";
-  has "top-1/13" "top: 7.69231%";
-  has "inset-0/2" "inset: 0%";
-  has "left-13/17" "left: 76.4706%";
+  has "top-1/7" "top: calc(1 / 7 * 100%)";
+  has "top-3/8" "top: calc(3 / 8 * 100%)";
+  has "top-1/13" "top: calc(1 / 13 * 100%)";
+  has "inset-0/2" "inset: calc(0 / 2 * 100%)";
+  has "left-13/17" "left: calc(13 / 17 * 100%)";
   Test_helpers.check_invalid_input
     ~why:
       (Test_helpers.Diverges
@@ -286,8 +288,8 @@ let logical_inline_scale_steps () =
   check_css "start-0.5" "inset-inline-start:calc(var(--spacing)*.5)";
   check_css "-start-0.5" "inset-inline-start:calc(var(--spacing)*-.5)";
   check_css "end-0.5" "inset-inline-end:calc(var(--spacing)*.5)";
-  check_css "start-1/2" "inset-inline-start:50%";
-  check_css "-start-1/2" "inset-inline-start:-50%";
+  check_css "start-1/2" "inset-inline-start:calc(1/2*100%)";
+  check_css "-start-1/2" "inset-inline-start:calc(calc(1/2*100%)*-1)";
   check_css "-start-full" "inset-inline-start:-100%";
   check_css "-end-full" "inset-inline-end:-100%";
   check "start-px";
@@ -543,15 +545,16 @@ let logical_inset_sides_take_the_whole_scale () =
   check_declarations "inset-bs-1" [ "inset-block-start:var(--spacing)" ];
   (* fractions, on the logical sides and on the two the per-side spelling had
      left with [3/4] alone *)
-  check_declarations "inset-s-1/2" [ "inset-inline-start:50%" ];
-  check_declarations "inset-e-3/4" [ "inset-inline-end:75%" ];
-  check_declarations "inset-bs-1/2" [ "inset-block-start:50%" ];
-  check_declarations "inset-be-1/2" [ "inset-block-end:50%" ];
-  check_declarations "-inset-bs-1/2" [ "inset-block-start:-50%" ];
-  check_declarations "inset-y-1/2" [ "inset-block:50%" ];
-  check_declarations "-inset-y-1/2" [ "inset-block:-50%" ];
-  check_declarations "bottom-1/2" [ "bottom:50%" ];
-  check_declarations "-bottom-3/4" [ "bottom:-75%" ];
+  check_declarations "inset-s-1/2" [ "inset-inline-start:calc(1/2*100%)" ];
+  check_declarations "inset-e-3/4" [ "inset-inline-end:calc(3/4*100%)" ];
+  check_declarations "inset-bs-1/2" [ "inset-block-start:calc(1/2*100%)" ];
+  check_declarations "inset-be-1/2" [ "inset-block-end:calc(1/2*100%)" ];
+  check_declarations "-inset-bs-1/2"
+    [ "inset-block-start:calc(calc(1/2*100%)*-1)" ];
+  check_declarations "inset-y-1/2" [ "inset-block:calc(1/2*100%)" ];
+  check_declarations "-inset-y-1/2" [ "inset-block:calc(calc(1/2*100%)*-1)" ];
+  check_declarations "bottom-1/2" [ "bottom:calc(1/2*100%)" ];
+  check_declarations "-bottom-3/4" [ "bottom:calc(calc(3/4*100%)*-1)" ];
   (* the bare suffix is the class name, so it round-trips *)
   check "inset-s-0.5";
   check "inset-bs-1/2";
