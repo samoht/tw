@@ -712,6 +712,15 @@ let apply_token_override theme decl =
       if Scheme.is_reference_token theme bare then None
       else
         match Scheme.token_override theme bare with
+        (* The spacing token is a runtime override point, and the override keeps
+           that: a carrier the project re-valued is still dropped when no
+           utility reads it, as an inline token's must be. *)
+        | Some css
+          when String.equal bare (Var.name Theme.spacing_var)
+               && Var.is_runtime_declaration decl -> (
+            match Css.parse_length css with
+            | Some length -> Some (fst (Var.binding Theme.spacing_var length))
+            | None -> Some (Css.custom_property ~layer:"theme" full_name css))
         | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
         | None -> if Scheme.is_removed theme bare then None else Some decl)
   | _ -> Some decl

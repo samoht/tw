@@ -47,6 +47,11 @@
 
 ### Project stylesheets
 
+- An `@theme inline { --spacing: ... }` token folds into every spacing
+  utility, `p-4` writing `calc(.25rem * 4)` and declaring no `--spacing`, as
+  Tailwind does. The token stayed declared and read through `var()`, the one
+  inline token that did, and the translate family took its step from the
+  default scale rather than the project's (#826).
 - The forms plugin's base reset reaches an entrypoint that imports Tailwind
   without preflight, in `@layer base`, as Tailwind writes it. It was built into
   the preflight layer and dropped with it (#817).
