@@ -313,6 +313,20 @@ let test_typography_before_color () =
   Test_helpers.check_ordering_matches
     ~test_name:"typography before color utilities" utilities
 
+(* The container utility carries its breakpoint rules beside it, and Tailwind
+   keeps them there under a variant too: [md:container]'s nested [@media] blocks
+   come before [md:max-w-2xl] inside the [md] block, so an element carrying both
+   takes the explicit max-width. A nested [@media] is a variant only when it is
+   one; the utility's own breakpoints are not. *)
+let test_variant_container_breakpoints_stay_with_container () =
+  let open Tw in
+  Test_helpers.check_ordering_matches
+    ~test_name:"md:container's breakpoints before md:max-w-2xl"
+    [ md [ container ]; md [ max_w_2xl ] ];
+  Test_helpers.check_ordering_matches
+    ~test_name:"lg:container's breakpoints before lg:max-w-md"
+    [ lg [ max_w_md ]; lg [ container ] ]
+
 (* Test gap utilities come before self-alignment utilities *)
 let test_gap_before_self_alignment () =
   let open Tw in
@@ -3395,6 +3409,8 @@ let tests =
       test_container_max_before_min;
     test_case "an arbitrary @max-* container variant before @min-*" `Quick
       test_arbitrary_max_container_before_min;
+    test_case "a variant container's breakpoints stay with it" `Quick
+      test_variant_container_breakpoints_stay_with_container;
     test_case "custom variant supports twin keeps family order" `Quick
       test_custom_variant_supports_twin_keeps_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;

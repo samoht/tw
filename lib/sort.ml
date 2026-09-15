@@ -552,12 +552,30 @@ let compare_same_media_group (r1 : indexed_rule) (r2 : indexed_rule) cond1 cond2
    rules of its group. A nested [@supports] is not: it is the colour twin an
    opacity utility carries beside its fallback, which Tailwind keeps together,
    so the rule sorts where a plain rule of that utility does. *)
-let nested_variants nested =
+let nested_variants (r : indexed_rule) =
+  (* The container utility carries its breakpoint rules beside it, under a
+     variant as at the top level, so a class with one modifier nesting a
+     breakpoint is that utility's own output and not a stacked variant. *)
+  let single_modifier =
+    let prefix, _, _ = r.variant_key in
+    match Parse.split_on_colon prefix with [ _ ] -> true | _ -> false
+  in
+  let own_breakpoint stmt =
+    single_modifier
+    &&
+    match Css.as_media stmt with
+    | Some (c, _) -> (
+        match Css.Media.kind c with
+        | Css.Media.Responsive _ -> true
+        | _ -> false)
+    | None -> false
+  in
   List.filter
     (fun stmt ->
-      Option.is_some (Css.as_media stmt)
+      (Option.is_some (Css.as_media stmt)
       || Option.is_some (Css.as_container stmt))
-    nested
+      && not (own_breakpoint stmt))
+    r.nested
 
 let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
   let same_utility =
@@ -573,9 +591,7 @@ let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
     Int.compare r1.index r2.index
   else
     let nested_cmp =
-      Bool.compare
-        (nested_variants r1.nested <> [])
-        (nested_variants r2.nested <> [])
+      Bool.compare (nested_variants r1 <> []) (nested_variants r2 <> [])
     in
     if nested_cmp <> 0 then nested_cmp
     else
@@ -1057,7 +1073,7 @@ let compare_by_order_then_selector r1 r2 =
 
 (* Compare nested media conditions *)
 let compare_nested_media r1 r2 =
-  match (nested_variants r1.nested, nested_variants r2.nested) with
+  match (nested_variants r1, nested_variants r2) with
   | [], [] -> 0
   | [], _ -> -1
   | _, [] -> 1
@@ -1331,11 +1347,11 @@ let compare_bracket_prefixes p1_prefix p2_prefix =
   else String.compare p1_prefix p2_prefix
 
 (* Compare rules when both have variant_order > 0 *)
-let nested_order rule_type nested =
-  match nested_variants nested with
+let nested_order r =
+  match nested_variants r with
   | [] -> 0 (* non-nested: middle *)
   | [ stmt ] -> (
-      match (rule_type, Css.as_media stmt) with
+      match (r.rule_type, Css.as_media stmt) with
       | `Media c, Some (nested, _)
         when Css.Media.kind c = Css.Media.Hover
              && Css.Media.kind nested = Css.Media.Hover ->
@@ -1415,11 +1431,7 @@ let compare_variant_ordered r1 r2 =
           in
           if media_cmp <> 0 then media_cmp
           else
-            let nested_cmp =
-              Int.compare
-                (nested_order r1.rule_type r1.nested)
-                (nested_order r2.rule_type r2.nested)
-            in
+            let nested_cmp = Int.compare (nested_order r1) (nested_order r2) in
             if nested_cmp <> 0 then nested_cmp
             else
               let nested_media_cmp = compare_nested_media r1 r2 in

@@ -593,6 +593,10 @@
 
 ### CSS ordering and structure
 
+- `md:container` keeps its breakpoint rules beside it, as Tailwind writes
+  them, so `md:max-w-2xl` follows them and wins on an element carrying both.
+  The nested breakpoints sorted as a stacked variant, after every plain rule
+  of the `md` block (#833).
 - An opacity colour under `hover:` keeps its `@supports` twin beside its
   fallback, as Tailwind writes the pair. The twin sorted after every later
   utility of the group, and under a two-branch custom variant such as the
