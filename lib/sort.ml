@@ -33,12 +33,133 @@ type selector_kind =
    token carries the state it wraps, so [group-focus] and [group-has] keep their
    order; data and arbitrary tokens carry the value that distinguishes groups
    inside their slot. *)
+(* Tailwind orders container variants exactly like breakpoints, and every
+   container condition it emits is a width range wrapped in an optional
+   container name and an optional negation. Project one onto the media query it
+   is equivalent to, so the breakpoint ordering applies unchanged: [@max-sm] is
+   a negated lower bound, which is the [not all and (...)] shape media already
+   classifies as an upper bound. The name plays no part -- Tailwind interleaves
+   a named container with the unnamed ones at its width. *)
+let rec container_media_projection (c : Css.Container.t) =
+  match c with
+  | Css.Container.Named (_, inner) -> container_media_projection inner
+  | Css.Container.Feature_query q -> Some q
+  | Css.Container.Not inner -> (
+      match container_media_projection inner with
+      | Some (Css.Media.Cond cond) ->
+          Some
+            (Css.Media.Type
+               {
+                 prefix = Some Css.Media.Not;
+                 type_ = Css.Media.All;
+                 trailing = Some cond;
+               })
+      | _ -> None)
+  (* The parser keeps a bare width bound in its compact form, which is the
+     [(min-width: V)] feature spelled short. *)
+  | Css.Container.Min_width_rem rem ->
+      Some (Css.Media.feature "min-width" (Css.Media.Length (Css.Rem rem)))
+  | Css.Container.Min_width_px px ->
+      Some
+        (Css.Media.feature "min-width"
+           (Css.Media.Length (Css.Px (float_of_int px))))
+  | Css.Container.And _ | Css.Container.Or _ | Css.Container.Style _
+  | Css.Container.Scroll_state _ ->
+      None
+
+(* What Tailwind sorts a container variant on. It reads the value off the class
+   rather than the width that value resolves to, and keys it by the unit -- or,
+   when the value is a call, by the name before the parenthesis. A size off the
+   [--container] scale is resolved through the theme before the key is taken,
+   and that scale is rem throughout. *)
+type container_value = {
+  name : string; (* The value's unit, or the name of the call it is. *)
+  call : bool; (* The value is a function call. *)
+  text : string; (* The value as the class spells it. *)
+  upper : bool; (* A [@max-*] bound, which no lower bound ties with. *)
+  width : Css.Media.key option;
+      (* The bound as a breakpoint key, so two bounds of one kind order by the
+         width they resolve to. *)
+}
+
+(* Tailwind strips every run of digits and dots to reach the unit, so a sign
+   stays behind with it. *)
+let unit_of_container_value text =
+  let buf = Buffer.create (String.length text) in
+  String.iter
+    (fun c ->
+      if not ((c >= '0' && c <= '9') || c = '.') then Buffer.add_char buf c)
+    text;
+  Buffer.contents buf
+
+(* Read the container value out of one modifier token: [@min-[64rem]] and
+   [@[theme(--breakpoint-lg)]] carry it in the bracket, [@lg] and [@min-lg] name
+   a size on the [--container] scale. A [/name] tail aims the query at a named
+   container and says nothing about the width. *)
+let container_value_of_token token =
+  let n = String.length token in
+  if n < 2 || token.[0] <> '@' then None
+  else
+    let width =
+      Option.bind (Modifiers.container_query_of_token token) (fun q ->
+          Option.map Css.Media.sort_key
+            (container_media_projection
+               (Containers.container_query_to_condition q)))
+    in
+    let body = String.sub token 1 (n - 1) in
+    let upper = String.starts_with ~prefix:"max-" body in
+    let body =
+      if upper || String.starts_with ~prefix:"min-" body then
+        String.sub body 4 (String.length body - 4)
+      else body
+    in
+    if String.length body > 1 && body.[0] = '[' then
+      match String.rindex_opt body ']' with
+      | Some i when i > 1 -> (
+          let text = String.sub body 1 (i - 1) in
+          match String.index_opt text '(' with
+          | Some j ->
+              Some
+                { name = String.sub text 0 j; call = true; text; upper; width }
+          | None ->
+              Some
+                {
+                  name = unit_of_container_value text;
+                  call = false;
+                  text;
+                  upper;
+                  width;
+                })
+      | _ -> None
+    else Some { name = "rem"; call = false; text = body; upper; width }
+
+let container_value_of_prefix prefix =
+  List.find_map container_value_of_token (Parse.split_on_colon prefix)
+
+(* Tailwind registers the [@max-*] variants as one group ahead of the group
+   holding [@*] and [@min-*], so every upper bound precedes every lower bound
+   whatever value either names, and the value orders bounds of one kind only. A
+   call keys on its name, which the resolved length cannot carry; every other
+   pair orders by the width. Two spellings of one width are left to the
+   caller. *)
+let compare_container_bounds v1 v2 =
+  if v1.upper <> v2.upper then Some (Bool.compare v2.upper v1.upper)
+  else if v1.call || v2.call then
+    let c = String.compare v1.name v2.name in
+    Some (if c <> 0 then c else String.compare v1.text v2.text)
+  else if v1.name = v2.name && v1.text = v2.text then None
+  else
+    match (v1.width, v2.width) with
+    | Some k1, Some k2 -> Some (Css.Media.compare_keys k1 k2)
+    | _ -> None
+
 type variant_component = {
   slot : int;
   breakpoint : Css.Media.key option;
   reverse_breakpoint : bool;
   wrapped : int list;
   value_key : string option;
+  container : container_value option;
 }
 
 (** Relationship between two rules being compared *)
@@ -241,40 +362,6 @@ let rule_type_order = function
 let extract_media_sort_key = function
   | `Media cond -> Css.Media.group_order (Css.Media.kind cond)
   | _ -> (0, 0.)
-
-(* Tailwind orders container variants exactly like breakpoints, and every
-   container condition it emits is a width range wrapped in an optional
-   container name and an optional negation. Project one onto the media query it
-   is equivalent to, so the breakpoint ordering applies unchanged: [@max-sm] is
-   a negated lower bound, which is the [not all and (...)] shape media already
-   classifies as an upper bound. The name plays no part -- Tailwind interleaves
-   a named container with the unnamed ones at its width. *)
-let rec container_media_projection (c : Css.Container.t) =
-  match c with
-  | Css.Container.Named (_, inner) -> container_media_projection inner
-  | Css.Container.Feature_query q -> Some q
-  | Css.Container.Not inner -> (
-      match container_media_projection inner with
-      | Some (Css.Media.Cond cond) ->
-          Some
-            (Css.Media.Type
-               {
-                 prefix = Some Css.Media.Not;
-                 type_ = Css.Media.All;
-                 trailing = Some cond;
-               })
-      | _ -> None)
-  (* The parser keeps a bare width bound in its compact form, which is the
-     [(min-width: V)] feature spelled short. *)
-  | Css.Container.Min_width_rem rem ->
-      Some (Css.Media.feature "min-width" (Css.Media.Length (Css.Rem rem)))
-  | Css.Container.Min_width_px px ->
-      Some
-        (Css.Media.feature "min-width"
-           (Css.Media.Length (Css.Px (float_of_int px))))
-  | Css.Container.And _ | Css.Container.Or _ | Css.Container.Style _
-  | Css.Container.Scroll_state _ ->
-      None
 
 (* Precompute the sort keys for a rule's own and nested media conditions, so the
    comparators use [Css.Media.compare_keys] (cheap) instead of re-serializing
@@ -1022,75 +1109,13 @@ let strip_group_peer_vo p =
     Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
   else Modifiers.variant_order_of_prefix p
 
-(* What Tailwind sorts a container variant on. It reads the value off the class
-   rather than the width that value resolves to, and keys it by the unit -- or,
-   when the value is a call, by the name before the parenthesis. A size off the
-   [--container] scale is resolved through the theme before the key is taken,
-   and that scale is rem throughout. *)
-type container_value = {
-  name : string; (* The value's unit, or the name of the call it is. *)
-  call : bool; (* The value is a function call. *)
-  text : string; (* The value as the class spells it. *)
-  upper : bool; (* A [@max-*] bound, which no lower bound ties with. *)
-}
-
-(* Tailwind strips every run of digits and dots to reach the unit, so a sign
-   stays behind with it. *)
-let unit_of_container_value text =
-  let buf = Buffer.create (String.length text) in
-  String.iter
-    (fun c ->
-      if not ((c >= '0' && c <= '9') || c = '.') then Buffer.add_char buf c)
-    text;
-  Buffer.contents buf
-
-(* Read the container value out of one modifier token: [@min-[64rem]] and
-   [@[theme(--breakpoint-lg)]] carry it in the bracket, [@lg] and [@min-lg] name
-   a size on the [--container] scale. A [/name] tail aims the query at a named
-   container and says nothing about the width. *)
-let container_value_of_token token =
-  let n = String.length token in
-  if n < 2 || token.[0] <> '@' then None
-  else
-    let body = String.sub token 1 (n - 1) in
-    let upper = String.starts_with ~prefix:"max-" body in
-    let body =
-      if upper || String.starts_with ~prefix:"min-" body then
-        String.sub body 4 (String.length body - 4)
-      else body
-    in
-    if String.length body > 1 && body.[0] = '[' then
-      match String.rindex_opt body ']' with
-      | Some i when i > 1 -> (
-          let text = String.sub body 1 (i - 1) in
-          match String.index_opt text '(' with
-          | Some j ->
-              Some { name = String.sub text 0 j; call = true; text; upper }
-          | None ->
-              Some
-                {
-                  name = unit_of_container_value text;
-                  call = false;
-                  text;
-                  upper;
-                })
-      | _ -> None
-    else Some { name = "rem"; call = false; text = body; upper }
-
-let container_value_of_prefix prefix =
-  List.find_map container_value_of_token (Parse.split_on_colon prefix)
-
-(* Only a call keys on a name the resolved length cannot carry, so every other
-   pair keeps the length key, which already orders the way Tailwind does. *)
+(* The outermost container token of each rule, compared as its variant component
+   is. *)
 let compare_container_values r1 r2 p1 p2 =
   match (r1.rule_type, r2.rule_type) with
   | `Container _, `Container _ -> (
       match (container_value_of_prefix p1, container_value_of_prefix p2) with
-      | Some v1, Some v2 when v1.call || v2.call ->
-          let c = String.compare v1.name v2.name in
-          if c <> 0 then Some c else Some (String.compare v1.text v2.text)
-      | Some v1, Some v2
-        when v1.name = v2.name && v1.text = v2.text && v1.upper = v2.upper ->
+      | Some v1, Some v2 when v1.name = v2.name && v1.text = v2.text ->
           (* [@lg] and [@min-lg] name one width and merge into one block, so
              whichever is written last wins the cascade. The length key cannot
              separate them - it is the same length - and leaving them to the
@@ -1100,6 +1125,7 @@ let compare_container_values r1 r2 p1 p2 =
              names the same width and the other side of it, which the length key
              does separate, so it is not this pair. *)
           Some (String.compare p1 p2)
+      | Some v1, Some v2 -> compare_container_bounds v1 v2
       | _ -> None)
   | _ -> None
 
@@ -1163,9 +1189,17 @@ let compare_variant_components a b =
     in
     if bp_cmp <> 0 then bp_cmp
     else
-      let wrapped_cmp = List.compare Int.compare a.wrapped b.wrapped in
-      if wrapped_cmp <> 0 then wrapped_cmp
-      else Option.compare String.compare a.value_key b.value_key
+      let container_cmp =
+        match (a.container, b.container) with
+        | Some v1, Some v2 ->
+            Option.value ~default:0 (compare_container_bounds v1 v2)
+        | _ -> 0
+      in
+      if container_cmp <> 0 then container_cmp
+      else
+        let wrapped_cmp = List.compare Int.compare a.wrapped b.wrapped in
+        if wrapped_cmp <> 0 then wrapped_cmp
+        else Option.compare String.compare a.value_key b.value_key
 
 (* Tailwind compares arbitrary variants by the selector they denote, after
    decoding bracket-space underscores. A bare compound is implicitly anchored on
@@ -1216,7 +1250,8 @@ let token_order_key ?theme ~breakpoint token =
     else None
   in
   let value_key = variant_value_key token in
-  { slot; breakpoint; reverse_breakpoint; wrapped; value_key }
+  let container = container_value_of_token token in
+  { slot; breakpoint; reverse_breakpoint; wrapped; value_key; container }
 
 (* The variant order keys of a class's modifier stack, sorted descending.
    Tailwind sorts a candidate by this list compared lexicographically ascending,
@@ -1248,6 +1283,7 @@ let variant_order_list ?theme base_class variant_order breakpoint =
           reverse_breakpoint = false;
           wrapped = [];
           value_key = None;
+          container = None;
         };
       ]
   | l -> l

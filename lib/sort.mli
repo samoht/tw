@@ -23,6 +23,18 @@ type selector_kind =
       has_aria : bool;
     }
 
+type container_value = {
+  name : string;  (** The value's unit, or the name of the call it is. *)
+  call : bool;  (** The value is a function call. *)
+  text : string;  (** The value as the class spells it. *)
+  upper : bool;  (** A [\@max-*] bound. *)
+  width : Css.Media.key option;
+      (** The bound as a breakpoint key, so two bounds of one kind order by the
+          width they resolve to. *)
+}
+(** What Tailwind sorts a container variant token on: every upper bound precedes
+    every lower bound, a call keys on its name, and the rest order by width. *)
+
 type variant_component = {
   slot : int;  (** The position in the variant cascade the token sorts in. *)
   breakpoint : Css.Media.key option;
@@ -39,6 +51,9 @@ type variant_component = {
       (** A data predicate spelling or the decoded selector denoted by an
           arbitrary variant, including its implicit [&:is(...)] anchor. [None]
           for slots whose variants compare only by rank. *)
+  container : container_value option;
+      (** The bound a container token names, so a stacked [\@sm:\@max-md:] sorts
+          under [\@sm] as Tailwind sorts it. [None] for every other token. *)
 }
 (** One component of a rule's variant sort key: the slot a modifier token sorts
     in, plus what separates two tokens that share that slot. *)
