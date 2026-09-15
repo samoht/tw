@@ -264,7 +264,14 @@ let rec container_media_projection (c : Css.Container.t) =
                  trailing = Some cond;
                })
       | _ -> None)
-  | Css.Container.Min_width_rem _ | Css.Container.Min_width_px _
+  (* The parser keeps a bare width bound in its compact form, which is the
+     [(min-width: V)] feature spelled short. *)
+  | Css.Container.Min_width_rem rem ->
+      Some (Css.Media.feature "min-width" (Css.Media.Length (Css.Rem rem)))
+  | Css.Container.Min_width_px px ->
+      Some
+        (Css.Media.feature "min-width"
+           (Css.Media.Length (Css.Px (float_of_int px))))
   | Css.Container.And _ | Css.Container.Or _ | Css.Container.Style _
   | Css.Container.Scroll_state _ ->
       None
@@ -1008,6 +1015,7 @@ type container_value = {
   name : string; (* The value's unit, or the name of the call it is. *)
   call : bool; (* The value is a function call. *)
   text : string; (* The value as the class spells it. *)
+  upper : bool; (* A [@max-*] bound, which no lower bound ties with. *)
 }
 
 (* Tailwind strips every run of digits and dots to reach the unit, so a sign
@@ -1029,11 +1037,10 @@ let container_value_of_token token =
   if n < 2 || token.[0] <> '@' then None
   else
     let body = String.sub token 1 (n - 1) in
+    let upper = String.starts_with ~prefix:"max-" body in
     let body =
-      if
-        String.starts_with ~prefix:"min-" body
-        || String.starts_with ~prefix:"max-" body
-      then String.sub body 4 (String.length body - 4)
+      if upper || String.starts_with ~prefix:"min-" body then
+        String.sub body 4 (String.length body - 4)
       else body
     in
     if String.length body > 1 && body.[0] = '[' then
@@ -1041,11 +1048,18 @@ let container_value_of_token token =
       | Some i when i > 1 -> (
           let text = String.sub body 1 (i - 1) in
           match String.index_opt text '(' with
-          | Some j -> Some { name = String.sub text 0 j; call = true; text }
+          | Some j ->
+              Some { name = String.sub text 0 j; call = true; text; upper }
           | None ->
-              Some { name = unit_of_container_value text; call = false; text })
+              Some
+                {
+                  name = unit_of_container_value text;
+                  call = false;
+                  text;
+                  upper;
+                })
       | _ -> None
-    else Some { name = "rem"; call = false; text = body }
+    else Some { name = "rem"; call = false; text = body; upper }
 
 let container_value_of_prefix prefix =
   List.find_map container_value_of_token (Parse.split_on_colon prefix)
@@ -1059,13 +1073,16 @@ let compare_container_values r1 r2 p1 p2 =
       | Some v1, Some v2 when v1.call || v2.call ->
           let c = String.compare v1.name v2.name in
           if c <> 0 then Some c else Some (String.compare v1.text v2.text)
-      | Some v1, Some v2 when v1.name = v2.name && v1.text = v2.text ->
+      | Some v1, Some v2
+        when v1.name = v2.name && v1.text = v2.text && v1.upper = v2.upper ->
           (* [@lg] and [@min-lg] name one width and merge into one block, so
              whichever is written last wins the cascade. The length key cannot
              separate them - it is the same length - and leaving them to the
              comparators below decides it by an order that is not Tailwind's.
              Tailwind orders the two spellings by name, so [@lg] precedes
-             [@min-lg] and an element carrying both renders the same. *)
+             [@min-lg] and an element carrying both renders the same. [@max-lg]
+             names the same width and the other side of it, which the length key
+             does separate, so it is not this pair. *)
           Some (String.compare p1 p2)
       | _ -> None)
   | _ -> None

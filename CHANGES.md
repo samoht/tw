@@ -590,6 +590,11 @@
 
 ### CSS ordering and structure
 
+- A `@max-*` container variant sorts before the `@min-*` one at the same
+  width, as every `@max-*` block does in Tailwind. `@lg:flex @max-lg:hidden`
+  wrote the `@lg` block first when the pair stood alone, though four such
+  classes sorted as Tailwind does; the same-width tie-break meant for `@lg`
+  against `@min-lg` caught the pair (#827).
 - `@lg:` and `@min-lg:` order the way Tailwind orders them. The two spell one
   width and merge into one container block, where the last rule wins, so an
   element carrying both rendered one way under Tailwind and the other under tw
