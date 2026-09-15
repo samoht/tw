@@ -652,6 +652,10 @@
 - `tw --diff` exits 1 when the two sheets differ and 2 when it cannot read one
   of them, so a CI job can gate on it. It printed the differences and exited 0
   (#810).
+- `tw --inline` resolves the spacing token and the arithmetic it leaves:
+  `p-4` prints `padding: 1rem` and no theme block. It kept `--spacing`
+  declared and wrote `calc(var(--spacing) * 4)`, because the token is a
+  runtime override point the inliner leaves live by default (#820).
 - Require cascade 1.2.0 for the released package pairing. While it remains
   unreleased, CI pins cascade's main branch so builds and tests follow upstream
   rather than an exact development revision (#297, #302, #305, #646).
