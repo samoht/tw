@@ -108,3 +108,12 @@ CI job: 1 when the two sheets differ, 0 when they do not, as above.
   [1]
   $ grep -c 'Differences found' single.txt
   1
+
+Inline mode exists to resolve the variables away. [--spacing] is the one theme
+token tw marks as a runtime override point, which keeps the default output at
+Tailwind's [calc(var(--spacing) * 4)]; under [--inline] that reference folds
+like any other, so the utility carries the resolved length and no theme block
+is left to read:
+
+  $ tw --single=p-4 --inline --no-base --minify
+  .p-4{padding:1rem}
