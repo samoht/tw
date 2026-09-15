@@ -1,7 +1,27 @@
 Title: Measuring parity with Tailwind
 
-tw aims to produce the same CSS as Tailwind v4.3.3. Three checks in CI measure
-how close it gets, and a fuller comparison against tailwindcss.com runs by hand.
+tw aims to produce the CSS Tailwind v4.3.3 produces. The contract has two
+halves:
+
+- **Parity is what a browser renders.** `cascade diff --diff=canonical`
+  between tw's sheet and Tailwind's compiled output reports nothing. The
+  reference is the sheet the Tailwind CLI compiles, before lightningcss
+  minifies it, so an entry in the report is tw against Tailwind and not
+  cascade's printer against another minifier. Whether either side is minified
+  does not matter to the comparison.
+- **`tw --minify` is never larger than `tailwindcss --minify`.** The minified
+  reference is built for that one figure.
+
+An entry the report lists that is not a rendering difference is a cascade
+bug, in the canonical projection or in the report itself, and is fixed in
+cascade with a standalone reproducer. A rendering difference is a tw fix. A
+difference no display shows, a sub-pixel length or a same-pixel colour, is
+not chased as an exact tw fix; it belongs in cascade's default precision. tw
+builds no rendering harness of its own, and Tailwind's minified sheet is not
+diffed against its own unminified one.
+
+Three checks in CI measure how close tw gets, and the fuller comparison
+against tailwindcss.com runs by hand.
 
 ## Checks that run in CI
 
@@ -51,10 +71,12 @@ sh test/parity/measure.sh
 ```
 
 That takes about 17 seconds on a warm build: a fifth of a second in Tailwind,
-three seconds in tw, the rest in the differ. It writes `ref_local.css`,
-`tw_all.css` and `diff.txt` under `tmp/parity` and prints the diff followed by
-its top-level entries. The report is not wired into `dune runtest`; the order
-gate above, which reads the same inputs, is.
+three seconds in tw, the rest in the differ. It writes the compiled reference
+`ref.css`, the minified one `ref_local.css`, `tw_all.css` and `diff.txt` under
+`tmp/parity`, prints the two minified sizes and fails when tw's is the larger,
+then prints the diff followed by its top-level entries. The report is not
+wired into `dune runtest`; the order gate above, which reads the same inputs,
+is.
 
 The inputs are:
 
@@ -79,87 +101,83 @@ rather than from `PATH`.
 
 ### Current measurement
 
-Measured 2026-09-15 at eb46f5e2 against cascade fe29cd31, with the tailwindcss
-4.3.3 that `package-lock.json` pins. The documented command completed without a
-patched differ and reported:
+Measured 2026-09-15 at tw cce27863 against cascade d6dab811 (the top of
+stack #1253, #1250 to #1255, above `main` at 3dda7012), with the tailwindcss
+4.3.3 that `package-lock.json` pins. The documented command reported:
 
 ```text
-CSS: 660562 chars vs 664632 chars (0.6% diff)
-Changes: 1 removed rule, 3 changed containers
-├─ .DocSearch-Hit[aria-selected="true"] [title="Remove this search from favorites"]:before:where(.dark, .dark *)
-├─ @media (prefers-color-scheme: dark) (9 blocks merged into 8)
-├─ @layer utilities (2 reordered)
-└─ @supports (color: color-mix(in lab,red,red)) (5 blocks merged into 4)
+minified: tw 660314 bytes, tailwindcss 664632 bytes
+CSS: 660314 chars vs 769900 chars (16.6% diff)
+Changes: 2 modified rules, 2 changed containers
+├─ selector changed: .DocSearch-Logo svg :where(.dark, .dark *)
+├─ .with-line-numbers .line:before
+├─ @layer utilities (147 modified, 2 reordered)
+└─ @supports (color: color-mix(in lab,red,red)) (5 block split into 6)
 ```
 
-The count is only comparable against the cascade it was taken with, which is why
-the sha is quoted beside it. Reading each entry:
+The count is only comparable against the cascade it was taken with, which is
+why the sha is quoted beside it. The 147 entries under `@layer utilities`
+sort into three groups, and the classification is what the contract above
+asks for of each:
 
-- The rule entry is the empty `:where()` lightningcss writes for the site's
-  `dark` variant, described under "What parity does not cover". tw keeps the
-  declaration and the reference loses it, so it arrives as removed.
-- The two block entries are DocSearch rules out of `search.css`. That is the
-  site's own CSS rather than anything tw generated, and both sides only reprint
-  it, so what they measure is cascade's printer against lightningcss.
-- `@layer utilities` carries the whole of tw's own residual. Two rules sit out
-  of position, `.line-y` and `.not-dark:hidden`. The containers under it differ
-  in where their block boundaries fall rather than in what they hold, and the
-  `@container` entries come in added/removed twins, which is the shape
-  described under "Reading a failure".
+- **Colour fallbacks outside `@supports`, 75.** For a colour with an opacity
+  tw writes the hex lightningcss folds Tailwind's `color-mix(in srgb, ...)`
+  fallback to, and the compiled reference keeps the `color-mix()`, which
+  cascade reads as an out-of-gamut `color(srgb ...)` and cannot fold to the
+  same bytes. Only an engine without `color-mix(in lab)` reads the fallback,
+  and no Tailwind target lacks it. Needs a decision: a target-aware canonical
+  mode that drops what no target reads, or tw writing Tailwind's fallback.
+- **Prefixes lightningcss adds, 75 plus the entries outside the layer.**
+  `-webkit-mask-composite` and `-webkit-mask-source-type` on the mask
+  utilities, `-webkit-user-select` on `.with-line-numbers .line:before`, and
+  the `(-webkit-backdrop-filter: X) or (backdrop-filter: X)` twin on a
+  `supports-backdrop-filter:` guard are all things only tw writes against the
+  compiled reference, because lightningcss adds them to Tailwind's minified
+  sheet and tw matches that. Chrome 111 to 119 needs the mask prefixes. The
+  same decision.
+- **Block structure, the rest.** Adjacent `@media` and `@container` blocks
+  with one condition that tw splits where Tailwind merges them, or the
+  reverse, and six moves the report lists inside them. `@media X { A } @media
+  X { B }` computes as `@media X { A B }`, and a same-property pair in either
+  order compares equal in isolation, so these need a reproducer cut from tw's
+  sheet each before any of them reads as a defect; cutting the first found a
+  real one, a `@max-*` container variant sorting after the `@min-*` one at
+  its width (#827), which the four `@container` moves are. The
+  `svg :where()` against `svg *:where()` selector entry at the top is the
+  same shape: the two selectors match the same elements.
 
-Neither of those two rules changes what a browser computes, which is worth
-stating because a reported reorder reads like it does:
-
-- `.line-y` sets exactly one declaration, `position: relative`, on both sides.
-  It sits 1662 bytes earlier in tw's sheet, and the only other `position` rules
-  in that span are `.line-y:before` and `.line-y:after`. Those style
-  pseudo-element boxes, which never contend with the element's own `position`,
-  and nothing else in the span sets `position` at all. `line-y` is a
-  project-declared `@utility` from `globals.css`, so where it lands is the
-  declared-utility sort rather than a built-in family.
-- `.not-dark:hidden` is two rules that both set `display: none`. Whichever wins,
-  the computed value is the same.
+Nothing in the report is a rendering difference tw owns today. The entries
+this measurement no longer shows, each landed in cascade with a reproducer,
+are the ones a report against the compiled output finds first: nested
+`@media` order (#1240), keyframe declaration order (#1241), a signed number's
+leading zero (#1242), a pixel `stroke-width` (#1243), an infinite length
+(#1244), a static percentage `calc()` in `flex-basis` (#1245), moves the
+cascade cannot see (#1246), a custom property's time unit (#1247), a
+pass-through relative colour (#1248), a negated range bound (#1250), a
+declaration a guard repeats (#1254) and a fraction folded under the
+six-figure budget (#1255): `w-2/3` is `66.6667%` in tw and
+`calc(2 / 3 * 100%)` in the compiled reference, and the two render within a
+layout unit of each other. On tw's side the repeated
+`content: var(--tw-content)` in a `before:`/`after:` colour twin went with
+it (#823). A tw branch that writes the fraction's calc exists
+(`exact-fractions`, on origin) and fails the upstream fixture gate, whose
+`utilities.txt` holds the folded percentage.
 
 **A reorder surviving canonical mode does not mean it can change rendering.**
 Canonical mode suppresses a reorder it can prove cascade-neutral and flags the
-rest: a same-property pair whose selectors might match a common element. It does
-not check whether the two boxes differ or the two values coincide, which is the
-right conservatism for a differ and the wrong thing to read as a defect. Decide
-by reading what the moved rule sets and what it moved across, as above.
+rest: a same-property pair whose selectors might match a common element. It
+does not check whether the two boxes differ or the two values coincide, which
+is the right conservatism for a differ and the wrong thing to read as a
+defect. Decide by reading what the moved rule sets and what it moved across.
 
-Two divergences inside that layer are tw's and are worth naming, because a
-canonical diff reports them only as block boundaries moving:
-
-- **Media nesting order.** For a class stacking a breakpoint with the site's
-  `dark` variant, Tailwind writes
-  `@media (width >= 40rem) { @media (prefers-color-scheme: dark) { ... } }`
-  and tw writes the two conditions the other way round. Nested media
-  conditions are conjunctive, so the two render the same, but tw's spelling
-  closes and reopens the breakpoint block around every preference block inside
-  it. Tailwind's unminified output confirms the order, so this is not
-  lightningcss.
-- **A repeated `content`.** In the `color-mix` fallback of a `before:` or
-  `after:` utility, tw repeats `content: var(--tw-content)` beside the colour.
-  Tailwind nests the fallback inside the rule, so lightningcss flattens it
-  carrying the colour alone. Seven rules on this corpus.
-
-**Both sides are minified because every other configuration is noisier.** The
-reference passes through lightningcss, so part of what the diff reports is
-cascade disagreeing with lightningcss rather than tw disagreeing with Tailwind.
-Dropping `--minify` raises that cost rather than removing it, because Tailwind's
-unminified output is heavily nested and `--minify` is where lightningcss
-flattens it. Measured on the site corpus at the revisions above:
-
-| harness | top-level entries | utilities layer |
-|---|---|---|
-| minify both sides (current) | 4 | 2 reordered |
-| neither side minified | 9 | 180 modified, 40 reordered |
-
-The unminified run also reports `@layer theme`, `@property` and two `@keyframes`
-entries that the minified one does not.
-
-Flattening afterwards changes nothing, because the canonical comparator already
-folds nesting.
+**The reference is the compiled sheet, and it used to be the minified one.**
+Every figure older than this one was taken against `tailwindcss --minify`,
+where part of what the diff reported was cascade disagreeing with lightningcss
+rather than tw disagreeing with Tailwind: the minifier folds colours,
+fractions and media conditions to spellings of its own. Against the compiled
+sheet the report is longer, because lightningcss no longer hides tw's own
+folds behind matching ones, and every entry in it is one of the two things
+the contract names.
 
 ## Reading a failure
 
@@ -183,27 +201,26 @@ the report.
 **Use the built cascade, not the one on `PATH`.** An installed `cascade` from an
 opam switch can be months old and will invent differences that do not exist.
 
-**Pass `--depth=max`.** The default truncates the tree, and the summary line
-counts containers rather than contents, so `3 changed containers` can hide a
-hundred rule entries.
+**The summary line counts containers, not contents.** `3 changed containers`
+can hide a hundred rule entries, so read the tree under it; `--limit=none`,
+which `measure.sh` passes, keeps the differ from truncating it.
 
 **`--diff` compares two minified sheets.** The CSS it attributes to Tailwind has
 already been through lightningcss, so cross-check against
-`tw -s "<class>" --tailwind`, which is unminified, before calling something a tw
-bug. Author custom properties are kept even when neither generated sheet reads
-them: CSS outside the generated sheet can still observe them.
+`tw -s "<class>" --tailwind`, which is the compiled output, before calling
+something a tw bug; the site measurement compares against that output
+directly. Author custom properties are kept even when neither generated sheet
+reads them: CSS outside the generated sheet can still observe them.
 
 **Order is compared, but only since cascade 105eea05.** `--diff=canonical`
 matches rules by key rather than position, and before that commit it said
 nothing about where the match sat. Every site number older than 2026-08-25 was
 taken with that blindness; a move now arrives as a `reordered` entry. Block
-structure surfaces as `N blocks merged into M`, but tw's `--minify` runs
-cascade's printer without its optimizer, so most of those entries are adjacent
-identical `@media` and `@container` blocks that lightningcss merged on the
-reference side. The same mismatch turns a rule that
-moved between two blocks with the same condition into a `removed` entry paired
-with an `added` entry carrying those rules back, so look for the twin before
-treating either half as a gap.
+structure surfaces as `N blocks merged into M` or `N block split into M`:
+adjacent `@media` and `@container` blocks with one condition that the two
+sides group differently. A rule that moved between two blocks with the same
+condition arrives as a `removed` entry paired with an `added` entry carrying
+those rules back, so look for the twin before treating either half as a gap.
 
 The corollary is the trap. A reorder among utilities that share no CSS property
 is cascade-neutral, so the canonical projection collapses it correctly --
@@ -284,18 +301,16 @@ tw. `Css.color` has no numeric inhabitant, so tw cannot spell the Tailwind form
 without an untyped escape hatch. Browsers drop both declarations either way, so
 the rendered result matches.
 
-One difference comes from lightningcss on the reference side: it serialises the
-site's `dark` variant with an empty `:where()` where the variant expands to
-`:where(.dark, .dark *)`, which matches nothing and drops a background colour
-that Tailwind's own unminified output gets right. That is the rule entry in the
-report above. Two others have gone, because tw now matches the reference: the
-`@supports ((-webkit-backdrop-filter: ...) or (backdrop-filter: ...))` guard,
-and the `-webkit-` prefix on `user-select`.
-
-A last difference is between the two minifiers and shows in the sheets rather
-than in the report. cascade folds `calc()` only where the fold is exact, so the
-typography component keeps `line-height: calc(28/18)` where lightningcss rounds
-it to `1.55556`; the canonical comparator reads the two as equal.
+lightningcss is not part of the comparison any more, and one difference it
+used to contribute is worth remembering for anyone reading an old report: it
+serialises the site's `dark` variant with an empty `:where()` where the
+variant expands to `:where(.dark, .dark *)`, which matches nothing and drops a
+background colour that Tailwind's own compiled output gets right. Against the
+compiled output the entry is gone. What it still contributes is the byte
+budget: the minified sizes the script prints are cascade's printer against
+lightningcss over the same sheet, and cascade folds `calc()` only where the
+fold is exact, so the typography component keeps `line-height: calc(28/18)`
+where lightningcss rounds it to `1.55556`.
 
 Anything else the site comparison reports is worth investigating, and so is the
 disappearance of any of the above.
