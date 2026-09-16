@@ -922,6 +922,14 @@ let cases =
          \    &:where(.system, .system *) { @slot; }\n\
          \  }\n\
           }");
+    (* A named query asks the nearest container called [card]; without the name
+       it asks the nearest container of any name, which is another box. *)
+    case "custom-variant-container-name" ~classes:[ "card:flex" ]
+      (fenced
+         "@custom-variant card { @container card (width >= 20rem) { @slot; } }");
+    case "custom-variant-container-name-not" ~classes:[ "not-card:grid" ]
+      (fenced
+         "@custom-variant card { @container card (width >= 20rem) { @slot; } }");
     case "variant-at-rule" (fenced ".btn { @variant dark { color: white; } }");
     case "colour-mix-author"
       (fenced
