@@ -17,32 +17,36 @@ let is_prose_class cls =
       bare = "prose" || String.starts_with ~prefix:"prose-" bare
   | None -> false
 
+let raised_rendering = function
+  | Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _ -> true
+  | _ -> false
+
 (* A handler may accept a class at parse yet raise when it renders an arbitrary
    value it cannot serialise. Such a class produces no rule, so it is dropped
-   rather than let it abort the whole sheet. What raises is the utility's own
-   rules, which neither the base layer nor a static theme touches, so the probe
-   renders the utilities alone. It renders them all at once and splits only a
-   set that raises, down to the classes that do: probing each class on its own,
-   base and theme included, was most of the time a project's sheet took. *)
-let renderable ~theme known =
-  let theme = { theme with Tw.Scheme.static_theme = false } in
-  let renders known =
-    match Tw.to_css ~theme ~base:false (List.map snd known) with
-    | (_ : Cascade.Css.t) -> true
-    | exception (Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _)
-      ->
-        false
-  in
-  let rec keep = function
-    | [] -> []
-    | known when renders known -> known
-    | [ _ ] -> []
-    | known ->
-        let half = List.length known / 2 in
-        keep (List.filteri (fun i _ -> i < half) known)
-        @ keep (List.filteri (fun i _ -> i >= half) known)
-  in
-  keep known
+   rather than let it abort the whole sheet. The sheet is rendered once for
+   every class, and only a render that raises splits the classes, down to those
+   that do: a separate probe render before the real one cost as much as the real
+   one. *)
+let render_known render known =
+  match render known with
+  | sheet -> (known, sheet)
+  | exception e when raised_rendering e ->
+      let renders known =
+        match render known with
+        | (_ : Cascade.Css.t) -> true
+        | exception e when raised_rendering e -> false
+      in
+      let rec keep = function
+        | [] -> []
+        | known when renders known -> known
+        | [ _ ] -> []
+        | known ->
+            let half = List.length known / 2 in
+            keep (List.filteri (fun i _ -> i < half) known)
+            @ keep (List.filteri (fun i _ -> i >= half) known)
+      in
+      let known = keep known in
+      (known, render known)
 
 let parse_known_candidates ~theme ?input_css candidates =
   let typography = declares_plugin input_css "typography" in
@@ -54,7 +58,6 @@ let parse_known_candidates ~theme ?input_css candidates =
         | Ok style -> Some (cls, style)
         | Error _ -> None)
     candidates
-  |> renderable ~theme
 
 (* A comparison against the real Tailwind has to be made against the whole of
    this, not against the built-in utilities alone: Tailwind reads the same
@@ -95,9 +98,12 @@ let utilities ~theme ?entrypoint ~base classes =
   (* The forms plugin's reset belongs to the base layer, which [to_css] writes
      only when it is asked for. *)
   let forms = Option.fold ~none:false ~some:Entrypoint.forms_base input_css in
-  let sheet =
-    Tw.to_css ~theme:sort_theme ~base ~forms ~extra:routed_extra
-      (List.map snd known)
+  let known, sheet =
+    render_known
+      (fun known ->
+        Tw.to_css ~theme:sort_theme ~base ~forms ~extra:routed_extra
+          (List.map snd known))
+      known
   in
   (List.length known + routed_count, Entrypoint.place_routed routed_stmts sheet)
 
