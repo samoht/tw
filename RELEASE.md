@@ -1,8 +1,10 @@
 # tw release criteria
 
-The bar a tagged release must clear. tw's contract is byte-parity with the
-Tailwind CSS v4 compiler for the utilities and plugins it claims, so most gates
-compare against the real tool rather than against a fixture we wrote.
+The bar a tagged release must clear. tw's contract is rendering parity with
+the Tailwind CSS v4 compiler for the utilities and plugins it claims: a browser
+computes the same styles under tw's sheet and Tailwind's, as `docs/parity.md`
+defines it. Most gates therefore compare against the real tool rather than
+against a fixture we wrote.
 
 Reproduce every measurement from a worktree with the freshly built binaries.
 An installed `tw` on `PATH` can be months old and will invent differences that
@@ -14,7 +16,7 @@ do not exist.
    and `dune exec test/tools/test.exe` all green. The upstream suite is strict
    by default; there is no tolerance switch to forget.
 2. **Rendering.** `TW_BROWSER_TESTS=1` set, so a missing Chromium fails rather
-   than skips. Without it the eight suites calling `check_rendering_matches`
+   than skips. Without it the nine suites calling `check_rendering_matches`
    report no difference because they never looked - which is what CI did until
    #513.
 3. **Tailwind oracle.** `TW_TAILWIND_TESTS=1` set, so a missing CLI, or one
@@ -40,8 +42,10 @@ do not exist.
    Tailwind over the class list of tailwindcss.com. Quote the differ's summary
    line together with the top-level entries under it; the summary counts
    containers rather than their contents, so one `@layer` entry can hide a
-   thousand rules. Last measured 2026-09-02: 0.3% diff, 1 removed rule,
-   8 modified, 20 reordered, 5 changed containers.
+   thousand rules. Every entry is a candidate: settle each one with
+   `cascade diff --browser` as `docs/parity.md` shows, and quote what the
+   browser made of it. The latest figure and the revisions it was taken at
+   are in `docs/parity.md`.
 
 ## Quality (target, non-blocking)
 
