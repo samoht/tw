@@ -695,9 +695,9 @@
 
 - `tw --input-css app.css --diff` and `--tailwind` work when `app.css` imports
   files beside it. They failed with an error that did not say why (#844).
-- Compiling a project is several times faster: tailwindcss.com's class list
-  takes 0.5 s of CPU where it took 4.4 s, and `tailwindcss` takes 0.6 s
-  (#843, #845).
+- Compiling a project is many times faster: tailwindcss.com's class list
+  takes 0.3 s of CPU where it took 4.4 s, and `tailwindcss` takes 0.6 s
+  (#843, #845, #846).
 - `tw --diff --html PAGE` also renders both stylesheets over `PAGE` in a
   headless Chromium and lists every computed style they disagree on (#841).
 - `tw` takes the Tailwind CLI's flags, so `tw -i src/app.css -o dist/app.css

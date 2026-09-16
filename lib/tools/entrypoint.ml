@@ -234,6 +234,38 @@ let builtin_variants =
    part. *)
 module Index = Cascade.Source_index
 
+(* Whether [css] spells [name] anywhere. *)
+let mentions name css =
+  let n = String.length name and len = String.length css in
+  let rec at i j = j = n || (css.[i + j] = name.[j] && at i (j + 1)) in
+  let rec from i = i + n <= len && (at i 0 || from (i + 1)) in
+  from 0
+
+(* [css] copied with [step] rewriting it. [step index buf i] runs at each offset
+   nothing has been copied from yet: it writes to [buf] what stands for the
+   source at [i] and answers where to resume, or [None] to have the byte at [i]
+   copied. [names] is what the pass matches; the index finds a name only as the
+   source spells it, so a source spelling none of them is handed back before the
+   parse the index costs. *)
+let rewrite ~names css step =
+  if not (List.exists (fun name -> mentions name css) names) then css
+  else
+    let index = Index.v css in
+    let len = String.length css in
+    let buf = Buffer.create len in
+    let step = step index buf in
+    let rec go i =
+      if i >= len then ()
+      else
+        match step i with
+        | Some next -> go next
+        | None ->
+            Buffer.add_char buf css.[i];
+            go (i + 1)
+    in
+    go 0;
+    Buffer.contents buf
+
 (* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
    variables a utility used. The option is not CSS, so it is read off the
    import's own [theme()] call rather than from a parsed stylesheet. *)
@@ -577,92 +609,69 @@ let config_directives css =
    [drop_directives] takes the whole block out of the emitted CSS; lift actual
    keyframe at-rules to the top level first, where Tailwind emits them. *)
 let hoist_theme_keyframes css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let lifted = Buffer.create 0 in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_rule index ~name:"@theme" i with
-      | Some { brace; block = { next; _ }; _ } ->
-          Buffer.add_string buf (String.sub css i (brace + 1 - i));
-          go_theme (brace + 1) next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  and go_theme i stop =
-    if i >= stop then go i
-    else
-      match Index.at_rule index ~name:"@keyframes" i with
-      | Some { block = { next; _ }; _ } when next <= stop ->
-          Buffer.add_string lifted (String.sub css i (next - i));
-          go_theme next stop
-      | Some _ | None ->
-          Buffer.add_char buf css.[i];
-          go_theme (i + 1) stop
+  let css =
+    rewrite ~names:[ "@theme" ] css (fun index buf i ->
+        match Index.at_rule index ~name:"@theme" i with
+        | Some { brace; block = { next = stop; _ }; _ } ->
+            Buffer.add_string buf (String.sub css i (brace + 1 - i));
+            let rec go_theme i =
+              if i >= stop then ()
+              else
+                match Index.at_rule index ~name:"@keyframes" i with
+                | Some { block = { next; _ }; _ } when next <= stop ->
+                    Buffer.add_string lifted (String.sub css i (next - i));
+                    go_theme next
+                | Some _ | None ->
+                    Buffer.add_char buf css.[i];
+                    go_theme (i + 1)
+            in
+            go_theme (brace + 1);
+            Some stop
+        | None -> None)
   in
-  go 0;
-  Buffer.add_buffer buf lifted;
-  Buffer.contents buf
+  css ^ Buffer.contents lifted
 
 (* Tailwind extends [@import] with options CSS has no grammar for
    ([theme(static)], [source(none)], [prefix(tw)]). Strip actual option function
    tokens from actual import statements so quoted parentheses and comments do
    not alter their boundaries. *)
 let strip_tailwind_import_options css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let option_at i =
-    List.find_map
-      (fun name -> Index.call index ~name i)
-      [ "theme"; "source"; "prefix" ]
-  in
-  let rec copy_import i stop =
-    if i >= stop then ()
-    else
-      match option_at i with
-      | Some { next; _ } when next <= stop -> copy_import next stop
-      | Some _ | None ->
-          Buffer.add_char buf css.[i];
-          copy_import (i + 1) stop
-  in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "@import" ] css (fun index buf i ->
+      let option_at i =
+        List.find_map
+          (fun name -> Index.call index ~name i)
+          [ "theme"; "source"; "prefix" ]
+      in
+      let rec copy_import i stop =
+        if i >= stop then ()
+        else
+          match option_at i with
+          | Some { next; _ } when next <= stop -> copy_import next stop
+          | Some _ | None ->
+              Buffer.add_char buf css.[i];
+              copy_import (i + 1) stop
+      in
       match Index.at_statement index ~name:"@import" i with
       | Some { next; _ } ->
           copy_import i next;
-          go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+          Some next
+      | None -> None)
 
 (* Pull out the [@KEYWORD NAME { ... }] declarations, dropping them from the
    CSS: they declare something for the generator, and Tailwind does not emit
    them either. *)
 let take_named_defs keyword css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let defs = ref [] in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_rule index ~name:keyword i with
-      | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
-          defs := (prelude, body) :: !defs;
-          go next
-      | _ ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
+  let css =
+    rewrite ~names:[ keyword ] css (fun index _ i ->
+        match Index.at_rule index ~name:keyword i with
+        | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
+            defs := (prelude, body) :: !defs;
+            Some next
+        | _ -> None)
   in
-  go 0;
-  (Buffer.contents buf, !defs)
+  (css, !defs)
 
 let shorthand_variant prelude =
   let prelude = String.trim prelude in
@@ -689,33 +698,24 @@ let shorthand_variant prelude =
     Some (name, selector ^ " { @slot; }")
 
 let take_custom_variants css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let defs = ref [] in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_rule index ~name:"@custom-variant" i with
-      | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
-          defs := (prelude, body) :: !defs;
-          go next
-      | _ -> (
-          match Index.at_statement index ~name:"@custom-variant" i with
-          | Some { prelude; next } -> (
-              match shorthand_variant prelude with
-              | Some def ->
-                  defs := def :: !defs;
-                  go next
-              | None ->
-                  Buffer.add_char buf css.[i];
-                  go (i + 1))
-          | None ->
-              Buffer.add_char buf css.[i];
-              go (i + 1))
+  let css =
+    rewrite ~names:[ "@custom-variant" ] css (fun index _ i ->
+        match Index.at_rule index ~name:"@custom-variant" i with
+        | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
+            defs := (prelude, body) :: !defs;
+            Some next
+        | _ -> (
+            match Index.at_statement index ~name:"@custom-variant" i with
+            | Some { prelude; next } -> (
+                match shorthand_variant prelude with
+                | Some def ->
+                    defs := def :: !defs;
+                    Some next
+                | None -> None)
+            | None -> None))
   in
-  go 0;
-  (Buffer.contents buf, !defs)
+  (css, !defs)
 
 (* {2 Functional [@utility NAME-*] declarations}
 
@@ -1471,49 +1471,24 @@ let tailwind_directives =
    tw cannot expand -- or names something outside the stylesheet, so there is
    nothing to salvage from the text either. *)
 let drop_directives css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let directive_at i =
-    List.find_map
-      (fun name ->
-        match Index.at_rule index ~name i with
-        | Some { block = { next; _ }; _ } -> Some next
-        | None ->
-            Option.map
-              (fun ({ next; _ } : Index.statement) -> next)
-              (Index.at_statement index ~name i))
-      tailwind_directives
-  in
-  let rec go i =
-    if i >= len then ()
-    else
-      match directive_at i with
-      | Some next -> go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+  rewrite ~names:tailwind_directives css (fun index _ i ->
+      List.find_map
+        (fun name ->
+          match Index.at_rule index ~name i with
+          | Some { block = { next; _ }; _ } -> Some next
+          | None ->
+              Option.map
+                (fun ({ next; _ } : Index.statement) -> next)
+                (Index.at_statement index ~name i))
+        tailwind_directives)
 
 let fill_slots template body =
-  let index = Index.v template in
-  let len = String.length template in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "@slot" ] template (fun index buf i ->
       match Index.at_statement index ~name:"@slot" i with
       | Some { next; _ } ->
           Buffer.add_string buf body;
-          go next
-      | None ->
-          Buffer.add_char buf template.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+          Some next
+      | None -> None)
 
 (* Replace [@variant NAME { decls }] with the variant's body, substituting the
    declarations at each [@slot]. Nested [@variant]s expand outermost-first, so
@@ -1521,26 +1496,18 @@ let fill_slots template body =
 let rec expand_variants ~depth defs css =
   if depth > 8 then css
   else
-    let index = Index.v css in
-    let len = String.length css in
-    let buf = Buffer.create len in
     let changed = ref false in
-    let rec go i =
-      if i >= len then ()
-      else
-        match Index.at_rule index ~name:"@variant" i with
-        | Some { prelude; block = { body; next }; _ }
-          when List.mem_assoc prelude defs ->
-            let template = List.assoc prelude defs in
-            changed := true;
-            Buffer.add_string buf (fill_slots template body);
-            go next
-        | _ ->
-            Buffer.add_char buf css.[i];
-            go (i + 1)
+    let out =
+      rewrite ~names:[ "@variant" ] css (fun index buf i ->
+          match Index.at_rule index ~name:"@variant" i with
+          | Some { prelude; block = { body; next }; _ }
+            when List.mem_assoc prelude defs ->
+              let template = List.assoc prelude defs in
+              changed := true;
+              Buffer.add_string buf (fill_slots template body);
+              Some next
+          | _ -> None)
     in
-    go 0;
-    let out = Buffer.contents buf in
     if !changed then expand_variants ~depth:(depth + 1) defs out else out
 
 (* {2 [not-] over a declared variant}
@@ -1743,25 +1710,15 @@ let inline_spacing ~theme multiple =
 (* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
    so a parser rejects the declaration and it drops out of the output. *)
 let expand_spacing_fn ~theme css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "--spacing(" ] css (fun index buf i ->
       match Index.call index ~name:"--spacing" i with
       | Some { body; next } ->
           Buffer.add_string buf
             (match inline_spacing ~theme body with
             | Some value -> value
             | None -> String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
-          go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+          Some next
+      | None -> None)
 
 (* The value a theme token carries. The palette is not in [Scheme]'s table: a
    colour is catalogued, and [theme_color_decl] is what reads it back. Asking
@@ -1783,18 +1740,11 @@ let theme_token_value theme name =
    [authored_color_mix_fallbacks] then gives a legacy fallback and an
    [@supports] arm - the shape the reference emits. *)
 let expand_alpha_fn css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "--alpha(" ] css (fun index buf i ->
       match Index.call index ~name:"--alpha" i with
       | Some { body; next } -> (
           match String.index_opt body '/' with
-          | None ->
-              Buffer.add_char buf css.[i];
-              go (i + 1)
+          | None -> None
           | Some slash ->
               let colour = String.trim (String.sub body 0 slash) in
               let alpha =
@@ -1810,13 +1760,8 @@ let expand_alpha_fn css =
                      alpha;
                      ", transparent)";
                    ]);
-              go next)
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+              Some next)
+      | None -> None)
 
 (* [theme()] also takes the dotted path of a v3 config ([theme(fontSize.sm)]),
    which names the same token under its old namespace. *)
@@ -1863,18 +1808,9 @@ let v3_theme_token theme path =
    appears in places a [var()] could not stand anyway, such as a media query
    condition. An unknown token is left alone rather than guessed at. *)
 let resolve_theme_fn ~theme css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let skip i =
-    Buffer.add_char buf css.[i];
-    i + 1
-  in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "theme(" ] css (fun index buf i ->
       match Index.call index ~name:"theme" i with
-      | None -> go (skip i)
+      | None -> None
       | Some { body; next } -> (
           let name = String.trim body in
           let bare =
@@ -1889,11 +1825,8 @@ let resolve_theme_fn ~theme css =
           with
           | Some value ->
               Buffer.add_string buf value;
-              go next
-          | None -> go (skip i))
-  in
-  go 0;
-  Buffer.contents buf
+              Some next
+          | None -> None))
 
 (* Where an at-rule prelude runs, for the at-rules whose prelude can hold a
    [--theme()] call. A [var()] is not read there, so such a call gives the value
@@ -1947,31 +1880,20 @@ let dashed_theme_value ~theme ~in_prelude body =
         | None -> Some fallback)
 
 let resolve_dashed_theme_fn ~theme css =
-  let index = Index.v css in
-  let preludes = at_rule_preludes index css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.call index ~name:"--theme" i with
-      | Some { body; next } -> (
-          let in_prelude =
-            List.exists (fun (start, stop) -> start < i && i < stop) preludes
-          in
-          match dashed_theme_value ~theme ~in_prelude body with
-          | Some value ->
-              Buffer.add_string buf value;
-              go next
-          | None ->
-              Buffer.add_char buf css.[i];
-              go (i + 1))
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+  rewrite ~names:[ "--theme(" ] css (fun index buf ->
+      let preludes = at_rule_preludes index css in
+      fun i ->
+        match Index.call index ~name:"--theme" i with
+        | Some { body; next } -> (
+            let in_prelude =
+              List.exists (fun (start, stop) -> start < i && i < stop) preludes
+            in
+            match dashed_theme_value ~theme ~in_prelude body with
+            | Some value ->
+                Buffer.add_string buf value;
+                Some next
+            | None -> None)
+        | None -> None)
 
 (* [to_css] heads a utility's selector with the utility's own class, and a
    variant decorates it in place, as [.dark\:fill-gray-400:where(.dark, ...)].
@@ -2227,47 +2149,41 @@ let rec emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen = function
    not CSS, so the at-rule drops out and takes the whole rule with it once the
    rule is left empty. *)
 let expand_apply ~theme ~defs ?(udefs = []) css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
   let seen = Hashtbl.create 64 in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_statement index ~name:"@apply" i with
-      | Some { prelude; next } ->
-          (* A utility with no declared variant and no body of its own decorates
-             the applying rule's [&] directly. A run of those renders in one
-             call, so their declarations land in a single rule the way Tailwind
-             emits them, rather than one rule of the author's selector per
-             utility. *)
-          let names = apply_names prelude 0 (String.length prelude) in
-          emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen names;
-          go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
+  let css =
+    rewrite ~names:[ "@apply" ] css (fun index buf i ->
+        match Index.at_statement index ~name:"@apply" i with
+        | Some { prelude; next } ->
+            (* A utility with no declared variant and no body of its own
+               decorates the applying rule's [&] directly. A run of those
+               renders in one call, so their declarations land in a single rule
+               the way Tailwind emits them, rather than one rule of the author's
+               selector per utility. *)
+            let names = apply_names prelude 0 (String.length prelude) in
+            emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen names;
+            Some next
+        | None -> None)
   in
-  go 0;
   (* The hoisted blocks go last: their layer is ordered by the sheet's [@layer]
      statement, not by where they sit. *)
-  Buffer.add_buffer buf hoisted;
-  Buffer.contents buf
+  if Buffer.length hoisted = 0 then css else css ^ Buffer.contents hoisted
 
 (* The names an [@variant NAME {] header uses inside a body. *)
 let variant_names_in css =
-  let index = Index.v css in
-  let len = String.length css in
-  let rec go i acc =
-    if i >= len then List.rev acc
-    else
-      match Index.at_rule index ~name:"@variant" i with
-      | Some { prelude; brace; _ } when prelude <> "" ->
-          go (brace + 1) (prelude :: acc)
-      | _ -> go (i + 1) acc
-  in
-  go 0 []
+  if not (mentions "@variant" css) then []
+  else
+    let index = Index.v css in
+    let len = String.length css in
+    let rec go i acc =
+      if i >= len then List.rev acc
+      else
+        match Index.at_rule index ~name:"@variant" i with
+        | Some { prelude; brace; _ } when prelude <> "" ->
+            go (brace + 1) (prelude :: acc)
+        | _ -> go (i + 1) acc
+    in
+    go 0 []
 
 (* Replace the first occurrence of [needle] in [hay]. *)
 let replace_first ~needle ~by hay =
