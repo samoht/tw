@@ -516,6 +516,9 @@
 
 ### Variants and selectors
 
+- A `@custom-variant` built on a named `@container` query keeps the name:
+  `card:flex` under `@container card (width >= 20rem)` queried the nearest
+  container of any name, which is another box wherever one sits closer (#839).
 - `not-` over a `@custom-variant` negates the project's declaration:
   `not-dark:` under a class-based `dark` reads `:not(:where(.dark, .dark *))`
   rather than a `prefers-color-scheme` query, a declared name with no built-in

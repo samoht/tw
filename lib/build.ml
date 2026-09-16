@@ -1826,7 +1826,14 @@ let outputs_of_statement ~base_class stmt =
                 inner
           | None -> (
               match Css.as_container stmt with
-              | Some (_, Some condition, inner) ->
+              | Some (name, Some condition, inner) ->
+                  (* The parsed query keeps the container's name beside its
+                     condition, and the typed condition carries it inside. *)
+                  let condition =
+                    Option.fold ~none:condition
+                      ~some:(fun name -> Css.Container.Named (name, condition))
+                      name
+                  in
                   of_inner
                     (fun ~selector ~props ~nested ->
                       Output.container_query ~condition ~selector ~props
