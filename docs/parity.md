@@ -236,7 +236,7 @@ that half by reading the whole sheet.
 
 ### Recurring bug shapes
 
-Four patterns account for most of what the site comparison has found, so a new
+Five patterns account for most of what the site comparison has found, so a new
 family of utilities is worth checking against all five.
 
 - **Invented theme token.** A utility references `var(--<family>-<name>)` when
