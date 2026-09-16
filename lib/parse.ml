@@ -59,6 +59,23 @@ let fraction_percent n m =
 let fraction_pct s =
   match fraction s with Some (n, m) -> fraction_percent n m | None -> None
 
+(* [n / m * 100%], the expression Tailwind writes a fraction as. The browser
+   resolves the division exactly, where a percentage folded from it cannot hold
+   a non-terminating fraction: 33.3333% of 321px is 106.984px, a third is 107px.
+   The [100%] leaf is the caller's, since each property has its own calc
+   type. *)
+let fraction_calc hundred n m =
+  Cascade.Css.Calc.(
+    mul (div (float (float_of_int n)) (float (float_of_int m))) hundred)
+
+let fraction_length n m : Cascade.Css.length =
+  Cascade.Css.Calc
+    (fraction_calc (Cascade.Css.Calc.length (Cascade.Css.Pct 100.)) n m)
+
+let neg_fraction_length n m : Cascade.Css.length =
+  Cascade.Css.Calc
+    Cascade.Css.Calc.(mul (length (fraction_length n m)) (float (-1.)))
+
 let int_any s =
   match decimal_int s with
   | Some n -> Ok n

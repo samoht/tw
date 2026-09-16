@@ -721,6 +721,11 @@ val apply : ?theme:Scheme.t -> string list -> t -> t option
 
 (** {1 Container Query Helpers} *)
 
+val container_query_of_token : string -> Style.container_query option
+(** [container_query_of_token token] reads the container query one modifier
+    token spells, [\@sm], [\@max-md], [\@min-[theme(--breakpoint-lg)]] or
+    [\@lg/main]; [None] for any other token. *)
+
 val container_query_theme_decls : Style.container_query -> Css.declaration list
 (** [container_query_theme_decls q] is the theme-layer bindings [q] read through
     [theme()], e.g. [--breakpoint-lg: 64rem] for

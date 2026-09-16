@@ -2194,6 +2194,15 @@ and try_scoped_container_query s =
         | Some (Container q) -> Some (Container (Container_scoped (name, q)))
         | _ -> None)
 
+let container_query_of_token token =
+  match List.assoc_opt token simple_modifiers with
+  | Some (Container q) -> Some q
+  | Some _ -> None
+  | None -> (
+      match try_container_query token with
+      | Some (Container q) -> Some q
+      | Some _ | None -> None)
+
 (* Parse a modifier string into a typed Style.modifier *)
 let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =

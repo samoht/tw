@@ -313,6 +313,20 @@ let test_typography_before_color () =
   Test_helpers.check_ordering_matches
     ~test_name:"typography before color utilities" utilities
 
+(* The container utility carries its breakpoint rules beside it, and Tailwind
+   keeps them there under a variant too: [md:container]'s nested [@media] blocks
+   come before [md:max-w-2xl] inside the [md] block, so an element carrying both
+   takes the explicit max-width. A nested [@media] is a variant only when it is
+   one; the utility's own breakpoints are not. *)
+let test_variant_container_breakpoints_stay_with_container () =
+  let open Tw in
+  Test_helpers.check_ordering_matches
+    ~test_name:"md:container's breakpoints before md:max-w-2xl"
+    [ md [ container ]; md [ max_w_2xl ] ];
+  Test_helpers.check_ordering_matches
+    ~test_name:"lg:container's breakpoints before lg:max-w-md"
+    [ lg [ max_w_md ]; lg [ container ] ]
+
 (* Test gap utilities come before self-alignment utilities *)
 let test_gap_before_self_alignment () =
   let open Tw in
@@ -365,6 +379,26 @@ let test_container_max_before_min () =
     [ "@lg:flex"; "@max-lg:hidden" ];
   Test_helpers.check_class_order ~test_name:"@max-lg before @sm on their own"
     [ "@sm:flex"; "@max-lg:hidden" ]
+
+(* Tailwind registers the [@max-*] variants as one group ahead of the group
+   holding [@*] and [@min-*], so every upper bound precedes every lower bound
+   whatever value either names; the value only orders bounds of one kind. An
+   arbitrary [theme()] call is a value like any other, and a stacked
+   [@sm:@max-md:] sorts under its lower bound, the way a stacked breakpoint
+   sorts under its width. *)
+let test_arbitrary_max_container_before_min () =
+  Test_helpers.check_class_order ~test_name:"@max-[theme(...)] before @lg"
+    [ "@lg:flex"; "@max-[theme(--breakpoint-lg)]:hidden" ];
+  Test_helpers.check_class_order
+    ~test_name:"@max-[theme(...)] before @[...] and @min-[theme(...)]"
+    [
+      "@[34rem]:hidden";
+      "@min-[theme(--breakpoint-lg)]:grid-cols-2";
+      "@max-[theme(--breakpoint-sm)]:hidden";
+    ];
+  Test_helpers.check_class_order
+    ~test_name:"@sm:@max-md sorts under @sm, before @md"
+    [ "@md:flex-row"; "@sm:@max-md:flex-col"; "@sm:flex" ]
 
 (* The word-wrapping families overlap on overflow-wrap/word-break: break-normal
    writes both and so leads its shared prefix, break-words/wrap-anywhere/
@@ -2515,6 +2549,57 @@ let test_custom_dark_keeps_builtin_slot () =
     "custom dark retains the built-in slot" classes
     (emitted_classes css classes)
 
+(* A custom variant with two branches, the site's [dark] with a class branch and
+   a [prefers-color-scheme] one, routes its utilities through the custom variant
+   path, and there an opacity colour, which carries a [@supports] twin, sorted
+   after every plain utility of a later family instead of in its family's place:
+   [dark:hover:text-white] came out before [dark:hover:bg-white/50] where
+   Tailwind writes the background first, and on the site the [dark:hover:bg-*]
+   pair in the other order is a cascade difference for an element carrying both.
+   Expected order measured with Tailwind 4.3.3 through the same entrypoint on
+   2026-09-15. *)
+let test_custom_variant_supports_twin_keeps_family_order () =
+  let defs =
+    [
+      ( "dark",
+        "&:where(.dark,.dark *){@slot;}@media \
+         (prefers-color-scheme:dark){&:where(.system,.system *){@slot;}}" );
+    ]
+  in
+  let classes =
+    [
+      "dark:hover:border-white/25";
+      "dark:hover:bg-gray-800";
+      "dark:hover:bg-white/50";
+      "dark:hover:text-white";
+    ]
+  in
+  let _, extra, _ =
+    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+      ~udefs:[] classes
+  in
+  let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
+  let theme =
+    { Tw.Scheme.default with custom_variants = [ ("dark", custom) ] }
+  in
+  let css =
+    Tw.to_css ~theme ~base:false ~extra []
+    |> Css.to_string ~minify:true ~lossless:true
+  in
+  let first_occurrences =
+    let seen = Hashtbl.create 8 in
+    List.filter
+      (fun cls ->
+        if Hashtbl.mem seen cls then false
+        else (
+          Hashtbl.add seen cls ();
+          true))
+      (emitted_classes css classes)
+  in
+  Alcotest.(check (list string))
+    "opacity colours sort with their family under a two-branch custom variant"
+    classes first_occurrences
+
 let test_margin_value_order () =
   (* Margin values sort by raw suffix: numeric, then arbitrary ('['), then
      keywords auto < full < px. -ml-4 and -ml-px conflict on margin-left, so the
@@ -3322,6 +3407,12 @@ let tests =
       test_variant_family_order;
     test_case "@max-* container variants before @min-*" `Quick
       test_container_max_before_min;
+    test_case "an arbitrary @max-* container variant before @min-*" `Quick
+      test_arbitrary_max_container_before_min;
+    test_case "a variant container's breakpoints stay with it" `Quick
+      test_variant_container_breakpoints_stay_with_container;
+    test_case "custom variant supports twin keeps family order" `Quick
+      test_custom_variant_supports_twin_keeps_family_order;
     test_case "comparator is antisymmetric" `Quick test_comparator_antisymmetry;
     test_case "comparator is transitive" `Quick test_comparator_transitivity;
   ]

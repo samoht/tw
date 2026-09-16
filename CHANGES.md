@@ -172,6 +172,9 @@
 
 ### Utility coverage
 
+- A fraction resolves exactly: `w-1/3` writes Tailwind's `calc(1/3 * 100%)`
+  where it wrote `33.3333%`, which rendered 106.984px against 107px in a 321px
+  container. The sizing, inset, flex and basis families share the fix (#828).
 - Typed construction covers clear, background attachment/clip/origin/position,
   repeat and size, outline width/colour, ring offsets, and background blend
   modes (#649).
@@ -590,6 +593,23 @@
 
 ### CSS ordering and structure
 
+- `md:container` keeps its breakpoint rules beside it, as Tailwind writes
+  them, so `md:max-w-2xl` follows them and wins on an element carrying both.
+  The nested breakpoints sorted as a stacked variant, after every plain rule
+  of the `md` block (#833).
+- An opacity colour under `hover:` keeps its `@supports` twin beside its
+  fallback, as Tailwind writes the pair. The twin sorted after every later
+  utility of the group, and under a two-branch custom variant such as the
+  site's `dark` it carried the whole family with it, so `dark:hover:bg-white/50`
+  came after `dark:hover:text-white` (#829).
+- A negative half-step translate, `-translate-y-0.5`, sorts in the negative
+  band of its axis by magnitude with the integers, where Tailwind puts it. It
+  sorted after `-translate-y-10`, so `hover:-translate-y-1` and
+  `hover:-translate-y-0.5` came out in the other order (#831).
+- Every `@max-*` container variant sorts before every `@*` and `@min-*` one,
+  as Tailwind groups them, whatever value either names: `@max-[theme(...)]`
+  came after `@lg`, and a stacked `@sm:@max-md:` sorted past `@md` instead of
+  under `@sm` (#830).
 - A `@max-*` container variant sorts before the `@min-*` one at the same
   width, as every `@max-*` block does in Tailwind. `@lg:flex @max-lg:hidden`
   wrote the `@lg` block first when the pair stood alone, though four such

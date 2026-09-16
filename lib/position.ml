@@ -211,9 +211,15 @@ let neg_pos_spacing_style ?theme side (s : Style.spacing) =
 
 (* A position fraction [n/m] resolves to [n/m * 100%], the same reading the
    sizing families give it: any numerator over any positive denominator, and an
-   improper fraction (6/5 -> 120%) is a position like any other. *)
+   improper fraction (6/5 -> 120%) is a position like any other. It is written
+   as Tailwind's calc, negated by wrapping it. *)
 let frac_valid frac = Parse.fraction_pct frac <> None
-let frac_pct frac = Option.value ~default:0. (Parse.fraction_pct frac)
+
+let frac_length ~neg frac : Css.length =
+  match Parse.fraction frac with
+  | Some (n, m) ->
+      if neg then Parse.neg_fraction_length n m else Parse.fraction_length n m
+  | None -> Css.Pct 0.
 
 module Handler = struct
   open Style
@@ -336,9 +342,9 @@ module Handler = struct
     | Pos_spacing (side, sp) -> pos_spacing_style ~theme side sp
     | Neg_pos_spacing (side, sp) -> neg_pos_spacing_style ~theme side sp
     | Pos_fraction (side, f) ->
-        style (Side.declarations side (Pct (frac_pct f)))
+        style (Side.declarations side (frac_length ~neg:false f))
     | Neg_pos_fraction (side, f) ->
-        style (Side.declarations side (Pct (-.frac_pct f)))
+        style (Side.declarations side (frac_length ~neg:true f))
     | Pos_arbitrary (side, _, len) | Neg_pos_arbitrary (side, _, len) ->
         style (Side.declarations side len)
     | Pos_raw (side, _, value) | Neg_pos_raw (side, _, value) ->
