@@ -17,6 +17,33 @@ let is_prose_class cls =
       bare = "prose" || String.starts_with ~prefix:"prose-" bare
   | None -> false
 
+(* A handler may accept a class at parse yet raise when it renders an arbitrary
+   value it cannot serialise. Such a class produces no rule, so it is dropped
+   rather than let it abort the whole sheet. What raises is the utility's own
+   rules, which neither the base layer nor a static theme touches, so the probe
+   renders the utilities alone. It renders them all at once and splits only a
+   set that raises, down to the classes that do: probing each class on its own,
+   base and theme included, was most of the time a project's sheet took. *)
+let renderable ~theme known =
+  let theme = { theme with Tw.Scheme.static_theme = false } in
+  let renders known =
+    match Tw.to_css ~theme ~base:false (List.map snd known) with
+    | (_ : Cascade.Css.t) -> true
+    | exception (Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _)
+      ->
+        false
+  in
+  let rec keep = function
+    | [] -> []
+    | known when renders known -> known
+    | [ _ ] -> []
+    | known ->
+        let half = List.length known / 2 in
+        keep (List.filteri (fun i _ -> i < half) known)
+        @ keep (List.filteri (fun i _ -> i >= half) known)
+  in
+  keep known
+
 let parse_known_candidates ~theme ?input_css candidates =
   let typography = declares_plugin input_css "typography" in
   List.filter_map
@@ -24,19 +51,10 @@ let parse_known_candidates ~theme ?input_css candidates =
       if (not typography) && is_prose_class cls then None
       else
         match Tw.of_string ~theme cls with
-        | Ok style -> (
-            (* A handler may accept a class at parse yet raise when it renders
-               an arbitrary value it cannot serialise, as the docs'
-               [prop-[<value>]] placeholders do. Such a class produces no rule,
-               so drop it rather than let it abort the whole sheet. *)
-            match Tw.to_css ~theme [ style ] with
-            | (_ : Cascade.Css.t) -> Some (cls, style)
-            | exception
-                (Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _)
-              ->
-                None)
+        | Ok style -> Some (cls, style)
         | Error _ -> None)
     candidates
+  |> renderable ~theme
 
 (* A comparison against the real Tailwind has to be made against the whole of
    this, not against the built-in utilities alone: Tailwind reads the same

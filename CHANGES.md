@@ -693,6 +693,8 @@
 
 ### Parity and packaging
 
+- Compiling a project is several times faster: tailwindcss.com's class list
+  takes 0.6 s of CPU, as `tailwindcss` does, where it took 4.4 s (#843).
 - `tw --diff --html PAGE` also renders both stylesheets over `PAGE` in a
   headless Chromium and lists every computed style they disagree on (#841).
 - `tw` takes the Tailwind CLI's flags, so `tw -i src/app.css -o dist/app.css
