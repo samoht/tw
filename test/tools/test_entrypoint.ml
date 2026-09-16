@@ -135,6 +135,26 @@ let test_take_custom_variants () =
     [ ("dark", " &:where(.dark, .dark *) { @slot; } ") ]
     defs
 
+(* Tailwind writes the negated arm with [&] read as a universal, and its
+   minifier drops that universal where the compound already has a simple
+   selector, so the CLI's sheet spells [:not(:where(...))]. Kept, it is bytes
+   the CLI's sheet does not carry. A universal standing on its own stays. *)
+let test_negated_variant_spelling () =
+  let defs, refused =
+    with_negated_variants
+      [
+        ("dark", "&:where(.dark, .dark *) { @slot; }");
+        ("inside", ".box & { @slot; }");
+      ]
+  in
+  check (option string) "the implied universal is dropped"
+    (Some "&:not(:where(.dark, .dark *)) { @slot; }")
+    (List.assoc_opt "not-dark" defs);
+  check (option string) "a lone universal stays"
+    (Some "&:not(.box *) { @slot; }")
+    (List.assoc_opt "not-inside" defs);
+  check string_list "nothing refused" [] refused
+
 let test_take_custom_utilities () =
   let css, defs =
     take_custom_utilities
@@ -872,6 +892,36 @@ let cases =
       (fenced
          "@custom-variant hocus { &:hover, &:focus { @slot; } } .btn { \
           @variant hocus { color: red; } }");
+    (* [not-] negates the body the project declared, not the built-in variant of
+       the same name: each selector goes under [:not()] and each condition under
+       [not]. A pseudo-element has no negation, so that candidate is refused. *)
+    case "custom-variant-not"
+      ~classes:
+        [
+          "not-dark:hidden";
+          "not-solo:hidden";
+          "not-print-only:hidden";
+          "not-hover-print:hidden";
+          "not-pe:hidden";
+        ]
+      (fenced
+         "@custom-variant dark (&:where(.dark, .dark *));\n\
+          @custom-variant solo (&:where([data-solo] *));\n\
+          @custom-variant print-only { @media print { @slot; } }\n\
+          @custom-variant hover-print { @media print { &:hover { @slot; } } }\n\
+          @custom-variant pe (&::before);");
+    (* The CLI negates a variant's body one node in place and does not nest two
+       sibling branches into the conjunction their negation would be, so it
+       refuses the candidate rather than negating one branch. *)
+    case "custom-variant-not-branches"
+      ~classes:[ "dark:hidden"; "not-dark:hidden" ]
+      (fenced
+         "@custom-variant dark {\n\
+         \  &:where(.dark, .dark *) { @slot; }\n\
+         \  @media (prefers-color-scheme: dark) {\n\
+         \    &:where(.system, .system *) { @slot; }\n\
+         \  }\n\
+          }");
     case "variant-at-rule" (fenced ".btn { @variant dark { color: white; } }");
     case "colour-mix-author"
       (fenced
@@ -1093,6 +1143,7 @@ let tests =
       test_strip_tailwind_import_options;
     test_case "slots filled" `Quick test_fill_slots;
     test_case "custom variants taken" `Quick test_take_custom_variants;
+    test_case "negated variant spelling" `Quick test_negated_variant_spelling;
     test_case "custom utilities taken" `Quick test_take_custom_utilities;
     test_case "spacing shorthand" `Quick test_spacing_shorthand;
     test_case "directives dropped" `Quick test_drop_directives;
