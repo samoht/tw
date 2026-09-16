@@ -186,6 +186,18 @@ keyed by whatever rules the input happened to group into it, so the two
 inputs settle into different groupings. Cascade's TODO holds the five-class
 reproducer cut from the site.
 
+The whole class list was rendered on 2026-09-16, in the 97 shards of 50
+`TW_PARITY_RENDER` names, from the tip of the stack this section arrived in
+and cascade #1260. 93 shards compute the same on every element. The other
+four render the same and are spelled differently: `bg-top-left`,
+`bg-top-right` and `bg-bottom-left` compute `background-position` as `0%`
+under Tailwind and `0px` under tw, which the report marks as painting the
+same, and `mask-[radial-gradient(ellipse_25%_50%_at_30%_50%,...)]` computes
+without the final colour stop's `100%`, which tw's minifier drops because CSS
+Images 3 puts an unpositioned last stop there. The report marks that one as
+painting differently, since its paint check counts the numbers in a value;
+cascade's TODO holds it.
+
 Two decisions taken on 2026-09-15 shaped the measurement:
 
 - **The projection judges for the browsers `--minify` targets** (cascade
