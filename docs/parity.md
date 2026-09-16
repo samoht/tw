@@ -116,8 +116,10 @@ sh test/parity/measure.sh
 TW_PARITY_RENDER="0 50" sh test/parity/measure.sh
 ```
 
-The first takes about 17 seconds on a warm build: a fifth of a second in
-Tailwind, three seconds in tw, the rest in the differ. It writes the compiled
+Almost all of the first is the differ. Measured with hyperfine on 2026-09-16,
+release builds, user time: 0.58 s for Tailwind to compile the reference, 0.58
+s for tw to compile `tw_all.css`, and 24 s for the canonical diff of the two,
+which cascade's TODO holds. It writes the compiled
 reference `ref.css`, the minified one `ref_local.css`, `tw_all.css` and
 `diff.txt` under `tmp/parity`, prints the two minified sizes and fails when
 tw's is the larger, then prints the diff followed by its top-level entries.
