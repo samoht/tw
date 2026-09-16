@@ -77,10 +77,27 @@ type gen_opts = {
           regrouping/reordering and is right for real-world parity sweeps;
           [`Auto]/[`Tree] (structural) reports regrouping, for tests that target
           it. *)
+  output : string option;
+      (** The file [-o] names, or standard output for [None] and ["-"]. *)
 }
 
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
+
+let rec mkdir_p dir =
+  if not (Sys.file_exists dir) then begin
+    mkdir_p (Filename.dirname dir);
+    try Sys.mkdir dir 0o755 with Sys_error _ when Sys.file_exists dir -> ()
+  end
+
+(* The sheet goes to the file [-o] names, its directory created first as
+   Tailwind's CLI creates it, or to standard output. *)
+let emit ~(opts : gen_opts) css =
+  match opts.output with
+  | None | Some "-" -> print_string css
+  | Some path ->
+      mkdir_p (Filename.dirname path);
+      Out_channel.with_open_bin path (fun oc -> output_string oc css)
 
 (* The reference sheet hands each class to Tailwind's engine and to its source
    extractor both, so the two sides answer the same question. A class the
@@ -226,7 +243,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
             ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
             [ class_str ]
         in
-        print_string css;
+        emit ~opts css;
         `Ok 0
       with e ->
         `Error
@@ -237,7 +254,7 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       match single_class_sheet ~opts ~base:include_base class_str with
       | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
       | Some stylesheet ->
-          print_string (render_css ~opts stylesheet);
+          emit ~opts (render_css ~opts stylesheet);
           `Ok 0)
 
 (* Classes live outside component sources too: a docs site keeps most of its
@@ -346,7 +363,7 @@ let native_files paths flag ~(opts : gen_opts) =
     let known_count, stylesheet =
       native_stylesheet ~opts ~include_base all_classes
     in
-    print_string (render_css ~opts stylesheet);
+    emit ~opts (render_css ~opts stylesheet);
     print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
       ~known_count;
     `Ok 0
@@ -362,7 +379,7 @@ let process_files paths flag ~(opts : gen_opts) =
             ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
             (scanned_classes ~opts paths)
         in
-        print_string css;
+        emit ~opts css;
         `Ok 0
       with e ->
         `Error
@@ -392,8 +409,89 @@ let js_config_refusal ~backend ~input_css css_content =
                ]))
   | _ -> None
 
+(* With no path on the command line the sources are detected as Tailwind's CLI
+   detects them: from the working directory, from the directory the import's
+   [source("dir")] names relative to the stylesheet, or not at all under
+   [source(none)], which leaves what the [@source] directives name. *)
+let detected_roots ~input_css css_content =
+  match (input_css, css_content) with
+  | Some path, Some css -> (
+      match Entrypoint.source_root css with
+      | `None -> []
+      | `Detect -> [ Filename.current_dir_name ]
+      | `Dir dir when Filename.is_relative dir ->
+          [ Filename.concat (Filename.dirname path) dir ]
+      | `Dir dir -> [ dir ])
+  | _ -> [ Filename.current_dir_name ]
+
+(* Tailwind's CLI takes no path to scan, so a stylesheet named as one was meant
+   as the entrypoint; read as markup it holds no class. *)
+let stylesheet_refusal path =
+  Fmt.str
+    "%s is a stylesheet, not markup to scan; pass it with -i to use it as the \
+     entrypoint"
+    path
+
+let stylesheet_among paths =
+  List.find_opt
+    (fun path ->
+      Filename.check_suffix path ".css"
+      && Sys.file_exists path
+      && not (Sys.is_directory path))
+    paths
+
+(* What a build read, each file with what [stat] says of it, so a file that
+   changes, appears or goes makes a different stamp. *)
+let stamp files =
+  List.map
+    (fun file ->
+      match Unix.stat file with
+      | st -> (file, st.Unix.st_mtime, st.Unix.st_size)
+      | exception Unix.Unix_error _ -> (file, 0., -1))
+    files
+
+(* Whether standard input has closed, waiting up to [timeout] seconds for it to
+   say so. Whatever arrives on it is read and dropped. *)
+let stdin_closed timeout =
+  match Unix.select [ Unix.stdin ] [] [] timeout with
+  | [], _, _ -> false
+  | _ -> (
+      let buf = Bytes.create 4096 in
+      match Unix.read Unix.stdin buf 0 (Bytes.length buf) with
+      | 0 -> true
+      | _ -> false
+      | exception Unix.Unix_error (Unix.EINTR, _, _) -> false
+      | exception Unix.Unix_error _ -> true)
+  | exception Unix.Unix_error (Unix.EINTR, _, _) -> false
+  | exception Unix.Unix_error _ -> true
+
+let report_failure = function
+  | `Error (_, message) -> Fmt.epr "tw: %s@." message
+  | _ -> ()
+
+(* [--watch] rebuilds whenever what the build read changes, polling every
+   [interval] seconds, and stops once standard input closes unless it was asked
+   to watch always, as Tailwind's CLI does. A failed rebuild is reported and the
+   watch goes on. *)
+let rec watch ~always ~interval ~inputs ~build previous =
+  let closed =
+    if always then begin
+      Unix.sleepf interval;
+      false
+    end
+    else stdin_closed interval
+  in
+  if closed then `Ok 0
+  else
+    let current = stamp (inputs ()) in
+    if current <> previous then begin
+      report_failure (build ());
+      watch ~always ~interval ~inputs ~build current
+    end
+    else watch ~always ~interval ~inputs ~build previous
+
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
-    ~input_css ~diff_mode paths =
+    ~input_css ~output ~watching ~diff_mode paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
@@ -407,44 +505,61 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
   let resolved_minify = match backend with Diff -> true | _ -> minify in
   let resolved_optimize = optimize in
   (* Build the renderer theme from the project's CSS entrypoint (its @theme), so
-     a --diff over a real repo compares against the same tokens Tailwind
-     uses. *)
-  let css_content = Option.map Entrypoint.read_file input_css in
-  let theme =
-    match css_content with
-    | None -> Tw.Scheme.default
-    | Some css -> Entrypoint.theme_of_css css
+     a --diff over a real repo compares against the same tokens Tailwind uses.
+     It is read again for every build, so a watch sees an edit to it. *)
+  let load () =
+    let css_content = Option.map Entrypoint.read_file input_css in
+    let theme =
+      match css_content with
+      | None -> Tw.Scheme.default
+      | Some css -> Entrypoint.theme_of_css css
+    in
+    let opts : gen_opts =
+      {
+        minify = resolved_minify;
+        optimize = resolved_optimize;
+        quiet;
+        css_mode = resolved_css_mode;
+        backend;
+        theme;
+        input_css = css_content;
+        input_css_path = input_css;
+        diff_mode;
+        output;
+      }
+    in
+    let roots =
+      match paths with
+      | [] -> detected_roots ~input_css css_content
+      | paths -> paths
+    in
+    (opts, roots)
   in
-  let opts : gen_opts =
-    {
-      minify = resolved_minify;
-      optimize = resolved_optimize;
-      quiet;
-      css_mode = resolved_css_mode;
-      backend;
-      theme;
-      input_css = css_content;
-      input_css_path = input_css;
-      diff_mode;
-    }
+  let build () =
+    let opts, roots = load () in
+    match js_config_refusal ~backend ~input_css opts.input_css with
+    | Some message -> `Error (false, message)
+    | None -> (
+        match single_class with
+        | Some class_str -> process_single_class class_str base_flag ~opts
+        | None -> process_files roots base_flag ~opts)
   in
-  match js_config_refusal ~backend ~input_css css_content with
-  | Some message -> `Error (false, message)
-  | None -> (
-      match single_class with
-      | Some class_str -> process_single_class class_str base_flag ~opts
-      | None -> (
-          (* An entrypoint whose [@source] names paths says what to scan on its
-             own, as Tailwind's CLI takes it. *)
-          let names_sources =
-            match Option.map Entrypoint.source_paths css_content with
-            | Some (_ :: _, _) -> true
-            | _ -> false
-          in
-          match paths with
-          | [] when not names_sources ->
-              `Error (true, "Either provide -s <class> or file/directory paths")
-          | paths -> process_files paths base_flag ~opts))
+  match (stylesheet_among paths, watching) with
+  | Some path, _ -> `Error (false, stylesheet_refusal path)
+  | None, None -> build ()
+  | None, Some _ when backend <> Native || Option.is_some single_class ->
+      `Error
+        ( true,
+          "--watch rebuilds from sources and takes no -s, --tailwind or --diff"
+        )
+  | None, Some (always, interval) ->
+      let inputs () =
+        let opts, roots = load () in
+        Option.to_list input_css @ collect_files roots @ entrypoint_files ~opts
+      in
+      let before = stamp (inputs ()) in
+      report_failure (build ());
+      watch ~always ~interval ~inputs ~build before
 
 (* Command-line arguments *)
 let single_flag =
@@ -467,7 +582,7 @@ let base_flag =
 
 let minify_flag =
   let doc = "Minify the generated CSS output" in
-  Arg.(value & flag & info [ "minify" ] ~doc)
+  Arg.(value & flag & info [ "m"; "minify" ] ~doc)
 
 let optimize_flag =
   let doc =
@@ -478,14 +593,68 @@ let optimize_flag =
 
 let quiet_flag =
   let doc = "Suppress warnings about unknown classes" in
-  Arg.(value & flag & info [ "q"; "quiet" ] ~doc)
+  Arg.(value & flag & info [ "q"; "quiet"; "silent" ] ~doc)
 
 let input_css_arg =
   let doc =
-    "Project CSS entrypoint to feed to Tailwind during --diff. @theme blocks \
-     are also used to configure tw's renderer."
+    "The project's CSS entrypoint. Its @theme configures tw's renderer, its \
+     @source directives and source() option say what to scan, and --tailwind \
+     and --diff hand it to Tailwind."
   in
-  Arg.(value & opt (some file) None & info [ "input-css" ] ~docv:"CSS" ~doc)
+  Arg.(
+    value
+    & opt (some string) None
+    & info [ "i"; "input"; "input-css" ] ~docv:"CSS" ~doc)
+
+let output_arg =
+  let doc =
+    "Write the generated CSS to $(docv), creating its directory, rather than \
+     to standard output, which - also names."
+  in
+  Arg.(
+    value & opt (some string) None & info [ "o"; "output" ] ~docv:"FILE" ~doc)
+
+let watch_flag =
+  let doc =
+    "Rebuild whenever the entrypoint or a scanned file changes, until standard \
+     input closes; $(b,--watch=always) keeps watching after it closes."
+  in
+  Arg.(value & flag & info [ "w"; "watch" ] ~doc)
+
+(* [--watch=always] arrives here: an optional value on [--watch] itself would
+   take a path written after it as the value. *)
+let watch_always_flag =
+  Arg.(value & flag & info [ "watch-always" ] ~docs:Manpage.s_none)
+
+let poll_arg =
+  let doc =
+    "How often $(b,--watch) looks for changes, in milliseconds. tw always \
+     polls, every 250ms unless told otherwise."
+  in
+  Arg.(value & opt (some int) None & info [ "poll" ] ~docv:"MS" ~doc)
+
+(* Whether to watch, whether to go on after standard input closes, and how often
+   to look, in seconds. *)
+let watching_term =
+  let watching watch always poll =
+    match poll with
+    | Some ms when ms <= 0 ->
+        Error "--poll takes a positive number of milliseconds"
+    | _ when not (watch || always) -> Ok None
+    | _ ->
+        let ms = Option.value poll ~default:250 in
+        Ok (Some (always, float_of_int ms /. 1000.))
+  in
+  Term.(
+    term_result' ~usage:true
+      (const watching $ watch_flag $ watch_always_flag $ poll_arg))
+
+let cwd_arg =
+  let doc =
+    "Run from $(docv): the paths given are read against it, and sources are \
+     detected from it."
+  in
+  Arg.(value & opt (some dir) None & info [ "cwd" ] ~docv:"DIR" ~doc)
 
 let tailwind_flag =
   let doc_tailwind = "Use the real tailwindcss tool to generate CSS" in
@@ -514,6 +683,19 @@ let diff_mode_arg =
   Arg.(
     value & opt mode_conv `Canonical & info [ "diff-mode" ] ~docv:"MODE" ~doc)
 
+(* Which tool generates, and how a comparison reads the two sheets. *)
+let backend_term =
+  let backend tailwind diff diff_mode =
+    match (tailwind, diff) with
+    | true, true -> Error "--tailwind and --diff are mutually exclusive"
+    | _, true -> Ok (Diff, diff_mode)
+    | true, false -> Ok (Tailwind, `Canonical)
+    | false, false -> Ok (Native, `Canonical)
+  in
+  Term.(
+    term_result' ~usage:true
+      (const backend $ tailwind_flag $ diff_flag $ diff_mode_arg))
+
 let css_mode_vflag =
   let doc_inline = "Inline mode: resolve values (no variables), no layers." in
   let doc_vars = "Variables mode: emit CSS variables and layered output." in
@@ -527,7 +709,7 @@ let css_mode_vflag =
 
 let paths_arg =
   let doc = "Files or directories to scan for Tailwind classes" in
-  Arg.(value & pos_all file [] & info [] ~docv:"PATH" ~doc)
+  Arg.(value & pos_all string [] & info [] ~docv:"PATH" ~doc)
 
 let man =
   [
@@ -538,6 +720,10 @@ let man =
        default), or scan files/directories and generate a complete stylesheet \
        (with base styles by default).";
     `S Manpage.s_examples;
+    `P
+      "Build a project the way Tailwind's CLI does, detecting its sources from \
+       the working directory:";
+    `Pre "  tw -i src/app.css -o dist/app.css --watch";
     `P "Generate CSS for a single class (no Base layer by default):";
     `Pre "  tw -s bg-blue-500";
     `P "Generate CSS for a single class with the Base layer:";
@@ -564,6 +750,23 @@ let man =
     `P "https://tailwindcss.com";
   ]
 
+(* [--cwd] moves the process before any path is read, so the entrypoint, the
+   output and the paths are all read against it, as Tailwind's CLI reads [-i]
+   and [-o]. *)
+let run ~minify ~optimize ~quiet s b css_m (backend, diff_mode) input_css output
+    watching cwd paths =
+  Option.iter Sys.chdir cwd;
+  let missing =
+    List.find_opt
+      (fun path -> not (Sys.file_exists path))
+      (Option.to_list input_css @ paths)
+  in
+  match missing with
+  | Some path -> `Error (true, Fmt.str "no '%s' file or directory" path)
+  | None ->
+      tw_main s b ~css_mode:css_m ~minify ~optimize ~quiet ~backend ~diff_mode
+        ~input_css ~output ~watching paths
+
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
   let exits =
@@ -577,32 +780,28 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b css_m m o q tailwind diff diff_mode input_css paths ->
-             if tailwind && diff then
-               `Error (true, "--tailwind and --diff are mutually exclusive")
-             else
-               let backend, diff_mode =
-                 if diff then (Diff, diff_mode)
-                 else
-                   let backend = if tailwind then Tailwind else Native in
-                   (backend, `Canonical)
-               in
-               tw_main s b ~css_mode:css_m ~minify:m ~optimize:o ~quiet:q
-                 ~backend ~diff_mode ~input_css paths)
+        (const (fun s b css_m m o q ->
+             run ~minify:m ~optimize:o ~quiet:q s b css_m)
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
-        $ quiet_flag $ tailwind_flag $ diff_flag $ diff_mode_arg $ input_css_arg
-        $ paths_arg))
+        $ quiet_flag $ backend_term $ input_css_arg $ output_arg $ watching_term
+        $ cwd_arg $ paths_arg))
 
+(* Spellings cmdliner has no form for: [--diff=MODE], Tailwind's
+   [--watch=always] (or [--watch always]) and a bare [--poll]. *)
 let normalize_argv argv =
-  argv |> Array.to_list
-  |> List.concat_map (fun arg ->
-      let prefix = "--diff=" in
-      let prefix_len = String.length prefix in
-      if String.length arg > prefix_len && String.sub arg 0 prefix_len = prefix
-      then
-        let mode = String.sub arg prefix_len (String.length arg - prefix_len) in
-        [ "--diff"; "--diff-mode=" ^ mode ]
-      else [ arg ])
-  |> Array.of_list
+  let rec go = function
+    | [] -> []
+    | ("-w" | "--watch") :: "always" :: rest
+    | ("-w=always" | "--watch=always") :: rest ->
+        "--watch" :: "--watch-always" :: go rest
+    | "--poll" :: ms :: rest when Option.is_some (int_of_string_opt ms) ->
+        ("--poll=" ^ ms) :: go rest
+    | "--poll" :: rest -> "--poll=250" :: go rest
+    | arg :: rest when String.starts_with ~prefix:"--diff=" arg ->
+        let mode = String.sub arg 7 (String.length arg - 7) in
+        "--diff" :: ("--diff-mode=" ^ mode) :: go rest
+    | arg :: rest -> arg :: go rest
+  in
+  Array.of_list (go (Array.to_list argv))
 
 let () = exit (Cmd.eval' ~argv:(normalize_argv Sys.argv) cmd)

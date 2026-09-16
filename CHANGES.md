@@ -690,6 +690,11 @@
 
 ### Parity and packaging
 
+- `tw` takes the Tailwind CLI's flags, so `tw -i src/app.css -o dist/app.css
+  --watch` runs where `tailwindcss` did: `-i`, `-o`, `-m`, `-w`, `--poll`,
+  `--cwd` and `--silent`. With no path given, sources are detected from the
+  working directory as the import's `source()` says, and a `.css` path to scan
+  is refused rather than read as markup (#837).
 - `tw --diff` exits 1 when the two sheets differ and 2 when it cannot read one
   of them, so a CI job can gate on it. It printed the differences and exited 0
   (#810).

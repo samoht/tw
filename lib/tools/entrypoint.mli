@@ -63,6 +63,12 @@ val source_paths : string -> string list * string list
     stylesheet and may be a glob; the [inline()] forms are {!source_inline}'s.
 *)
 
+val source_root : string -> [ `Detect | `None | `Dir of string ]
+(** [source_root css] is where the automatic source detection of [css] starts:
+    [`None] when its [\@import] (or [\@tailwind utilities]) says [source(none)],
+    [`Dir dir] when it says [source("dir")], a path relative to the stylesheet,
+    and [`Detect] otherwise, which starts at the working directory. *)
+
 val source_inline : string -> string list * string list
 (** [source_inline css] is the candidates the [@source inline("...")] directives
     of [css] safelist, and those its [@source not inline("...")] directives

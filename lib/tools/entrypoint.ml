@@ -421,6 +421,28 @@ let source_paths css =
          | Some path -> (included @ [ path ], excluded))
        ([], [])
 
+(* [@import "tailwindcss" source(none)] turns automatic source detection off,
+   and [source("../src")] moves where it starts. The option sits inside the
+   import statement, or inside [@tailwind utilities] for a sheet importing the
+   parts. *)
+let source_root css =
+  let index = Index.v css in
+  let sources = Index.calls index ~name:"source" in
+  let option (at, (statement : Index.statement)) =
+    List.find_map
+      (fun (i, (block : Index.block)) ->
+        if at < i && i < statement.next then
+          match String.trim block.body with
+          | "none" -> Some `None
+          | body -> Option.map (fun dir -> `Dir dir) (quoted_contents body)
+        else None)
+      sources
+  in
+  Index.at_statements index ~name:"@import"
+  @ Index.at_statements index ~name:"@tailwind"
+  |> List.find_map option
+  |> Option.value ~default:`Detect
+
 (* [@import "tailwindcss" important] marks every utility declaration
    [!important]. The option is a bare word in the import's prelude rather than a
    call, so it is read off the prelude's top-level words. *)
