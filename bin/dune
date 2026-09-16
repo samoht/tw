@@ -1,4 +1,14 @@
 (executable
  (public_name tw)
  (name main)
- (libraries tw tw.info cascade cascade.diff tw_tools cmdliner fmt re unix))
+ (libraries
+  tw
+  tw.info
+  cascade
+  cascade.diff
+  cascade.browser
+  tw_tools
+  cmdliner
+  fmt
+  re
+  unix))

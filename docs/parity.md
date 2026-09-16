@@ -234,21 +234,26 @@ dune exec -- tw --single="hover:bg-blue-600" --diff
 Use `--single=` rather than `-s` for a class that starts with `-` or contains
 spaces.
 
-An entry either report lists is settled in the browser. Build both sheets for
-the classes involved, put the classes on a page, and render the two over it:
+An entry either report lists is settled in the browser. Put the classes
+involved on a page and hand it to `--diff`, which compiles both sheets the way
+it always does and renders the two over the page after the canonical report:
 
 <!-- $MDX skip -->
 ```sh
 mkdir -p tmp
-dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --variables --base > tmp/tw.css
-dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --tailwind > tmp/tailwind.css
 echo '<div class="bg-blue-500 hover:bg-blue-600">x</div>' > tmp/page.html
-dune exec -- cascade diff --browser --html tmp/page.html tmp/tw.css tmp/tailwind.css
+dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --diff --html tmp/page.html
 ```
 
-It samples every viewport width and interaction state either sheet names, and
-exits 0 when nothing differs, 1 with the computed values that do, and 2 when
-no browser ran or nothing was sampled. A difference marked as painting the
+The same works with an entrypoint, `tw --input-css app.css page.html --diff
+--html page.html`, where the page is both the source scanned and the document
+rendered. The page has to carry every class compared: one it lacks is refused
+rather than compared on no element. With the two sheets already on
+disk, `cascade diff --browser --html tmp/page.html tmp/tw.css tmp/tailwind.css`
+is the same comparison. It samples every viewport width and interaction state
+either sheet names, and exits 0 when neither report finds a difference, 1 when
+one does, and 2 when no browser ran, nothing was sampled or a sheet could not
+be read. A difference marked as painting the
 same is a precision question for cascade. An entry the canonical diff listed
 that renders the same is an over-report to cut down and file in cascade. The
 page decides what the answer covers: a `group-hover:` or `peer-` class needs

@@ -693,6 +693,8 @@
 
 ### Parity and packaging
 
+- `tw --diff --html PAGE` also renders both stylesheets over `PAGE` in a
+  headless Chromium and lists every computed style they disagree on (#841).
 - `tw` takes the Tailwind CLI's flags, so `tw -i src/app.css -o dist/app.css
   --watch` runs where `tailwindcss` did: `-i`, `-o`, `-m`, `-w`, `--poll`,
   `--cwd` and `--silent`. With no path given, sources are detected from the

@@ -79,6 +79,8 @@ type gen_opts = {
           it. *)
   output : string option;
       (** The file [-o] names, or standard output for [None] and ["-"]. *)
+  html : string option;
+      (** The document [--diff --html] renders both sheets over. *)
 }
 
 let eval_flag flag ~default =
@@ -208,30 +210,83 @@ let single_class_sheet ~(opts : gen_opts) ~base class_str =
       in
       if count = 0 && class_str <> "" then None else Some sheet
 
+(* A class the document does not carry is refused before either sheet is
+   compiled: the browser would compare it on no element. *)
+let uncovered_refusal ~(opts : gen_opts) classes =
+  match opts.html with
+  | None -> None
+  | Some path -> (
+      let html = Entrypoint.read_file path in
+      match Tw_tools.Parity_compare.uncovered ~html classes with
+      | [] -> None
+      | missing ->
+          Some
+            (String.concat ""
+               [
+                 "no element of ";
+                 path;
+                 " carries ";
+                 String.concat ", " missing;
+                 ", so the browser would compare nothing for it";
+               ]))
+
+(* The browser half of [--diff --html]: both sheets rendered over the document,
+   reported after the canonical comparison. It runs whatever the canonical
+   comparison said, so machinery the two sheets share cannot hide a difference
+   from it. *)
+let browser_verdict ~(opts : gen_opts) ~classes ~tailwind ~tw =
+  match opts.html with
+  | None -> 0
+  | Some path -> (
+      let html = Entrypoint.read_file path in
+      match Tw_tools.Parity_compare.browser ~html ~classes ~tailwind ~tw with
+      | Error reason ->
+          Fmt.epr "Error: %s@." reason;
+          2
+      | Ok report ->
+          print_string
+            (Browser_compare.to_string ~first:"Tailwind" ~second:"tw" ~html:path
+               report);
+          if report.differences = [] then 0 else 1)
+
 let diff_single_class class_str ~(opts : gen_opts) =
-  try
-    let legacy_css =
-      Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
-        ~forms:true ?input_css:opts.input_css [ class_str ]
-    in
-    match single_class_sheet ~opts ~base:true class_str with
-    | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
-    | Some stylesheet ->
-        let our_css = render_css ~opts stylesheet in
-        let diff =
-          Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
+  let classes = Tw_tools.Source_scan.split_whitespace class_str in
+  match uncovered_refusal ~opts classes with
+  | Some reason ->
+      Fmt.epr "Error: %s@." reason;
+      `Ok 2
+  | None -> (
+      try
+        let legacy_css =
+          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
+            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            [ class_str ]
         in
-        let code =
-          if class_str = "" then print_diff_result " (empty/base only)" diff
-          else (
-            print_oracle_note [ class_str ];
-            print_diff_result
-              (Fmt.str " between Tailwind and tw for '%s'" class_str)
-              diff)
-        in
-        `Ok code
-  with e ->
-    `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
+        match single_class_sheet ~opts ~base:true class_str with
+        | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
+        | Some stylesheet ->
+            let our_css = render_css ~opts stylesheet in
+            let diff =
+              Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css
+                our_css
+            in
+            let code =
+              if class_str = "" then print_diff_result " (empty/base only)" diff
+              else (
+                print_oracle_note [ class_str ];
+                print_diff_result
+                  (Fmt.str " between Tailwind and tw for '%s'" class_str)
+                  diff)
+            in
+            (* The exit statuses rank by gravity, so the graver of the two
+               wins. *)
+            `Ok
+              (max code
+                 (browser_verdict ~opts ~classes ~tailwind:legacy_css
+                    ~tw:our_css))
+      with e ->
+        `Error
+          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
 
 let process_single_class class_str flag ~(opts : gen_opts) =
   match opts.backend with
@@ -338,23 +393,40 @@ let native_stylesheet ~(opts : gen_opts) ~include_base all_classes =
     ~base:include_base all_classes
 
 let diff_files paths ~(opts : gen_opts) =
-  try
-    let all_classes = scanned_classes ~opts paths in
-    let legacy_css =
-      Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
-        ~forms:true ?input_css:opts.input_css all_classes
-    in
-    let _, stylesheet =
-      native_stylesheet ~opts ~include_base:true all_classes
-    in
-    let our_css = render_css ~opts stylesheet in
-    let diff =
-      Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
-    in
-    print_oracle_note all_classes;
-    `Ok (print_diff_result "" diff)
-  with e ->
-    `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
+  let all_classes = scanned_classes ~opts paths in
+  (* Only a candidate that names a utility is a class the document has to carry:
+     scanning sources reads every word that could be one. *)
+  let classes =
+    List.filter
+      (fun cls -> Result.is_ok (Tw.of_string ~theme:opts.theme cls))
+      all_classes
+  in
+  match uncovered_refusal ~opts classes with
+  | Some reason ->
+      Fmt.epr "Error: %s@." reason;
+      `Ok 2
+  | None -> (
+      try
+        let legacy_css =
+          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
+            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            all_classes
+        in
+        let _, stylesheet =
+          native_stylesheet ~opts ~include_base:true all_classes
+        in
+        let our_css = render_css ~opts stylesheet in
+        let diff =
+          Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
+        in
+        print_oracle_note all_classes;
+        let code = print_diff_result "" diff in
+        `Ok
+          (max code
+             (browser_verdict ~opts ~classes ~tailwind:legacy_css ~tw:our_css))
+      with e ->
+        `Error
+          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
@@ -491,7 +563,7 @@ let rec watch ~always ~interval ~inputs ~build previous =
     else watch ~always ~interval ~inputs ~build previous
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
-    ~input_css ~output ~watching ~diff_mode paths =
+    ~input_css ~output ~watching ~diff_mode ~html paths =
   (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
@@ -526,6 +598,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
         input_css_path = input_css;
         diff_mode;
         output;
+        html;
       }
     in
     let roots =
@@ -684,17 +757,29 @@ let diff_mode_arg =
     value & opt mode_conv `Canonical & info [ "diff-mode" ] ~docv:"MODE" ~doc)
 
 (* Which tool generates, and how a comparison reads the two sheets. *)
+let html_arg =
+  let doc =
+    "With $(b,--diff), also render Tailwind's sheet and tw's over the HTML \
+     document $(docv) in a headless Chromium and report every computed-style \
+     value they disagree on, whatever the canonical comparison says. Every \
+     class compared must appear in $(docv). Needs node and a headless \
+     Chromium, and exits 2 without them."
+  in
+  Arg.(value & opt (some file) None & info [ "html" ] ~docv:"FILE" ~doc)
+
 let backend_term =
-  let backend tailwind diff diff_mode =
-    match (tailwind, diff) with
-    | true, true -> Error "--tailwind and --diff are mutually exclusive"
-    | _, true -> Ok (Diff, diff_mode)
-    | true, false -> Ok (Tailwind, `Canonical)
-    | false, false -> Ok (Native, `Canonical)
+  let backend tailwind diff diff_mode html =
+    match (tailwind, diff, html) with
+    | true, true, _ -> Error "--tailwind and --diff are mutually exclusive"
+    | _, false, Some _ ->
+        Error "--html renders the two sheets --diff compares; it needs --diff"
+    | _, true, html -> Ok (Diff, diff_mode, html)
+    | true, false, None -> Ok (Tailwind, `Canonical, None)
+    | false, false, None -> Ok (Native, `Canonical, None)
   in
   Term.(
     term_result' ~usage:true
-      (const backend $ tailwind_flag $ diff_flag $ diff_mode_arg))
+      (const backend $ tailwind_flag $ diff_flag $ diff_mode_arg $ html_arg))
 
 let css_mode_vflag =
   let doc_inline = "Inline mode: resolve values (no variables), no layers." in
@@ -753,8 +838,8 @@ let man =
 (* [--cwd] moves the process before any path is read, so the entrypoint, the
    output and the paths are all read against it, as Tailwind's CLI reads [-i]
    and [-o]. *)
-let run ~minify ~optimize ~quiet s b css_m (backend, diff_mode) input_css output
-    watching cwd paths =
+let run ~minify ~optimize ~quiet s b css_m (backend, diff_mode, html) input_css
+    output watching cwd paths =
   Option.iter Sys.chdir cwd;
   let missing =
     List.find_opt
@@ -765,7 +850,7 @@ let run ~minify ~optimize ~quiet s b css_m (backend, diff_mode) input_css output
   | Some path -> `Error (true, Fmt.str "no '%s' file or directory" path)
   | None ->
       tw_main s b ~css_mode:css_m ~minify ~optimize ~quiet ~backend ~diff_mode
-        ~input_css ~output ~watching paths
+        ~html ~input_css ~output ~watching paths
 
 let cmd =
   let doc = "A Tailwind CSS-like utility class generator for OCaml" in
