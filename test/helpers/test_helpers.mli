@@ -284,6 +284,10 @@ val render_elements : string list -> string list
     renders: each class on its own, then one element per {!interacting_pairs}
     pair, duplicates dropped and first occurrence kept. *)
 
+val escape_attribute : string -> string
+(** [escape_attribute s] is [s] as the text of a double-quoted HTML attribute,
+    so a class carrying a quote or an angle bracket stays one value. *)
+
 val render_page : ?inner:string -> string list -> string
 (** [render_page ?inner elements] is the HTML document the browser comparison
     renders: one [div] per entry of [elements], carrying that entry as its class

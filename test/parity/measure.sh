@@ -23,6 +23,15 @@
 # Both binaries come from the workspace build, never from PATH: an installed
 # `cascade` can be months old and invents differences that do not exist. The
 # `dune build` below is what keeps that from happening silently.
+#
+# TW_PARITY_RENDER="FIRST COUNT" also renders the COUNT classes from index FIRST
+# of classlist.txt in a headless Chromium, under both sheets, and prints the
+# browser's report after the canonical one. The page comes from site_page.exe,
+# and both sheets are pruned to it first with `cascade prune`: a rule no element
+# of the page matches cannot change what the page computes, and without the
+# pruning every width and state the whole sheet names is sampled on every
+# element. A shard of 50 classes takes minutes, so the whole list is rendered by
+# hand, shard by shard, and not in CI.
 
 set -e
 
@@ -32,7 +41,8 @@ out=${TW_PARITY_OUT:-$root/tmp/parity}
 export LC_ALL=C
 
 mkdir -p "$out"
-dune build --root "$root" bin/main.exe cascade/bin/main.exe
+dune build --root "$root" bin/main.exe cascade/bin/main.exe \
+  test/parity/site_page.exe
 
 "$root"/node_modules/.bin/tailwindcss \
   -i "$here"/ref-entry.css -o "$out"/ref.css
@@ -88,3 +98,27 @@ cat "$out"/diff.txt
 echo
 echo "top-level entries of $out/diff.txt:"
 grep -nE "^├─|^└─" "$out"/diff.txt || echo "  (none)"
+
+[ -n "${TW_PARITY_RENDER:-}" ] || exit 0
+
+# shellcheck disable=SC2086 # FIRST and COUNT are two words on purpose.
+set -- $TW_PARITY_RENDER
+cascade="$root"/_build/default/cascade/bin/main.exe
+"$root"/_build/default/test/parity/site_page.exe "$here"/classlist.txt "$1" "$2" \
+  > "$out"/page.html
+"$cascade" prune "$out"/page.html "$out"/tw_all.css > "$out"/tw_page.css \
+  2> "$out"/prune.txt
+"$cascade" prune "$out"/page.html "$out"/ref.css > "$out"/ref_page.css \
+  2>> "$out"/prune.txt
+
+echo
+echo "browser render of classes $1 to $(($1 + $2 - 1)):"
+render=0
+"$cascade" diff --browser --html "$out"/page.html \
+  "$out"/ref_page.css "$out"/tw_page.css > "$out"/render.txt 2>&1 || render=$?
+cat "$out"/render.txt
+# 1 is a measurement, the differences it lists; anything else is no render.
+if [ "$render" -gt 1 ]; then
+  echo "the browser render failed with status $render" >&2
+  exit "$render"
+fi

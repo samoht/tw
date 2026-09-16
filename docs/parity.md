@@ -104,24 +104,41 @@ failure.
 ## The site comparison
 
 The comparison against tailwindcss.com finds most real bugs, because it
-exercises class combinations no fixture covers. It runs the canonical diff
-alone, because its inputs are a class list with no page for a browser to
-render. Its report is a list of candidates, each settled in the browser as
-[Reading a failure](#reading-a-failure) shows. The inputs are committed under
-`test/parity/`, so anyone can re-derive the number:
+exercises class combinations no fixture covers. Its inputs are a class list
+rather than the site's pages, so it runs the canonical diff over the whole
+list, and renders a page built from the list in the browser shard by shard.
+The inputs are committed under `test/parity/`, so anyone can re-derive the
+number:
 
 <!-- $MDX skip -->
 ```sh
 sh test/parity/measure.sh
+TW_PARITY_RENDER="0 50" sh test/parity/measure.sh
 ```
 
-That takes about 17 seconds on a warm build: a fifth of a second in Tailwind,
-three seconds in tw, the rest in the differ. It writes the compiled reference
-`ref.css`, the minified one `ref_local.css`, `tw_all.css` and `diff.txt` under
-`tmp/parity`, prints the two minified sizes and fails when tw's is the larger,
-then prints the diff followed by its top-level entries. The report is not
-wired into `dune runtest`; the order gate above, which reads the same inputs,
-is.
+The first takes about 17 seconds on a warm build: a fifth of a second in
+Tailwind, three seconds in tw, the rest in the differ. It writes the compiled
+reference `ref.css`, the minified one `ref_local.css`, `tw_all.css` and
+`diff.txt` under `tmp/parity`, prints the two minified sizes and fails when
+tw's is the larger, then prints the diff followed by its top-level entries.
+The report is not wired into `dune runtest`; the order gate above, which reads
+the same inputs, is.
+
+The second also renders the 50 classes from index 0, in the order of
+`classlist.txt`, and prints the browser's report after the canonical one.
+`site_page.exe` puts each class on an element of its own, inside a wrapper
+carrying every `group` name the list uses and after a sibling carrying every
+`peer` name, with children for a class whose variants read descendants, so
+`group-*`, `peer-*`, `has-*`, `in-*` and `*:` have the markup they read. A
+variant testing an attribute or a class on an ancestor (`group-data-[checked]:`,
+`in-[.dark]:`) matches on neither side, so the render covers it unmatched only,
+and no element carries two classes: the order a pair would expose is the order
+gate's. Both sheets are pruned to the page with `cascade prune` before the
+render, since a rule no element matches cannot change what the page computes.
+Unpruned, every width and state the whole sheet names is sampled on every
+element, and a 50-class shard did not finish in ten minutes on 2026-09-16;
+pruned, it took 218 seconds on a machine at load 100 to 200. The list is 97
+shards of that size, so the render runs by hand and not in CI.
 
 The inputs are:
 
