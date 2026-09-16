@@ -499,6 +499,21 @@ let has_forms_class classnames =
     (fun cls -> String.length cls >= 5 && String.sub cls 0 5 = "form-")
     classnames
 
+(* What the CLI said is the reason a generation failed; the class list only says
+   what was asked of it. *)
+let failure_message ~errors classnames =
+  let said =
+    try String.trim (In_channel.with_open_bin errors In_channel.input_all)
+    with Sys_error _ -> ""
+  in
+  String.concat ""
+    [
+      "Failed to generate Tailwind CSS";
+      (if said = "" then "" else ": " ^ said);
+      "\nfor classes: ";
+      String.concat " " classnames;
+    ]
+
 let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
   check_tailwindcss_available ();
 
@@ -531,12 +546,13 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
        no rooting at all, but a caller-supplied project entrypoint carries its
        own source decisions and may well leave detection on, and this is what
        keeps it off whatever directory the calling binary stands in. *)
+    let errors = Filename.concat dir "stderr.txt" in
     let cmd =
-      Fmt.str "%s --cwd %s -i %s -o %s%s%s 2>/dev/null" tailwind_cmd
+      Fmt.str "%s --cwd %s -i %s -o %s%s%s 2>%s" tailwind_cmd
         (Filename.quote dir)
         (Filename.quote (Filename.concat dir "input.css"))
         (Filename.quote output_file)
-        minify_flag optimize_flag
+        minify_flag optimize_flag (Filename.quote errors)
     in
 
     let exit_code = Sys.command cmd in
@@ -549,11 +565,10 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
       close_in ic;
       cleanup ();
       content)
-    else (
+    else
+      let message = failure_message ~errors classnames in
       cleanup ();
-      failwith
-        ("Failed to generate Tailwind CSS for classes: "
-        ^ String.concat " " classnames))
+      failwith message
   with e ->
     cleanup ();
     raise e

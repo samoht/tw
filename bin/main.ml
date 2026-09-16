@@ -83,6 +83,19 @@ type gen_opts = {
       (** The document [--diff --html] renders both sheets over. *)
 }
 
+(* The entrypoint the Tailwind reference compiles. It is written into a scratch
+   directory, so its relative paths are rooted where the entrypoint sits. *)
+let reference_entrypoint ~(opts : gen_opts) =
+  match (opts.input_css_path, opts.input_css) with
+  | Some path, Some css ->
+      let dir = Filename.dirname path in
+      let dir =
+        if Filename.is_relative dir then Filename.concat (Sys.getcwd ()) dir
+        else dir
+      in
+      Some (Entrypoint.rooted ~dir css)
+  | _, css -> css
+
 let eval_flag flag ~default =
   match flag with `Enable -> true | `Disable -> false | `Default -> default
 
@@ -259,7 +272,8 @@ let diff_single_class class_str ~(opts : gen_opts) =
       try
         let legacy_css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            ~optimize:opts.optimize ~forms:true
+            ?input_css:(reference_entrypoint ~opts)
             [ class_str ]
         in
         match single_class_sheet ~opts ~base:true class_str with
@@ -295,7 +309,8 @@ let process_single_class class_str flag ~(opts : gen_opts) =
       try
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            ~optimize:opts.optimize ~forms:true
+            ?input_css:(reference_entrypoint ~opts)
             [ class_str ]
         in
         emit ~opts css;
@@ -409,7 +424,8 @@ let diff_files paths ~(opts : gen_opts) =
       try
         let legacy_css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            ~optimize:opts.optimize ~forms:true
+            ?input_css:(reference_entrypoint ~opts)
             all_classes
         in
         let _, stylesheet =
@@ -448,7 +464,8 @@ let process_files paths flag ~(opts : gen_opts) =
       try
         let css =
           Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true ?input_css:opts.input_css
+            ~optimize:opts.optimize ~forms:true
+            ?input_css:(reference_entrypoint ~opts)
             (scanned_classes ~opts paths)
         in
         emit ~opts css;

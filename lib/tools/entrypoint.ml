@@ -421,6 +421,66 @@ let source_paths css =
          | Some path -> (included @ [ path ], excluded))
        ([], [])
 
+(* The directives whose argument is a path the CLI resolves against the
+   stylesheet. [@source not "../x"] names one too; [@source inline("...")] names
+   candidates, not a path. *)
+let path_directives =
+  [ "@import"; "@source"; "@plugin"; "@config"; "@reference" ]
+
+let is_relative_path path =
+  String.starts_with ~prefix:"./" path || String.starts_with ~prefix:"../" path
+
+(* Where the quoted path of the directive at [at] opens and closes, when what
+   stands before the quote is blank or, for [@source], the [not] keyword. *)
+let quoted_path_span css ~name ~at ~next =
+  let len = String.length css in
+  let blank c = c = ' ' || c = '\t' || c = '\n' || c = '\r' in
+  let rec skip_blank i =
+    if i < next && blank css.[i] then skip_blank (i + 1) else i
+  in
+  let i = skip_blank (at + String.length name) in
+  let i =
+    if
+      String.equal name "@source"
+      && i + 3 < len
+      && String.sub css i 3 = "not"
+      && blank css.[i + 3]
+    then skip_blank (i + 3)
+    else i
+  in
+  if i < next && (css.[i] = '"' || css.[i] = '\'') then
+    match String.index_from_opt css (i + 1) css.[i] with
+    | Some close when close < next -> Some (i + 1, close)
+    | _ -> None
+  else None
+
+let rooted ~dir css =
+  let index = Index.v css in
+  let spans =
+    List.concat_map
+      (fun name ->
+        Index.at_statements index ~name
+        |> List.filter_map (fun (at, (statement : Index.statement)) ->
+            match quoted_path_span css ~name ~at ~next:statement.next with
+            | Some (start, stop) ->
+                let path = String.sub css start (stop - start) in
+                if is_relative_path path then Some (start, stop, path) else None
+            | None -> None))
+      path_directives
+    |> List.sort (fun (a, _, _) (b, _, _) -> Int.compare a b)
+  in
+  let buf = Buffer.create (String.length css) in
+  let last =
+    List.fold_left
+      (fun pos (start, stop, path) ->
+        Buffer.add_string buf (String.sub css pos (start - pos));
+        Buffer.add_string buf (Filename.concat dir path);
+        stop)
+      0 spans
+  in
+  Buffer.add_string buf (String.sub css last (String.length css - last));
+  Buffer.contents buf
+
 (* [@import "tailwindcss" source(none)] turns automatic source detection off,
    and [source("../src")] moves where it starts. The option sits inside the
    import statement, or inside [@tailwind utilities] for a sheet importing the

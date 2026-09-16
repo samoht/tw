@@ -69,6 +69,14 @@ val source_root : string -> [ `Detect | `None | `Dir of string ]
     [`Dir dir] when it says [source("dir")], a path relative to the stylesheet,
     and [`Detect] otherwise, which starts at the working directory. *)
 
+val rooted : dir:string -> string -> string
+(** [rooted ~dir css] is [css] with the relative path of each [\@import],
+    [\@source], [\@plugin], [\@config] and [\@reference] resolved against [dir],
+    the directory [css] was read from, so the text compiles from another
+    directory. A path is relative when it starts [./] or [../]; a package name
+    such as [tailwindcss] is left as written, and so is an
+    [\@source inline(...)] argument, which names candidates. *)
+
 val source_inline : string -> string list * string list
 (** [source_inline css] is the candidates the [@source inline("...")] directives
     of [css] safelist, and those its [@source not inline("...")] directives
