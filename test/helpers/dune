@@ -1,3 +1,12 @@
 (library
  (name test_helpers)
- (libraries tw tw_tools alcotest astring fmt re cascade cascade.diff))
+ (libraries
+  tw
+  tw_tools
+  alcotest
+  astring
+  fmt
+  re
+  cascade
+  cascade.diff
+  cascade.browser))

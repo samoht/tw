@@ -284,25 +284,42 @@ val render_elements : string list -> string list
     renders: each class on its own, then one element per {!interacting_pairs}
     pair, duplicates dropped and first occurrence kept. *)
 
+val render_page : ?inner:string -> string list -> string
+(** [render_page ?inner elements] is the HTML document the browser comparison
+    renders: one [div] per entry of [elements], carrying that entry as its class
+    attribute and [inner] as its content. *)
+
+val rendering_report :
+  ?inner:string ->
+  test_name:string ->
+  elements:string list ->
+  tailwind:string ->
+  tw:string ->
+  unit ->
+  Browser_compare.t
+(** [rendering_report ?inner ~test_name ~elements ~tailwind ~tw ()] renders
+    {!render_page} under [tailwind] and under [tw] with cascade's
+    {!Browser_compare.run}, and is every computed-style value the two disagree
+    on. The sheets are loaded as written. Every element and its pseudo-elements
+    are sampled at every viewport width a media condition in either sheet names,
+    and under every interaction state either sheet names, applied to every
+    element at once. Skips when node or a headless Chromium is absent and fails
+    there under [TW_BROWSER_TESTS=1]; [TW_BROWSER_TESTS=0] opts out. With both
+    present, a run that samples nothing fails. The page and the two sheets are
+    kept under [tmp/browser/]. *)
+
 val check_rendering_matches :
   ?forms:bool -> ?inner:string -> test_name:string -> Tw.t list -> unit
-(** [check_rendering_matches ?forms ?inner ~test_name utilities] renders both
-    sheets in headless Chromium and fails on any computed style that differs.
-    Each class gets an element of its own, plus one per {!interacting_pairs}
-    pair, which is where an ordering difference shows. Fails too when an element
-    does not carry the classes it was given, since then the comparison is
-    vacuous. Skips when node or Playwright is absent; [TW_BROWSER_TESTS=0] opts
-    out where they are present.
+(** [check_rendering_matches ?forms ?inner ~test_name utilities] fails on any
+    computed style that differs between Tailwind's sheet for [utilities] and
+    tw's, as {!rendering_report} measures it, including a value that paints the
+    same. Each class gets an element of its own, plus one per
+    {!interacting_pairs} pair, which is where an ordering difference shows.
 
     [inner] is markup put inside every element built, and every descendant of it
     is compared too. Without it the elements are bare, so a rule that only
     matches a child - which is most of what [@tailwindcss/typography] emits -
-    has nothing to match and the comparison passes without reading it.
-
-    Every node is read four times: itself, then its [::before], [::after] and
-    [::marker]. A rule on a pseudo-element leaves the element's own computed
-    style untouched, so prose's list bullets and everything the [before:] and
-    [after:] variants write are invisible without it. *)
+    has nothing to match and the comparison passes without reading it. *)
 
 (** {1 CSS Test Helpers} *)
 

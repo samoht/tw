@@ -53,18 +53,19 @@ All four run under `dune runtest`.
 
 **Rendering, `check_rendering_matches`.** Nine suites render their classes in
 headless Chromium under tw's sheet and Tailwind's, and compare every computed
-property and which custom properties each element carries. Each class gets an
-element of its own. A pair that writes a common property, or whose order
-cascade cannot prove neutral, gets one more element carrying both, because an
-ordering difference shows only there. The page
-is sampled at 1280x800, as it loads and under seven states forced through the
-DevTools protocol, on every element with its `::before`, `::after` and
-`::marker`. The comparison is exact, and both sheets are printed through
-cascade before loading, so a declaration cascade's reader drops is missing
-from both pages. The check predates `cascade diff --browser` and runs its own
-Playwright harness, `test/helpers/browser/compare.js`. It skips without node,
-Playwright and Chromium, and `TW_BROWSER_TESTS=1`, which CI sets, turns the
-skip into a failure.
+property. Each class gets an element of its own. A pair that writes a common
+property, or whose order cascade cannot prove neutral, gets one more element
+carrying both, because an ordering difference shows only there. The page is
+rendered by cascade's `Browser_compare`, the runner behind `cascade diff
+--browser`, so the check and the manual verdict below are one oracle: every
+element and its pseudo-elements are sampled at every viewport width a media
+condition in either sheet names, and under every interaction state either sheet
+names, applied to every element at once. The sheets load as written, so no
+cascade printer stands between them and the browser, and every computed value
+that differs fails, a value that paints the same included. It skips without
+node and a headless Chromium, and `TW_BROWSER_TESTS=1`, which CI sets, turns
+the skip into a failure. The page and both sheets of each run stay under
+`tmp/browser/`.
 
 **Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt` are
 Tailwind's own test corpus, extracted from the v4.3.3 tag: a class list and the

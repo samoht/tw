@@ -10,6 +10,7 @@
   tw_tools
   cascade
   cascade.diff
+  cascade.browser
   test_helpers
   upstream_fixture)
  ; test_sort reads tw.ml's include list back to check that the fuzzer pool has
