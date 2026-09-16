@@ -1,3 +1,10 @@
+let span name = Probe.span name Probe.Fields.unit
+let with_span span f = Probe.with_span span () f
+let routed_blocks_span = span "tw.routed.blocks"
+let routed_nested_span = span "tw.routed.nested_to_css"
+let routed_expand_span = span "tw.routed.expand"
+let routed_parse_span = span "tw.routed.parse"
+
 module Css = Cascade.Css
 
 (* The patterns are literal, so they are compiled once here rather than per
@@ -2167,6 +2174,7 @@ let nested_utilities ~theme names =
   | [] -> ("", [])
   | styles ->
       let sheet =
+        with_span routed_nested_span @@ fun () ->
         Tw.to_css ~theme ~base:false ~forms:false ~layers:false styles
       in
       (* The class each utility carries in its own selector, spelled the way
@@ -3311,6 +3319,7 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let derived = Hashtbl.create 8 in
   let own_order = Hashtbl.create 8 in
   let blocks =
+    with_span routed_blocks_span @@ fun () ->
     List.filter_map
       (fun cls ->
         Option.map
@@ -3328,6 +3337,10 @@ let custom_routed_utilities ~theme ~defs ~udefs candidates =
          the [--spacing()]/[theme()] shorthands. Each block is expanded and read
          on its own so one unparseable body cannot take the others down. *)
       let expand = apply_variants ~extra_defs ~udefs ~theme in
-      parse_routed_blocks ~own_order
-        ~hoisted:(expand (Buffer.contents hoisted))
-        (List.map (fun (cls, block) -> (cls, expand block)) blocks)
+      let hoisted, blocks =
+        with_span routed_expand_span (fun () ->
+            ( expand (Buffer.contents hoisted),
+              List.map (fun (cls, block) -> (cls, expand block)) blocks ))
+      in
+      with_span routed_parse_span (fun () ->
+          parse_routed_blocks ~own_order ~hoisted blocks)

@@ -1019,6 +1019,7 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   in
   let referenced = referenced_var_names selector_props in
   let extracted =
+    Spans.with_ Spans.theme_extract @@ fun () ->
     extract_non_tw_custom_declarations selector_props
     |> List.filter_map (apply_token_override theme)
     |> List.filter (keep_extracted_theme_decl ~theme ~referenced)
@@ -1031,7 +1032,10 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
   let extracted =
     extracted @ derived_font_feature_decls ~theme ~have:(names_set_of extracted)
   in
-  let extracted = add_static_theme_decls ~theme extracted in
+  let extracted =
+    Spans.with_ Spans.theme_static (fun () ->
+        add_static_theme_decls ~theme extracted)
+  in
   let pre_defaults, post_defaults = split_defaults default_decls in
 
   (* Filter defaults to remove duplicates of extracted vars *)
@@ -1045,6 +1049,7 @@ let theme_layer_of_props ?(theme = Scheme.default) ?(layers = true)
 
   (* A project [@theme] override wins wherever the declaration came from: the
      built-in defaults carry the same token names as the extracted ones. *)
+  Spans.with_ Spans.theme_finish @@ fun () ->
   pre @ extracted @ post
   |> List.filter_map (apply_token_override theme)
   |> List.filter_map (resolve_default_family theme)
@@ -1634,10 +1639,14 @@ let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
     font_defaults @ transition_defaults
   in
   let theme_layer =
-    theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults ~metadata
-      selector_props
+    Spans.with_ Spans.theme_layer (fun () ->
+        theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults
+          ~metadata selector_props)
   in
-  let base_layer = base_layer ~supports:placeholder_supports ~forms_base () in
+  let base_layer =
+    Spans.with_ Spans.base_layer (fun () ->
+        base_layer ~supports:placeholder_supports ~forms_base ())
+  in
   let properties_layer, property_rules =
     if all_property_statements = [] then (None, [])
     else
@@ -1994,7 +2003,8 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
      re-parsing the class string while building/sorting rules. *)
   let order_map = Hashtbl.create 256 in
   let builtin_selector_props =
-    List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
+    Spans.with_ Spans.outputs (fun () ->
+        List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes)
   in
   let extra_outputs = declared_outputs ~theme order_map extra in
   normalize_declared_property_families order_map builtin_selector_props
@@ -2012,12 +2022,15 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     fun cls -> Hashtbl.mem names cls
   in
   let sorted_rules =
-    sorted_indexed_rules ~theme ~declared:verbatim order_map selector_props
+    Spans.with_ Spans.sort (fun () ->
+        sorted_indexed_rules ~theme ~declared:verbatim order_map selector_props)
   in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =
-    layers ~theme ~layers:config.layers ~include_base:config.base
-      ?forms:config.forms ~selector_props ~sorted_rules tw_classes statements
+    Spans.with_ Spans.layers (fun () ->
+        layers ~theme ~layers:config.layers ~include_base:config.base
+          ?forms:config.forms ~selector_props ~sorted_rules tw_classes
+          statements)
   in
   Css.concat layer_results |> with_reference_fallbacks ~theme
 

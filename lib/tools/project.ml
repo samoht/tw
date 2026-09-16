@@ -1,3 +1,10 @@
+let span name = Probe.span name Probe.Fields.unit
+let with_span span f = Probe.with_span span () f
+let parse_span = span "tw.project.parse_candidates"
+let routed_span = span "tw.project.routed"
+let to_css_span = span "tw.project.to_css"
+let splice_span = span "tw.project.splice"
+
 (* [prose] comes from @tailwindcss/typography, which Tailwind only applies when
    the entrypoint asks for it. A project that styles [.prose] itself, as
    tailwindcss.com does, gets the plugin's whole stylesheet on top otherwise. *)
@@ -75,9 +82,13 @@ let utilities ~theme ?entrypoint ~base classes =
   let routed, normal =
     List.partition (Entrypoint.is_custom_routed ~defs ~udefs) classes
   in
-  let known = parse_known_candidates ~theme ?input_css normal in
+  let known =
+    with_span parse_span (fun () ->
+        parse_known_candidates ~theme ?input_css normal)
+  in
   let routed_count, routed_extra, routed_stmts =
-    Entrypoint.custom_routed_utilities ~theme ~defs ~udefs routed
+    with_span routed_span (fun () ->
+        Entrypoint.custom_routed_utilities ~theme ~defs ~udefs routed)
   in
   (* Routed custom variants no longer pass through the typed modifier parser,
      but the sorter still needs their exact names so a declaration such as
@@ -99,6 +110,7 @@ let utilities ~theme ?entrypoint ~base classes =
      only when it is asked for. *)
   let forms = Option.fold ~none:false ~some:Entrypoint.forms_base input_css in
   let known, sheet =
+    with_span to_css_span @@ fun () ->
     render_known
       (fun known ->
         Tw.to_css ~theme:sort_theme ~base ~forms ~extra:routed_extra
@@ -126,5 +138,8 @@ let stylesheet ~theme ?entrypoint ~base classes =
   in
   let count, sheet = utilities ~theme ?entrypoint ~base classes in
   match entrypoint with
-  | Some path -> (count, Entrypoint.splice_into_entrypoint ~theme ~path sheet)
+  | Some path ->
+      ( count,
+        with_span splice_span (fun () ->
+            Entrypoint.splice_into_entrypoint ~theme ~path sheet) )
   | None -> (count, sheet)

@@ -3,6 +3,14 @@ module Entrypoint = Tw_tools.Entrypoint
 open Cascade_diff
 open Cmdliner
 
+(* Probe spans for [obs run], on the [add-observe] branch only. *)
+let span name = Probe.span name Probe.Fields.unit
+let with_span span f = Probe.with_span span () f
+let scan_span = span "tw.scan"
+let theme_span = span "tw.entrypoint.theme"
+let prefixes_span = span "tw.cascade.optimize_or_prefix"
+let print_span = span "tw.cascade.print"
+
 (* Parse a whitespace-separated string of classes *)
 let parse_classes ?(warn = true) ?(theme = Tw.Scheme.default) classes_str =
   let class_names = Tw_tools.Source_scan.split_whitespace classes_str in
@@ -183,6 +191,7 @@ let render_css ~(opts : gen_opts) stylesheet =
     | Variables -> stylesheet
   in
   let stylesheet =
+    with_span prefixes_span @@ fun () ->
     if opts.optimize then
       (* Custom properties are an open runtime API: JavaScript, inline styles,
          and separately loaded sheets can read declarations that have no local
@@ -197,7 +206,8 @@ let render_css ~(opts : gen_opts) stylesheet =
   (* A prefixed project spells its theme tokens [--tw-spacing], on the
      declaration and at every [var()] alike. *)
   let rename_custom_property = Tw.theme_token_rename ~theme:opts.theme in
-  Tw.Css.to_string ~minify:opts.minify ?rename_custom_property stylesheet
+  with_span print_span (fun () ->
+      Tw.Css.to_string ~minify:opts.minify ?rename_custom_property stylesheet)
 
 (* Surface of_string's specific message (e.g. the actionable arbitrary-property
    feedback) for a single unknown class; fall back to a generic message. *)
@@ -399,6 +409,7 @@ let entrypoint_files ~(opts : gen_opts) =
   | _ -> []
 
 let scanned_classes ~opts paths =
+  with_span scan_span @@ fun () ->
   collect_files paths @ entrypoint_files ~opts
   |> List.concat_map Tw_tools.Source_scan.candidates_from_file
   |> List.sort_uniq String.compare
@@ -601,7 +612,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     let theme =
       match css_content with
       | None -> Tw.Scheme.default
-      | Some css -> Entrypoint.theme_of_css css
+      | Some css -> with_span theme_span (fun () -> Entrypoint.theme_of_css css)
     in
     let opts : gen_opts =
       {
@@ -683,7 +694,7 @@ let optimize_flag =
 
 let quiet_flag =
   let doc = "Suppress warnings about unknown classes" in
-  Arg.(value & flag & info [ "q"; "quiet"; "silent" ] ~doc)
+  Arg.(value & flag & info [ "silent" ] ~doc)
 
 let input_css_arg =
   let doc =
@@ -882,8 +893,9 @@ let cmd =
   Cmd.v info
     Term.(
       ret
-        (const (fun s b css_m m o q ->
+        (const (fun () s b css_m m o q ->
              run ~minify:m ~optimize:o ~quiet:q s b css_m)
+        $ Observe.setup ~json_reporter:None "tw"
         $ single_flag $ base_flag $ css_mode_vflag $ minify_flag $ optimize_flag
         $ quiet_flag $ backend_term $ input_css_arg $ output_arg $ watching_term
         $ cwd_arg $ paths_arg))

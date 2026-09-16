@@ -11,4 +11,6 @@
   cmdliner
   fmt
   re
-  unix))
+  unix
+  probe
+  observe))
