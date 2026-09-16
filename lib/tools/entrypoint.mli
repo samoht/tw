@@ -95,6 +95,15 @@ val entry_variant_defs : string option -> (string * string) list
     entrypoint at [path], or none when there is no entrypoint or it cannot be
     read. *)
 
+val with_negated_variants :
+  (string * string) list -> (string * string) list * string list
+(** [with_negated_variants defs] is [defs] with a [not-NAME] template for every
+    declared [NAME] whose body Tailwind negates, and the [not-NAME]s it refuses.
+    Tailwind negates a body in place, one node at a time, so a body of sibling
+    branches is refused, as are a pseudo-element, a compound condition and an
+    at-rule other than [\@media], [\@supports] and [\@container]. A [not-NAME]
+    the project declared itself is left as declared. *)
+
 val entry_utility_defs : string option -> (string * string) list
 (** [entry_utility_defs path] is the [@utility] declarations of the entrypoint
     at [path], the same way. *)

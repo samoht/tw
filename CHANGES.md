@@ -516,6 +516,10 @@
 
 ### Variants and selectors
 
+- `not-` over a `@custom-variant` negates the project's declaration:
+  `not-dark:` under a class-based `dark` reads `:not(:where(.dark, .dark *))`
+  rather than a `prefers-color-scheme` query, a declared name with no built-in
+  namesake is no longer unknown, and a body of two branches is refused (#836).
 - A `before:` or `after:` utility with an opacity colour declares `content`
   once, on its rule, as Tailwind does. The `@supports` colour twin repeated
   `content: var(--tw-content)`, which the canonical parity diff reported

@@ -44,8 +44,13 @@ let parse_known_candidates ~theme ?input_css candidates =
    failed to emit. *)
 let utilities ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
-  let defs = Entrypoint.entry_variant_defs entrypoint in
+  let declared = Entrypoint.entry_variant_defs entrypoint in
+  let defs, refused = Entrypoint.with_negated_variants declared in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
+  let names_refused cls =
+    List.exists (fun v -> List.mem v refused) (Entrypoint.variant_segments cls)
+  in
+  let classes = List.filter (fun cls -> not (names_refused cls)) classes in
   let routed, normal =
     List.partition (Entrypoint.is_custom_routed ~defs ~udefs) classes
   in
@@ -65,7 +70,7 @@ let utilities ~theme ?entrypoint ~base classes =
         (fun variants (name, _) ->
           if List.mem_assoc name variants then variants
           else (name, custom) :: variants)
-        theme.Tw.Scheme.custom_variants defs
+        theme.Tw.Scheme.custom_variants declared
     in
     { theme with custom_variants }
   in
