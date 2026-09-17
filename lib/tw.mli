@@ -187,9 +187,11 @@ val rgb : int -> int -> int -> color
 (** Preflight provides Tailwind’s base CSS reset. It is included automatically
     when generating full CSS with this library. *)
 
-val preflight : ?placeholder_supports:Css.t -> ?forms:bool -> unit -> Css.t
-(** [preflight ?placeholder_supports ?forms ()] returns Tailwind's Preflight
-    base reset rules.
+val preflight :
+  ?theme:Scheme.t -> ?placeholder_supports:Css.t -> ?forms:bool -> unit -> Css.t
+(** [preflight ?theme ?placeholder_supports ?forms ()] returns Tailwind's
+    Preflight base reset rules, reading the [--default-*] font tokens through
+    [theme] (default {!Scheme.default}).
 
     Use this to compose the base reset manually when needed. When using
     {!to_css} with [~base:true] (the default), the base reset is already

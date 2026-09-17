@@ -94,20 +94,28 @@ module Handler = struct
 
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
-  (* Shared ease and duration refs using nested var fallback to theme defaults.
-     Produces var(--tw-ease, var(--default-transition-timing-function)) and
-     var(--tw-duration, var(--default-transition-duration)). Note: standalone
-     tests (transition-all alone) expect direct fallbacks like ease/0s, but the
-     full-set test expects nested var. We match the full-set behavior since it's
-     correct when theme vars are declared. *)
-  let ease_ref =
-    Var.reference_with_var_fallback tw_ease_var
-      default_transition_timing_function_var
-      (Css.Cubic_bezier (0., 0., 0., 0.))
+  (* The ease and duration reads, each through its channel with the default
+     token as the fallback: [var(--tw-ease, var(--default-transition-timing-
+     function))] and [var(--tw-duration, var(--default-transition-duration))].
+     Once a [@theme] block takes the default token away, as the bare [--*:
+     initial] does, Tailwind writes the property's own initial value in its
+     place, [ease] and [0s]. *)
+  let ease_ref ?theme () =
+    match theme with
+    | Some t when Scheme.is_removed t "default-transition-timing-function" ->
+        Var.reference_with_fallback tw_ease_var Css.Ease
+    | Some _ | None ->
+        Var.reference_with_var_fallback tw_ease_var
+          default_transition_timing_function_var
+          (Css.Cubic_bezier (0., 0., 0., 0.))
 
-  let duration_ref =
-    Var.reference_with_var_fallback tw_duration_var
-      default_transition_duration_var (Css.Ms 0.)
+  let duration_ref ?theme () =
+    match theme with
+    | Some t when Scheme.is_removed t "default-transition-duration" ->
+        Var.reference_with_fallback tw_duration_var (Css.S 0.)
+    | Some _ | None ->
+        Var.reference_with_var_fallback tw_duration_var
+          default_transition_duration_var (Css.Ms 0.)
 
   (* Theme declarations for the default transition vars. These go into :root,
      :host when transition utilities are used. Only included when theme values
@@ -171,8 +179,8 @@ module Handler = struct
               Css.Property "overlay";
               Css.Property "pointer-events";
             ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_all ?theme () =
@@ -180,8 +188,8 @@ module Handler = struct
       (default_theme_decls ?theme ()
       @ [
           Css.transition_property [ Css.All ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   (* Theme variable for transition-property-colors *)
@@ -240,8 +248,8 @@ module Handler = struct
       @ extra_decls
       @ [
           Css.transition_property transition_props;
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_opacity ?theme () =
@@ -261,8 +269,8 @@ module Handler = struct
       @ extra_decls
       @ [
           Css.transition_property transition_props;
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_shadow ?theme () =
@@ -270,8 +278,8 @@ module Handler = struct
       (default_theme_decls ?theme ()
       @ [
           Css.transition_property [ Css.Property "box-shadow" ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_transform ?theme () =
@@ -285,8 +293,8 @@ module Handler = struct
               Css.Property "scale";
               Css.Property "rotate";
             ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_arbitrary ?theme spelling =
@@ -300,8 +308,8 @@ module Handler = struct
         (default_theme_decls ?theme ()
         @ [
             Css.transition_property [ Css.Var ref_ ];
-            Css.transition_timing_function (Css.Var ease_ref);
-            Css.transition_duration (Css.Var duration_ref);
+            Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+            Css.transition_duration (Css.Var (duration_ref ?theme ()));
           ])
     else if
       String.split_on_char ',' value
@@ -317,8 +325,8 @@ module Handler = struct
         (default_theme_decls ?theme ()
         @ [
             Css.transition_property props;
-            Css.transition_timing_function (Css.Var ease_ref);
-            Css.transition_duration (Css.Var duration_ref);
+            Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+            Css.transition_duration (Css.Var (duration_ref ?theme ()));
           ])
     else
       match Parse.opaque_declaration "transition-property" value with
@@ -328,8 +336,8 @@ module Handler = struct
             (default_theme_decls ?theme ()
             @ [
                 transition_property;
-                Css.transition_timing_function (Css.Var ease_ref);
-                Css.transition_duration (Css.Var duration_ref);
+                Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+                Css.transition_duration (Css.Var (duration_ref ?theme ()));
               ])
 
   (* Transition behavior (CSS Transitions Level 2) *)

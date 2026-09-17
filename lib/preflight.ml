@@ -88,21 +88,20 @@ let var_ref (type a)
     ~(fallback : a) : a Css.var =
   Var.reference_with_fallback var fallback
 
-(** HTML and body defaults *)
-let root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref =
-  (* Add fallback for theme-declared font variable *)
-  let default_font_with_fallback =
-    Css.with_fallback default_font_ref Typography.default_sans_stack
-  in
+(* Tailwind spells each of these reads [--theme(--default-<x>, <fallback>)]: a
+   reference carrying the fallback while the theme holds the token, and the
+   fallback itself once a [@theme] block took the token away, which the bare
+   [--*: initial] does. *)
+let read : type a.
+    ?theme:Scheme.t -> a Var.theme -> a -> a Css.var -> a Css.var option =
+ fun ?theme var fallback reference ->
+  match theme with
+  | Some t when Scheme.is_removed t (Var.name var) -> None
+  | Some _ | None -> Some (Css.with_fallback reference fallback)
 
-  (* Add fallback for optional customization hooks *)
-  let font_feature_with_fallback : Css.font_feature_settings Css.var =
-    Css.with_fallback font_feature_ref (Css.Normal : Css.font_feature_settings)
-  in
-  let font_variation_with_fallback : Css.font_variation_settings Css.var =
-    Css.with_fallback font_variation_ref
-      (Css.Normal : Css.font_variation_settings)
-  in
+(** HTML and body defaults *)
+let root_resets ?theme ~default_font_ref ~font_feature_ref ~font_variation_ref
+    () =
   [
     rule
       ~selector:Selector.(list [ element "html"; host () ])
@@ -110,9 +109,21 @@ let root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref =
         webkit_text_size_adjust (Pct 100.);
         tab_size 4;
         line_height (Num 1.5);
-        font_family (Css.Var default_font_with_fallback);
-        font_feature_settings (Var font_feature_with_fallback);
-        font_variation_settings (Var font_variation_with_fallback);
+        font_family
+          (match
+             read ?theme Typography.default_font_family_var
+               Typography.default_sans_stack default_font_ref
+           with
+          | Some v -> Css.Var v
+          | None -> Typography.default_sans_stack);
+        font_feature_settings
+          (match read ?theme font_feature Css.Normal font_feature_ref with
+          | Some v -> Var v
+          | None -> Css.Normal);
+        font_variation_settings
+          (match read ?theme font_variation Css.Normal font_variation_ref with
+          | Some v -> Var v
+          | None -> Css.Normal);
         webkit_tap_highlight_color Transparent;
       ];
   ]
@@ -168,8 +179,8 @@ let typography_resets () =
   ]
 
 (** Code and monospace resets *)
-let code_resets ~default_mono_ref ~mono_font_feature_ref
-    ~mono_font_variation_ref =
+let code_resets ?theme ~default_mono_ref ~mono_font_feature_ref
+    ~mono_font_variation_ref () =
   [
     rule
       ~selector:
@@ -188,24 +199,26 @@ let code_resets ~default_mono_ref ~mono_font_feature_ref
              Monospace;
            ]
        in
-       (* Add fallback for theme-declared font variable *)
-       let default_mono_with_fallback =
-         Css.with_fallback default_mono_ref fallback_stack
-       in
-
-       (* Add fallback for optional customization hooks *)
-       let font_feature_with_fallback : Css.font_feature_settings Css.var =
-         Css.with_fallback mono_font_feature_ref
-           (Css.Normal : Css.font_feature_settings)
-       in
-       let font_variation_with_fallback : Css.font_variation_settings Css.var =
-         Css.with_fallback mono_font_variation_ref
-           (Css.Normal : Css.font_variation_settings)
-       in
        [
-         font_family (Css.Var default_mono_with_fallback);
-         font_feature_settings (Var font_feature_with_fallback);
-         font_variation_settings (Var font_variation_with_fallback);
+         font_family
+           (match
+              read ?theme Typography.default_mono_font_family_var fallback_stack
+                default_mono_ref
+            with
+           | Some v -> Css.Var v
+           | None -> fallback_stack);
+         font_feature_settings
+           (match
+              read ?theme mono_font_feature Css.Normal mono_font_feature_ref
+            with
+           | Some v -> Var v
+           | None -> Css.Normal);
+         font_variation_settings
+           (match
+              read ?theme mono_font_variation Css.Normal mono_font_variation_ref
+            with
+           | Some v -> Var v
+           | None -> Css.Normal);
          font_size (Em 1.0);
        ]);
   ]
@@ -451,7 +464,7 @@ let font_customization_refs () =
     mono_font_feature_ref,
     mono_font_variation_ref )
 
-let stylesheet ?placeholder_supports ?(forms = false) () =
+let stylesheet ?theme ?placeholder_supports ?(forms = false) () =
   let default_font_ref = default_font_family_ref () in
   let default_mono_ref = default_mono_family_ref () in
   let ( font_feature_ref,
@@ -465,11 +478,12 @@ let stylesheet ?placeholder_supports ?(forms = false) () =
     List.concat
       [
         box_resets ();
-        root_resets ~default_font_ref ~font_feature_ref ~font_variation_ref;
+        root_resets ?theme ~default_font_ref ~font_feature_ref
+          ~font_variation_ref ();
         structural_resets ();
         typography_resets ();
-        code_resets ~default_mono_ref ~mono_font_feature_ref
-          ~mono_font_variation_ref;
+        code_resets ?theme ~default_mono_ref ~mono_font_feature_ref
+          ~mono_font_variation_ref ();
         text_level_resets ();
         table_resets ();
         interactive_resets ();

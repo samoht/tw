@@ -1148,9 +1148,10 @@ let placeholder_supports =
         outer_support_content;
     ]
 
-let base_layer ?supports ?(forms_base = false) () =
+let base_layer ?theme ?supports ?(forms_base = false) () =
   let preflight =
-    Preflight.stylesheet ?placeholder_supports:supports ~forms:forms_base ()
+    Preflight.stylesheet ?theme ?placeholder_supports:supports ~forms:forms_base
+      ()
   in
   let base =
     if forms_base then Css.concat [ preflight; Forms.base_stylesheet () ]
@@ -1683,8 +1684,22 @@ let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
     ~metadata ~fallback_order first_usage_order selector_props
     all_property_statements statements =
   let theme_defaults =
+    (* The base layer reads [--font-sans] and [--font-mono] through the two
+       [--default-*-font-family] tokens, which is what puts the stacks in the
+       theme layer; a block that took a default token away leaves its stack
+       unread, and a utility reading it declares it on its own. *)
     let font_defaults =
-      if include_base then Typography.default_font_family_declarations else []
+      if include_base then
+        List.filter
+          (fun decl ->
+            match Css.custom_declaration_name decl with
+            | Some "--font-sans" ->
+                not (Scheme.is_removed theme "default-font-family")
+            | Some "--font-mono" ->
+                not (Scheme.is_removed theme "default-mono-font-family")
+            | _ -> true)
+          Typography.default_font_family_declarations
+      else []
     in
     let transition_defaults =
       if include_base && has_transition then
@@ -1697,7 +1712,9 @@ let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
     theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults ~metadata
       selector_props
   in
-  let base_layer = base_layer ~supports:placeholder_supports ~forms_base () in
+  let base_layer =
+    base_layer ~theme ~supports:placeholder_supports ~forms_base ()
+  in
   let properties_layer, property_rules =
     if all_property_statements = [] then (None, [])
     else
