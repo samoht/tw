@@ -88,28 +88,21 @@ module Rules_selector = struct
         List.exists is_complex_selector sels
     | _ -> false
 
-  (* The rest of a compound spliced onto the class node inside a complex
-     selector: [:where(:focus) .x] with [:hover] is [:where(:focus) .x:hover],
-     which is how CSS Nesting reads [& :hover] under an ancestor variant, and
-     how Tailwind writes [in-focus:hover:flex]. Wrapping the whole selector in
+  (* The rest of a compound appended to the end of the variant's selector, which
+     is how CSS Nesting reads the inner rule [&:hover] under the outer one and
+     how Tailwind writes a stack: [:where(:focus) .x:hover] for
+     [in-focus:hover:flex], [.x::before:hover] for [before:hover:flex], [.x
+     ::marker:hover] for [marker:hover:flex]. Wrapping the whole selector in
      [:is()] instead gave [:is(:where(:focus) .x):hover]. *)
-  let rec splice_onto_class ~cls ~rest = function
-    | Css.Selector.Class c when String.equal c cls ->
-        Css.Selector.Compound (Css.Selector.Class c :: rest)
-    | Css.Selector.Compound sels ->
-        Css.Selector.Compound
-          (List.concat_map
-             (function
-               | Css.Selector.Class c when String.equal c cls ->
-                   Css.Selector.Class c :: rest
-               | sel -> [ splice_onto_class ~cls ~rest sel ])
-             sels)
+  let rec append_to_end rest = function
+    | Css.Selector.Compound sels -> Css.Selector.Compound (sels @ rest)
     | Css.Selector.Combined (a, comb, b) ->
-        Css.Selector.Combined
-          (splice_onto_class ~cls ~rest a, comb, splice_onto_class ~cls ~rest b)
+        Css.Selector.Combined (a, comb, append_to_end rest b)
     | Css.Selector.Relative (comb, sel) ->
-        Css.Selector.Relative (comb, splice_onto_class ~cls ~rest sel)
-    | other -> other
+        Css.Selector.Relative (comb, append_to_end rest sel)
+    | Css.Selector.List sels ->
+        Css.Selector.List (List.map (append_to_end rest) sels)
+    | simple -> Css.Selector.Compound (simple :: rest)
 
   let is_class cls = function
     | Css.Selector.Class c -> String.equal c cls
@@ -141,13 +134,12 @@ module Rules_selector = struct
               combinator,
               transform ~enclose:true ~descendant:true complex_sel )
       | Css.Selector.Compound selectors
-        when is_complex_selector modified_base_selector
-             && List.exists (is_class base_class) selectors ->
+        when List.exists (is_class base_class) selectors ->
           let rest =
             List.filter (fun sel -> not (is_class base_class sel)) selectors
             |> List.map (transform ~enclose:true ~descendant)
           in
-          splice_onto_class ~cls:modified_class ~rest modified_base_selector
+          append_to_end rest modified_base_selector
       | Css.Selector.Compound selectors ->
           Css.Selector.Compound
             (List.map (transform ~enclose:true ~descendant) selectors)
@@ -1958,19 +1950,61 @@ let modifier_to_rule_themed ?theme ?(inner_has_hover = false) modifier
 let modifier_to_rule ?inner_has_hover modifier base_class selector props =
   modifier_to_rule_themed ?inner_has_hover modifier base_class selector props
 
+(* [marker:] and [selection:] write two selectors per pseudo-element, the
+   descendant and the compound. An inner variant's own selector follows each,
+   [.x ::marker:hover] for [marker:hover:], the way CSS Nesting reads the inner
+   rule under the outer, and its hover gate stays on the rules. *)
+
 (** Generate pseudo-element rules with separate selectors for browser
     compatibility. An invalid pseudo-element in a comma list causes the entire
     rule to be dropped, so each variant gets its own rule. *)
-let pseudo_element_rules ~pseudo_selectors bc props prefix =
+let pseudo_element_rules ~pseudo_selectors ~selector ~has_hover bc props prefix
+    =
   let c = Css.Selector.Class (prefix ^ ":" ^ bc) in
   let mc = prefix ^ ":" ^ bc in
   let open Css.Selector in
   List.map
-    (fun sel -> regular ~selector:sel ~props ~base_class:mc ())
+    (fun sel ->
+      let sel =
+        Rules_selector.transform_selector_with_modifier sel bc mc selector
+      in
+      regular ~selector:sel ~props ~base_class:mc ~has_hover ())
     (List.map
        (fun ps -> [ combine c Descendant ps; compound [ c; ps ] ])
        pseudo_selectors
     |> List.concat)
+
+(* [before:] and [after:] over an inner variant. Tailwind's variant rule holds
+   the [content] and the inner variant's rule nests inside it, so the flattened
+   sheet declares [content] once, on [.x::before] under no condition, and the
+   utility's declarations on [.x::before<inner>] under the inner's own at-rules:
+   [.x::before { content }] and [@media (hover: hover) { .x::before:hover {
+   padding } }] for [before:hover:p-4]. *)
+let pseudo_element_over modifier ~selector ~has_hover bc props =
+  let sel = Modifiers.to_selector modifier bc in
+  let modified_class = Rules_selector.extract_modified_class_name sel bc in
+  let content_rule =
+    regular ~selector:sel
+      ~props:[ Css.content (Var (Var.reference Typography.content_var)) ]
+      ~base_class:modified_class ()
+  in
+  let inner =
+    regular
+      ~selector:
+        (Rules_selector.transform_selector_with_modifier sel bc modified_class
+           selector)
+      ~props ~base_class:modified_class ~has_hover ()
+  in
+  (content_rule, inner)
+
+(* Whether an inner variant already dressed the rule: its selector is more than
+   the utility's class, or it carries a hover gate. *)
+let dressed_by_inner ~selector ~has_hover bc =
+  has_hover || match selector with Css.Selector.Class c -> c <> bc | _ -> true
+
+let is_before_after = function
+  | Style.Pseudo_before | Style.Pseudo_after -> true
+  | _ -> false
 
 (* An arbitrary selector restructures the rule around the utility's class, which
    [Modifiers.to_selector] has no spelling for, so the variant would be dropped.
@@ -2006,6 +2040,68 @@ let rec map_selectors_in_stmt f (stmt : Css.statement) =
   | Supports (condition, stmts) -> Supports (condition, List.map recurse stmts)
   | Starting_style stmts -> Starting_style (List.map recurse stmts)
   | other -> other
+
+(* An output with [f] over its selector and every selector in its nested
+   statements, under the class [modified_class]: how an outer pseudo-element
+   reaches a rule an inner at-rule variant already wrapped. *)
+let retargeted ~modified_class f = function
+  | Regular r ->
+      Regular
+        {
+          r with
+          selector = f r.selector;
+          base_class = Some modified_class;
+          nested = List.map (map_selectors_in_stmt f) r.nested;
+        }
+  | Media_query r ->
+      Media_query
+        {
+          r with
+          selector = f r.selector;
+          base_class = Some modified_class;
+          nested = List.map (map_selectors_in_stmt f) r.nested;
+        }
+  | Container_query r ->
+      Container_query
+        {
+          r with
+          selector = f r.selector;
+          base_class = Some modified_class;
+          nested = List.map (map_selectors_in_stmt f) r.nested;
+        }
+  | Supports_query r ->
+      Supports_query
+        {
+          r with
+          selector = f r.selector;
+          base_class = Some modified_class;
+          nested = List.map (map_selectors_in_stmt f) r.nested;
+        }
+  | Starting_style r ->
+      Starting_style
+        {
+          r with
+          selector = f r.selector;
+          base_class = Some modified_class;
+          nested = List.map (map_selectors_in_stmt f) r.nested;
+        }
+
+(* [before:] or [after:] over an output an inner at-rule variant built: the
+   content rule under no condition, and the at-rule with the pseudo-element put
+   after the class in every selector it holds. *)
+let pseudo_element_over_at_rule modifier rule =
+  let bc = Option.value (Output.base_class rule) ~default:"" in
+  let sel = Modifiers.to_selector modifier bc in
+  let modified_class = Rules_selector.extract_modified_class_name sel bc in
+  let content_rule =
+    regular ~selector:sel
+      ~props:[ Css.content (Var (Var.reference Typography.content_var)) ]
+      ~base_class:modified_class ()
+  in
+  let retarget =
+    Rules_selector.transform_selector_with_modifier sel bc modified_class
+  in
+  [ content_rule; retargeted ~modified_class retarget rule ]
 
 let rename_class_in_stmt ~old_class ~new_class =
   map_selectors_in_stmt
@@ -2142,7 +2238,37 @@ let requeried ~inner_condition ~old_class ~modified_class ~nested ~rebased rule
       in
       nest_inside_at_rule inner_media (emptied rule)
 
+(* An inner media query put inside the at-rule an outer variant built, the class
+   renamed throughout. *)
+let wrapped_media ~inner_condition ~selector ~props ~bc ~nested wrapper =
+  let modified_class = Option.value (Output.base_class wrapper) ~default:bc in
+  let rename = rename_class_in_stmt ~old_class:bc ~new_class:modified_class in
+  let inner_selector =
+    Rules_selector.replace_class_in_selector ~old_class:bc
+      ~new_class:modified_class selector
+  in
+  let inner_media =
+    rebuilt_media ~condition:inner_condition ~selector:inner_selector ~props
+      (List.map rename nested)
+  in
+  nest_inside_at_rule inner_media wrapper
+
 let rec apply_modifier_to_rule ?theme modifier = function
+  (* The content rule stays outside the inner's hover gate, so it goes out
+     without the gate the arm below preserves on every rule. *)
+  | Regular { selector; props; base_class; has_hover; _ }
+    when is_before_after modifier
+         && dressed_by_inner ~selector ~has_hover
+              (Option.value base_class ~default:"") ->
+      let bc = Option.value base_class ~default:"" in
+      let content_rule, inner =
+        pseudo_element_over modifier ~selector ~has_hover bc props
+      in
+      [ content_rule; inner ]
+  | (Media_query _ | Container_query _ | Supports_query _ | Starting_style _) as
+    rule
+    when is_before_after modifier ->
+      pseudo_element_over_at_rule modifier rule
   | Regular { selector; props; base_class; has_hover; _ } ->
       let bc = Option.value base_class ~default:"" in
       let rebase ~selector rules =
@@ -2154,11 +2280,11 @@ let rec apply_modifier_to_rule ?theme modifier = function
             let open Css.Selector in
             pseudo_element_rules
               ~pseudo_selectors:[ Marker; Webkit_details_marker ]
-              bc props "marker"
+              ~selector ~has_hover bc props "marker"
         | Style.Pseudo_selection ->
             let open Css.Selector in
-            pseudo_element_rules ~pseudo_selectors:[ Selection ] bc props
-              "selection"
+            pseudo_element_rules ~pseudo_selectors:[ Selection ] ~selector
+              ~has_hover bc props "selection"
         | Style.Not inner_modifier -> (
             match inner_modifier with
             | Style.In_bracket content -> handle_not_in_bracket content bc props
@@ -2203,28 +2329,9 @@ let rec apply_modifier_to_rule ?theme modifier = function
       { condition = inner_condition; selector; props; base_class; nested; _ }
     when wraps_in_at_rule modifier ->
       let bc = Option.value base_class ~default:"" in
-      let wrappers =
-        apply_modifier_to_rule ?theme modifier
-          (regular ~selector:(Css.Selector.Class bc) ~props:[] ~base_class:bc ())
-      in
-      let nest wrapper =
-        let modified_class =
-          match Output.base_class wrapper with Some c -> c | None -> bc
-        in
-        let rename =
-          rename_class_in_stmt ~old_class:bc ~new_class:modified_class
-        in
-        let inner_selector =
-          Rules_selector.replace_class_in_selector ~old_class:bc
-            ~new_class:modified_class selector
-        in
-        let inner_media =
-          rebuilt_media ~condition:inner_condition ~selector:inner_selector
-            ~props (List.map rename nested)
-        in
-        nest_inside_at_rule inner_media wrapper
-      in
-      List.map nest wrappers
+      apply_modifier_to_rule ?theme modifier
+        (regular ~selector:(Css.Selector.Class bc) ~props:[] ~base_class:bc ())
+      |> List.map (wrapped_media ~inner_condition ~selector ~props ~bc ~nested)
   | Media_query
       { condition = inner_condition; selector; props; base_class; nested; _ } ->
       apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
@@ -2333,7 +2440,12 @@ and apply_modifier_to_container_query ?theme modifier ~condition ~selector
         container_query ~condition:outer ~selector ~props:[] ?base_class
           ~nested:(contained selector props :: nested)
           ()
-    | other -> other)
+    (* [starting:] and a supports variant wrap the container the same way. *)
+    | (Supports_query { selector; props; nested; _ } as wrapper)
+    | (Starting_style { selector; props; nested; _ } as wrapper) ->
+        nest_inside_at_rule
+          (Css.container ~condition (Css.rule ~selector props :: nested))
+          (emptied wrapper))
 
 (* Apply a modifier to a [@supports] rule (the progressive-enhancement block an
    opacity color or gradient emits). The modifier is applied to the inner rule
@@ -2413,6 +2525,13 @@ and apply_modifier_to_starting_style ?theme modifier ~selector ~props
         media_query ~condition:outer ~selector ~props:[] ?base_class
           ~nested:(started selector props :: nested)
           ()
+    (* A container or supports variant wraps the [@starting-style] block the way
+       a media one does; [@md:starting:flex] used to lose the block. *)
+    | (Container_query { selector; props; nested; _ } as wrapper)
+    | (Supports_query { selector; props; nested; _ } as wrapper) ->
+        nest_inside_at_rule
+          (Css.starting_style (Css.rule ~selector props :: nested))
+          (emptied wrapper)
     | other -> other)
 
 (* Handle Modified style by recursively extracting and applying modifier *)
@@ -2424,13 +2543,17 @@ and apply_modifier_to_starting_style ?theme modifier ~selector ~props
    at-rule rather than a selector leaves the class renamed. *)
 and rebased_by_variant ?theme modifier ~base_class ~modified_class sel =
   match
-    apply_modifier_to_rule ?theme modifier
-      (regular ~selector:sel ~props:[] ~base_class ())
+    List.filter_map
+      (function Regular { selector; _ } -> Some selector | _ -> None)
+      (apply_modifier_to_rule ?theme modifier
+         (regular ~selector:sel ~props:[] ~base_class ()))
   with
-  | Regular { selector; _ } :: _ -> selector
-  | _ ->
+  | [] ->
       Rules_selector.replace_class_in_selector ~old_class:base_class
         ~new_class:modified_class sel
+  (* The last one: a pseudo-element's content rule comes first, and the rule it
+     dresses after it. *)
+  | selectors -> List.nth selectors (List.length selectors - 1)
 
 and apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
     ~props ~base_class ~nested =
@@ -2531,6 +2654,23 @@ let handle_modified ?theme util_inner modifier base_style extract_fn =
         match heads with [] -> [] | _ -> heads @ interleave tails
       in
       interleave expanded
+  (* A [before:] over an inner that answered with several rules - [not-hover]'s
+     selector and its twin, a colour and its [@supports] twin - writes its
+     content rule once per answer; Tailwind declares [content] once, so a rule
+     carrying [content] alone goes out when an earlier rule on the same selector
+     already declares it. *)
+  | Style.Pseudo_before | Style.Pseudo_after ->
+      let declared = ref [] in
+      List.concat expanded
+      |> List.filter (fun rule ->
+          match rule with
+          | Regular { selector; props; _ }
+            when List.exists reads_content_var props ->
+              let content_alone = List.for_all reads_content_var props in
+              let seen = List.mem selector !declared in
+              declared := selector :: !declared;
+              not (content_alone && seen)
+          | _ -> true)
   | _ -> List.concat expanded
 
 (* Handle Group style by extracting each item *)
