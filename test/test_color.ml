@@ -1264,8 +1264,89 @@ let test_bracket_colour_hint_in_every_colour_family () =
     (Test_helpers.check_invalid_input (module Tw.Color.Handler))
     [ "accent-[:red]"; "accent-[color:]"; "border-[:red]" ]
 
+(* An [@theme inline] colour goes into every utility that reads it, as the
+   value, with no [--color-<name>] declared: that is what [inline] is for, a
+   value a [var()] cannot reach, and the shape the shadcn-style [@theme inline {
+   --color-brand: var(--brand) }] entrypoint relies on. Only [bg-<name>] folded
+   it; the text, border, fill, stroke, decoration, gradient, shadow, ring,
+   divide and every opacity form declared the token and wrote
+   [var(--color-brand)], which Tailwind never emits for an inline token. *)
+let test_inline_colour_token_folds_in_every_family () =
+  let theme =
+    Tw.Scheme.with_overrides
+      ~inline:[ "color-brand"; "color-accent" ]
+      Tw.Scheme.default
+      [ ("color-brand", "#123456"); ("color-accent", "var(--accent)") ]
+  in
+  let sheet cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  List.iter
+    (fun cls ->
+      let css = sheet cls in
+      Alcotest.(check bool)
+        (cls ^ " writes the value")
+        true
+        (Astring.String.is_infix ~affix:"#123456" css);
+      Alcotest.(check bool)
+        (cls ^ " declares no token")
+        false
+        (Astring.String.is_infix ~affix:"--color-brand" css))
+    [
+      "text-brand";
+      "text-brand/50";
+      "bg-brand";
+      "bg-brand/50";
+      "border-brand";
+      "border-t-brand";
+      "border-t-brand/50";
+      "fill-brand";
+      "stroke-brand";
+      "decoration-brand";
+      "decoration-brand/50";
+      "from-brand";
+      "to-brand/50";
+      "shadow-brand";
+      "shadow-brand/50";
+      "inset-shadow-brand";
+      "text-shadow-brand";
+      "drop-shadow-brand";
+      "drop-shadow-brand/50";
+      "ring-brand";
+      "ring-brand/50";
+      "ring-offset-brand";
+      "inset-ring-brand";
+      "divide-brand";
+      "accent-brand";
+      "caret-brand";
+      "outline-brand";
+      "placeholder-brand";
+    ];
+  (* A token bound to a [var()] folds to that reference, mixed as it stands. *)
+  List.iter
+    (fun (cls, affix) ->
+      let css = sheet cls in
+      Alcotest.(check bool)
+        (cls ^ " reads the author's variable")
+        true
+        (Astring.String.is_infix ~affix css);
+      Alcotest.(check bool)
+        (cls ^ " declares no token")
+        false
+        (Astring.String.is_infix ~affix:"--color-accent" css))
+    [
+      ("text-accent", "color:var(--accent)");
+      ("bg-accent/50", "color-mix(in oklab,var(--accent) 50%,transparent)");
+    ]
+
 let tests =
   [
+    ( "Inline colour token folds in every family",
+      `Quick,
+      test_inline_colour_token_folds_in_every_family );
     ( "Bracket colour hint in every colour family",
       `Quick,
       test_bracket_colour_hint_in_every_colour_family );
