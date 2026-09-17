@@ -345,6 +345,8 @@ let test_declared_variant_keeps_its_place () =
           "dark:hover:text-white";
           "first:dark:flex";
           "dark:before:flex";
+          "dark:marker:text-red-500";
+          "in-data-stack:dark:flex";
         ]
       "declared-place" "@custom-variant dark (&:where(.dark, .dark *));\n"
   in
@@ -356,7 +358,17 @@ let test_declared_variant_keeps_its_place () =
       ".dark\\:hover\\:text-white:where(.dark,.dark *):hover";
       ".first\\:dark\\:flex:first-child:where(.dark,.dark *)";
       ".dark\\:before\\:flex:where(.dark,.dark *):before";
+      (* A built-in variant of several rules, [marker:]'s three, slots each of
+         them; the probe declaration the template is derived from stays in
+         none. *)
+      ".dark\\:marker\\:text-red-500:where(.dark,.dark *)::marker{color:";
+      ".dark\\:marker\\:text-red-500:where(.dark,.dark \
+       *)::-webkit-details-marker{color:";
+      (* A template whose [&] ends a longer selector keeps that selector. *)
+      ":where([data-stack]) .in-data-stack\\:dark\\:flex:where(.dark,.dark *)";
     ];
+  check bool "the probe declaration stays out" false
+    (Astring.String.is_infix ~affix:"float:none" css);
   (* What the built-in prefix hoists, [before:]'s content registration, still
      arrives when every prefix is routed as a variant. *)
   check bool "before: still registers --tw-content" true
