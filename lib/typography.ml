@@ -260,6 +260,23 @@ let font_named_var name =
   Domain_cache.or_add font_named_cache name (fun () ->
       Var.theme Css.Font_family ("font-" ^ name) ~order:(1, 100))
 
+(* The [--font-<name>--font-feature-settings] and [--font-variation-settings]
+   tokens a project declares beside a family, each after the family. *)
+let font_named_features_cache = Domain_cache.v 8
+let font_named_variations_cache = Domain_cache.v 8
+
+let font_named_features_var name =
+  Domain_cache.or_add font_named_features_cache name (fun () ->
+      Var.theme Css.Font_feature_settings
+        ("font-" ^ name ^ "--font-feature-settings")
+        ~order:(1, 101))
+
+let font_named_variations_var name =
+  Domain_cache.or_add font_named_variations_cache name (fun () ->
+      Var.theme Css.Font_variation_settings
+        ("font-" ^ name ^ "--font-variation-settings")
+        ~order:(1, 101))
+
 (* A [--text-*] token the project declared names a font size the built-in scale
    has no slot for; they share the slot after the scale, the way the project's
    font families share theirs. *)
@@ -268,6 +285,24 @@ let text_named_cache = Domain_cache.v 8
 let text_named_var name =
   Domain_cache.or_add text_named_cache name (fun () ->
       Var.theme Css.Length ("text-" ^ name) ~order:(6, 26))
+
+(* The [--text-<name>--line-height], [--letter-spacing] and [--font-weight]
+   tokens a project declares beside a size of its own, each after the size. *)
+let text_named_lh_cache = Domain_cache.v 8
+let text_named_tracking_cache = Domain_cache.v 8
+let text_named_weight_cache = Domain_cache.v 8
+
+let text_named_lh_var name =
+  Domain_cache.or_add text_named_lh_cache name (fun () ->
+      Var.theme Css.Line_height ("text-" ^ name ^ "--line-height") ~order:(6, 27))
+
+let text_named_tracking_var name =
+  Domain_cache.or_add text_named_tracking_cache name (fun () ->
+      Var.theme Css.Length ("text-" ^ name ^ "--letter-spacing") ~order:(6, 27))
+
+let text_named_weight_var name =
+  Domain_cache.or_add text_named_weight_cache name (fun () ->
+      Var.theme Css.Font_weight ("text-" ^ name ^ "--font-weight") ~order:(6, 27))
 
 (* The same for a [--leading-*] token the project declared. *)
 let leading_named_cache = Domain_cache.v 8
@@ -1230,17 +1265,39 @@ module Typography_early = struct
      reference dangling, so the token keeps its declaration. *)
   (* A family the project declared also carries the [--font-<name>--font-
      feature-settings] beside it, the way Tailwind emits it. *)
-  let font_feature_decls theme token =
-    match
-      Scheme.theme_value (Some theme) (token ^ "--font-feature-settings")
-    with
-    | None -> []
-    | Some v -> (
-        (* The token holds the declaration's text, so cascade's own parser turns
-           it into the tag/value list the property carries. *)
-        match Css.parse_declaration "font-feature-settings" v with
-        | Some decl -> [ decl ]
-        | None -> [])
+  (* The feature and variation settings a project declares beside a family, as
+     [--font-<name>--font-feature-settings]: each is a token of its own that
+     the utility reads, or the value itself when the block is inline. *)
+  let font_feature_decls theme name =
+    let sub : type a.
+        string ->
+        (Cascade.Cursor.t -> a) ->
+        a Var.theme ->
+        (a -> Css.declaration) ->
+        (a Css.var -> Css.declaration) ->
+        Css.declaration list =
+     fun suffix read var property property_of_var ->
+      let token = String.concat "" [ "font-"; name; "--"; suffix ] in
+      match Scheme.theme_value (Some theme) token with
+      | None -> []
+      | Some raw -> (
+          match
+            Cascade.Cursor.try_parse_full_err read
+              (Cascade.Cursor.of_string raw)
+          with
+          | Error _ -> []
+          | Ok value ->
+              if Scheme.is_inline_token theme token then [ property value ]
+              else
+                let decl, ref_ = Var.binding var value in
+                [ decl; property_of_var ref_ ])
+    in
+    sub "font-feature-settings" Css.Properties.read_font_feature_settings
+      (font_named_features_var name) font_feature_settings (fun v ->
+        font_feature_settings (Var v))
+    @ sub "font-variation-settings" Css.Properties.read_font_variation_settings
+        (font_named_variations_var name) font_variation_settings (fun v ->
+          font_variation_settings (Var v))
 
   let font_weight_theme theme name =
     match Scheme.theme_value (Some theme) ("font-weight-" ^ name) with
@@ -1266,7 +1323,7 @@ module Typography_early = struct
               | Css.Var v -> Css.var_name v = token
               | _ -> false
             in
-            let features = font_feature_decls theme token in
+            let features = font_feature_decls theme name in
             if Scheme.is_inline_token theme token && not self_referential then
               style (font_family family :: features)
             else
@@ -1459,20 +1516,68 @@ module Typography_early = struct
     | Bracket (_, lh) -> ([], lh)
     | Var_shorthand name -> ([], Css.Var (Var.bracket ("var(" ^ name ^ ")")))
 
-  (* A size the project declared carries no line height of its own, so the
-     utility sets font-size alone unless a modifier asks for one. *)
-  let text_theme_decls theme name =
+  (* A size the project declared, with the line height, letter spacing and font
+     weight the block may declare beside it as [--text-<name>--line-height] and
+     its siblings. Each goes through its channel with the token as the fallback,
+     as a built-in size's line height does, so [leading-*] on the same element
+     still wins. A [/modifier] names the line height itself, and Tailwind then
+     writes the size and that line height alone. *)
+  let text_theme_decls ?(modified = false) theme name =
     let token = "text-" ^ name in
+    (* The channel keeps the token as its fallback either way; an inline token
+       puts its value there, as Tailwind writes [var(--tw-leading, 1.2)]. *)
+    let sub : type a.
+        string ->
+        (Cascade.Cursor.t -> a) ->
+        a Var.theme ->
+        a Var.channel ->
+        (a Css.var -> Css.declaration) ->
+        Css.declaration list =
+     fun suffix read var channel property ->
+      let token = String.concat "" [ token; "--"; suffix ] in
+      match Scheme.theme_value (Some theme) token with
+      | None -> []
+      | Some raw -> (
+          match
+            Cascade.Cursor.try_parse_full_err read
+              (Cascade.Cursor.of_string raw)
+          with
+          | Error _ -> []
+          | Ok value ->
+              if Scheme.is_inline_token theme token then
+                [ property (Var.reference_with_fallback channel value) ]
+              else
+                let decl, _ = Var.binding var value in
+                [
+                  decl;
+                  property (Var.reference_with_var_fallback channel var value);
+                ])
+    in
     match Scheme.theme_value (Some theme) token with
     | None -> []
     | Some raw -> (
         match Css.parse_length raw with
         | None -> []
         | Some len ->
-            if Scheme.is_inline_token theme token then [ font_size len ]
+            let size =
+              if Scheme.is_inline_token theme token then [ font_size len ]
+              else
+                let decl, ref = Var.binding (text_named_var name) len in
+                [ decl; font_size (Css.Var ref) ]
+            in
+            if modified then size
             else
-              let decl, ref = Var.binding (text_named_var name) len in
-              [ decl; font_size (Css.Var ref) ])
+              size
+              @ sub "line-height" Css.Properties.read_line_height
+                  (text_named_lh_var name) leading_var (fun v ->
+                    line_height (Var v))
+              @ sub "letter-spacing"
+                  (Css.Values.read_length ~allow_negative:true ~length_only:true)
+                  (text_named_tracking_var name) tracking_var (fun v ->
+                    letter_spacing (Var v))
+              @ sub "font-weight" Css.Properties.read_font_weight
+                  (text_named_weight_var name) font_weight_var (fun v ->
+                    font_weight (Var v)))
 
   (** Generate font-size + line-height style for a named text size with
       modifier. *)
@@ -1712,7 +1817,10 @@ module Typography_early = struct
     | Text_theme name -> style (text_theme_decls theme name)
     | Text_theme_lh (name, lh_mod) ->
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
-        style (text_theme_decls theme name @ lh_extra @ [ line_height lh_value ])
+        style
+          (text_theme_decls ~modified:true theme name
+          @ lh_extra
+          @ [ line_height lh_value ])
     | Text_bracket_fs raw -> bracket_font_size_style raw
     | Text_bracket_fs_raw (_, value) ->
         style (Option.to_list (Parse.opaque_declaration "font-size" value))
