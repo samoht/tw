@@ -1622,9 +1622,25 @@ let opacity_of_string ?theme opacity_str =
         then Some (Opacity_named opacity_str)
         else None
 
+(* The [/] a modifier follows: the last one outside a bracket or a paren, so the
+   [/] a bracket value spells, as [rgb(0 0 0 / 0.1)] does, stays inside. *)
+
 (** Parse opacity modifier from a string that may contain /NN or /[N.N] *)
+let modifier_slash s =
+  let last = ref None in
+  let depth = ref 0 in
+  String.iteri
+    (fun i c ->
+      match c with
+      | '[' | '(' -> incr depth
+      | ']' | ')' -> if !depth > 0 then decr depth
+      | '/' when !depth = 0 -> last := Some i
+      | _ -> ())
+    s;
+  !last
+
 let parse_opacity_modifier ?theme s =
-  match String.index_opt s '/' with
+  match modifier_slash s with
   | None -> (s, No_opacity)
   | Some idx -> (
       let base = String.sub s 0 idx in
