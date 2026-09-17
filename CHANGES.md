@@ -114,6 +114,14 @@
   supplies itself, is refused. Tailwind writes `inset inset 0 1px red`, which
   no browser draws and which takes the element's whole `box-shadow` down with
   it; tw drew the shadow the author did not get (#847).
+- A breakpoint the project declares, `xs:` under `--breakpoint-xs`, sorts
+  with the built-in scale, between the upper bounds and `sm:`; it carried no
+  variant at all in the sort and came out among the plain rules. And a
+  candidate a functional `@utility` declines falls to the built-in utility of
+  its root, as Tailwind tries every one registered: `tab-[13]` under
+  `@utility tab-* { tab-size: --value(integer) }` came out as nothing, and so
+  did a declared utility under the `!` mark, `content-auto!`, which marks its
+  declarations `!important` now (#847).
 - A `theme(static)` entrypoint declares its theme and keyframes once. Each
   `@apply`, and each class under a `@custom-variant`, repeated the whole theme
   block and every `@keyframes` beside the generated sheet's (#801).

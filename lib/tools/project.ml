@@ -73,7 +73,7 @@ let utilities ~theme ?entrypoint ~base classes =
   in
   let classes = List.filter (fun cls -> not (names_refused cls)) classes in
   let routed, normal =
-    List.partition (Entrypoint.is_custom_routed ~defs ~udefs) classes
+    List.partition (Entrypoint.is_custom_routed ~theme ~defs ~udefs) classes
   in
   let known = parse_known_candidates ~theme ?input_css normal in
   let routed_count, routed_extra, routed_stmts =

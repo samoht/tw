@@ -335,7 +335,7 @@ let check_upstream_positive_fixture_parse filename () =
            [Entrypoint]. *)
         |> List.filter (fun cls ->
             not
-              (Tw_tools.Entrypoint.is_custom_routed ~defs:[]
+              (Tw_tools.Entrypoint.is_custom_routed ~theme ~defs:[]
                  ~udefs:c.utility_defs cls))
         |> List.filter_map (fun cls ->
             match Tw.of_string ~theme cls with

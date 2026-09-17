@@ -607,17 +607,26 @@ let test_functional_modifier () =
     ]
     [ "example"; "example/25"; "example-1/1"; "example/foo" ]
 
-(* A candidate the project's functional declarations root is theirs to generate:
-   [Tw.of_string] does not know it, so the routing has to claim it even when the
-   declarations end up resolving nothing for it. *)
+(* A candidate a project's functional declaration resolves is theirs to
+   generate: [Tw.of_string] does not know it. One the declaration resolves
+   nothing for is left to the built-in generator, as Tailwind tries every
+   utility registered for a root: [tab-[13]] under [@utility tab-* { tab-size:
+   --value(integer) }] is the built-in [tab-*]'s, and a root nothing built in
+   knows declines it the same way. *)
 let test_functional_routing () =
   let udefs = [ ("example-*", " --resolved-value: --value(integer) ") ] in
-  let routed cls = is_custom_routed ~defs:[] ~udefs cls in
+  let routed cls =
+    is_custom_routed ~theme:Tw.Scheme.default ~defs:[] ~udefs cls
+  in
   check bool "a candidate of the root" true (routed "example-4");
-  check bool "the root on its own" true (routed "example");
-  check bool "one the declaration resolves nothing for" true
+  check bool "the root on its own, which carries no value" false
+    (routed "example");
+  check bool "one the declaration resolves nothing for" false
     (routed "example-foo");
-  check bool "a built-in utility" false (routed "flex")
+  check bool "a built-in utility" false (routed "flex");
+  let tab = [ ("tab-*", " tab-size: --value(integer) ") ] in
+  check bool "a bracket the declaration declines" false
+    (is_custom_routed ~theme:Tw.Scheme.default ~defs:[] ~udefs:tab "tab-[13]")
 
 (* A [@utility] body is author text tw does not validate. An unclosed brace in
    one must cost that class alone: assembled into a single sheet, the block

@@ -2919,12 +2919,24 @@ let wrapped_block cls variants body =
 (* A candidate the project's own declarations govern: it carries a declared
    variant, it is a declared utility, or it reads as one of a declared
    functional utility's candidates. *)
-let is_custom_routed ~defs ~udefs cls =
+(* The [!] a candidate carries, as a suffix or the v3 prefix, and the name
+   under it: Tailwind marks every declaration of the utility [!important]. *)
+let importance name =
+  let n = String.length name in
+  if n > 1 && name.[n - 1] = '!' then (true, String.sub name 0 (n - 1))
+  else if n > 1 && name.[0] = '!' then (true, String.sub name 1 (n - 1))
+  else (false, name)
+
+let is_custom_routed ~theme ~defs ~udefs cls =
   let variants, bare = split_declared_variants defs cls in
   let segs = variant_segments bare in
-  let name = List.nth segs (List.length segs - 1) in
+  let _, name = importance (List.nth segs (List.length segs - 1)) in
   variants <> [] || List.mem_assoc name udefs
-  || functional_candidates udefs name <> []
+  (* A functional declaration claims a candidate its value reads resolve for and
+     no other: Tailwind tries every utility registered for a root, so [tab-[13]]
+     under [@utility tab-* { tab-size: --value(integer) }] falls to the built-in
+     [tab-*], which takes the bracket. *)
+  || Option.is_some (functional_utility_body ~theme ~udefs name)
 
 (* Candidates the built-in generator cannot produce: a variant the project
    redefined via [@custom-variant] (e.g. a class-based [dark:]), which
@@ -2995,7 +3007,7 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
      segment. *)
   let segments = variant_segments bare in
   let last = List.length segments - 1 in
-  let name = List.nth segments last in
+  let _, name = importance (List.nth segments last) in
   let builtin = List.filteri (fun index _ -> index < last) segments in
   (* Every prefix of the candidate, declared and built-in, as written. *)
   let prefixes =
@@ -3030,6 +3042,8 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
             || Option.is_some (routed_template ~theme derived variant))
           prefixes
       in
+      (* A built-in utility reads its own [!]; the mark stays on the name. *)
+      let name = List.nth segments last in
       let body, top = routed_body ~theme ~ordered ~name ~bare in
       add_once hoisted seen top;
       if body = "" then None
@@ -3188,12 +3202,26 @@ let parse_routed_block css =
         (Css.statements parsed.Css.stylesheet
         |> List.concat_map flattened_statement)
 
+(* The [!] a candidate carries marks every declaration of the utility
+   [!important], as Tailwind marks them; a declared utility's body is author CSS
+   the parse above reads, so the mark goes on once the block is typed. *)
+let important_block cls stmts =
+  let segments = variant_segments cls in
+  let important, _ =
+    importance (List.nth segments (List.length segments - 1))
+  in
+  if not important then stmts
+  else
+    Css.statements
+      (Css.Stylesheet.map_declarations (List.map Css.important) (Css.v stmts))
+
 let parse_routed_blocks ~own_order ~hoisted blocks =
   let parsed =
     List.filter_map
       (fun (cls, block) ->
         Option.map
-          (List.map (fun stmt -> (Some cls, stmt)))
+          (fun stmts ->
+            List.map (fun stmt -> (Some cls, stmt)) (important_block cls stmts))
           (parse_routed_block block))
       blocks
   in

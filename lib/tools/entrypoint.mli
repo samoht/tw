@@ -134,11 +134,17 @@ val split_declared_variants :
     their media queries keep wrapping the declared variant's selector. *)
 
 val is_custom_routed :
-  defs:(string * string) list -> udefs:(string * string) list -> string -> bool
-(** [is_custom_routed ~defs ~udefs cls] is [true] when [cls] names a variant or
-    a utility the project declared - a functional one included, whose root [cls]
-    carries a value for - which {!Tw.of_string} cannot produce and
-    {!custom_routed_utilities} generates instead. *)
+  theme:Tw.Scheme.t ->
+  defs:(string * string) list ->
+  udefs:(string * string) list ->
+  string ->
+  bool
+(** [is_custom_routed ~theme ~defs ~udefs cls] is [true] when [cls] names a
+    variant or a utility the project declared - a functional one included, whose
+    value reads resolve for [cls] - which {!Tw.of_string} cannot produce and
+    {!custom_routed_utilities} generates instead. A candidate a functional
+    declaration declines falls to the built-in utility of its root, as it does
+    in Tailwind. *)
 
 val custom_routed_utilities :
   theme:Tw.Scheme.t ->
