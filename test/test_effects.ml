@@ -55,6 +55,26 @@ let test_ring_of_string_valid () =
   check "inset-ring-black";
   check "inset-ring-white/10"
 
+(* A colour the project's [@theme] declares names a ring colour the way a
+   shadeless palette colour does, with an optional [/opacity], on the ring, the
+   inset ring and the offset. The three arms read the palette alone, so
+   [ring-brand] was an unknown class where [shadow-brand] was not. *)
+let test_ring_theme_colour () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-brand", "#123456") ]
+  in
+  Test_helpers.check_declarations ~theme "ring-brand"
+    [ "--tw-ring-color:var(--color-brand)" ];
+  Test_helpers.check_declarations ~theme "ring-offset-brand"
+    [ "--tw-ring-offset-color:var(--color-brand)" ];
+  Test_helpers.check_declarations ~theme "inset-ring-brand"
+    [ "--tw-inset-ring-color:var(--color-brand)" ];
+  Test_helpers.check_declarations ~theme "ring-brand/50"
+    [
+      "--tw-ring-color:#12345680";
+      "--tw-ring-color:color-mix(in oklab,var(--color-brand) 50%,transparent)";
+    ]
+
 let test_ring_width_order () =
   Test_helpers.check_class_order ~test_name:"ring width order"
     [ "ring-8"; "ring-4"; "ring-3"; "ring-2"; "ring-1"; "ring-0"; "ring" ]
@@ -866,6 +886,7 @@ let tests =
     test_case "arbitrary bracket color token stream" `Quick
       test_arbitrary_bracket_color_token_stream;
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;
+    test_case "ring theme colour" `Quick test_ring_theme_colour;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "undefined colour shade" `Quick test_undefined_shade;
