@@ -898,13 +898,15 @@ module Handler = struct
     let fallback_color =
       match Scheme.hex_color scheme color_name with
       | Option.Some hex -> Css.hex hex
-      | Option.None -> Color.to_css c shade
+      | Option.None -> Color.to_css ?theme c shade
     in
-    let color_ref : Css.color Css.var = Var.bracket ("color-" ^ color_name) in
+    let decls, color =
+      Color.bound ?theme (Color.color_var c shade) fallback_color
+    in
     let supports_decl =
       bind_drop_shadow_color
         (Css.color_mix_var_percent ~in_space:Oklab
-           ~var_name:"tw-drop-shadow-alpha" (Css.Var color_ref) Css.Transparent)
+           ~var_name:"tw-drop-shadow-alpha" color Css.Transparent)
     in
     let supports_block =
       Css.supports ~condition:Color.color_mix_supports_condition
@@ -913,8 +915,7 @@ module Handler = struct
     Group
       [
         style ~rules:(Option.Some [ supports_block ])
-          (theme_decl_if_set ?theme ("color-" ^ color_name)
-          @ [ bind_drop_shadow_color fallback_color ]);
+          (decls @ [ bind_drop_shadow_color fallback_color ]);
         style ~metadata:filter_property_metadata
           ~property_rules:filter_property_rules
           [ bind_drop_shadow drop_shadow_size_ref ];
@@ -981,11 +982,15 @@ module Handler = struct
       in
       Css.hex (Color.hex_with_alpha hex percent)
     in
-    let color_ref : Css.color Css.var = Var.bracket ("color-" ^ color_name) in
+    let decls, color =
+      Color.bound ?theme (Color.color_var c shade)
+        (match Scheme.hex_color scheme color_name with
+        | Option.Some hex -> Css.hex hex
+        | Option.None -> Color.to_css ?theme c shade)
+    in
     let supports_decl =
       let inner =
-        Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-          ~percent1:percent
+        Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent
       in
       bind_drop_shadow_color
         (Css.color_mix_var_percent ~in_space:Oklab
@@ -998,8 +1003,7 @@ module Handler = struct
     Group
       [
         style ~rules:(Option.Some [ supports_block ])
-          (theme_decl_if_set ?theme ("color-" ^ color_name)
-          @ [ bind_drop_shadow_color fallback_color ]);
+          (decls @ [ bind_drop_shadow_color fallback_color ]);
         style ~metadata:filter_property_metadata
           ~property_rules:filter_property_rules
           [ bind_drop_shadow drop_shadow_size_ref ];

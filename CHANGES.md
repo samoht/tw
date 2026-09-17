@@ -468,6 +468,15 @@
 
 ### Colours and effects
 
+- An `@theme inline` colour goes into every utility that reads it, as the
+  value, with no `--color-<name>` declared, the shape the shadcn-style
+  `@theme inline { --color-brand: var(--brand) }` entrypoint relies on. Only
+  `bg-<name>` folded it; the text, border, fill, stroke, decoration, gradient,
+  shadow, ring, divide and every opacity form declared the token and wrote
+  `var(--color-brand)`, which Tailwind never emits for an inline token (#847).
+- `ring-<name>`, `ring-offset-<name>` and `inset-ring-<name>` take a colour
+  the project's `@theme` declares, with an optional opacity, as
+  `shadow-<name>` does. They were unknown classes (#847).
 - A gradient stop with an opacity keeps its theme colour as the palette declares
   it. `to-gray-950/40` registered `--color-gray-950` as `#030712`, which moved
   every other use of the token on the page off the palette's oklch (#822).

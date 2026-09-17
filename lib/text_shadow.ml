@@ -398,13 +398,13 @@ module Handler = struct
       Color.property_color_var ?theme ~property_prefix:"text-shadow-color" c
         shade
     in
-    let theme_decl, color_ref = Var.binding theme_color_var color_value in
+    let decls, color = Color.bound ?theme theme_color_var color_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        (Css.Var color_ref) Css.Transparent
+        color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
+    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -416,20 +416,18 @@ module Handler = struct
     let base_decl, _ =
       Var.binding text_shadow_color_var (Css.hex hex_with_alpha)
     in
-    let theme_color_var = Color.color_var c shade in
-    let theme_decl, color_ref =
-      Var.binding theme_color_var (Css.hex hex_value)
+    let decls, color =
+      Color.bound ?theme (Color.color_var c shade) (Css.hex hex_value)
     in
     let inner_mix =
-      Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-        ~percent1:percent
+      Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent
     in
     let outer_mix =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
+    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]

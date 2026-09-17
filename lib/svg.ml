@@ -75,8 +75,8 @@ module Handler = struct
       let color_value =
         Color.property_color_value ?theme ~property_prefix:"fill" color shade
       in
-      let theme_decl, color_ref = Var.binding color_var color_value in
-      style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
+      let decls, color = Color.bound ?theme color_var color_value in
+      style (decls @ [ Css.fill (Css.Color color) ])
 
   (* Stroke color style with scheme support *)
   let stroke_color_style ?theme color shade =
@@ -90,8 +90,8 @@ module Handler = struct
       let color_value =
         Color.property_color_value ?theme ~property_prefix:"stroke" color shade
       in
-      let theme_decl, color_ref = Var.binding color_var color_value in
-      style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
+      let decls, color = Color.bound ?theme color_var color_value in
+      style (decls @ [ Css.stroke (Css.Color color) ])
 
   (* Bracket color: fill/stroke with a typed Css.color, converting to hex when
      possible for minified output *)

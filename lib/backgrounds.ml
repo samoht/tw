@@ -594,8 +594,8 @@ module Handler = struct
         ([ d_color ], (Var color_ref : Css.color))
 
   (** Common helper for gradient color utilities *)
-  let gradient_color ~prefix ~set_var ?(shade = 500) color =
-    let theme_decls, gradient_color_value = color_binding ~shade color in
+  let gradient_color ?theme ~prefix ~set_var ?(shade = 500) color =
+    let theme_decls, gradient_color_value = color_binding ?theme ~shade color in
 
     (* Set the appropriate gradient variable *)
     let d_var, _ = Var.binding set_var gradient_color_value in
@@ -1210,17 +1210,17 @@ module Handler = struct
         let d_fallback, _ = Var.binding set_var fallback_value in
 
         (* Theme variable for @supports block *)
-        let color_var = Color.color_var color shade in
-        let theme_decl, color_ref = Var.binding color_var color_value in
-        let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
+        let decls, color =
+          Color.bound ?theme (Color.color_var color shade) color_value
+        in
+        let oklab_color = Color.mix_alpha opacity color in
         let d_oklab, _ = Var.binding set_var oklab_color in
 
         (* Build @supports block with placeholder selector *)
         let supports_rule =
           Css.supports ~condition:Color.color_mix_supports_condition
             [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ theme_decl; d_oklab ];
+              Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ d_oklab ]);
             ]
         in
 
@@ -1484,7 +1484,7 @@ module Handler = struct
            variable to read. *)
         match src with
         | Color_source.Palette (color, shade, None) ->
-            gradient_color ~prefix ~set_var ~shade color
+            gradient_color ~theme ~prefix ~set_var ~shade color
         | Color_source.Palette (color, shade, Some opacity) ->
             gradient_color_opacity ~prefix ~set_var ~shade color opacity
         | Color_source.Plain (source, opacity) -> (

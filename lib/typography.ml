@@ -2779,13 +2779,10 @@ module Typography_late = struct
         Color.property_color_value ?theme
           ~property_prefix:"text-decoration-color" color shade
       in
-      let color_decl, color_ref = Var.binding color_var color_value in
+      let decls, color = Color.bound ?theme color_var color_value in
       style
-        [
-          color_decl;
-          webkit_text_decoration_color (Css.Var color_ref);
-          text_decoration_color (Css.Var color_ref);
-        ]
+        (decls
+        @ [ webkit_text_decoration_color color; text_decoration_color color ])
 
   let decoration_color_with_opacity ?theme (color : Color.color) shade opacity =
     let percent = Color.opacity_to_percent opacity in
@@ -2805,11 +2802,12 @@ module Typography_late = struct
             let fallback_decl =
               text_decoration_color (Css.hex hex_with_alpha)
             in
-            let color_var = Color.color_var color shade in
-            let theme_decl, color_ref =
-              Var.binding color_var (Css.hex hex_value)
+            let decls, color =
+              Color.bound ?theme
+                (Color.color_var color shade)
+                (Css.hex hex_value)
             in
-            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
+            let oklab_color = Color.mix_alpha opacity color in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
@@ -2819,7 +2817,7 @@ module Typography_late = struct
                     [ webkit_decl; oklab_decl ];
                 ]
             in
-            style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+            style ~rules:(Some [ supports_block ]) (decls @ [ fallback_decl ])
         | None ->
             (* No scheme hex: use property-scoped variable *)
             let color_var =
@@ -2840,8 +2838,8 @@ module Typography_late = struct
               else Color.opacity_fallback ~percent color shade color_value
             in
             let fallback_decl = text_decoration_color fallback_color in
-            let theme_decl, color_ref = Var.binding color_var color_value in
-            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
+            let decls, color = Color.bound ?theme color_var color_value in
+            let oklab_color = Color.mix_alpha opacity color in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
@@ -2851,8 +2849,7 @@ module Typography_late = struct
                     [ webkit_decl; oklab_decl ];
                 ]
             in
-            style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
-        )
+            style ~rules:(Some [ supports_block ]) (decls @ [ fallback_decl ]))
 
   let decoration_transparent = style [ text_decoration_color (Css.hex "#0000") ]
   let decoration_current = style [ text_decoration_color Current ]

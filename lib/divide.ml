@@ -234,10 +234,8 @@ module Handler = struct
         Color.property_color_value ?theme ~property_prefix:"border-color" color
           shade
       in
-      let decl, color_ref = Var.binding color_var color_value in
-      let rule =
-        Css.rule ~selector [ decl; Css.border_color (Css.Var color_ref) ]
-      in
+      let decls, color = Color.bound ?theme color_var color_value in
+      let rule = Css.rule ~selector (decls @ [ Css.border_color color ]) in
       style ~rules:(Some [ rule ]) []
 
   let divide_transparent_style () =
