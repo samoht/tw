@@ -431,10 +431,7 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not a text shadow utility")
   let has_opacity s = String.contains s '/'
-
-  let starts_with prefix s =
-    String.length s >= String.length prefix
-    && String.sub s 0 (String.length prefix) = prefix
+  let starts_with prefix s = String.starts_with ~prefix s
 
   let is_shadow_value inner =
     (* A shadow value has explicit length dimensions like "10px_10px" *)

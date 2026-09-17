@@ -34,8 +34,8 @@ let extract_var_names_with_prefix (prefix : string) (props : string list) :
   List.filter_map
     (fun prop ->
       if
-        String.length prop > String.length prefix
-        && String.sub prop 0 (String.length prefix) = prefix
+        String.starts_with ~prefix prop
+        && String.length prop > String.length prefix
       then
         let rest =
           String.sub prop (String.length prefix)
@@ -55,7 +55,7 @@ let extract_theme_color_vars sheet =
   |> Option.value ~default:[]
 
 let extract_bg_color_name sel_str =
-  if String.length sel_str > 4 && String.sub sel_str 0 4 = ".bg-" then
+  if String.starts_with ~prefix:".bg-" sel_str && String.length sel_str > 4 then
     let rest = String.sub sel_str 4 (String.length sel_str - 4) in
     match String.index_opt rest '-' with
     | Some idx -> Some (String.sub rest 0 idx)

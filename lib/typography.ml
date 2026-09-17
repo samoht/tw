@@ -688,7 +688,7 @@ module Typography_early = struct
     (* Hex color *)
     (String.length inner > 0 && inner.[0] = '#')
     (* color: typed prefix *)
-    || (String.length inner >= 6 && String.sub inner 0 6 = "color:")
+    || String.starts_with ~prefix:"color:" inner
     (* bare var() without type prefix defaults to color *)
     || Parse.is_var inner
     (* CSS color functions like rgba(...), hsl(...), oklch(...) *)
@@ -1744,8 +1744,8 @@ module Typography_early = struct
            prefix since var_ref adds it *)
         let inner = Parse.bare_var_inner v in
         let bare_name =
-          if String.length inner > 2 && String.sub inner 0 2 = "--" then
-            String.sub inner 2 (String.length inner - 2)
+          if String.starts_with ~prefix:"--" inner && String.length inner > 2
+          then String.sub inner 2 (String.length inner - 2)
           else inner
         in
         let var_ref : Css.font_feature_settings Css.var =
@@ -3369,7 +3369,7 @@ module Typography_late = struct
     let inner =
       if Parse.is_bare_var s then
         let bare = Parse.bare_var_inner s in
-        if String.length bare > 2 && String.sub bare 0 2 = "--" then
+        if String.starts_with ~prefix:"--" bare && String.length bare > 2 then
           String.sub bare 2 (String.length bare - 2)
         else bare
       else Parse.extract_var_name s

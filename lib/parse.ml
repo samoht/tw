@@ -616,7 +616,7 @@ let opaque_declaration property value =
   else None
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
-let is_var s = String.length s > 4 && String.sub s 0 4 = "var("
+let is_var s = String.starts_with ~prefix:"var(" s && String.length s > 4
 
 (** Check if a bracket value contains a var() reference *)
 let is_bracket_var s =

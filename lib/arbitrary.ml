@@ -226,7 +226,9 @@ module Handler = struct
     match color_property_of_name property with
     | Some prop -> Some prop
     | None ->
-        if String.length property > 2 && String.sub property 0 2 = "--" then
+        if
+          String.starts_with ~prefix:"--" property && String.length property > 2
+        then
           let name = String.sub property 2 (String.length property - 2) in
           Some (fun c -> fst (Css.var ~layer:"utilities" name Css.Color c))
         else None

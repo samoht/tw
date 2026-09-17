@@ -1611,7 +1611,7 @@ let opacity_of_string ?theme opacity_str =
   then
     (* The [(--x)] shorthand for [[var(--x)]]. *)
     let inner = String.sub opacity_str 1 (String.length opacity_str - 2) in
-    if String.length inner > 2 && String.sub inner 0 2 = "--" then
+    if String.starts_with ~prefix:"--" inner && String.length inner > 2 then
       Some (Opacity_var opacity_str)
     else None
   else
@@ -1932,7 +1932,8 @@ module Handler = struct
   (* The palette colour a [--color-*] token names, so a value that references
      the token can be rendered from the palette. *)
   let theme_color_of_name name =
-    if String.length name <= 6 || String.sub name 0 6 <> "color-" then None
+    if not (String.starts_with ~prefix:"color-" name && String.length name > 6)
+    then None
     else
       let rest = String.sub name 6 (String.length name - 6) in
       match shade_of_strings (String.split_on_char '-' rest) with
@@ -1940,7 +1941,8 @@ module Handler = struct
       | _ -> None
 
   let theme_color_decl ?theme name =
-    if String.length name <= 6 || String.sub name 0 6 <> "color-" then None
+    if not (String.starts_with ~prefix:"color-" name && String.length name > 6)
+    then None
     else
       let rest = String.sub name 6 (String.length name - 6) in
       match shade_of_strings (String.split_on_char '-' rest) with
@@ -2709,7 +2711,7 @@ module Handler = struct
       else v
     in
     let name = Parse.extract_var_name inner in
-    if String.length name > 2 && String.sub name 0 2 = "--" then
+    if String.starts_with ~prefix:"--" name && String.length name > 2 then
       String.sub name 2 (String.length name - 2)
     else name
 
@@ -3985,11 +3987,12 @@ let bg_with_opacity ?theme c shade opacity =
 let opacity_fallback_for_theme_value ?theme var_name bare :
     Css.percentage Css.fallback =
   match Scheme.theme_value theme var_name with
-  | Some value when String.length value > 4 && String.sub value 0 4 = "var(" ->
+  | Some value
+    when String.starts_with ~prefix:"var(" value && String.length value > 4 ->
       (* Theme value is a var reference like "var(--custom-opacity)" *)
       let inner = String.sub value 4 (String.length value - 5) in
       let name =
-        if String.length inner > 2 && String.sub inner 0 2 = "--" then
+        if String.starts_with ~prefix:"--" inner && String.length inner > 2 then
           String.sub inner 2 (String.length inner - 2)
         else inner
       in

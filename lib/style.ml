@@ -517,8 +517,8 @@ let group_state_modifiers =
 (* [has-data-lg] matches an attribute rather than a state, but spells itself the
    same way, so it is a shorthand too. *)
 let is_data_attr_name name =
-  String.length name > 5
-  && String.sub name 0 5 = "data-"
+  String.starts_with ~prefix:"data-" name
+  && String.length name > 5
   && String.for_all
        (fun c ->
          (c >= 'a' && c <= 'z')

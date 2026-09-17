@@ -707,7 +707,8 @@ let extract_non_tw_custom_declarations selector_props =
 let apply_token_override theme decl =
   match Css.custom_declaration_name decl with
   | Some full_name
-    when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
+    when String.starts_with ~prefix:"--" full_name
+         && String.length full_name > 2 -> (
       let bare = String.sub full_name 2 (String.length full_name - 2) in
       (* An [@theme reference] token is declared somewhere else, so it has no
          declaration here to override. *)
@@ -783,7 +784,7 @@ let declared_order declared name =
   | None -> None
   | Some full ->
       let bare =
-        if String.length full > 2 && String.sub full 0 2 = "--" then
+        if String.starts_with ~prefix:"--" full && String.length full > 2 then
           String.sub full 2 (String.length full - 2)
         else full
       in
@@ -908,7 +909,7 @@ let removed_token_read ~theme ~authored outputs =
   in
   List.find_map
     (fun full ->
-      if String.length full > 2 && String.sub full 0 2 = "--" then
+      if String.starts_with ~prefix:"--" full && String.length full > 2 then
         let bare = String.sub full 2 (String.length full - 2) in
         if Scheme.is_removed_token theme bare && not (authored full) then
           Some bare
@@ -939,8 +940,7 @@ let referenced_theme_decls ~theme ~exclude selector_props =
   |> Strings.to_list
   |> List.filter_map (fun full ->
       if
-        String.length full <= 2
-        || String.sub full 0 2 <> "--"
+        (not (String.starts_with ~prefix:"--" full && String.length full > 2))
         || Strings.mem full exclude
       then None
       else
@@ -1661,8 +1661,7 @@ let has_transition_utility tw_classes =
   let rec check = function
     | Utility.Base b ->
         let c = Utility.class_of_base b in
-        String.length c >= 10
-        && String.sub c 0 10 = "transition"
+        String.starts_with ~prefix:"transition" c
         && not (reads_no_transition_defaults c)
     | Utility.Modified (_, u)
     | Utility.Important (_, u)
@@ -2024,7 +2023,8 @@ let theme_token_rename ~theme =
   | Some prefix ->
       Some
         (fun name ->
-          if String.length name > 3 && String.sub name 0 3 = "tw-" then name
+          if String.starts_with ~prefix:"tw-" name && String.length name > 3
+          then name
           else if is_theme_key theme name then prefix ^ "-" ^ name
           else name)
 
@@ -2071,7 +2071,7 @@ let with_reference_fallbacks ~theme sheet =
     Css.add_var_fallbacks
       (fun name ->
         let bare =
-          if String.length name > 2 && String.sub name 0 2 = "--" then
+          if String.starts_with ~prefix:"--" name && String.length name > 2 then
             String.sub name 2 (String.length name - 2)
           else name
         in

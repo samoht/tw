@@ -1036,10 +1036,7 @@ module Handler = struct
         Ok (Outline_width (int_of_string n))
     | [ "outline"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
-        let starts prefix s =
-          String.length s >= String.length prefix
-          && String.sub s 0 (String.length prefix) = prefix
-        in
+        let starts prefix s = String.starts_with ~prefix s in
         let hinted_width =
           List.find_map
             (fun prefix ->

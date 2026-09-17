@@ -960,11 +960,14 @@ module Handler = struct
     let len = String.length suffix in
     if len > 2 && suffix.[0] = '(' && suffix.[len - 1] = ')' then
       let inner = String.sub suffix 1 (len - 2) in
-      if String.length inner > 7 && String.sub inner 0 6 = "color:" then
+      if String.starts_with ~prefix:"color:" inner && String.length inner > 7
+      then
         (* (color:--var-name) → color ref *)
         let var_name = String.sub inner 6 (String.length inner - 6) in
         Some (`Color, var_name)
-      else if String.length inner > 9 && String.sub inner 0 7 = "length:" then
+      else if
+        String.starts_with ~prefix:"length:" inner && String.length inner > 9
+      then
         (* (length:--var-name) → position ref with length prefix *)
         let var_name = String.sub inner 7 (String.length inner - 7) in
         Some (`Length, var_name)

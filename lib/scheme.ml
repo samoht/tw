@@ -184,8 +184,8 @@ let in_nested_scale namespace name =
     (Option.value ~default:[] (List.assoc_opt namespace nested_scales))
 
 let clears_one_namespace name key =
-  String.length key > 2
-  && String.equal (String.sub key (String.length key - 2) 2) "-*"
+  String.ends_with ~suffix:"-*" key
+  && String.length key > 2
   &&
   let namespace = String.sub key 0 (String.length key - 2) in
   String.starts_with ~prefix:namespace name

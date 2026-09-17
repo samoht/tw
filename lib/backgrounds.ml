@@ -1432,8 +1432,8 @@ module Handler = struct
     | Some _ | None -> false
 
   let has_bracket_color_hint inner =
-    String.length inner > 6
-    && String.sub inner 0 6 = "color:"
+    String.starts_with ~prefix:"color:" inner
+    && String.length inner > 6
     && is_bracket_color_hint (String.sub inner 6 (String.length inner - 6))
 
   (** Convert a plain colour source to a Css.color *)
@@ -1900,8 +1900,8 @@ module Handler = struct
         | None -> Error (`Msg ("Invalid bg-conic value: " ^ inner)))
     (* bg-conic/interp - conic gradient with modifier only *)
     | [ "bg"; conic_mod ]
-      when String.length conic_mod > 6 && String.sub conic_mod 0 6 = "conic/"
-      -> (
+      when String.starts_with ~prefix:"conic/" conic_mod
+           && String.length conic_mod > 6 -> (
         let interp = String.sub conic_mod 6 (String.length conic_mod - 6) in
         match interp_to_css_string interp with
         | Some css -> Ok (Bg_conic_interp (interp, css))
@@ -1932,8 +1932,8 @@ module Handler = struct
     | [ "bg"; "radial" ] -> Ok Bg_radial
     (* bg-radial/interp - radial gradient with modifier only *)
     | [ "bg"; radial_mod ]
-      when String.length radial_mod > 7 && String.sub radial_mod 0 7 = "radial/"
-      -> (
+      when String.starts_with ~prefix:"radial/" radial_mod
+           && String.length radial_mod > 7 -> (
         let interp = String.sub radial_mod 7 (String.length radial_mod - 7) in
         match interp_to_css_string interp with
         | Some css -> Ok (Bg_radial_interp (interp, css))
@@ -2032,12 +2032,15 @@ module Handler = struct
           match inner with
           | "contain" -> Ok Bg_bracket_contain
           | "cover" -> Ok Bg_bracket_cover
-          | _ when String.length inner > 7 && String.sub inner 0 7 = "length:"
-            ->
+          | _
+            when String.starts_with ~prefix:"length:" inner
+                 && String.length inner > 7 ->
               Ok
                 (Bg_bracket_length
                    (String.sub inner 7 (String.length inner - 7)))
-          | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
+          | _
+            when String.starts_with ~prefix:"size:" inner
+                 && String.length inner > 5 ->
               Ok
                 (Bg_bracket_size (String.sub inner 5 (String.length inner - 5)))
           | _ when has_bracket_position_hint inner -> (
@@ -2069,8 +2072,9 @@ module Handler = struct
                     match last_resort inner with
                     | Some raw -> Ok (Bg_bracket_raw_color (inner, raw))
                     | None -> Error (`Msg ("Unknown bg bracket color: " ^ v))))
-          | _ when String.length inner > 6 && String.sub inner 0 6 = "image:"
-            -> (
+          | _
+            when String.starts_with ~prefix:"image:" inner
+                 && String.length inner > 6 -> (
               (* The [image:] data-type hint forces a background-image. The
                  value is a [url(...)] literal, a [var(...)] reference, or a
                  literal image (e.g. a gradient). *)
@@ -2089,7 +2093,9 @@ module Handler = struct
                 match parse_bracket_image v with
                 | Some img -> Ok (Bg_bracket_image (v, img))
                 | None -> raw_image ())
-          | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" -> (
+          | _
+            when String.starts_with ~prefix:"url:" inner
+                 && String.length inner > 4 -> (
               (* The [url:] data-type hint forces a background-image the way
                  [image:] does. Only a var() reference names a custom property;
                  any other spelling is the image itself. *)

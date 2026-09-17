@@ -495,9 +495,7 @@ let temp_dir () =
 (** Detect if any class names use forms utilities (form-input, form-select,
     etc.) *)
 let has_forms_class classnames =
-  List.exists
-    (fun cls -> String.length cls >= 5 && String.sub cls 0 5 = "form-")
-    classnames
+  List.exists (fun cls -> String.starts_with ~prefix:"form-" cls) classnames
 
 (* What the CLI said is the reason a generation failed; the class list only says
    what was asked of it. *)

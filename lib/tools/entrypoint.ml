@@ -152,7 +152,7 @@ let theme_tokens body =
         let { Cascade.Component.name; value; _ } =
           decl.Cascade.Component.node
         in
-        if String.length name > 2 && String.sub name 0 2 = "--" then
+        if String.starts_with ~prefix:"--" name && String.length name > 2 then
           Some
             ( decl.Cascade.Component.loc.Cascade.Loc.start_pos,
               ( String.sub name 2 (String.length name - 2),
@@ -428,8 +428,11 @@ let source_paths css =
          let prelude = String.trim source.prelude in
          let n = String.length prelude in
          let negated, argument =
-           if n > 3 && String.sub prelude 0 3 = "not" && blank prelude.[3] then
-             (true, String.sub prelude 3 (n - 3))
+           if
+             n > 3
+             && String.starts_with ~prefix:"not" prelude
+             && blank prelude.[3]
+           then (true, String.sub prelude 3 (n - 3))
            else (false, prelude)
          in
          match quoted_contents argument with
@@ -981,7 +984,7 @@ let parse_modifier raw =
     else Some (Bracketed { hint = None; text })
   else if n >= 2 && raw.[0] = '(' && raw.[n - 1] = ')' then
     let name = inner () in
-    if String.length name >= 2 && String.sub name 0 2 = "--" then
+    if String.starts_with ~prefix:"--" name then
       Some
         (Bracketed
            { hint = None; text = String.concat "" [ "var("; name; ")" ] })
@@ -1018,7 +1021,7 @@ let paren_shorthand base idx =
   let hint, name =
     match segment ':' inner with [ h; v ] -> (Some h, v) | _ -> (None, inner)
   in
-  if String.length name < 2 || String.sub name 0 2 <> "--" then None
+  if not (String.starts_with ~prefix:"--" name) then None
   else
     let reference = String.concat "" [ "var("; name; ")" ] in
     Some (Bracketed { hint; text = reference })
@@ -1144,8 +1147,7 @@ let normalize_value_arg arg =
   in
   let arg = collapse (wildcard_or_drop_space (unescape arg)) in
   if
-    String.length arg >= 2
-    && String.sub arg 0 2 = "--"
+    String.starts_with ~prefix:"--" arg
     && (not (String.contains arg '('))
     && not (Re.execp wildcard_re arg)
   then arg ^ "-*"
@@ -1179,7 +1181,7 @@ let split_wildcard arg = Re.split_delim wildcard_re arg
    sub-key of the entry, which is there only when the entry itself is. *)
 let theme_arg_css ~theme arg name =
   let bare s = String.sub s 2 (String.length s - 2) in
-  if String.length arg < 2 || String.sub arg 0 2 <> "--" then None
+  if not (String.starts_with ~prefix:"--" arg) then None
   else
     match split_wildcard arg with
     | [ namespace; "" ] ->
@@ -1232,7 +1234,7 @@ let resolve_arg ~theme ~fraction value arg =
   let quoted =
     n >= 2 && (arg.[0] = '\'' || arg.[0] = '"') && arg.[n - 1] = arg.[0]
   in
-  let theme_arg = n >= 2 && String.sub arg 0 2 = "--" in
+  let theme_arg = String.starts_with ~prefix:"--" arg in
   let bracketed = n >= 2 && arg.[0] = '[' && arg.[n - 1] = ']' in
   match value with
   | Bare text when quoted ->
@@ -1799,8 +1801,8 @@ let resolve_theme_fn ~theme css =
       | Some { body; next } -> (
           let name = String.trim body in
           let bare =
-            if String.length name > 2 && String.sub name 0 2 = "--" then
-              String.sub name 2 (String.length name - 2)
+            if String.starts_with ~prefix:"--" name && String.length name > 2
+            then String.sub name 2 (String.length name - 2)
             else name
           in
           match
@@ -1852,7 +1854,8 @@ let dashed_theme_value ~theme ~in_prelude body =
         else first
       in
       let fallback = String.concat ", " (List.map String.trim fallback) in
-      if not (String.length token > 2 && String.sub token 0 2 = "--") then None
+      if not (String.starts_with ~prefix:"--" token && String.length token > 2)
+      then None
       else
         let bare = String.sub token 2 (String.length token - 2) in
         match theme_token_value theme bare with

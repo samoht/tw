@@ -1697,8 +1697,8 @@ module Handler = struct
     | [ ""; "hue"; "rotate"; n ] ->
         Parse.int_pos ~name:"hue-rotate" n >|= fun x -> Hue_rotate (-x)
     (* Drop shadow with opacity modifier on the base: drop-shadow/25 *)
-    | [ "drop"; s ] when String.length s > 7 && String.sub s 0 7 = "shadow/"
-      -> (
+    | [ "drop"; s ]
+      when String.starts_with ~prefix:"shadow/" s && String.length s > 7 -> (
         let _, opacity = Color.parse_opacity_modifier ~theme s in
         match opacity with
         | Color.No_opacity -> err_not_utility

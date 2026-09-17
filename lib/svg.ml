@@ -309,10 +309,7 @@ module Handler = struct
     | Stroke_width_raw (v, _) -> "stroke-[" ^ v ^ "]"
 
   let has_opacity s = String.contains s '/'
-
-  let starts prefix s =
-    String.length s >= String.length prefix
-    && String.sub s 0 (String.length prefix) = prefix
+  let starts prefix s = String.starts_with ~prefix s
 
   (* Parse bracket value for fill/stroke: determine if it's a color or typed
      var. Returns the variant constructor for the appropriate type. *)

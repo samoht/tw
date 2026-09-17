@@ -1310,10 +1310,7 @@ module Handler = struct
   let plain_bracket_width value : Css.length option =
     let suffixed suffix mk =
       let n = String.length suffix in
-      if
-        String.length value > n
-        && String.sub value (String.length value - n) n = suffix
-      then
+      if String.ends_with ~suffix value && String.length value > n then
         Some (String.sub value 0 (String.length value - n))
         |> Option.map (fun num -> Option.map mk (float_of_string_opt num))
       else None
@@ -1331,7 +1328,7 @@ module Handler = struct
   (* A [length:] hint says how to read the value written after it; only a var()
      reference there names a custom property. *)
   let parse_bracket_width_opt inner : Css.length option =
-    if String.length inner > 6 && String.sub inner 0 7 = "length:" then
+    if String.starts_with ~prefix:"length:" inner then
       let v = String.sub inner 7 (String.length inner - 7) in
       if Parse.is_var v then
         Some (Css.Var (Var.bracket (Parse.extract_var_name v)) : Css.length)
@@ -1955,10 +1952,7 @@ module Handler = struct
     | Bg_blend_luminosity -> bg_blend_luminosity
 
   let err_not_utility = Error (`Msg "Not an effects utility")
-
-  let starts prefix s =
-    String.length s >= String.length prefix
-    && String.sub s 0 (String.length prefix) = prefix
+  let starts prefix s = String.starts_with ~prefix s
 
   let parse_ring_bracket kind v =
     let base_str, opacity = Color.parse_opacity_modifier v in
