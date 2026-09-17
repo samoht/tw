@@ -2974,6 +2974,21 @@ let record_routed_order ~theme own_order cls name =
   | Ok base -> Hashtbl.replace own_order cls (Tw.Utility.order base)
   | Error _ -> ()
 
+(* Tailwind applies the variants left to right, each putting the selector so far
+   in its [&], so a declared variant sits where it was written among the
+   built-in ones: [hover:dark:] is [.x:hover:where(...)] and [dark:hover:] is
+   [.x:where(...):hover]. Every prefix becomes a [@variant] in the written order
+   while each built-in one has a template, and the block then wraps the bare
+   utility's declarations; what the sheet hoists for it, the [@property] a
+   [before:] registers for its content, still comes off the built-in prefixes. A
+   built-in prefix without a template stays in the utility, and the declared
+   ones wrap it. *)
+let routed_body ~theme ~ordered ~name ~bare =
+  if ordered then
+    let body, _ = nested_utilities ~theme [ name ] in
+    (body, snd (nested_utilities ~theme [ bare ]))
+  else nested_utilities ~theme [ bare ]
+
 let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
   let variants, bare = split_declared_variants defs cls in
   (* [bare] still carries the built-in prefixes; the utility itself is its last
@@ -2982,6 +2997,11 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
   let last = List.length segments - 1 in
   let name = List.nth segments last in
   let builtin = List.filteri (fun index _ -> index < last) segments in
+  (* Every prefix of the candidate, declared and built-in, as written. *)
+  let prefixes =
+    let all = variant_segments cls in
+    List.filteri (fun index _ -> index < List.length all - 1) all
+  in
   (* Every body declared for the name, in the order they were written: Tailwind
      registers each [@utility] of a name and applies them all, so a second
      declaration adds to the first rather than replacing it. *)
@@ -2999,16 +3019,23 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
           (fun variant ->
             Option.is_some (routed_template ~theme derived variant))
           builtin
-      then Some (wrapped_block cls (variants @ builtin) body)
+      then Some (wrapped_block cls prefixes body)
       else None
   | None when variants = [] -> None
   | None ->
-      let body, top = nested_utilities ~theme [ bare ] in
+      let ordered =
+        List.for_all
+          (fun variant ->
+            List.mem_assoc variant defs
+            || Option.is_some (routed_template ~theme derived variant))
+          prefixes
+      in
+      let body, top = routed_body ~theme ~ordered ~name ~bare in
       add_once hoisted seen top;
       if body = "" then None
       else begin
         record_routed_order ~theme own_order cls name;
-        Some (wrapped_block cls variants body)
+        Some (wrapped_block cls (if ordered then prefixes else variants) body)
       end
 
 let collect_routed_templates ~theme derived udefs =
