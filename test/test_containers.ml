@@ -1,11 +1,6 @@
 open Alcotest
 
-let check class_name =
-  match Tw.Containers.Handler.of_class Tw.Scheme.default class_name with
-  | Ok t ->
-      check string "containers class" class_name
-        (Tw.Containers.Handler.to_class t)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Containers.Handler)
 
 let test_container_types () =
   check "@container";

@@ -1,11 +1,7 @@
 open Alcotest
 open Tw.Arbitrary.Handler
 
-let check input =
-  match of_class Tw.Scheme.default input with
-  | Ok result ->
-      Alcotest.check string "arbitrary class name" input (to_class result)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Arbitrary.Handler)
 
 let of_string_valid () =
   check "[color:red]/50";

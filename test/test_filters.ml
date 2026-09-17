@@ -1,10 +1,6 @@
 open Alcotest
 
-let check class_name =
-  match Tw.Filters.Handler.of_class Tw.Scheme.default class_name with
-  | Ok u ->
-      check string "filters class" class_name (Tw.Filters.Handler.to_class u)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Filters.Handler)
 
 (* Every filter utility re-declares the whole [filter] chain, so a declaration
    list that names one channel ends with this. *)

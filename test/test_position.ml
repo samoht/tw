@@ -1,12 +1,6 @@
 open Alcotest
 
-let check class_name =
-  match Tw.Position.Handler.of_class Tw.Scheme.default class_name with
-  | Ok util ->
-      check string "positioning class" class_name
-        (Tw.Position.Handler.to_class util)
-  | Error (`Msg msg) -> fail msg
-
+let check = Test_helpers.check_handler_roundtrip (module Tw.Position.Handler)
 let test_inset_and_z () = check "inset-0"
 let test_negative () = check "-top-4"
 
