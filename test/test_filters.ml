@@ -495,8 +495,55 @@ let test_project_blur_token () =
     "an undeclared blur name is rejected" true
     (Result.is_error (Tw.of_string ~theme "blur-nope"))
 
+(* An arbitrary drop shadow takes a [/opacity], as a named size does: the
+   modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
+   does, folded at build time for a colour with sRGB bytes; a [var()] keeps its
+   spelling in the fallback and takes the relative form behind a guard, and
+   [currentcolor] a [color-mix()] behind its own. A trailing [var()] is the
+   colour, as Tailwind reads it, where the shadow grammar read it as the next
+   length and dropped it. The bracket arm took no modifier. *)
+let test_drop_shadow_arbitrary_opacity () =
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_#0000001a]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,oklab(0%0 0/.5)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_var(--c)]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,var(--c)))";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,oklab(from var(--c) l a b /.5)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_currentcolor]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,currentcolor))";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,color-mix(in oklab,currentcolor \
+       50%,transparent)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_var(--c)]"
+    [
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,var(--c)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ]
+
 let tests =
   [
+    test_case "drop-shadow arbitrary opacity" `Quick
+      test_drop_shadow_arbitrary_opacity;
     test_case "arbitrary angle class name" `Quick
       test_arbitrary_angle_class_name;
     test_case "arbitrary angle token streams" `Quick
