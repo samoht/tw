@@ -2006,6 +2006,18 @@ let normalize_declared_property_families order_map builtins extra_outputs =
    The rename goes to the printer rather than the sheet because a [var()]
    reference sits inside a typed value, so moving it in the AST would mean
    rebuilding every value that holds one. *)
+(* Whether [name] is a theme key: a registered default, a palette colour, a
+   token the project's [@theme] declared or a [--default-*] the base layer
+   reads. The prefix moves those and nothing else: a [var(--brand)] the author
+   wrote into an arbitrary value or an inline token's value is their own. *)
+let is_theme_key theme name =
+  Option.is_some (Scheme.token_default name)
+  || Option.is_some (Scheme.theme_value (Some theme) name)
+  || Scheme.is_inline_token theme name
+  || Scheme.is_reference_token theme name
+  || String.starts_with ~prefix:"default-" name
+  || Option.is_some (Color.Handler.theme_color_decl ~theme name)
+
 let theme_token_rename ~theme =
   match theme.Scheme.prefix with
   | None -> None
@@ -2013,7 +2025,8 @@ let theme_token_rename ~theme =
       Some
         (fun name ->
           if String.length name > 3 && String.sub name 0 3 = "tw-" then name
-          else prefix ^ "-" ^ name)
+          else if is_theme_key theme name then prefix ^ "-" ^ name
+          else name)
 
 (* A declared utility means nothing to the handlers, so its order arrives with
    it and is seeded under the same key [order_of_base] looks up. The key is the

@@ -1384,6 +1384,11 @@ let prefixed_candidates () =
       ("tw:p-4", ".tw\\:p-4{");
       ("tw:hover:underline", ".tw\\:hover\\:underline:hover{");
       ("tw:group-hover:underline", ".tw\\:group");
+      (* A stacked variant puts the rule under a query of its own, and the
+         written name reaches it there too; the anchor of a named group or peer
+         is a class the author writes, so it carries the prefix. *)
+      ("tw:md:hover:text-lg", ".tw\\:md\\:hover\\:text-lg:hover{");
+      ("tw:peer-checked/y:flex", ":where(.tw\\:peer\\/y):checked");
     ];
   List.iter
     (fun cls ->
