@@ -1255,13 +1255,7 @@ let resolve_arg ~theme ~fraction value arg =
 
 (* [--default(4)] answers for a candidate that spelled no value at all. *)
 let default_arg arg =
-  let arg = String.trim arg in
-  let n = String.length arg in
-  let head = "--default(" in
-  let m = String.length head in
-  if n > m && String.sub arg 0 m = head && arg.[n - 1] = ')' then
-    Some (String.trim (String.sub arg m (n - m - 1)))
-  else None
+  Option.map String.trim (Tw.Parse.call_body "--default" (String.trim arg))
 
 let resolve_read ~theme ~value ~fraction args =
   match value with

@@ -2057,26 +2057,13 @@ module Handler = struct
       like [rgb(...)], [hsl(...)], etc., and named Tailwind colors (which are
       converted to their CSS representation via [to_css]). Returns [None] for
       non-color values. *)
-  let parse_alpha_call inner =
-    let prefix = "--alpha(" in
-    let pl = String.length prefix and n = String.length inner in
-    if n > pl && String.sub inner 0 pl = prefix && inner.[n - 1] = ')' then
-      let body = String.sub inner pl (n - pl - 1) in
-      match String.rindex_opt body '/' with
-      | Some i ->
-          Some
-            ( String.sub body 0 i,
-              String.sub body (i + 1) (String.length body - i - 1) )
-      | None -> None
-    else None
-
   let rec parse_bracket_color (inner : string) : Css.color option =
     if Parse.is_var inner then
       (* A bare var() is a valid arbitrary color: border-[var(--x)] and its
          paren shorthand border-(--x). *)
       Some (Css.Var (Var.bracket (Parse.extract_var_name inner)))
     else
-      match parse_alpha_call inner with
+      match Parse.alpha_call inner with
       | Some (color_str, pct_str) -> (
           let pct =
             let t = String.trim pct_str in

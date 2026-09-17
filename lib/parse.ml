@@ -622,6 +622,24 @@ let is_var s = String.starts_with ~prefix:"var(" s && String.length s > 4
 let is_bracket_var s =
   if is_bracket_value s then is_var (bracket_inner s) else false
 
+let call_body name s =
+  let head = name ^ "(" in
+  let n = String.length s and m = String.length head in
+  if n > m && String.starts_with ~prefix:head s && s.[n - 1] = ')' then
+    Some (String.sub s m (n - m - 1))
+  else None
+
+let alpha_call s =
+  match call_body "--alpha" s with
+  | None -> None
+  | Some body -> (
+      match String.rindex_opt body '/' with
+      | Some i ->
+          Some
+            ( String.sub body 0 i,
+              String.sub body (i + 1) (String.length body - i - 1) )
+      | None -> None)
+
 (** Check if a string looks like a CSS color function call (e.g., "rgba(...)",
     "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
     followed by '('. *)
@@ -643,39 +661,31 @@ let is_bare_var s =
 let bare_var_inner s =
   if is_bare_var s then String.sub s 1 (String.length s - 2) else s
 
-(** Split a class name on '-' but treat '[...]' as atomic. E.g.
-    "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
-    [""; "m"; "[var(--value)]"] *)
-let split_class_uncached class_name =
-  let len = String.length class_name in
+(* Split [s] on [sep], reading a [[...]] or a [(...)] group, nested brackets of
+   its own kind included, as one atom: the separator inside one belongs to the
+   piece around it. Always yields one piece more than the separators it split
+   on, so joining the pieces back with [sep] reconstructs [s]. *)
+let split_atomic sep s =
+  let len = String.length s in
   let buf = Buffer.create 16 in
   let parts = ref [] in
   let i = ref 0 in
+  let group opening closing =
+    let depth = ref 1 in
+    Buffer.add_char buf opening;
+    incr i;
+    while !i < len && !depth > 0 do
+      let c = s.[!i] in
+      Buffer.add_char buf c;
+      if c = opening then incr depth else if c = closing then decr depth;
+      incr i
+    done
+  in
   while !i < len do
-    let c = class_name.[!i] in
-    if c = '[' then (
-      (* Read until matching ']', including nested brackets *)
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = class_name.[!i] in
-        Buffer.add_char buf c;
-        if c = '[' then incr depth else if c = ']' then decr depth;
-        incr i
-      done)
-    else if c = '(' then (
-      (* Read until matching ')', including nested parens *)
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = class_name.[!i] in
-        Buffer.add_char buf c;
-        if c = '(' then incr depth else if c = ')' then decr depth;
-        incr i
-      done)
-    else if c = '-' then (
+    let c = s.[!i] in
+    if c = '[' then group '[' ']'
+    else if c = '(' then group '(' ')'
+    else if c = sep then (
       parts := Buffer.contents buf :: !parts;
       Buffer.clear buf;
       incr i)
@@ -686,48 +696,17 @@ let split_class_uncached class_name =
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
 
+(** Split a class name on '-' but treat '[...]' as atomic. E.g.
+    "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
+    [""; "m"; "[var(--value)]"] *)
+let split_class_uncached = split_atomic '-'
+
 (** Split a variant chain on ':', treating '[...]' and '(...)' as atomic so a
     colon inside an arbitrary value or a shorthand var reference (e.g.
     "hover:bg-[color:var(--x)]") is not read as a variant separator. Always
     yields (colon count + 1) tokens: joining the result back with ':'
     reconstructs the input. *)
-let split_on_colon s =
-  let len = String.length s in
-  let buf = Buffer.create 16 in
-  let parts = ref [] in
-  let i = ref 0 in
-  while !i < len do
-    let c = s.[!i] in
-    if c = '[' then (
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = s.[!i] in
-        Buffer.add_char buf c;
-        if c = '[' then incr depth else if c = ']' then decr depth;
-        incr i
-      done)
-    else if c = '(' then (
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = s.[!i] in
-        Buffer.add_char buf c;
-        if c = '(' then incr depth else if c = ')' then decr depth;
-        incr i
-      done)
-    else if c = ':' then (
-      parts := Buffer.contents buf :: !parts;
-      Buffer.clear buf;
-      incr i)
-    else (
-      Buffer.add_char buf c;
-      incr i)
-  done;
-  parts := Buffer.contents buf :: !parts;
-  List.rev !parts
+let split_on_colon = split_atomic ':'
 
 (* Utility.base_of_class offers one class name to every handler in turn until
    one accepts it, and most handlers open by splitting that same name, so a

@@ -625,11 +625,7 @@ module Typography_early = struct
       a valid font-size: a length must carry a unit and a hex color must start
       with "#" (CSS Color §5.4.6). *)
   let parse_spacing_call s =
-    let prefix = "--spacing(" in
-    let pl = String.length prefix and n = String.length s in
-    if n > pl && String.sub s 0 pl = prefix && s.[n - 1] = ')' then
-      float_of_string_opt (String.sub s pl (n - pl - 1))
-    else Stdlib.Option.None
+    Stdlib.Option.bind (Parse.call_body "--spacing" s) float_of_string_opt
 
   (* A data-type hint in front of an arbitrary font size says how to read the
      value written after it, so [text-[length:1rem]] is the size [1rem] and not

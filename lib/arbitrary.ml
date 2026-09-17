@@ -18,24 +18,11 @@ let color_property_of_name = function
   | "stroke" -> Some (fun c -> Css.stroke (Css.Color c : Css.svg_paint))
   | _ -> None
 
-(* Tailwind's [--alpha(<color>/<percentage>)]: the colour and the alpha it is
-   mixed with. The separating slash is the last one, so a colour that carries
-   its own (as [oklch(1 0 0 / 50%)] does) still reads. *)
+(* The two halves of a [--alpha()] call, trimmed. *)
 let alpha_fn_parts value =
-  let n = String.length value in
-  let prefix = "--alpha(" in
-  let plen = String.length prefix in
-  if n > plen + 1 && String.sub value 0 plen = prefix && value.[n - 1] = ')'
-  then
-    let inner = String.sub value plen (n - plen - 1) in
-    match String.rindex_opt inner '/' with
-    | Some i ->
-        Some
-          ( String.trim (String.sub inner 0 i),
-            String.trim (String.sub inner (i + 1) (String.length inner - i - 1))
-          )
-    | None -> None
-  else None
+  Option.map
+    (fun (colour, alpha) -> (String.trim colour, String.trim alpha))
+    (Parse.alpha_call value)
 
 module Handler = struct
   open Style

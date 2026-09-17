@@ -243,6 +243,18 @@ val is_bracket_var : string -> bool
 (** [is_bracket_var s] returns [true] if [s] is a bracket-wrapped var()
     reference like ["[var(--value)]"]. *)
 
+val call_body : string -> string -> string option
+(** [call_body name s] is the text between [name(] and the [)] that ends [s],
+    when [s] is one such call: [call_body "--spacing" "--spacing(4)"] is
+    [Some "4"]. The body comes back as written, blank or empty included; [None]
+    when [s] is not the call. *)
+
+val alpha_call : string -> (string * string) option
+(** [alpha_call s] reads Tailwind's [--alpha(<color>/<percentage>)]: the colour
+    and the alpha it is mixed with, as written. The separating slash is the last
+    one, so a colour carrying its own, as [oklch(1 0 0 / 50%)] does, still
+    reads. [None] when [s] is not the call or has no slash. *)
+
 val is_css_color_fn : string -> bool
 (** [is_css_color_fn s] returns [true] if [s] looks like a CSS color function
     call such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]: the part of [s]
