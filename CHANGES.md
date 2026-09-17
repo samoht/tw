@@ -62,10 +62,11 @@
 - `@import "tailwindcss" prefix(tw)` compiles. The option was parsed and
   discarded, so every candidate spelled `tw:p-4` was unknown and the sheet came
   back with no utilities at all. `Scheme.prefix` carries it: the candidate is
-  read without the prefix, the written spelling goes on the finished rule, the
-  `group`/`peer` anchors carry it too, and the theme tokens are declared and
-  read as `--tw-spacing` while the `--tw-*` channels a utility sets for itself
-  keep their names (#781).
+  read without the prefix, the written spelling goes on the finished rule and
+  on the rule a stacked variant nests under its query, the `group`/`peer`
+  anchors carry it too, and the theme's own tokens are declared and read as
+  `--tw-spacing` while the `--tw-*` channels a utility sets for itself and a
+  `var(--brand)` the author wrote keep their names (#781, #849).
 - `tw` compiles a whole CSS entrypoint instead of reading only its `@theme`.
   `@import`, `@apply`, `@utility`, `@variant`, `@custom-variant`, `--spacing()`
   and `theme()` all expand in author CSS, down to a declared utility's own
