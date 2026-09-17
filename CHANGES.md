@@ -99,6 +99,21 @@
   drop shadow read it as a length and lost it. The modifier's `/` is the last
   one outside a bracket, so `shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50` and
   `bg-[rgb(0_0_0_/_0.5)]/50` parse (#847).
+- The bare `--*: initial` reset reaches the `--default-*` tokens the way
+  Tailwind reads them, as `--theme(--default-<x>, <fallback>)`: preflight
+  writes its font stacks and `normal` themselves, the transition family
+  `var(--tw-ease, ease)` and `var(--tw-duration, 0s)`, and a font stack no
+  default reads any more stays out of the theme layer. Each kept a `var()`
+  reference to a token nothing declared (#847).
+- A `@custom-variant` sits where it was written among the built-in variants,
+  as Tailwind applies them left to right: `hover:dark:text-white` is
+  `.x:hover:where(.dark, .dark *)` and `dark:hover:text-white`
+  `.x:where(.dark, .dark *):hover`. The declared variant wrapped outermost
+  whatever its place, so both spelled the second (#847).
+- `inset-shadow-[inset_0_1px_red]`, a bracket spelling the `inset` the utility
+  supplies itself, is refused. Tailwind writes `inset inset 0 1px red`, which
+  no browser draws and which takes the element's whole `box-shadow` down with
+  it; tw drew the shadow the author did not get (#847).
 - A `theme(static)` entrypoint declares its theme and keyframes once. Each
   `@apply`, and each class under a `@custom-variant`, repeated the whole theme
   block and every `@keyframes` beside the generated sheet's (#801).

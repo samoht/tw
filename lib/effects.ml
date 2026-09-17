@@ -2936,10 +2936,26 @@ module Handler = struct
           | Color.No_opacity -> Ok (Shadow_arbitrary inner)
           | _ -> Ok (Shadow_arbitrary_opacity (inner, opacity)))
 
+  (* Whether a bracket spells [inset] in any layer. The utility supplies the
+     keyword itself, so Tailwind writes the author's on top of it, [inset inset
+     0 1px ...], a shadow no browser draws and one that takes the whole
+     [box-shadow] composition down with it. That value has no typed form, and
+     the class is refused rather than drawn as the shadow the author did not
+     get. *)
+  let spells_inset inner =
+    match Css.parse_shadow (Parse.decode_underscores inner) with
+    | Some (Css.Inset _ : Css.shadow) -> true
+    | Some (Css.List layers : Css.shadow) ->
+        List.exists
+          (function (Css.Inset _ : Css.shadow) -> true | _ -> false)
+          layers
+    | _ -> false
+
   let parse_inset_shadow_bracket v =
     let base_str, opacity = Color.parse_opacity_modifier v in
     let inner = Parse.bracket_inner base_str in
-    if starts "shadow:" inner then
+    if spells_inset inner then err_not_utility
+    else if starts "shadow:" inner then
       (* The hint says how to read the value written after it; only a var()
          reference there names a custom property. *)
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
