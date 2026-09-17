@@ -230,7 +230,9 @@
   initial`) now reaches tw at all, `--spacing: initial` drops the multiplier,
   a removed breakpoint stops resolving its variant, and a removed palette
   entry no longer leaves a utility referencing a variable nothing declares
-  (#507, #515).
+  (#507, #515). `--breakpoint-md: initial` on its own removes `md:` too: the
+  custom breakpoints read `initial` back as a width, so `md:flex` came out
+  under `@media (min-width: initial)`, a query no browser honours (#847).
 - Keep `@keyframes` when a `@theme` redefines an animation. The keyframes
   follow the animation the value names, so retiming `--animate-ping` no longer
   emitted an animation that never ran (#510).
