@@ -521,6 +521,14 @@
   `--text-shadow-<name>` is a utility, `--drop-shadow-<name>` and
   `shadow-inner` take a modifier, a sized drop shadow reads its project
   override, and `shadow-lg/[25]` records the author's own number (#852).
+- A shadow read whole from a custom property takes a modifier in every
+  family, `shadow-[var(--s)]/50`, `inset-shadow-[var(--s)]/50`,
+  `drop-shadow-[var(--s)]/50` and `text-shadow-[var(--s)]/50`, under the
+  `shadow:` hint too: the alpha channel is set and the value kept, as Tailwind
+  writes it, where the class was refused or the modifier silently dropped.
+  `ring-[3px]` declares the inset toggle and colour it reads, as `ring-2`
+  does, where the sheet dropped both reads; a width takes no opacity, and
+  `ring-[3px]/50` is refused (#853).
 - A gradient stop with an opacity keeps its theme colour as the palette declares
   it. `to-gray-950/40` registered `--color-gray-950` as `#030712`, which moved
   every other use of the token on the page off the palette's oklch (#822).
