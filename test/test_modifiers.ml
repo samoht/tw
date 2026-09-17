@@ -853,6 +853,130 @@ let test_prose_element_variant_invalid () =
     "prose-h7: is not a variant" true
     (Result.is_error (Tw.of_string "prose-h7:underline"))
 
+(* Negating a hover-gated variant negates the gate as well: Tailwind pairs
+   [.x:not(<rel>)] with [@media not (hover: hover) { .x }] for [not-hover], and
+   the group, peer, ancestor and [has-] forms of [hover] carry the gate along
+   with the state, so their negations carry the twin. Without it the class only
+   held the selector half, and a touch device - where the gate fails and the
+   twin applies - got nothing. [not-in-hover] read its inner through the plain
+   selector reading and negated the utility's own class. *)
+let test_negated_hover_forms_carry_the_twin () =
+  check_utilities "not-group-hover:flex"
+    {|.not-group-hover\:flex:not(:is(:where(.group):hover *)){display:flex}@media not all and (hover:hover){.not-group-hover\:flex{display:flex}}|};
+  check_utilities "not-peer-hover/x:flex"
+    {|.not-peer-hover\/x\:flex:not(:is(:where(.peer\/x):hover~*)){display:flex}@media not all and (hover:hover){.not-peer-hover\/x\:flex{display:flex}}|};
+  check_utilities "not-in-hover:flex"
+    {|.not-in-hover\:flex:not(:where(:hover) *){display:flex}@media not all and (hover:hover){.not-in-hover\:flex{display:flex}}|};
+  check_utilities "not-has-hover:flex"
+    {|.not-has-hover\:flex:not(:has(:hover)){display:flex}@media not all and (hover:hover){.not-has-hover\:flex{display:flex}}|}
+
+(* The at-rule half of a negation is built over the leaf the inner variants
+   made, as Tailwind builds it: the block keeps that leaf's selector, [.x:focus]
+   for [not-hover:focus:flex], and stays inside the [@media (hover: hover)] an
+   inner [hover] brought, [@media (hover:hover) { @media not (...) { .x:hover }
+   }] for [not-dark:hover:flex]. It used to name the bare class and drop the
+   gate, so [not-hover:focus:flex] styled the element whether focused or not. *)
+let test_negation_keeps_the_inner_leaf () =
+  check_utilities "not-hover:focus:flex"
+    {|.not-hover\:focus\:flex:not(:hover):focus{display:flex}@media not all and (hover:hover){.not-hover\:focus\:flex:focus{display:flex}}|};
+  check_utilities "not-dark:hover:flex"
+    {|@media(hover:hover){@media not all and (prefers-color-scheme:dark){.not-dark\:hover\:flex:hover{display:flex}}}|};
+  check_utilities "not-supports-grid:focus:flex"
+    {|@supports not (grid:var(--tw)){.not-supports-grid\:focus\:flex:focus{display:flex}}|};
+  check_utilities "not-max-md:hover:flex"
+    {|@media(hover:hover){@media(min-width:48rem){.not-max-md\:hover\:flex:hover{display:flex}}}|};
+  check_utilities "not-group-hover/x:hover:flex"
+    {|@media(hover:hover){.not-group-hover\/x\:hover\:flex:not(:is(:where(.group\/x):hover *)):hover{display:flex}@media not all and (hover:hover){.not-group-hover\/x\:hover\:flex:hover{display:flex}}}|}
+
+(* A selector variant over a media inner: the regular arm builds the anchor or
+   the negation over the inner rule's selector, and the inner query goes back
+   around each rule that comes out, inside the gate the variant added. A named
+   group or peer over [md:] lost its anchor, and a negation over it lost its
+   twin. *)
+let test_selector_variant_over_media_inner () =
+  check_utilities "not-hover:md:flex"
+    {|@media(min-width:48rem){.not-hover\:md\:flex:not(:hover){display:flex}}@media not all and (hover:hover){@media(min-width:48rem){.not-hover\:md\:flex{display:flex}}}|};
+  check_utilities "not-group-hover/x:md:flex"
+    {|@media(min-width:48rem){.not-group-hover\/x\:md\:flex:not(:is(:where(.group\/x):hover *)){display:flex}}@media not all and (hover:hover){@media(min-width:48rem){.not-group-hover\/x\:md\:flex{display:flex}}}|};
+  check_utilities "peer-checked/x:md:flex"
+    {|@media(min-width:48rem){.peer-checked\/x\:md\:flex:is(:where(.peer\/x):checked~*){display:flex}}|};
+  check_utilities "group-hover/x:md:flex"
+    {|@media(hover:hover){@media(min-width:48rem){.group-hover\/x\:md\:flex:is(:where(.group\/x):hover *){display:flex}}}|}
+
+(* A negation inside a compound is the negated selector, and a double negation
+   of a media or supports variant is the variant again: [has-not-focus] is
+   [:has(:not(:focus))], [not-not-md] is [md]. Each read as the utility's own
+   class negated, [.x:has(.flex)], which matched nothing the author meant. A
+   negation with two halves - [not-hover] - has no single negation, and a
+   compound holds only a selector, so [not-not-hover], [has-not-hover], [has-md]
+   and [in-not-group-hover] name nothing, as they do in Tailwind. *)
+let test_compound_negations () =
+  check_utilities "has-not-focus:flex"
+    {|.has-not-focus\:flex:has(:not(:focus)){display:flex}|};
+  check_utilities "in-not-focus:flex"
+    {|:where(:not(:focus)) .in-not-focus\:flex{display:flex}|};
+  check_utilities "not-not-focus:flex"
+    {|.not-not-focus\:flex:focus{display:flex}|};
+  check_utilities "not-not-md:flex"
+    {|@media(min-width:48rem){.not-not-md\:flex{display:flex}}|};
+  check_utilities "not-not-[@media_print]:flex"
+    {|@media print{.not-not-\[\@media_print\]\:flex{display:flex}}|};
+  check_utilities "has-not-[.a]:flex"
+    {|.has-not-\[\.a\]\:flex:has(:not(.a)){display:flex}|};
+  check_utilities "not-has-[.a]:flex"
+    {|.not-has-\[\.a\]\:flex:not(:has(.a)){display:flex}|};
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  List.iter rejected
+    [
+      "not-not-hover:flex";
+      "has-not-hover:flex";
+      "has-not-dark:flex";
+      "has-md:flex";
+      "has-supports-grid:flex";
+      "in-not-group-hover:flex";
+      "in-not-[@supports(display:grid)]:flex";
+      "not-has-first-child:flex";
+    ]
+
+(* [in-<variant>] holds any variant with a selector, the way [has-] does, and an
+   ancestor in a hover state keeps the pointer gate. The reading knew a bracket,
+   a data attribute and the bare state names, so [in-group-hover],
+   [in-has-focus] and [in-nth-3] were unknown classes. A media variant has no
+   selector to hold, and a modifier is not a name an ancestor takes. *)
+let test_in_holds_any_selector_variant () =
+  check_utilities "in-group-hover:flex"
+    {|@media(hover:hover){:where(:is(:where(.group):hover *)) .in-group-hover\:flex{display:flex}}|};
+  check_utilities "in-peer-checked:flex"
+    {|:where(:is(:where(.peer):checked~*)) .in-peer-checked\:flex{display:flex}|};
+  check_utilities "in-has-focus:flex"
+    {|:where(:has(:focus)) .in-has-focus\:flex{display:flex}|};
+  check_utilities "in-aria-checked:flex"
+    {|:where([aria-checked=true]) .in-aria-checked\:flex{display:flex}|};
+  check_utilities "in-nth-3:flex"
+    {|:where(:nth-child(3)) .in-nth-3\:flex{display:flex}|};
+  check_utilities "in-data-[x=1]:flex"
+    {|:where([data-x="1"]) .in-data-\[x\=1\]\:flex{display:flex}|};
+  check_utilities "in-in-focus:flex"
+    {|:where(:where(:focus) *) .in-in-focus\:flex{display:flex}|};
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  List.iter rejected [ "in-print:flex"; "in-md:flex"; "in-focus/x:flex" ]
+
+(* [has-group-hover/x] and [in-group-hover/x] gate on the pointer as
+   [group-hover/x] does; they used to apply on touch. *)
+let test_has_and_in_named_hover_gate () =
+  check_utilities "has-group-hover/x:flex"
+    {|@media(hover:hover){.has-group-hover\/x\:flex:has(:is(:where(.group\/x):hover *)){display:flex}}|};
+  check_utilities "in-group-hover/x:flex"
+    {|@media(hover:hover){:where(:is(:where(.group\/x):hover *)) .in-group-hover\/x\:flex{display:flex}}|}
+
 let tests =
   [
     test_case "important prefix" `Quick test_important_prefix;
@@ -1703,6 +1827,17 @@ let tests =
         test_not_bracket_supports;
       test_case "pseudo-element supports twin declares content once" `Quick
         test_pseudo_element_supports_twin_content;
+      test_case "negated hover forms carry the twin" `Quick
+        test_negated_hover_forms_carry_the_twin;
+      test_case "negation keeps the inner leaf" `Quick
+        test_negation_keeps_the_inner_leaf;
+      test_case "selector variant over media inner" `Quick
+        test_selector_variant_over_media_inner;
+      test_case "compound negations" `Quick test_compound_negations;
+      test_case "in- holds any selector variant" `Quick
+        test_in_holds_any_selector_variant;
+      test_case "has- and in- named hover gate" `Quick
+        test_has_and_in_named_hover_gate;
     ]
 
 let suite = ("modifiers", tests)

@@ -1388,6 +1388,7 @@ let prefixed_candidates () =
          written name reaches it there too; the anchor of a named group or peer
          is a class the author writes, so it carries the prefix. *)
       ("tw:md:hover:text-lg", ".tw\\:md\\:hover\\:text-lg:hover{");
+      ("tw:group-hover/x:md:flex", ":where(.tw\\:group\\/x):hover");
       ("tw:peer-checked/y:flex", ":where(.tw\\:peer\\/y):checked");
     ];
   List.iter
