@@ -2206,17 +2206,50 @@ let replace_first ~needle ~by hay =
    that declaration was. This is what lets a project's [@utility] carry a
    built-in prefix, which the [@variant] machinery otherwise only has templates
    for when the project declared it. *)
+(* Replace every occurrence of [needle] in [hay]. *)
+let replace_all ~needle ~by hay =
+  let rec go hay =
+    match replace_first ~needle ~by hay with Some hay -> go hay | None -> hay
+  in
+  go hay
+
+(* A rule that is the bare [&] alone, as a media variant wraps the probe in,
+   adds a nesting level the utility's own body cannot survive: its [@variant
+   before] and the [@supports] an opacity colour emits end up three deep and the
+   sheet no longer parses. That level goes, so the slot takes its place; a [&]
+   that ends a longer selector, [:where([data-stack]) &], is the rule's own and
+   stays. *)
+let drop_bare_amp_rules hay =
+  let needle = "&{float:none}" in
+  let n = String.length needle in
+  let buf = Buffer.create (String.length hay) in
+  let rec go i =
+    if i >= String.length hay then ()
+    else if
+      i + n <= String.length hay
+      && String.sub hay i n = needle
+      && (i = 0 || match hay.[i - 1] with '{' | '}' | ';' -> true | _ -> false)
+    then begin
+      Buffer.add_string buf "float:none";
+      go (i + n)
+    end
+    else begin
+      Buffer.add_char buf hay.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
+(* The template a built-in variant stands for, derived from tw's own render of a
+   probe utility under it: every probe declaration becomes the slot, so a
+   variant of several rules, [marker:]'s three, slots each of them. *)
 let builtin_variant_template ~theme name =
   let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
   if body = "" then None
   else
-    (* A media variant wraps the probe in a bare [&], which would add a nesting
-       level the utility's own body cannot survive: its [@variant before] and
-       the [@supports] an opacity colour emits end up three deep and the sheet
-       no longer parses. Drop that level by putting the slot in its place. *)
-    match replace_first ~needle:"&{float:none}" ~by:"@slot;" body with
-    | Some t -> Some t
-    | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
+    Some
+      (replace_all ~needle:"float:none" ~by:"@slot;" (drop_bare_amp_rules body))
 
 let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   (* What an [@apply] pulls into the author's CSS is not a utility, so the
