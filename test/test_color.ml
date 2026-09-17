@@ -1342,8 +1342,29 @@ let test_inline_colour_token_folds_in_every_family () =
       ("bg-accent/50", "color-mix(in oklab,var(--accent) 50%,transparent)");
     ]
 
+(* The modifier's [/] is the last one outside a bracket, as Tailwind reads a
+   candidate, so the [/] a bracket value spells stays inside it:
+   [shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50] was an unknown class, the first [/]
+   having split the bracket in two. *)
+let test_modifier_slash_outside_bracket () =
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " parses") true
+        (Result.is_ok (Tw.of_string cls)))
+    [
+      "shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50";
+      "bg-[rgb(0_0_0_/_0.5)]/50";
+      "text-[color:rgb(0_0_0_/_0.5)]/50";
+    ];
+  Test_helpers.check_declarations "bg-[rgb(0_0_0_/_0.5)]/50"
+    [ "background-color:color-mix(in oklab,#00000080 50%,transparent)" ]
+
 let tests =
   [
+    ( "Modifier slash outside a bracket",
+      `Quick,
+      test_modifier_slash_outside_bracket );
     ( "Inline colour token folds in every family",
       `Quick,
       test_inline_colour_token_folds_in_every_family );
