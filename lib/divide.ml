@@ -187,7 +187,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ "divide-x-reverse" >> not [ Last_child ] ])
     in
-    let decl, _ = Var.binding divide_x_reverse_var (Css.Num 1.0) in
+    let decl = Var.set divide_x_reverse_var (Css.Num 1.0) in
     let property_rules =
       [ Var.property_rule divide_x_reverse_var ] |> List.filter_map Fun.id
     in
@@ -199,7 +199,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ "divide-y-reverse" >> not [ Last_child ] ])
     in
-    let decl, _ = Var.binding divide_y_reverse_var (Css.Num 1.0) in
+    let decl = Var.set divide_y_reverse_var (Css.Num 1.0) in
     let property_rules =
       [ Var.property_rule divide_y_reverse_var ] |> List.filter_map Fun.id
     in
@@ -327,7 +327,7 @@ module Handler = struct
     let name = border_style_to_string bs in
     let class_name = "divide-" ^ name in
     let selector = divide_children_selector class_name in
-    let decl, _ = Var.binding border_style_var bs in
+    let decl = Var.set border_style_var bs in
     let rule = Css.rule ~selector [ decl; Css.border_style bs ] in
     style ~rules:(Some [ rule ]) []
 

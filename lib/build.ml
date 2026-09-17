@@ -721,7 +721,7 @@ let apply_token_override theme decl =
           when String.equal bare (Var.name Theme.spacing_var)
                && Var.is_runtime_declaration decl -> (
             match Css.parse_length css with
-            | Some length -> Some (fst (Var.binding Theme.spacing_var length))
+            | Some length -> Some (Var.set Theme.spacing_var length)
             | None -> Some (Css.custom_property ~layer:"theme" full_name css))
         | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
         | None -> if Scheme.is_removed theme bare then None else Some decl)
@@ -949,8 +949,8 @@ let referenced_theme_decls ~theme ~exclude selector_props =
         (* An arbitrary value may name the spacing scale directly, as
            [p-[calc(--spacing(2)+1px)]] does. *)
         | "spacing" ->
-            let decl, _ =
-              Var.binding Theme.spacing_var
+            let decl =
+              Var.set Theme.spacing_var
                 (Option.value
                    (Option.bind
                       (Scheme.theme_value (Some theme) "spacing")

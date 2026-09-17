@@ -17,7 +17,7 @@ module Css = Cascade.Css
    written, so the shortest spelling is the one to store: it is what the sheet
    carries in either output mode. *)
 let register_default var value =
-  let decl, _ = Var.binding var value in
+  let decl = Var.set var value in
   Scheme.register_default_token (Var.name var)
     (Css.declaration_value ~minify:true decl)
 

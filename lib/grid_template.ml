@@ -136,7 +136,7 @@ module Handler = struct
       at 0
     in
     if has_spacing_fn then
-      let decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+      let decl = Var.set Theme.spacing_var Theme.spacing_base in
       [ decl ]
     else []
 

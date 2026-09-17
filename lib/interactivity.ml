@@ -135,7 +135,7 @@ module Handler = struct
       [ scroll_snap_type (Axis_with_strictness (Both, Var ref_)) ]
 
   let snap_mandatory_s =
-    let d, _ = Var.binding scroll_snap_strictness_var Mandatory in
+    let d = Var.set scroll_snap_strictness_var Mandatory in
     let property_rules =
       match Var.property_rule scroll_snap_strictness_var with
       | Some r -> r
@@ -144,7 +144,7 @@ module Handler = struct
     style ~property_rules (d :: [])
 
   let snap_proximity_s =
-    let d, _ = Var.binding scroll_snap_strictness_var Proximity in
+    let d = Var.set scroll_snap_strictness_var Proximity in
     let property_rules =
       match Var.property_rule scroll_snap_strictness_var with
       | Some r -> r

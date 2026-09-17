@@ -512,7 +512,7 @@ module Handler = struct
      [in <interpolation>], set straight through [Var.binding] with no text
      round-trip. *)
   let gradient_position_decl (dir : Css.gradient_direction) =
-    fst (Var.binding gradient_position_var dir)
+    Var.set gradient_position_var dir
 
   (* Conic's [from <angle> ...] and radial's [circle at ...] are not
      [gradient_direction] values - a different grammar entirely - and an
@@ -561,7 +561,7 @@ module Handler = struct
     (* Set --tw-gradient-position to the typed direction with oklab
        interpolation *)
     let dir_val = With_interpolation (to_spec dir, In (Oklab, None)) in
-    let d_position, _ = Var.binding gradient_position_var dir_val in
+    let d_position = Var.set gradient_position_var dir_val in
     (* Reference --tw-gradient-stops for linear-gradient *)
     let stops_ref = Var.reference gradient_stops_var in
     style [ d_position; Css.background_image (Linear_gradient_var stops_ref) ]
@@ -598,7 +598,7 @@ module Handler = struct
     let theme_decls, gradient_color_value = color_binding ?theme ~shade color in
 
     (* Set the appropriate gradient variable *)
-    let d_var, _ = Var.binding set_var gradient_color_value in
+    let d_var = Var.set set_var gradient_color_value in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -636,16 +636,14 @@ module Handler = struct
           let d_via_stops, via_stops_ref =
             Var.binding gradient_via_stops_var via_stop_list
           in
-          let d_stops_via, _ =
-            Var.binding gradient_stops_var (Var via_stops_ref)
-          in
+          let d_stops_via = Var.set gradient_stops_var (Var via_stops_ref) in
           (d_stops_via, Some d_via_stops)
       | _ ->
           (* For from/to, reference via-stops with fallback *)
           let via_stops_ref =
             Var.reference_with_fallback gradient_via_stops_var fallback_stops
           in
-          let d_stops, _ = Var.binding gradient_stops_var (Var via_stops_ref) in
+          let d_stops = Var.set gradient_stops_var (Var via_stops_ref) in
           (d_stops, None)
     in
 
@@ -819,8 +817,8 @@ module Handler = struct
     let dir_with_interp : Css.gradient_direction =
       With_interpolation (dir_val, In (Oklab, None))
     in
-    let base_decl, _ = Var.binding gradient_position_var dir_val in
-    let interp_decl, _ = Var.binding gradient_position_var dir_with_interp in
+    let base_decl = Var.set gradient_position_var dir_val in
+    let interp_decl = Var.set gradient_position_var dir_with_interp in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
@@ -904,7 +902,7 @@ module Handler = struct
       pattern: base → [@supports] → bg-image. *)
   let bg_linear_to_interp' dir ci_opt interp_css =
     let dir_val = to_spec dir in
-    let base_decl, _ = Var.binding gradient_position_var dir_val in
+    let base_decl = Var.set gradient_position_var dir_val in
     let interp_decl = gradient_interp_decl dir_val ci_opt interp_css in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
@@ -917,8 +915,8 @@ module Handler = struct
     let dir_with_interp : Css.gradient_direction =
       With_interpolation (dir_val, In (Oklab, None))
     in
-    let base_decl, _ = Var.binding gradient_position_var dir_val in
-    let interp_decl, _ = Var.binding gradient_position_var dir_with_interp in
+    let base_decl = Var.set gradient_position_var dir_val in
+    let interp_decl = Var.set gradient_position_var dir_with_interp in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
@@ -930,8 +928,8 @@ module Handler = struct
     let angle_calc_interp : Css.gradient_direction =
       With_interpolation (angle_calc, In (Oklab, None))
     in
-    let base_decl, _ = Var.binding gradient_position_var angle_calc in
-    let interp_decl, _ = Var.binding gradient_position_var angle_calc_interp in
+    let base_decl = Var.set gradient_position_var angle_calc in
+    let interp_decl = Var.set gradient_position_var angle_calc_interp in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
@@ -940,7 +938,7 @@ module Handler = struct
     let dir_val : Css.gradient_direction =
       Angle (Deg (float_of_int angle_deg))
     in
-    let base_decl, _ = Var.binding gradient_position_var dir_val in
+    let base_decl = Var.set gradient_position_var dir_val in
     let interp_decl = gradient_interp_decl dir_val ci_opt interp_css in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
@@ -950,7 +948,7 @@ module Handler = struct
     let angle_calc : Css.gradient_direction =
       Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
     in
-    let base_decl, _ = Var.binding gradient_position_var angle_calc in
+    let base_decl = Var.set gradient_position_var angle_calc in
     let interp_decl = gradient_interp_decl angle_calc ci_opt interp_css in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
@@ -1127,15 +1125,13 @@ module Handler = struct
           let d_via_stops, via_stops_ref =
             Var.binding gradient_via_stops_var via_stop_list
           in
-          let d_stops_via, _ =
-            Var.binding gradient_stops_var (Var via_stops_ref)
-          in
+          let d_stops_via = Var.set gradient_stops_var (Var via_stops_ref) in
           (d_stops_via, Some d_via_stops)
       | _ ->
           let via_stops_ref =
             Var.reference_with_fallback gradient_via_stops_var fallback_stops
           in
-          let d_stops, _ = Var.binding gradient_stops_var (Var via_stops_ref) in
+          let d_stops = Var.set gradient_stops_var (Var via_stops_ref) in
           (d_stops, None)
     in
 
@@ -1188,9 +1184,7 @@ module Handler = struct
     in
     match Color.opacity_keyword color with
     | Some keyword ->
-        let d_var, _ =
-          Var.binding set_var (Color.apply_alpha opacity keyword)
-        in
+        let d_var = Var.set set_var (Color.apply_alpha opacity keyword) in
         let declarations =
           match d_via_stops_opt with
           | Some d_via_stops -> [ d_var; d_via_stops; d_stops ]
@@ -1204,14 +1198,14 @@ module Handler = struct
            match, we put fallback in props, @supports in rules, and stops as
            separate rule in rules. *)
         let color_value, fallback_value = value_pair () in
-        let d_fallback, _ = Var.binding set_var fallback_value in
+        let d_fallback = Var.set set_var fallback_value in
 
         (* Theme variable for @supports block *)
         let decls, color =
           Color.bound ?theme (Color.color_var color shade) color_value
         in
         let oklab_color = Color.mix_alpha opacity color in
-        let d_oklab, _ = Var.binding set_var oklab_color in
+        let d_oklab = Var.set set_var oklab_color in
 
         (* Build @supports block with placeholder selector *)
         let supports_rule = Color.color_mix_supports (decls @ [ d_oklab ]) in
@@ -1266,15 +1260,13 @@ module Handler = struct
         let d_via_stops, via_stops_ref =
           Var.binding gradient_via_stops_var via_stop_list
         in
-        let d_stops_via, _ =
-          Var.binding gradient_stops_var (Var via_stops_ref)
-        in
+        let d_stops_via = Var.set gradient_stops_var (Var via_stops_ref) in
         (d_stops_via, Some d_via_stops)
     | _ ->
         let via_stops_ref =
           Var.reference_with_fallback gradient_via_stops_var fallback_stops
         in
-        let d_stops, _ = Var.binding gradient_stops_var (Var via_stops_ref) in
+        let d_stops = Var.set gradient_stops_var (Var via_stops_ref) in
         (d_stops, None)
 
   (* All gradient @property rules *)
@@ -1307,11 +1299,11 @@ module Handler = struct
     let stops = stops_as_decls d_stops d_via_stops_opt in
     match Color.pre_color_mix_fallback theme color_value with
     | None ->
-        let d_var, _ = Var.binding set_var (Css.minify_color color_value) in
+        let d_var = Var.set set_var (Css.minify_color color_value) in
         style ~property_rules (extra_decls @ [ d_var ] @ stops)
     | Some fallback ->
-        let fallback_decl, _ = Var.binding set_var fallback in
-        let enhanced_decl, _ = Var.binding set_var color_value in
+        let fallback_decl = Var.set set_var fallback in
+        let enhanced_decl = Var.set set_var color_value in
         let self decls = Css.rule ~selector:(Css.Selector.class_ "_") decls in
         let supports =
           Css.supports ~condition:Color.color_mix_supports_condition
@@ -1348,8 +1340,8 @@ module Handler = struct
     match Color.bracket_color_opacity ~theme color opacity with
     | Color.Folded value -> gradient_simple ~theme ~prefix ~set_var value []
     | Color.Guarded { fallback; mixed } ->
-        let d_fallback, _ = Var.binding set_var fallback in
-        let d_oklab, _ = Var.binding set_var mixed in
+        let d_fallback = Var.set set_var fallback in
+        let d_oklab = Var.set set_var mixed in
         let self decls = Css.rule ~selector:(Css.Selector.class_ "_") decls in
         let supports_rule =
           Css.supports ~condition:Color.color_mix_supports_condition
@@ -1389,7 +1381,7 @@ module Handler = struct
 
   (* Gradient position from a length_percentage value *)
   let gradient_position_style pos_var (value : Css.length_percentage) =
-    let d_var, _ = Var.binding pos_var value in
+    let d_var = Var.set pos_var value in
     style ~property_rules:(gradient_position_property_rules ()) [ d_var ]
 
   (* The one reader for a bracket stop position, used both to decide that a

@@ -180,7 +180,7 @@ module Handler = struct
 
   (* Helper for border style utilities that set the variable *)
   let border_style_util border_style_value =
-    let decl, _ = Var.binding border_style_var border_style_value in
+    let decl = Var.set border_style_var border_style_value in
     style [ decl; border_style border_style_value ]
 
   let border_default ?theme () =
@@ -635,7 +635,7 @@ module Handler = struct
 
   (* Outline style utilities that set the variable *)
   let outline_hidden =
-    let decl, _ = Var.binding outline_style_var Css.None in
+    let decl = Var.set outline_style_var Css.None in
     (* Base style: outline-style: none *)
     (* In forced-colors mode, reset outline with shorthand + offset *)
     let forced_colors_active =
@@ -1236,19 +1236,19 @@ module Outline_style_handler = struct
 
   let to_style _theme = function
     | Dashed ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Dashed in
+        let decl = Var.set Handler.outline_style_var Css.Dashed in
         style [ decl; Css.outline_style Css.Dashed ]
     | Dotted ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Dotted in
+        let decl = Var.set Handler.outline_style_var Css.Dotted in
         style [ decl; Css.outline_style Css.Dotted ]
     | Double ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Double in
+        let decl = Var.set Handler.outline_style_var Css.Double in
         style [ decl; Css.outline_style Css.Double ]
     | None_ ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.None in
+        let decl = Var.set Handler.outline_style_var Css.None in
         style [ decl; Css.outline_style Css.None ]
     | Solid ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Solid in
+        let decl = Var.set Handler.outline_style_var Css.Solid in
         style [ decl; Css.outline_style Css.Solid ]
 
   (* These outline-style utilities form a late property band. *)

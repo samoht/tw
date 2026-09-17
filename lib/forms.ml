@@ -49,22 +49,18 @@ let ring_shadow ~ring_width_px =
 
 let focus_ring_decls ~offset_width ~ring_width_px =
   let open Css in
-  let d_ring_inset, _ =
-    Var.binding Effects.ring_inset_var
+  let d_ring_inset =
+    Var.set Effects.ring_inset_var
       (Css.Variables.custom_value_var_empty_fallback "tw-empty")
   in
-  let d_offset_width, _ =
-    Var.binding Effects.ring_offset_width_var offset_width
+  let d_offset_width = Var.set Effects.ring_offset_width_var offset_width in
+  let d_offset_color = Var.set Effects.ring_offset_color_var (hex "#fff") in
+  let d_ring_color = Var.set Effects.ring_color_var blue_600 in
+  let d_ring_offset_shadow =
+    Var.set Effects.ring_offset_shadow_var (ring_offset_shadow ())
   in
-  let d_offset_color, _ =
-    Var.binding Effects.ring_offset_color_var (hex "#fff")
-  in
-  let d_ring_color, _ = Var.binding Effects.ring_color_var blue_600 in
-  let d_ring_offset_shadow, _ =
-    Var.binding Effects.ring_offset_shadow_var (ring_offset_shadow ())
-  in
-  let d_ring_shadow, _ =
-    Var.binding Effects.ring_shadow_var (ring_shadow ~ring_width_px)
+  let d_ring_shadow =
+    Var.set Effects.ring_shadow_var (ring_shadow ~ring_width_px)
   in
   let box_shadow_vars : Css.shadow list =
     [
@@ -129,8 +125,8 @@ module Handler = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-input" in
-    let d_shadow, _ =
-      Var.binding Effects.shadow_var
+    let d_shadow =
+      Var.set Effects.shadow_var
         (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
     in
     let rules =
@@ -200,8 +196,8 @@ module Handler = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-checkbox" in
-    let d_shadow, _ =
-      Var.binding Effects.shadow_var
+    let d_shadow =
+      Var.set Effects.shadow_var
         (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
     in
     let rules =
@@ -293,8 +289,8 @@ module Handler = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-radio" in
-    let d_shadow, _ =
-      Var.binding Effects.shadow_var
+    let d_shadow =
+      Var.set Effects.shadow_var
         (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
     in
     let rules =
@@ -385,8 +381,8 @@ module Select = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-textarea" in
-    let d_shadow, _ =
-      Var.binding Effects.shadow_var
+    let d_shadow =
+      Var.set Effects.shadow_var
         (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
     in
     let rules =
@@ -415,8 +411,8 @@ module Select = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-select" in
-    let d_shadow, _ =
-      Var.binding Effects.shadow_var
+    let d_shadow =
+      Var.set Effects.shadow_var
         (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
     in
     (* Emit a single .form-select base rule, then :focus, then :where(...) -
@@ -490,8 +486,8 @@ module Select = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-multiselect" in
-    let d_shadow, _ =
-      Var.binding Effects.shadow_var
+    let d_shadow =
+      Var.set Effects.shadow_var
         (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
     in
     let rules =
@@ -685,8 +681,8 @@ let text_input_items =
 (** Text inputs base styles *)
 let text_inputs_base () =
   let open Css in
-  let d_shadow, _ =
-    Var.binding Effects.shadow_var
+  let d_shadow =
+    Var.set Effects.shadow_var
       (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
   in
   [
@@ -848,8 +844,8 @@ let checkbox_indeterminate_rules () =
     interleaved forced-colors media queries *)
 let checkbox_radio_base () =
   let open Css in
-  let d_shadow, _ =
-    Var.binding Effects.shadow_var
+  let d_shadow =
+    Var.set Effects.shadow_var
       (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
   in
   [

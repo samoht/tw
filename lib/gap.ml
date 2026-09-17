@@ -292,7 +292,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ "space-x-reverse" >> not [ Last_child ] ])
     in
-    let decl, _ = Var.binding space_x_reverse_var (Css.Num 1.0) in
+    let decl = Var.set space_x_reverse_var (Css.Num 1.0) in
     let property_rules =
       [ Var.property_rule space_x_reverse_var ] |> List.filter_map Fun.id
     in
@@ -304,7 +304,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ "space-y-reverse" >> not [ Last_child ] ])
     in
-    let decl, _ = Var.binding space_y_reverse_var (Css.Num 1.0) in
+    let decl = Var.set space_y_reverse_var (Css.Num 1.0) in
     let property_rules =
       [ Var.property_rule space_y_reverse_var ] |> List.filter_map Fun.id
     in

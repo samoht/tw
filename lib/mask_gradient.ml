@@ -98,7 +98,7 @@ module Handler = struct
   let spacing_theme_decl value =
     match value with
     | Spacing _ ->
-        let decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+        let decl = Var.set Theme.spacing_var Theme.spacing_base in
         [ decl ]
     | Percent _ | Arbitrary _ -> []
 
@@ -227,7 +227,7 @@ module Handler = struct
   let read v initial = snd (Var.binding v initial)
 
   (* Writing one. *)
-  let set v value = fst (Var.binding v value)
+  let set v value = Var.set v value
 
   (* The two stops a mask gradient runs between. *)
   let stops v : gradient_stop list =

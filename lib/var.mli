@@ -177,12 +177,13 @@
 
     The variable system follows a simple, strict policy:
 
-    {2 The Three Rules}
+    {2 The Four Rules}
 
     1. {b When you need both declaration and variable reference}: Use
-    [Var.binding] 2.
-    {b When you need only declaration OR only variable reference}: Pass it as
-    function parameter, let the parent function call [Var.binding] 3.
+    [Var.binding] 2. {b When you need only the declaration}: Use [Var.set],
+    which is the declaration of the same binding 3.
+    {b When you need only the variable reference}: Pass it as function
+    parameter, let the parent function call [Var.binding] 4.
     {b No other ways are allowed}: No direct [Css.var_ref], no ignoring
     declarations, no workarounds
 
@@ -478,6 +479,11 @@ val binding :
       for utilities that want to reference a variable with a different fallback
       (e.g., text-xs references --tw-leading with --text-xs--line-height as
       fallback). *)
+
+val set :
+  ('a, [< `Theme | `Property_default | `Channel ]) t -> 'a -> Css.declaration
+(** [set var value] is the declaration of [binding var value], for a utility
+    that writes [var] without reading it back. *)
 
 val binding_initial :
   ('a, [< `Property_default | `Channel ]) t -> Css.declaration

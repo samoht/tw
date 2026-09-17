@@ -340,7 +340,7 @@ module Handler = struct
     ]
 
   let shadow_opacity_decl opacity =
-    fst (Var.binding shadow_alpha_var (Color.opacity_alpha_value opacity))
+    Var.set shadow_alpha_var (Color.opacity_alpha_value opacity)
 
   (* A bracket colour may need two assignments: the value a browser without
      [color-mix()] can use, and the authored value under [@supports]. *)
@@ -352,20 +352,20 @@ module Handler = struct
 
   let bracket_color_var_style ~theme var c =
     let fallback, enhanced = bracket_color_pair theme c in
-    let fallback_decl, _ = Var.binding var fallback in
+    let fallback_decl = Var.set var fallback in
     match enhanced with
     | Stdlib.Option.None -> style [ fallback_decl ]
     | Stdlib.Option.Some color ->
-        let enhanced_decl, _ = Var.binding var color in
+        let enhanced_decl = Var.set var color in
         let supports_block = Color.color_mix_supports [ enhanced_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let bracket_color_var_opacity_style ~theme var c opacity =
     match Color.bracket_color_opacity ~theme c opacity with
-    | Color.Folded value -> style [ fst (Var.binding var value) ]
+    | Color.Folded value -> style [ Var.set var value ]
     | Color.Guarded { fallback; mixed } ->
-        let fallback_decl, _ = Var.binding var fallback in
-        let enhanced_decl, _ = Var.binding var mixed in
+        let fallback_decl = Var.set var fallback in
+        let enhanced_decl = Var.set var mixed in
         let supports_block = Color.color_mix_supports [ enhanced_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
@@ -711,7 +711,7 @@ module Handler = struct
             Css.Var (Var.reference_with_fallback color_var c))
           colours
       in
-      fst (Var.binding shadow_var (with_shadow_colours sh colours))
+      Var.set shadow_var (with_shadow_colours sh colours)
     in
     let d_shadow, supports =
       Color.shadow_alpha_decls opacity ~colours:(shadow_colors sh) ~rebuild
@@ -867,7 +867,7 @@ module Handler = struct
       Color.property_color_value ?theme ~property_prefix:"box-shadow-color" c
         shade
     in
-    let base_decl, _ = Var.binding shadow_color_var color_value in
+    let base_decl = Var.set shadow_color_var color_value in
     let theme_color_var =
       Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c
         shade
@@ -877,7 +877,7 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         color Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -888,7 +888,7 @@ module Handler = struct
       shadow_color_hex ?theme ~property_prefix:"box-shadow-color" c shade
     in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-    let base_decl, _ = Var.binding shadow_color_var (Css.hex hex_with_alpha) in
+    let base_decl = Var.set shadow_color_var (Css.hex hex_with_alpha) in
     let theme_color_var =
       Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c
         shade
@@ -901,25 +901,25 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
+    let enhanced_decl = Var.set shadow_color_var outer_mix in
     let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_current () =
-    let base_decl, _ = Var.binding shadow_color_var Css.Current in
+    let base_decl = Var.set shadow_color_var Css.Current in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         Css.Current Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_current_opacity opacity =
     let percent = Color.opacity_to_percent opacity in
-    let base_decl, _ = Var.binding shadow_color_var Css.Current in
+    let base_decl = Var.set shadow_color_var Css.Current in
     let inner_mix =
       Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
         ~percent1:percent
@@ -928,48 +928,48 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
+    let enhanced_decl = Var.set shadow_color_var outer_mix in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_transparent () =
-    let base_decl, _ = Var.binding shadow_color_var Css.Transparent in
+    let base_decl = Var.set shadow_color_var Css.Transparent in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         Css.Transparent Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_transparent_opacity opacity =
-    let base_decl, _ = Var.binding shadow_color_var Css.Transparent in
+    let base_decl = Var.set shadow_color_var Css.Transparent in
     let inner_mix = Color.apply_alpha opacity Css.Transparent in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_inherit () =
-    let base_decl, _ = Var.binding shadow_color_var Css.Inherit in
+    let base_decl = Var.set shadow_color_var Css.Inherit in
     style ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_shadow_bracket_color ~theme (c : Css.color) =
     let fallback, enhanced = bracket_color_pair theme c in
-    let base_decl, _ = Var.binding shadow_color_var fallback in
+    let base_decl = Var.set shadow_color_var fallback in
     let c = Option.value ~default:fallback enhanced in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha" c
         Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1006,12 +1006,12 @@ module Handler = struct
                 (c, guarded)
               else (Color.mix_alpha ~in_space:Srgb opacity c, guarded))
     in
-    let base_decl, _ = Var.binding shadow_color_var base_value in
+    let base_decl = Var.set shadow_color_var base_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         with_alpha Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1019,12 +1019,12 @@ module Handler = struct
   let set_shadow_bracket_color_var var_expr =
     let var_name = Parse.extract_var_name var_expr in
     let var_color = make_color_var var_name in
-    let base_decl, _ = Var.binding shadow_color_var var_color in
+    let base_decl = Var.set shadow_color_var var_color in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         var_color Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1033,7 +1033,7 @@ module Handler = struct
     let percent = Color.opacity_to_percent opacity in
     let var_name = Parse.extract_var_name var_expr in
     let var_color = make_color_var var_name in
-    let base_decl, _ = Var.binding shadow_color_var var_color in
+    let base_decl = Var.set shadow_color_var var_color in
     let inner_mix =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
@@ -1041,7 +1041,7 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
         inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
+    let enhanced_decl = Var.set shadow_color_var outer_mix in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1218,7 +1218,7 @@ module Handler = struct
   (* ============ Inset shadow helpers ============ *)
 
   let inset_shadow_opacity_decl opacity =
-    fst (Var.binding inset_shadow_alpha_var (Color.opacity_alpha_value opacity))
+    Var.set inset_shadow_alpha_var (Color.opacity_alpha_value opacity)
 
   let inset_box_shadow_composition v_inset_shadow =
     let v_inset_ring = Var.reference inset_ring_shadow_var in
@@ -1405,7 +1405,7 @@ module Handler = struct
       Color.property_color_value ?theme
         ~property_prefix:"inset-box-shadow-color" c shade
     in
-    let base_decl, _ = Var.binding inset_shadow_color_var color_value in
+    let base_decl = Var.set inset_shadow_color_var color_value in
     let theme_color_var =
       Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color"
         c shade
@@ -1415,7 +1415,7 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" color Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1427,9 +1427,7 @@ module Handler = struct
         shade
     in
     let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-    let base_decl, _ =
-      Var.binding inset_shadow_color_var (Css.hex hex_with_alpha)
-    in
+    let base_decl = Var.set inset_shadow_color_var (Css.hex hex_with_alpha) in
     let theme_color_var =
       Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color"
         c shade
@@ -1442,25 +1440,25 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
+    let enhanced_decl = Var.set inset_shadow_color_var outer_mix in
     let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_current () =
-    let base_decl, _ = Var.binding inset_shadow_color_var Css.Current in
+    let base_decl = Var.set inset_shadow_color_var Css.Current in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" Css.Current Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_current_opacity opacity =
     let percent = Color.opacity_to_percent opacity in
-    let base_decl, _ = Var.binding inset_shadow_color_var Css.Current in
+    let base_decl = Var.set inset_shadow_color_var Css.Current in
     let inner_mix =
       Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
         ~percent1:percent
@@ -1469,48 +1467,48 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
+    let enhanced_decl = Var.set inset_shadow_color_var outer_mix in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_transparent () =
-    let base_decl, _ = Var.binding inset_shadow_color_var Css.Transparent in
+    let base_decl = Var.set inset_shadow_color_var Css.Transparent in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" Css.Transparent Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_transparent_opacity opacity =
-    let base_decl, _ = Var.binding inset_shadow_color_var Css.Transparent in
+    let base_decl = Var.set inset_shadow_color_var Css.Transparent in
     let inner_mix = Color.apply_alpha opacity Css.Transparent in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_inherit () =
-    let base_decl, _ = Var.binding inset_shadow_color_var Css.Inherit in
+    let base_decl = Var.set inset_shadow_color_var Css.Inherit in
     style ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
   let set_inset_shadow_bracket_color ~theme (c : Css.color) =
     let fallback, enhanced = bracket_color_pair theme c in
-    let base_decl, _ = Var.binding inset_shadow_color_var fallback in
+    let base_decl = Var.set inset_shadow_color_var fallback in
     let c = Option.value ~default:fallback enhanced in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" c Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1540,12 +1538,12 @@ module Handler = struct
                 (c, guarded)
               else (Color.mix_alpha ~in_space:Srgb opacity c, guarded))
     in
-    let base_decl, _ = Var.binding inset_shadow_color_var base_value in
+    let base_decl = Var.set inset_shadow_color_var base_value in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" with_alpha Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1553,12 +1551,12 @@ module Handler = struct
   let set_ishadow_bracket_cvar var_expr =
     let var_name = Parse.extract_var_name var_expr in
     let var_color = make_color_var var_name in
-    let base_decl, _ = Var.binding inset_shadow_color_var var_color in
+    let base_decl = Var.set inset_shadow_color_var var_color in
     let enhanced_color =
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" var_color Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
+    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1567,7 +1565,7 @@ module Handler = struct
     let percent = Color.opacity_to_percent opacity in
     let var_name = Parse.extract_var_name var_expr in
     let var_color = make_color_var var_name in
-    let base_decl, _ = Var.binding inset_shadow_color_var var_color in
+    let base_decl = Var.set inset_shadow_color_var var_color in
     let inner_mix =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
@@ -1575,7 +1573,7 @@ module Handler = struct
       Css.color_mix_var_percent ~in_space:Oklab
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
-    let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
+    let enhanced_decl = Var.set inset_shadow_color_var outer_mix in
     let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
@@ -1615,7 +1613,7 @@ module Handler = struct
       Css.shadow ~inset_var:(Var.name ring_inset_var) ~h_offset:Zero
         ~v_offset:Zero ~blur:Zero ~spread ~color ()
     in
-    let d_ring, _ = Var.binding ring_shadow_var ring_shadow_value in
+    let d_ring = Var.set ring_shadow_var ring_shadow_value in
 
     (* Reference shadow variables through @property defaults *)
     let v_inset = Var.reference inset_shadow_var in
@@ -1687,7 +1685,7 @@ module Handler = struct
       Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread
         ~color ()
     in
-    let d, _ = Var.binding inset_ring_shadow_var shadow_value in
+    let d = Var.set inset_ring_shadow_var shadow_value in
     let v_inset = Var.reference inset_shadow_var in
     let v_inset_ring = Var.reference inset_ring_shadow_var in
     let v_ring_offset = Var.reference ring_offset_shadow_var in
@@ -1745,7 +1743,7 @@ module Handler = struct
         shade
     in
     let decls, color = Color.bound ?theme cvar color_value in
-    let d, _ = Var.binding ring_color_var color in
+    let d = Var.set ring_color_var color in
     style (decls @ [ d ])
 
   let ring_color_with_opacity ?theme color shade opacity =
@@ -1766,9 +1764,9 @@ module Handler = struct
       | Some hex_alpha -> Css.hex hex_alpha
       | None -> value
     in
-    let fallback, _ = Var.binding ring_color_var fallback_color in
-    let oklab_decl, _ =
-      Var.binding ring_color_var
+    let fallback = Var.set ring_color_var fallback_color in
+    let oklab_decl =
+      Var.set ring_color_var
         (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
     in
     let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
@@ -1786,7 +1784,7 @@ module Handler = struct
         ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref)
         ~color:(Var color_ref) ()
     in
-    let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
+    let d_shadow = Var.set ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
 
   let ring_offset_color ?theme color shade =
@@ -1801,7 +1799,7 @@ module Handler = struct
         color shade
     in
     let decls, color = Color.bound ?theme color_theme_var color_value in
-    let d, _ = Var.binding ring_offset_color_var color in
+    let d = Var.set ring_offset_color_var color in
     style (decls @ [ d ])
 
   (* One unit table, read once. [parse_bracket_width] is the option form with
@@ -1862,35 +1860,35 @@ module Handler = struct
       | Some hex_alpha -> Css.hex hex_alpha
       | None -> value
     in
-    let fallback, _ = Var.binding ring_offset_color_var fallback_color in
-    let oklab_decl, _ =
-      Var.binding ring_offset_color_var
+    let fallback = Var.set ring_offset_color_var fallback_color in
+    let oklab_decl =
+      Var.set ring_offset_color_var
         (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
     in
     let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_transparent =
-    let d, _ = Var.binding ring_offset_color_var Css.Transparent in
+    let d = Var.set ring_offset_color_var Css.Transparent in
     style [ d ]
 
   let ring_offset_current =
-    let d, _ = Var.binding ring_offset_color_var Css.Current in
+    let d = Var.set ring_offset_color_var Css.Current in
     style [ d ]
 
   let ring_offset_current_with_opacity opacity =
     let percent = Color.opacity_to_percent opacity in
-    let fallback, _ = Var.binding ring_offset_color_var Css.Current in
+    let fallback = Var.set ring_offset_color_var Css.Current in
     let oklab_color =
       Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
         ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
+    let oklab_decl = Var.set ring_offset_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_inherit =
-    let d, _ = Var.binding ring_offset_color_var Css.Inherit in
+    let d = Var.set ring_offset_color_var Css.Inherit in
     style [ d ]
 
   let ring_offset_bracket_length inner =
@@ -1902,7 +1900,7 @@ module Handler = struct
         ~h_offset:Zero ~v_offset:Zero ~blur:Zero ~spread:(Var width_ref)
         ~color:(Var color_ref) ()
     in
-    let d_shadow, _ = Var.binding ring_offset_shadow_var shadow_value in
+    let d_shadow = Var.set ring_offset_shadow_var shadow_value in
     style [ d_width; d_shadow ]
 
   let ring_offset_bracket_color ~theme (c : Css.color) =
@@ -1913,40 +1911,36 @@ module Handler = struct
 
   let ring_offset_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ =
-      Var.binding ring_offset_color_var (Css.Var (Var.bracket bare_name))
-    in
+    let d = Var.set ring_offset_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("ring-offset-color:" ^ v) [ d ]
 
   let ring_offset_bracket_cvar_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback, _ = Var.binding ring_offset_color_var var_color in
+    let fallback = Var.set ring_offset_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
+    let oklab_decl = Var.set ring_offset_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-offset-color:" ^ v)
       ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_bracket_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ =
-      Var.binding ring_offset_color_var (Css.Var (Var.bracket bare_name))
-    in
+    let d = Var.set ring_offset_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("ring-offset-" ^ v) [ d ]
 
   let ring_offset_bracket_var_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback, _ = Var.binding ring_offset_color_var var_color in
+    let fallback = Var.set ring_offset_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
+    let oklab_decl = Var.set ring_offset_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-offset-" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
@@ -1962,7 +1956,7 @@ module Handler = struct
         color shade
     in
     let decls, color = Color.bound ?theme cvar color_value in
-    let d, _ = Var.binding inset_ring_color_var color in
+    let d = Var.set inset_ring_color_var color in
     style (decls @ [ d ])
 
   let inset_ring_color_with_opacity ?theme color shade opacity =
@@ -1984,35 +1978,35 @@ module Handler = struct
       | Some hex_alpha -> Css.hex hex_alpha
       | None -> value
     in
-    let fallback, _ = Var.binding inset_ring_color_var fallback_color in
-    let oklab_decl, _ =
-      Var.binding inset_ring_color_var
+    let fallback = Var.set inset_ring_color_var fallback_color in
+    let oklab_decl =
+      Var.set inset_ring_color_var
         (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
     in
     let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let inset_ring_transparent =
-    let d, _ = Var.binding inset_ring_color_var Css.Transparent in
+    let d = Var.set inset_ring_color_var Css.Transparent in
     style [ d ]
 
   let inset_ring_current =
-    let d, _ = Var.binding inset_ring_color_var Css.Current in
+    let d = Var.set inset_ring_color_var Css.Current in
     style [ d ]
 
   let inset_ring_current_with_opacity opacity =
     let percent = Color.opacity_to_percent opacity in
-    let fallback, _ = Var.binding inset_ring_color_var Css.Current in
+    let fallback = Var.set inset_ring_color_var Css.Current in
     let oklab_color =
       Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
         ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
+    let oklab_decl = Var.set inset_ring_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let inset_ring_inherit =
-    let d, _ = Var.binding inset_ring_color_var Css.Inherit in
+    let d = Var.set inset_ring_color_var Css.Inherit in
     style [ d ]
 
   let inset_ring_bracket_color ~theme (c : Css.color) =
@@ -2023,72 +2017,68 @@ module Handler = struct
 
   let inset_ring_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ =
-      Var.binding inset_ring_color_var (Css.Var (Var.bracket bare_name))
-    in
+    let d = Var.set inset_ring_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("inset-ring-color:" ^ v) [ d ]
 
   let inset_ring_bracket_cvar_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback, _ = Var.binding inset_ring_color_var var_color in
+    let fallback = Var.set inset_ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
+    let oklab_decl = Var.set inset_ring_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("inset-ring-color:" ^ v)
       ~rules:(Some [ supports_block ]) [ fallback ]
 
   let inset_ring_bracket_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ =
-      Var.binding inset_ring_color_var (Css.Var (Var.bracket bare_name))
-    in
+    let d = Var.set inset_ring_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("inset-ring-" ^ v) [ d ]
 
   let inset_ring_bracket_var_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback, _ = Var.binding inset_ring_color_var var_color in
+    let fallback = Var.set inset_ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
+    let oklab_decl = Var.set inset_ring_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("inset-ring-" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
 
   (* Ring color utilities *)
   let ring_transparent =
-    let d, _ = Var.binding ring_color_var Css.Transparent in
+    let d = Var.set ring_color_var Css.Transparent in
     style [ d ]
 
   let ring_current =
-    let d, _ = Var.binding ring_color_var Css.Current in
+    let d = Var.set ring_color_var Css.Current in
     style [ d ]
 
   let ring_current_with_opacity opacity =
     let percent = Color.opacity_to_percent opacity in
-    let fallback, _ = Var.binding ring_color_var Css.Current in
+    let fallback = Var.set ring_color_var Css.Current in
     let oklab_color =
       Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
         ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding ring_color_var oklab_color in
+    let oklab_decl = Var.set ring_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_inherit =
-    let d, _ = Var.binding ring_color_var Css.Inherit in
+    let d = Var.set ring_color_var Css.Inherit in
     style [ d ]
 
   let ring_keyword_with_opacity var keyword opacity =
-    let fallback, _ = Var.binding var keyword in
+    let fallback = Var.set var keyword in
     let mixed = Color.apply_alpha opacity keyword in
-    let enhanced, _ = Var.binding var mixed in
+    let enhanced = Var.set var mixed in
     let supports_block = Color.color_mix_supports [ enhanced ] in
     style ~rules:(Some [ supports_block ]) [ fallback ]
 
@@ -2100,36 +2090,36 @@ module Handler = struct
 
   let ring_bracket_color_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ = Var.binding ring_color_var (Css.Var (Var.bracket bare_name)) in
+    let d = Var.set ring_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("ring-color:" ^ v) [ d ]
 
   let ring_bracket_cvar_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback, _ = Var.binding ring_color_var var_color in
+    let fallback = Var.set ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding ring_color_var oklab_color in
+    let oklab_decl = Var.set ring_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-color:" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
 
   let ring_bracket_var v =
     let bare_name = Parse.extract_var_name v in
-    let d, _ = Var.binding ring_color_var (Css.Var (Var.bracket bare_name)) in
+    let d = Var.set ring_color_var (Css.Var (Var.bracket bare_name)) in
     Style.style ~merge_key:("ring-" ^ v) [ d ]
 
   let ring_bracket_var_with_opacity v opacity =
     let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback, _ = Var.binding ring_color_var var_color in
+    let fallback = Var.set ring_color_var var_color in
     let oklab_color =
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
-    let oklab_decl, _ = Var.binding ring_color_var oklab_color in
+    let oklab_decl = Var.set ring_color_var oklab_color in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
@@ -2403,7 +2393,7 @@ module Handler = struct
           Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero
             ~spread ~color ()
         in
-        let d, _ = Var.binding inset_ring_shadow_var shadow_value in
+        let d = Var.set inset_ring_shadow_var shadow_value in
         let v_inset = Var.reference inset_shadow_var in
         let v_inset_ring = Var.reference inset_ring_shadow_var in
         let v_ring_offset = Var.reference ring_offset_shadow_var in

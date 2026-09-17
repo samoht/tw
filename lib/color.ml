@@ -1939,8 +1939,8 @@ module Handler = struct
       let rest = String.sub name 6 (String.length name - 6) in
       match shade_of_strings (String.split_on_char '-' rest) with
       | Ok (c, shade) when not (is_custom_color c) ->
-          let decl, _ =
-            Var.binding (color_var c shade) (get_color_value ?theme c shade)
+          let decl =
+            Var.set (color_var c shade) (get_color_value ?theme c shade)
           in
           Some decl
       | _ -> None

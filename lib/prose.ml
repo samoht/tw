@@ -1878,7 +1878,7 @@ let xl2_size_rules selector =
 
 (* Helper to create declarations from a list of (var, value) pairs *)
 let bind_prose_vars bindings =
-  List.map (fun (var, value) -> fst (Var.binding var value)) bindings
+  List.map (fun (var, value) -> Var.set var value) bindings
 
 (* The two ways a palette reaches the sheet: as the prose colours themselves,
    and as the inverted set [.prose-invert] swaps in. *)

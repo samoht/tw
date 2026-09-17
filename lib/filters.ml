@@ -159,7 +159,7 @@ module Handler = struct
       ~family:`Drop_shadow "tw-drop-shadow-alpha"
 
   let drop_shadow_alpha_decl opacity =
-    fst (Var.binding drop_shadow_alpha_var (Color.opacity_alpha_value opacity))
+    Var.set drop_shadow_alpha_var (Color.opacity_alpha_value opacity)
 
   let drop_shadow_size_var =
     Var.channel ~needs_property:true ~property_order:72 ~family:`Drop_shadow
@@ -573,11 +573,9 @@ module Handler = struct
     set_filter_var "--tw-hue-rotate" (Hue_rotate neg)
 
   (* Drop-shadow utilities *)
-  let bind_drop_shadow value = fst (Var.binding drop_shadow_var value)
-  let bind_drop_shadow_size value = fst (Var.binding drop_shadow_size_var value)
-
-  let bind_drop_shadow_color value =
-    fst (Var.binding drop_shadow_color_var value)
+  let bind_drop_shadow value = Var.set drop_shadow_var value
+  let bind_drop_shadow_size value = Var.set drop_shadow_size_var value
+  let bind_drop_shadow_color value = Var.set drop_shadow_color_var value
 
   let drop_shadow_size_ref : Css.filter =
     Css.Var (Var.bracket (Var.name drop_shadow_size_var))

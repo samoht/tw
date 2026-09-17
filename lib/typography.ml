@@ -369,19 +369,17 @@ let () =
 
 (* Base font family variables for theme layer *)
 let default_font_declarations =
-  let sans_decl, _ = Var.binding font_sans_var default_sans_stack in
-  let mono_decl, _ = Var.binding font_mono_var default_mono_stack in
+  let sans_decl = Var.set font_sans_var default_sans_stack in
+  let mono_decl = Var.set font_mono_var default_mono_stack in
   [ sans_decl; mono_decl ]
 
 (* Default font family variables that reference the base font variables. *)
 let default_font_family_declarations =
   let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
   let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
-  let default_font_decl, _ =
-    Var.binding default_font_family_var (Css.Var sans_ref)
-  in
-  let default_mono_decl, _ =
-    Var.binding default_mono_font_family_var (Css.Var mono_ref)
+  let default_font_decl = Var.set default_font_family_var (Css.Var sans_ref) in
+  let default_mono_decl =
+    Var.set default_mono_font_family_var (Css.Var mono_ref)
   in
   [ sans_decl; mono_decl; default_font_decl; default_mono_decl ]
 
@@ -1209,9 +1207,7 @@ module Typography_early = struct
     let weight_theme_decl, weight_theme_ref =
       Var.binding weight_var weight_value
     in
-    let weight_util_decl, _ =
-      Var.binding font_weight_var (Css.Var weight_theme_ref)
-    in
+    let weight_util_decl = Var.set font_weight_var (Css.Var weight_theme_ref) in
     (* Get @property rule for font-weight channel (needed for animations) *)
     let property_rules =
       match Var.property_rule font_weight_var with
@@ -1341,7 +1337,7 @@ module Typography_early = struct
 
   let leading_with_theme_var theme_var default_value =
     let theme_decl, theme_ref = Var.binding theme_var default_value in
-    let channel_decl, _ = Var.binding leading_var (Css.Var theme_ref) in
+    let channel_decl = Var.set leading_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule leading_var |> Option.to_list |> Css.concat
     in
@@ -1364,7 +1360,7 @@ module Typography_early = struct
         (* Tailwind v4.3 ships no --leading-none token, so inline the literal
            rather than minting a var. *)
         let value : line_height = Num 1.0 in
-        let channel_decl, _ = Var.binding leading_var value in
+        let channel_decl = Var.set leading_var value in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -1389,7 +1385,7 @@ module Typography_early = struct
     | None when n = 0.0 ->
         (* leading-0 is a literal 0, not calc(var(--spacing) * 0). *)
         let value : line_height = Num 0.0 in
-        let channel_decl, _ = Var.binding leading_var value in
+        let channel_decl = Var.set leading_var value in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -1398,15 +1394,13 @@ module Typography_early = struct
         (* Tailwind v4.3 default: derive numeric leading from the spacing scale,
            leading-1 -> var(--spacing), leading-N -> calc(var(--spacing) *
            N). *)
-        let spacing_decl, _ =
-          Var.binding Theme.spacing_var Theme.spacing_base
-        in
+        let spacing_decl = Var.set Theme.spacing_var Theme.spacing_base in
         let spacing = Var.name Theme.spacing_var in
         let value : line_height =
           if n = 1.0 then Css.Var (Var.theme_ref spacing)
           else Css.Calc (Css.Calc.mul (Css.Calc.var spacing) (Css.Calc.float n))
         in
-        let channel_decl, _ = Var.binding leading_var value in
+        let channel_decl = Var.set leading_var value in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -1547,7 +1541,7 @@ module Typography_early = struct
               if Scheme.is_inline_token theme token then
                 [ property (Var.reference_with_fallback channel value) ]
               else
-                let decl, _ = Var.binding var value in
+                let decl = Var.set var value in
                 [
                   decl;
                   property (Var.reference_with_var_fallback channel var value);
@@ -1653,8 +1647,8 @@ module Typography_early = struct
     | Font_extrabold -> font_extrabold
     | Font_black -> font_black
     | Font_bracket_weight (_, n) ->
-        let weight_util_decl, _ =
-          Var.binding font_weight_var (Weight (float_of_int n))
+        let weight_util_decl =
+          Var.set font_weight_var (Weight (float_of_int n))
         in
         let property_rules =
           match Var.property_rule font_weight_var with
@@ -1666,9 +1660,7 @@ module Typography_early = struct
     | Font_bracket_weight_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_weight Css.var = Var.bracket bare_name in
-        let weight_util_decl, _ =
-          Var.binding font_weight_var (Css.Var var_ref)
-        in
+        let weight_util_decl = Var.set font_weight_var (Css.Var var_ref) in
         let property_rules =
           match Var.property_rule font_weight_var with
           | None -> Css.empty
@@ -1785,13 +1777,13 @@ module Typography_early = struct
     | Leading_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.line_height Css.var = Var.bracket bare_name in
-        let channel_decl, _ = Var.binding leading_var (Css.Var var_ref) in
+        let channel_decl = Var.set leading_var (Css.Var var_ref) in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ channel_decl; line_height (Css.Var var_ref) ]
     | Leading_bracket (_, lh) ->
-        let channel_decl, _ = Var.binding leading_var lh in
+        let channel_decl = Var.set leading_var lh in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -3033,7 +3025,7 @@ module Typography_late = struct
 
   let tracking_tighter =
     let theme_decl, theme_ref = Var.binding tracking_tighter_var (Em (-0.05)) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3044,7 +3036,7 @@ module Typography_late = struct
     (* Theme var: --tracking-tight: -0.025em *)
     let theme_decl, theme_ref = Var.binding tracking_tight_var (Em (-0.025)) in
     (* Channel var: --tw-tracking: var(--tracking-tight) *)
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     (* Property: letter-spacing: var(--tracking-tight) *)
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
@@ -3056,7 +3048,7 @@ module Typography_late = struct
     (* Tailwind's default theme defines --tracking-normal as 0em, not a unitless
        0, so keep the explicit em unit. *)
     let theme_decl, theme_ref = Var.binding tracking_normal_var (Em 0.0) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3065,7 +3057,7 @@ module Typography_late = struct
 
   let tracking_wide =
     let theme_decl, theme_ref = Var.binding tracking_wide_var (Em 0.025) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3083,9 +3075,7 @@ module Typography_late = struct
             let theme_decl, theme_ref =
               Var.binding (tracking_named_var name) len
             in
-            let channel_decl, _ =
-              Var.binding tracking_var (Css.Var theme_ref)
-            in
+            let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
             let property_rules =
               Var.property_rule tracking_var |> Option.to_list |> Css.concat
             in
@@ -3094,7 +3084,7 @@ module Typography_late = struct
 
   let tracking_wider =
     let theme_decl, theme_ref = Var.binding tracking_wider_var (Em 0.05) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3103,7 +3093,7 @@ module Typography_late = struct
 
   let tracking_widest =
     let theme_decl, theme_ref = Var.binding tracking_widest_var (Em 0.1) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3116,7 +3106,7 @@ module Typography_late = struct
   let normal_case = style [ text_transform None ]
 
   let tracking_arbitrary len =
-    let channel_decl, _ = Var.binding tracking_var len in
+    let channel_decl = Var.set tracking_var len in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3158,7 +3148,7 @@ module Typography_late = struct
       Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
     in
     let direct_neg = negate_length len in
-    let channel_decl, _ = Var.binding tracking_var calc_neg in
+    let channel_decl = Var.set tracking_var calc_neg in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3577,7 +3567,7 @@ module Typography_late = struct
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
-        let channel_decl, _ = Var.binding tracking_var (Css.Var var_ref) in
+        let channel_decl = Var.set tracking_var (Css.Var var_ref) in
         let property_rules =
           Var.property_rule tracking_var |> Option.to_list |> Css.concat
         in
@@ -3587,7 +3577,7 @@ module Typography_late = struct
         let neg_len : Css.length =
           Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
         in
-        let channel_decl, _ = Var.binding tracking_var neg_len in
+        let channel_decl = Var.set tracking_var neg_len in
         let property_rules =
           Var.property_rule tracking_var |> Option.to_list |> Css.concat
         in

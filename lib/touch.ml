@@ -57,7 +57,7 @@ module Handler = struct
 
   (* Helper for composable touch styles *)
   let composable_style var value =
-    let decl, _ = Var.binding var value in
+    let decl = Var.set var value in
     style ~property_rules:touch_props [ decl; composable_touch_action () ]
 
   (* Class suffix and style of one utility. One match covers both, so a
