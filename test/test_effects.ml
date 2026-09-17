@@ -116,6 +116,29 @@ let test_project_shadow_opacity () =
       "shadow-[0_1px_2px_#0000001a]/50"; "shadow-[0_1px_2px_rgb(0,0,0,0.1)]/50";
     ]
 
+(* An [inset-shadow-[...]] bracket that spells [inset] itself is refused. The
+   utility supplies the keyword, so Tailwind writes the author's on top of it,
+   [inset inset 0 1px red]: a value a registered [syntax: "*"] property holds
+   and the [box-shadow] composition then cannot compute, so the element draws no
+   shadow at all. That value has no typed form; refusing the class draws nothing
+   for it, where tw used to draw the shadow the author did not get.
+   [check_invalid_input] does not apply: Tailwind compiles the class. *)
+let test_inset_shadow_bracket_refuses_inset () =
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " spells inset itself")
+        true
+        (Result.is_error (Tw.of_string cls)))
+    [
+      "inset-shadow-[inset_0_1px_red]";
+      "inset-shadow-[inset_0_1px_red]/50";
+      "inset-shadow-[0_1px_red,inset_0_2px_blue]";
+    ];
+  Alcotest.(check bool)
+    "a bracket without inset is the inset shadow" true
+    (Result.is_ok (Tw.of_string "inset-shadow-[0_1px_red]"))
+
 let test_ring_width_order () =
   Test_helpers.check_class_order ~test_name:"ring width order"
     [ "ring-8"; "ring-4"; "ring-3"; "ring-2"; "ring-1"; "ring-0"; "ring" ]
@@ -929,6 +952,8 @@ let tests =
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;
     test_case "ring theme colour" `Quick test_ring_theme_colour;
     test_case "project shadow opacity" `Quick test_project_shadow_opacity;
+    test_case "inset shadow bracket refuses inset" `Quick
+      test_inset_shadow_bracket_refuses_inset;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "undefined colour shade" `Quick test_undefined_shade;
