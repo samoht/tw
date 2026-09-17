@@ -977,6 +977,63 @@ let test_has_and_in_named_hover_gate () =
   check_utilities "in-group-hover/x:flex"
     {|@media(hover:hover){:where(:is(:where(.group\/x):hover *)) .in-group-hover\/x\:flex{display:flex}}|}
 
+(* [before:] or [after:] over an inner variant, as Tailwind nests it: the
+   variant's own rule holds the [content], under no condition, and the inner
+   variant's rule nests inside it, so the flattened sheet writes [.x::before {
+   content }] once and the utility's declarations on [.x::before<inner>] under
+   the inner's own at-rules. tw fused the two into one rule under the inner's
+   condition and dropped the inner's selector, so [before:hover:underline]
+   underlined the pseudo-element whether hovered or not. An at-rule inner and a
+   negation's two halves each write the content rule once; [marker:] and
+   [selection:] put the inner's selector after each of their pseudo-elements.
+   The utilities layer alone is compared: [before:] registers [--tw-content]
+   ahead of it. *)
+let test_pseudo_element_over_an_inner_variant () =
+  let utilities cls expected =
+    let sheet =
+      match Tw.of_string cls with
+      | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    in
+    Alcotest.(check bool)
+      (cls ^ " writes " ^ expected)
+      true
+      (Astring.String.is_infix
+         ~affix:("@layer utilities{" ^ expected ^ "}")
+         sheet)
+  in
+  utilities "before:hover:underline"
+    {|.before\:hover\:underline:before{content:var(--tw-content)}@media(hover:hover){.before\:hover\:underline:before:hover{text-decoration-line:underline}}|};
+  utilities "before:first:underline"
+    {|.before\:first\:underline:before{content:var(--tw-content)}.before\:first\:underline:before:first-child{text-decoration-line:underline}|};
+  utilities "before:md:underline"
+    {|.before\:md\:underline:before{content:var(--tw-content)}@media(min-width:48rem){.before\:md\:underline:before{text-decoration-line:underline}}|};
+  utilities "before:not-hover:underline"
+    {|.before\:not-hover\:underline:before{content:var(--tw-content)}.before\:not-hover\:underline:before:not(:hover){text-decoration-line:underline}@media not all and (hover:hover){.before\:not-hover\:underline:before{text-decoration-line:underline}}|};
+  utilities "before:hover:content-['x']"
+    {|.before\:hover\:content-\[\'x\'\]:before{content:var(--tw-content)}@media(hover:hover){.before\:hover\:content-\[\'x\'\]:before:hover{--tw-content:"x";content:var(--tw-content)}}|};
+  utilities "before:@md:underline"
+    {|.before\:\@md\:underline:before{content:var(--tw-content)}@container(width>=28rem){.before\:\@md\:underline:before{text-decoration-line:underline}}|};
+  utilities "before:md:hover:underline"
+    {|.before\:md\:hover\:underline:before{content:var(--tw-content)}@media(min-width:48rem){@media(hover:hover){.before\:md\:hover\:underline:before:hover{text-decoration-line:underline}}}|};
+  utilities "marker:hover:underline"
+    {|@media(hover:hover){.marker\:hover\:underline ::marker:hover{text-decoration-line:underline}.marker\:hover\:underline::marker:hover{text-decoration-line:underline}.marker\:hover\:underline ::-webkit-details-marker:hover{text-decoration-line:underline}.marker\:hover\:underline::-webkit-details-marker:hover{text-decoration-line:underline}}|};
+  utilities "selection:hover:underline"
+    {|@media(hover:hover){.selection\:hover\:underline ::selection:hover{text-decoration-line:underline}.selection\:hover\:underline::selection:hover{text-decoration-line:underline}}|}
+
+(* [@starting-style] nests with a container or supports query around it in
+   either order, as a media query does; [starting:@md:] lost the container and
+   [@md:starting:] the block. *)
+let test_starting_style_nests_with_container_and_supports () =
+  check_utilities "starting:@md:underline"
+    {|@starting-style{@container(width>=28rem){.starting\:\@md\:underline{text-decoration-line:underline}}}|};
+  check_utilities "@md:starting:flex"
+    {|@container(width>=28rem){@starting-style{.\@md\:starting\:flex{display:flex}}}|};
+  check_utilities "supports-grid:starting:flex"
+    {|@supports(grid:var(--tw)){@starting-style{.supports-grid\:starting\:flex{display:flex}}}|};
+  check_utilities "starting:not-@md:flex"
+    {|@starting-style{@container not (width>=28rem){.starting\:not-\@md\:flex{display:flex}}}|}
+
 let tests =
   [
     test_case "important prefix" `Quick test_important_prefix;
@@ -1802,6 +1859,10 @@ let tests =
         test_variant_reaches_the_nested_rule;
       test_case "ancestor variant keeps the compound" `Quick
         test_ancestor_variant_keeps_the_compound;
+      test_case "pseudo-element over an inner variant" `Quick
+        test_pseudo_element_over_an_inner_variant;
+      test_case "starting-style nests with container and supports" `Quick
+        test_starting_style_nests_with_container_and_supports;
       test_case "silent empty variants rejected" `Quick
         test_silent_empty_variants_rejected;
       test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
