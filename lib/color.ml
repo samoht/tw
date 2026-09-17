@@ -1436,6 +1436,19 @@ let color_var color shade =
       in
       Var.theme Css.Color name ~order:var_order)
 
+(* The theme declaration a colour token needs and the value a utility writes for
+   it: the reference, with the token declared beside it, or for a token an
+   [@theme inline] block declared, the value itself and no declaration. That is
+   what inline is for - a value a [var()] cannot reach, inside [@keyframes] or
+   composed into a [color-mix()] - so a reference with the token declared is the
+   opposite of what was asked for, even where the two paint the same. *)
+let bound ?theme cvar (value : Css.color) : Css.declaration list * Css.color =
+  match theme with
+  | Some t when Scheme.is_inline_token t (Var.name cvar) -> ([], value)
+  | Some _ | None ->
+      let decl, reference = Var.binding cvar value in
+      ([ decl ], Var reference)
+
 let color_to_string (c : color) : string =
   match c with
   | Black -> "black"
@@ -3592,6 +3605,13 @@ let hex_alpha_color ?theme c shade opacity =
          hex, so an /opacity modifier still resolves to a colour. *)
       if is_base_color c then
         Some (hex_with_alpha (to_oklch_css c shade) percent)
+      else if is_theme_named c then
+        (* A project token is whatever CSS the block wrote: a hex takes the
+           alpha; anything else has no compile-time fallback to fold it into. *)
+        match Cascade.Values.nonkeyword_color (to_css ?theme c shade) with
+        | Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ } ->
+            Some (hex_with_alpha (rgb_to_hex { r; g; b }) percent)
+        | _ -> None
       else
         (* A theme that binds palette colours to var references has no scheme
            hex; convert through oklch so the /opacity modifier still resolves,

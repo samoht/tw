@@ -1978,39 +1978,43 @@ module Handler = struct
       Color.property_color_var ?theme ~property_prefix:"ring-color" color shade
     in
     let color_value =
-      Color.property_color_value ~property_prefix:"ring-color" color shade
+      Color.property_color_value ?theme ~property_prefix:"ring-color" color
+        shade
     in
-    let color_decl, color_ref = Var.binding cvar color_value in
-    let d, _ = Var.binding ring_color_var (Css.Var color_ref) in
-    style [ color_decl; d ]
+    let decls, color = Color.bound ?theme cvar color_value in
+    let d, _ = Var.binding ring_color_var color in
+    style (decls @ [ d ])
 
   let ring_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color ?theme color shade opacity with
-    | Some hex_alpha ->
-        let fallback, _ = Var.binding ring_color_var (Css.hex hex_alpha) in
-        let cvar =
-          Color.property_color_var ?theme ~property_prefix:"ring-color" color
-            shade
-        in
-        let color_value =
-          Color.property_color_value ~property_prefix:"ring-color" color shade
-        in
-        let theme_decl, color_ref = Var.binding cvar color_value in
-        let oklab_decl, _ =
-          Var.binding ring_color_var
-            (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-               ~percent1:percent)
-        in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ theme_decl; oklab_decl ];
-            ]
-        in
-        Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> ring_color ?theme color shade
+    let cvar =
+      Color.property_color_var ?theme ~property_prefix:"ring-color" color shade
+    in
+    let color_value =
+      Color.property_color_value ?theme ~property_prefix:"ring-color" color
+        shade
+    in
+    let decls, value = Color.bound ?theme cvar color_value in
+    (* A token bound to a value no hex can carry, a [var()], has nothing to fold
+       the alpha into, so the fallback is the colour at full opacity, as
+       Tailwind writes it; the mix under [@supports] carries the alpha. *)
+    let fallback_color =
+      match Color.hex_alpha_color ?theme color shade opacity with
+      | Some hex_alpha -> Css.hex hex_alpha
+      | None -> value
+    in
+    let fallback, _ = Var.binding ring_color_var fallback_color in
+    let oklab_decl, _ =
+      Var.binding ring_color_var
+        (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
+    in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ oklab_decl ]);
+        ]
+    in
+    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_width n =
     (* Sets --tw-ring-offset-width and --tw-ring-offset-shadow Format:
@@ -2035,12 +2039,12 @@ module Handler = struct
         shade
     in
     let color_value =
-      Color.property_color_value ~property_prefix:"ring-offset-color" color
-        shade
+      Color.property_color_value ?theme ~property_prefix:"ring-offset-color"
+        color shade
     in
-    let color_decl, color_ref = Var.binding color_theme_var color_value in
-    let d, _ = Var.binding ring_offset_color_var (Css.Var color_ref) in
-    style [ color_decl; d ]
+    let decls, color = Color.bound ?theme color_theme_var color_value in
+    let d, _ = Var.binding ring_offset_color_var color in
+    style (decls @ [ d ])
 
   (* One unit table, read once. [parse_bracket_width] is the option form with
      the zero the callers that cannot fail fall back to; the two used to be
@@ -2083,34 +2087,35 @@ module Handler = struct
   (* Ring-offset color utilities *)
   let ring_offset_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color ?theme color shade opacity with
-    | Some hex_alpha ->
-        let fallback, _ =
-          Var.binding ring_offset_color_var (Css.hex hex_alpha)
-        in
-        let cvar =
-          Color.property_color_var ?theme ~property_prefix:"ring-offset-color"
-            color shade
-        in
-        let color_value =
-          Color.property_color_value ~property_prefix:"ring-offset-color" color
-            shade
-        in
-        let theme_decl, color_ref = Var.binding cvar color_value in
-        let oklab_decl, _ =
-          Var.binding ring_offset_color_var
-            (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-               ~percent1:percent)
-        in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ theme_decl; oklab_decl ];
-            ]
-        in
-        Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> ring_offset_color ?theme color shade
+    let cvar =
+      Color.property_color_var ?theme ~property_prefix:"ring-offset-color" color
+        shade
+    in
+    let color_value =
+      Color.property_color_value ?theme ~property_prefix:"ring-offset-color"
+        color shade
+    in
+    let decls, value = Color.bound ?theme cvar color_value in
+    (* A token bound to a value no hex can carry, a [var()], has nothing to fold
+       the alpha into, so the fallback is the colour at full opacity, as
+       Tailwind writes it; the mix under [@supports] carries the alpha. *)
+    let fallback_color =
+      match Color.hex_alpha_color ?theme color shade opacity with
+      | Some hex_alpha -> Css.hex hex_alpha
+      | None -> value
+    in
+    let fallback, _ = Var.binding ring_offset_color_var fallback_color in
+    let oklab_decl, _ =
+      Var.binding ring_offset_color_var
+        (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
+    in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ oklab_decl ]);
+        ]
+    in
+    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_transparent =
     let d, _ = Var.binding ring_offset_color_var Css.Transparent in
@@ -2209,42 +2214,44 @@ module Handler = struct
         shade
     in
     let color_value =
-      Color.property_color_value ~property_prefix:"inset-ring-color" color shade
+      Color.property_color_value ?theme ~property_prefix:"inset-ring-color"
+        color shade
     in
-    let color_decl, color_ref = Var.binding cvar color_value in
-    let d, _ = Var.binding inset_ring_color_var (Css.Var color_ref) in
-    style [ color_decl; d ]
+    let decls, color = Color.bound ?theme cvar color_value in
+    let d, _ = Var.binding inset_ring_color_var color in
+    style (decls @ [ d ])
 
   let inset_ring_color_with_opacity ?theme color shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    match Color.hex_alpha_color ?theme color shade opacity with
-    | Some hex_alpha ->
-        let fallback, _ =
-          Var.binding inset_ring_color_var (Css.hex hex_alpha)
-        in
-        let cvar =
-          Color.property_color_var ?theme ~property_prefix:"inset-ring-color"
-            color shade
-        in
-        let color_value =
-          Color.property_color_value ~property_prefix:"inset-ring-color" color
-            shade
-        in
-        let theme_decl, color_ref = Var.binding cvar color_value in
-        let oklab_decl, _ =
-          Var.binding inset_ring_color_var
-            (Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-               ~percent1:percent)
-        in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ theme_decl; oklab_decl ];
-            ]
-        in
-        Style.style ~rules:(Some [ supports_block ]) [ fallback ]
-    | None -> inset_ring_color ?theme color shade
+    let cvar =
+      Color.property_color_var ?theme ~property_prefix:"inset-ring-color" color
+        shade
+    in
+    let color_value =
+      Color.property_color_value ?theme ~property_prefix:"inset-ring-color"
+        color shade
+    in
+    let decls, value = Color.bound ?theme cvar color_value in
+    (* A token bound to a value no hex can carry, a [var()], has nothing to fold
+       the alpha into, so the fallback is the colour at full opacity, as
+       Tailwind writes it; the mix under [@supports] carries the alpha. *)
+    let fallback_color =
+      match Color.hex_alpha_color ?theme color shade opacity with
+      | Some hex_alpha -> Css.hex hex_alpha
+      | None -> value
+    in
+    let fallback, _ = Var.binding inset_ring_color_var fallback_color in
+    let oklab_decl, _ =
+      Var.binding inset_ring_color_var
+        (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
+    in
+    let supports_block =
+      Css.supports ~condition:Color.color_mix_supports_condition
+        [
+          Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ oklab_decl ]);
+        ]
+    in
+    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let inset_ring_transparent =
     let d, _ = Var.binding inset_ring_color_var Css.Transparent in
@@ -3108,15 +3115,15 @@ module Handler = struct
        arm below. *)
     | [ "ring"; v ]
       when let base, _ = Color.parse_opacity_modifier ~theme v in
-           match Color.of_string base with
-           | Ok c -> Color.is_shadeless c
+           match Color.shade_of_strings ~theme [ base ] with
+           | Ok (c, _) -> Color.is_shadeless c || Color.is_theme_named c
            | Error _ -> false -> (
         let base, opacity = Color.parse_opacity_modifier ~theme v in
-        match Color.of_string base with
-        | Ok c -> (
+        match Color.shade_of_strings ~theme [ base ] with
+        | Ok (c, s) -> (
             match opacity with
-            | Color.No_opacity -> Ok (Ring_color (c, 500))
-            | _ -> Ok (Ring_color_opacity (c, 500, opacity)))
+            | Color.No_opacity -> Ok (Ring_color (c, s))
+            | _ -> Ok (Ring_color_opacity (c, s, opacity)))
         | Error _ -> err_not_utility)
     | [ "ring"; "offset"; "transparent" ] -> Ok Ring_offset_transparent
     | [ "ring"; "offset"; "inherit" ] -> Ok Ring_offset_inherit
@@ -3146,15 +3153,15 @@ module Handler = struct
        width, below. *)
     | [ "ring"; "offset"; v ]
       when let base, _ = Color.parse_opacity_modifier ~theme v in
-           match Color.of_string base with
-           | Ok c -> Color.is_shadeless c
+           match Color.shade_of_strings ~theme [ base ] with
+           | Ok (c, _) -> Color.is_shadeless c || Color.is_theme_named c
            | Error _ -> false -> (
         let base, opacity = Color.parse_opacity_modifier ~theme v in
-        match Color.of_string base with
-        | Ok c -> (
+        match Color.shade_of_strings ~theme [ base ] with
+        | Ok (c, s) -> (
             match opacity with
-            | Color.No_opacity -> Ok (Ring_offset_color (c, 500))
-            | _ -> Ok (Ring_offset_color_opacity (c, 500, opacity)))
+            | Color.No_opacity -> Ok (Ring_offset_color (c, s))
+            | _ -> Ok (Ring_offset_color_opacity (c, s, opacity)))
         | Error _ -> err_not_utility)
     | [ "ring"; "offset"; n ] -> (
         match Parse.int_any n with
@@ -3197,15 +3204,15 @@ module Handler = struct
     (* Shadeless theme colours (inset-ring-black, with optional /opacity). *)
     | [ "inset"; "ring"; v ]
       when let base, _ = Color.parse_opacity_modifier ~theme v in
-           match Color.of_string base with
-           | Ok c -> Color.is_shadeless c
+           match Color.shade_of_strings ~theme [ base ] with
+           | Ok (c, _) -> Color.is_shadeless c || Color.is_theme_named c
            | Error _ -> false -> (
         let base, opacity = Color.parse_opacity_modifier ~theme v in
-        match Color.of_string base with
-        | Ok c -> (
+        match Color.shade_of_strings ~theme [ base ] with
+        | Ok (c, s) -> (
             match opacity with
-            | Color.No_opacity -> Ok (Inset_ring_color (c, 500))
-            | _ -> Ok (Inset_ring_color_opacity (c, 500, opacity)))
+            | Color.No_opacity -> Ok (Inset_ring_color (c, s))
+            | _ -> Ok (Inset_ring_color_opacity (c, s, opacity)))
         | Error _ -> err_not_utility)
     | [ "inset"; "ring"; n ] -> (
         match Parse.int_any n with

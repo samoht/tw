@@ -219,6 +219,10 @@ val is_shadeless : color -> bool
 (** [is_shadeless color] checks if a color should NOT have a shade suffix in
     class names (base colors, custom colors, or theme-named colors). *)
 
+val is_theme_named : color -> bool
+(** [is_theme_named c] is whether [c] names a token the project's [\@theme]
+    declared rather than a palette colour; such a colour carries no shade. *)
+
 val is_valid_shade : color -> int -> bool
 (** [is_valid_shade color shade] checks that [shade] is one the Tailwind palette
     defines for [color]. Shadeless colors accept any shade (it is ignored). *)
@@ -231,6 +235,16 @@ val check_shade : utility:string -> color -> int -> unit
 val color_var : color -> int -> Css.color Var.theme
 (** [color_var color shade] gets or creates a memoized color variable for the
     given color and shade. *)
+
+val bound :
+  ?theme:Scheme.t ->
+  Css.color Var.theme ->
+  Css.color ->
+  Css.declaration list * Css.color
+(** [bound ?theme var value] is the theme declaration a colour token needs and
+    the value a utility writes for it: the reference, with the token declared
+    beside it, or for a token [theme]'s [\@theme inline] block declared, [value]
+    itself and no declaration. *)
 
 val property_color_var :
   ?theme:Scheme.t ->
