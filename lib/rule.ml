@@ -2450,16 +2450,11 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   if !has_regular_rules then ordered_entries @ base_rule
   else base_rule @ ordered_entries
 
-(* [prefix(tw)] is the outermost segment of the written class, where tw composes
-   a name inner to outer ([hover:] onto [underline]). So it goes on the finished
-   rule rather than the utility: composed in place it would spell
-   [hover:tw:underline], and carried as an alias the recursion would read it
-   again at every modifier. *)
-let written_with_prefix p output =
-  (* The anchor a [group-*] or [peer-*] variant points at is a class the author
-     writes, so it carries the prefix too: [app:group-hover:underline] reads the
-     anchor as [.app] then [group] escaped together. A variant that carries its
-     own name spells it after a slash, and the prefix stays in front. *)
+(* The anchor a [group-*] or [peer-*] variant points at is a class the author
+   writes, so it carries the prefix too: [app:group-hover:underline] reads the
+   anchor as [.app] then [group] escaped together. A variant that carries its
+   own name spells it after a slash, and the prefix stays in front. *)
+let prefix_anchors p selector =
   let anchored name =
     let is_anchor kind =
       name = kind
@@ -2468,40 +2463,64 @@ let written_with_prefix p output =
     in
     is_anchor "group" || is_anchor "peer"
   in
-  let prefix_anchors selector =
-    Css.Selector.map
-      (function
-        | Css.Selector.Class name when anchored name ->
-            Css.Selector.Class (p ^ ":" ^ name)
-        | other -> other)
-      selector
-  in
-  let moved selector base_class =
-    let selector = prefix_anchors selector in
-    match base_class with
-    | None -> (selector, None)
-    | Some c ->
-        let written = p ^ ":" ^ c in
-        ( Rules_selector.replace_class_in_selector ~old_class:c
-            ~new_class:written selector,
-          Some written )
-  in
+  Css.Selector.map
+    (function
+      | Css.Selector.Class name when anchored name ->
+          Css.Selector.Class (p ^ ":" ^ name)
+      | other -> other)
+    selector
+
+(* A rule's selector, base class and nested statements with the prefix written
+   in. The class moves in the nested statements as well: a stacked variant puts
+   the rule under a query of its own, [md:hover:] under the hover query inside
+   the breakpoint's, and the written name is what the markup carries there
+   too. *)
+let moved_with_prefix p selector base_class nested =
+  let selector = prefix_anchors p selector in
+  let nested = List.map (map_selectors_in_stmt (prefix_anchors p)) nested in
+  match base_class with
+  | None -> (selector, None, nested)
+  | Some c ->
+      let written = p ^ ":" ^ c in
+      ( Rules_selector.replace_class_in_selector ~old_class:c ~new_class:written
+          selector,
+        Some written,
+        List.map (rename_class_in_stmt ~old_class:c ~new_class:written) nested
+      )
+
+(* [prefix(tw)] is the outermost segment of the written class, where tw composes
+   a name inner to outer ([hover:] onto [underline]). So it goes on the finished
+   rule rather than the utility: composed in place it would spell
+   [hover:tw:underline], and carried as an alias the recursion would read it
+   again at every modifier. *)
+let written_with_prefix p output =
+  let moved = moved_with_prefix p in
   match output with
   | Output.Regular r ->
-      let selector, base_class = moved r.selector r.base_class in
-      Output.Regular { r with selector; base_class }
+      let selector, base_class, nested =
+        moved r.selector r.base_class r.nested
+      in
+      Output.Regular { r with selector; base_class; nested }
   | Output.Media_query r ->
-      let selector, base_class = moved r.selector r.base_class in
-      Output.Media_query { r with selector; base_class }
+      let selector, base_class, nested =
+        moved r.selector r.base_class r.nested
+      in
+      Output.Media_query { r with selector; base_class; nested }
   | Output.Container_query r ->
-      let selector, base_class = moved r.selector r.base_class in
-      Output.Container_query { r with selector; base_class }
+      let selector, base_class, nested =
+        moved r.selector r.base_class r.nested
+      in
+      Output.Container_query { r with selector; base_class; nested }
   | Output.Starting_style r ->
-      let selector, base_class = moved r.selector r.base_class in
-      Output.Starting_style { r with selector; base_class }
+      let selector, base_class, nested =
+        moved r.selector r.base_class r.nested
+      in
+      Output.Starting_style { r with selector; base_class; nested }
   | Output.Supports_query r ->
-      let selector, base_class = moved r.selector r.base_class in
-      Output.Supports_query { r with selector; base_class }
+      let selector, base_class, nested =
+        moved r.selector r.base_class r.nested
+      in
+      Output.Supports_query { r with selector; base_class; nested }
 
 (* [important] on the import marks every utility whatever dresses it, the way
    the [!] suffix marks one, so it goes on the finished style. *)
