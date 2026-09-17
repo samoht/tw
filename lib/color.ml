@@ -184,6 +184,12 @@ let hex_to_rgb hex =
 let rgb_to_hex rgb =
   "#" ^ Pp.hex_byte rgb.r ^ Pp.hex_byte rgb.g ^ Pp.hex_byte rgb.b
 
+(* The hex spelling of an sRGB colour with an alpha byte, which a fully opaque
+   colour leaves off. *)
+let rgba_to_hex r g b a =
+  let rgb = "#" ^ Pp.hex_byte r ^ Pp.hex_byte g ^ Pp.hex_byte b in
+  if a = 255 then rgb else rgb ^ Pp.hex_byte a
+
 (** Add alpha to a hex color string. Returns #RRGGBBAA format. The opacity is a
     percentage (0-100). *)
 let hex_with_alpha hex_str opacity_percent =
@@ -4018,6 +4024,144 @@ let bg_current_with_opacity ?theme opacity =
   let oklab_decl = Css.background_color oklab_color in
   let supports_block = color_mix_supports [ oklab_decl ] in
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+
+(* ============ Colour channels ============ *)
+
+type channel = {
+  color : Css.color Var.channel;
+  alpha : Css.percentage Var.property_default;
+  property_prefix : string;
+  metadata : Var.metadata list;
+  property_rules : Css.t;
+}
+
+let channel_style ?(decls = []) ch ~fallback mixed =
+  let enhanced =
+    Css.color_mix_var_percent ~in_space:Oklab ~var_name:(Var.name ch.alpha)
+      mixed Css.Transparent
+  in
+  let supports_block =
+    color_mix_supports (decls @ [ Var.set ch.color enhanced ])
+  in
+  Style.style ~rules:(Some [ supports_block ]) ~metadata:ch.metadata
+    ~property_rules:ch.property_rules
+    [ Var.set ch.color fallback ]
+
+let channel_inherit ch =
+  Style.style ~metadata:ch.metadata ~property_rules:ch.property_rules
+    [ Var.set ch.color Css.Inherit ]
+
+let palette_hex ?theme ?property_prefix c shade =
+  let color_name = Handler.scheme_color_name c shade in
+  let scoped =
+    match property_prefix with
+    | Some prefix -> Scheme.theme_value theme (prefix ^ "-" ^ color_name)
+    | None -> None
+  in
+  match
+    Scheme.hex_color (Option.value ~default:Scheme.default theme) color_name
+  with
+  | Some h -> h
+  | None -> (
+      match scoped with
+      | Some h -> h
+      | None -> (
+          match Scheme.theme_value theme ("color-" ^ color_name) with
+          | Some h -> h
+          | None -> rgb_to_hex (oklch_to_rgb (to_oklch c shade))))
+
+let channel_color ?theme ch c shade =
+  let property_prefix = ch.property_prefix in
+  let value = property_color_value ?theme ~property_prefix c shade in
+  let decls, color =
+    bound ?theme (property_color_var ?theme ~property_prefix c shade) value
+  in
+  channel_style ~decls ch ~fallback:value color
+
+let channel_color_opacity ?theme ch c shade opacity =
+  let property_prefix = ch.property_prefix in
+  let percent = opacity_to_percent opacity in
+  let hex = palette_hex ?theme ~property_prefix c shade in
+  let decls, color =
+    bound ?theme
+      (property_color_var ?theme ~property_prefix c shade)
+      (Css.hex hex)
+  in
+  channel_style ~decls ch
+    ~fallback:(Css.hex (hex_with_alpha hex percent))
+    (Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent)
+
+let channel_current ch = channel_style ch ~fallback:Css.Current Css.Current
+
+let channel_current_opacity ch opacity =
+  let percent = opacity_to_percent opacity in
+  channel_style ch ~fallback:Css.Current
+    (Css.color_mix ~in_space:Oklab Css.Current Css.Transparent ~percent1:percent)
+
+let channel_transparent ch =
+  channel_style ch ~fallback:Css.Transparent Css.Transparent
+
+let channel_transparent_opacity ch opacity =
+  channel_style ch ~fallback:Css.Transparent
+    (apply_alpha opacity Css.Transparent)
+
+let channel_bracket_color ~theme ch c =
+  let enhanced = resolve_bracket_css_color c in
+  let fallback =
+    Option.value ~default:enhanced (pre_color_mix_fallback theme enhanced)
+  in
+  channel_style ch ~fallback enhanced
+
+(* Tailwind writes the plain fallback as a hex carrying the alpha byte and keeps
+   the oklab spelling for the [color-mix] the [\@supports] block guards, so the
+   two are built separately. Folding the fallback through oklab as well made it
+   depend on a colour-space round trip. *)
+let channel_bracket_color_opacity ~theme ch c opacity =
+  let c = Option.value ~default:c (css_color_to_hex c) in
+  let percent = opacity_to_percent opacity in
+  let alpha_var = opacity_var_bare_of opacity <> None in
+  let guarded =
+    mix_alpha ~in_space:Oklab opacity (resolve_bracket_css_color c)
+  in
+  let fallback, mixed =
+    match pre_color_mix_fallback theme guarded with
+    | Some fallback -> (fallback, guarded)
+    | None -> (
+        match c with
+        (* A modifier reading a custom property has no percentage for an alpha
+           byte to carry, so the hex stays whole and the property mixes into the
+           guarded value instead. *)
+        | (Css.Hex _ | Css.Authored_hex _) when alpha_var ->
+            (c, mix_alpha ~in_space:Oklab opacity c)
+        | Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ } ->
+            let hex = rgba_to_hex r g b a in
+            ( Css.hex (hex_with_alpha hex percent),
+              hex_to_oklab_alpha hex (percent /. 100.0) )
+        (* A colour with no sRGB hex has nothing to carry the alpha byte, so the
+           modifier stays a mix: sRGB for the plain fallback, oklab for the
+           guarded value. *)
+        | _ ->
+            let guarded = mix_alpha ~in_space:Oklab opacity c in
+            if alpha_var then (c, guarded)
+            else (mix_alpha ~in_space:Srgb opacity c, guarded))
+  in
+  channel_style ch ~fallback mixed
+
+let bracket_var_ref v : Css.color =
+  Css.Var (Var.bracket (Parse.extract_var_name v))
+
+let bracket_var_color v =
+  match Css.parse_color v with Some c -> c | None -> bracket_var_ref v
+
+let channel_bracket_var ch v =
+  let color = bracket_var_ref v in
+  channel_style ch ~fallback:color color
+
+let channel_bracket_var_opacity ch v opacity =
+  let percent = opacity_to_percent opacity in
+  let color = bracket_var_ref v in
+  channel_style ch ~fallback:color
+    (Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent)
 
 (** Public API *)
 let utility = Utility_factory.v

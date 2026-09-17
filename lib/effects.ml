@@ -8,13 +8,8 @@ module Handler = struct
   (* Capture the project Pp helpers before [open Css] shadows Pp with Css.Pp. *)
   let pp_float = Pp.float
   let pp_str = Pp.str
-  let hex_byte = Pp.hex_byte
 
   open Css
-
-  let rgba_hex_string r g b a =
-    let rgb = hex_byte r ^ hex_byte g ^ hex_byte b in
-    if a = 255 then rgb else rgb ^ hex_byte a
 
   type shadow_shape =
     | Two_xs
@@ -342,46 +337,13 @@ module Handler = struct
   let shadow_opacity_decl opacity =
     Var.set shadow_alpha_var (Color.opacity_alpha_value opacity)
 
-  (* A bracket colour may need two assignments: the value a browser without
-     [color-mix()] can use, and the authored value under [@supports]. *)
-  let bracket_color_pair theme c =
-    let enhanced = Color.resolve_bracket_css_color c in
-    match Color.pre_color_mix_fallback theme enhanced with
-    | Stdlib.Option.None -> (enhanced, Stdlib.Option.None)
-    | Stdlib.Option.Some fallback -> (fallback, Stdlib.Option.Some enhanced)
-
+  (* A bracket colour on one of the ring channels: the channel is the property
+     the colour lands on. *)
   let bracket_color_var_style ~theme var c =
-    let fallback, enhanced = bracket_color_pair theme c in
-    let fallback_decl = Var.set var fallback in
-    match enhanced with
-    | Stdlib.Option.None -> style [ fallback_decl ]
-    | Stdlib.Option.Some color ->
-        let enhanced_decl = Var.set var color in
-        let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    Color.bracket_color_style ~theme ~property:(Var.set var) c
 
   let bracket_color_var_opacity_style ~theme var c opacity =
-    match Color.bracket_color_opacity ~theme c opacity with
-    | Color.Folded value -> style [ Var.set var value ]
-    | Color.Guarded { fallback; mixed } ->
-        let fallback_decl = Var.set var fallback in
-        let enhanced_decl = Var.set var mixed in
-        let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-
-  let bracket_opacity_pair theme c opacity =
-    let color = Color.resolve_bracket_css_color c in
-    let enhanced = Color.mix_alpha ~in_space:Oklab opacity color in
-    Option.map
-      (fun fallback -> (fallback, enhanced))
-      (Color.pre_color_mix_fallback theme enhanced)
-
-  let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
-
-  let make_full_color_var (v : string) : Css.color =
-    match Css.parse_color v with
-    | Some c -> c
-    | None -> make_color_var (Parse.extract_var_name v)
+    Color.bracket_color_opacity_style ~theme ~property:(Var.set var) c opacity
 
   let box_shadow_composition v_shadow =
     let v_inset = Var.reference inset_shadow_var in
@@ -738,7 +700,7 @@ module Handler = struct
   let arbitrary_colour (c : arbitrary) : Css.color =
     match c with
     | Hex h -> Color.authored_hex h
-    | Var v -> make_full_color_var v
+    | Var v -> Color.bracket_var_color v
     | Css_color c -> (
         match Color.css_color_to_hex c with
         | Some h -> h
@@ -776,7 +738,8 @@ module Handler = struct
     | Some { h_offset; v_offset; blur; spread; color = Var v } ->
         (* A trailing var() is the colour, not the blur (Tailwind). *)
         let color_ref =
-          Var.reference_with_fallback shadow_color_var (make_full_color_var v)
+          Var.reference_with_fallback shadow_color_var
+            (Color.bracket_var_color v)
         in
         let shadow_value =
           Css.shadow ~h_offset ~v_offset ?blur ?spread ~color:(Var color_ref) ()
@@ -844,207 +807,14 @@ module Handler = struct
 
   (* ============ Shadow color utilities ============ *)
 
-  let shadow_color_hex ?theme ~property_prefix c shade =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
-    | Stdlib.Option.Some h -> h
-    | Stdlib.Option.None -> (
-        (* Check property-scoped theme value first *)
-        let prop_name = property_prefix ^ "-" ^ color_name in
-        match Scheme.theme_value theme prop_name with
-        | Stdlib.Option.Some h -> h
-        | Stdlib.Option.None -> (
-            match Scheme.theme_value theme ("color-" ^ color_name) with
-            | Stdlib.Option.Some h -> h
-            | Stdlib.Option.None ->
-                let oklch = Color.to_oklch c shade in
-                let rgb = Color.oklch_to_rgb oklch in
-                Color.rgb_to_hex rgb))
-
-  let set_shadow_color ?theme c shade =
-    let color_value =
-      Color.property_color_value ?theme ~property_prefix:"box-shadow-color" c
-        shade
-    in
-    let base_decl = Var.set shadow_color_var color_value in
-    let theme_color_var =
-      Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c
-        shade
-    in
-    let decls, color = Color.bound ?theme theme_color_var color_value in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        color Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_color_opacity ?theme c shade opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let hex_value =
-      shadow_color_hex ?theme ~property_prefix:"box-shadow-color" c shade
-    in
-    let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-    let base_decl = Var.set shadow_color_var (Css.hex hex_with_alpha) in
-    let theme_color_var =
-      Color.property_color_var ?theme ~property_prefix:"box-shadow-color" c
-        shade
-    in
-    let decls, color = Color.bound ?theme theme_color_var (Css.hex hex_value) in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var outer_mix in
-    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_current () =
-    let base_decl = Var.set shadow_color_var Css.Current in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        Css.Current Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_current_opacity opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let base_decl = Var.set shadow_color_var Css.Current in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var outer_mix in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_transparent () =
-    let base_decl = Var.set shadow_color_var Css.Transparent in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        Css.Transparent Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_transparent_opacity opacity =
-    let base_decl = Var.set shadow_color_var Css.Transparent in
-    let inner_mix = Color.apply_alpha opacity Css.Transparent in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_inherit () =
-    let base_decl = Var.set shadow_color_var Css.Inherit in
-    style ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_bracket_color ~theme (c : Css.color) =
-    let fallback, enhanced = bracket_color_pair theme c in
-    let base_decl = Var.set shadow_color_var fallback in
-    let c = Option.value ~default:fallback enhanced in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha" c
-        Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_bracket_color_opacity ~theme (c : Css.color) opacity =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    (* Tailwind writes the plain fallback as a hex carrying the alpha byte and
-       keeps the oklab spelling for the [color-mix] the [@supports] block
-       guards, so the two are built separately. Folding the fallback through
-       oklab as well made it depend on a colour-space round trip. *)
-    let base_value, with_alpha =
-      match bracket_opacity_pair theme c opacity with
-      | Some pair -> pair
-      | None -> (
-          match c with
-          (* A modifier reading a custom property has no percentage for an alpha
-             byte to carry, so the hex stays whole and the property mixes into
-             the guarded value instead. *)
-          | (Hex _ | Authored_hex _)
-            when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
-              (c, Color.mix_alpha ~in_space:Oklab opacity c)
-          | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-              let hex = "#" ^ rgba_hex_string r g b a in
-              ( Css.hex (Color.hex_with_alpha hex percent),
-                Color.hex_to_oklab_alpha hex alpha )
-          (* A colour with no sRGB hex has nothing to carry the alpha byte, so
-             the modifier stays a mix: sRGB for the plain fallback, oklab for
-             the guarded value. *)
-          | _ ->
-              let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
-              if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
-                (c, guarded)
-              else (Color.mix_alpha ~in_space:Srgb opacity c, guarded))
-    in
-    let base_decl = Var.set shadow_color_var base_value in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        with_alpha Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_bracket_color_var var_expr =
-    let var_name = Parse.extract_var_name var_expr in
-    let var_color = make_color_var var_name in
-    let base_decl = Var.set shadow_color_var var_color in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        var_color Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_shadow_bracket_cvar_opacity var_expr opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let var_name = Parse.extract_var_name var_expr in
-    let var_color = make_color_var var_name in
-    let base_decl = Var.set shadow_color_var var_color in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:"tw-shadow-alpha"
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set shadow_color_var outer_mix in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
+  let shadow_channel : Color.channel =
+    {
+      color = shadow_color_var;
+      alpha = shadow_alpha_var;
+      property_prefix = "box-shadow-color";
+      metadata = shadow_property_metadata;
+      property_rules = shadow_property_rules;
+    }
 
   (* A shadow read whole from a custom property. Under a modifier Tailwind sets
      the alpha channel and leaves the value as it is: there is no colour in it
@@ -1296,7 +1066,7 @@ module Handler = struct
               let fallback_color : Css.color =
                 match color with
                 | Hex c -> Color.authored_hex c
-                | Var v -> make_full_color_var v
+                | Var v -> Color.bracket_var_color v
                 | Css_color c -> (
                     match Color.css_color_to_hex c with
                     | Some h -> h
@@ -1383,200 +1153,14 @@ module Handler = struct
 
   (* ============ Inset shadow color utilities ============ *)
 
-  let inset_shadow_color_hex ?theme ~property_prefix c shade =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
-    | Stdlib.Option.Some h -> h
-    | Stdlib.Option.None -> (
-        let prop_name = property_prefix ^ "-" ^ color_name in
-        match Scheme.theme_value theme prop_name with
-        | Stdlib.Option.Some h -> h
-        | Stdlib.Option.None -> (
-            match Scheme.theme_value theme ("color-" ^ color_name) with
-            | Stdlib.Option.Some h -> h
-            | Stdlib.Option.None ->
-                let oklch = Color.to_oklch c shade in
-                let rgb = Color.oklch_to_rgb oklch in
-                Color.rgb_to_hex rgb))
-
-  let set_inset_shadow_color ?theme c shade =
-    let color_value =
-      Color.property_color_value ?theme
-        ~property_prefix:"inset-box-shadow-color" c shade
-    in
-    let base_decl = Var.set inset_shadow_color_var color_value in
-    let theme_color_var =
-      Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color"
-        c shade
-    in
-    let decls, color = Color.bound ?theme theme_color_var color_value in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" color Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_inset_shadow_color_opacity ?theme c shade opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let hex_value =
-      inset_shadow_color_hex ?theme ~property_prefix:"inset-box-shadow-color" c
-        shade
-    in
-    let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-    let base_decl = Var.set inset_shadow_color_var (Css.hex hex_with_alpha) in
-    let theme_color_var =
-      Color.property_color_var ?theme ~property_prefix:"inset-box-shadow-color"
-        c shade
-    in
-    let decls, color = Color.bound ?theme theme_color_var (Css.hex hex_value) in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var outer_mix in
-    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_inset_shadow_current () =
-    let base_decl = Var.set inset_shadow_color_var Css.Current in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" Css.Current Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_inset_shadow_current_opacity opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let base_decl = Var.set inset_shadow_color_var Css.Current in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var outer_mix in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_inset_shadow_transparent () =
-    let base_decl = Var.set inset_shadow_color_var Css.Transparent in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" Css.Transparent Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_inset_shadow_transparent_opacity opacity =
-    let base_decl = Var.set inset_shadow_color_var Css.Transparent in
-    let inner_mix = Color.apply_alpha opacity Css.Transparent in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_inset_shadow_inherit () =
-    let base_decl = Var.set inset_shadow_color_var Css.Inherit in
-    style ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_inset_shadow_bracket_color ~theme (c : Css.color) =
-    let fallback, enhanced = bracket_color_pair theme c in
-    let base_decl = Var.set inset_shadow_color_var fallback in
-    let c = Option.value ~default:fallback enhanced in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" c Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_ishadow_bracket_color_opacity ~theme (c : Css.color) opacity =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    (* As for the outer shadow: the plain fallback is a hex carrying the alpha
-       byte, the oklab spelling is kept for the guarded [color-mix], and a
-       colour with no hex keeps its alpha as a mix in each space. *)
-    let base_value, with_alpha =
-      match bracket_opacity_pair theme c opacity with
-      | Some pair -> pair
-      | None -> (
-          match c with
-          | (Hex _ | Authored_hex _)
-            when Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) ->
-              (c, Color.mix_alpha ~in_space:Oklab opacity c)
-          | Hex { r; g; b; a } | Authored_hex { r; g; b; a; _ } ->
-              let hex = "#" ^ rgba_hex_string r g b a in
-              ( Css.hex (Color.hex_with_alpha hex percent),
-                Color.hex_to_oklab_alpha hex alpha )
-          | _ ->
-              let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
-              if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then
-                (c, guarded)
-              else (Color.mix_alpha ~in_space:Srgb opacity c, guarded))
-    in
-    let base_decl = Var.set inset_shadow_color_var base_value in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" with_alpha Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_ishadow_bracket_cvar var_expr =
-    let var_name = Parse.extract_var_name var_expr in
-    let var_color = make_color_var var_name in
-    let base_decl = Var.set inset_shadow_color_var var_color in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" var_color Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var enhanced_color in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
-
-  let set_ishadow_bracket_cvar_opacity var_expr opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let var_name = Parse.extract_var_name var_expr in
-    let var_color = make_color_var var_name in
-    let base_decl = Var.set inset_shadow_color_var var_color in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab
-        ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
-    in
-    let enhanced_decl = Var.set inset_shadow_color_var outer_mix in
-    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules [ base_decl ]
+  let inset_shadow_channel : Color.channel =
+    {
+      color = inset_shadow_color_var;
+      alpha = inset_shadow_alpha_var;
+      property_prefix = "inset-box-shadow-color";
+      metadata = shadow_property_metadata;
+      property_rules = shadow_property_rules;
+    }
 
   let inset_shadow_raw_var ?(opacity = Color.No_opacity) v =
     let var_name = Parse.extract_var_name v in
@@ -2174,26 +1758,6 @@ module Handler = struct
   let bg_blend_luminosity = style [ background_blend_mode Luminosity ]
 
   let to_style theme =
-    let set_shadow_bracket_color = set_shadow_bracket_color ~theme in
-    let set_inset_shadow_bracket_color =
-      set_inset_shadow_bracket_color ~theme
-    in
-    let set_shadow_bracket_color_opacity =
-      set_shadow_bracket_color_opacity ~theme
-    in
-    let set_ishadow_bracket_color_opacity =
-      set_ishadow_bracket_color_opacity ~theme
-    in
-    let set_shadow_color c shade = set_shadow_color ~theme c shade in
-    let set_shadow_color_opacity c shade opacity =
-      set_shadow_color_opacity ~theme c shade opacity
-    in
-    let set_inset_shadow_color c shade =
-      set_inset_shadow_color ~theme c shade
-    in
-    let set_inset_shadow_color_opacity c shade opacity =
-      set_inset_shadow_color_opacity ~theme c shade opacity
-    in
     let ring_color_with_opacity color shade opacity =
       ring_color_with_opacity ~theme color shade opacity
     in
@@ -2239,19 +1803,23 @@ module Handler = struct
         inset_shadow_theme_opacity theme name op
     | Shadow_arbitrary_opacity (arb, op) -> shadow_arbitrary_opacity arb op
     | Shadow_shape_opacity (shape, op) -> shadow_shape_opacity_style shape op
-    | Shadow_color (c, s) -> set_shadow_color c s
-    | Shadow_color_opacity (c, s, op) -> set_shadow_color_opacity c s op
-    | Shadow_current -> set_shadow_current ()
-    | Shadow_current_opacity op -> set_shadow_current_opacity op
-    | Shadow_inherit -> set_shadow_inherit ()
-    | Shadow_transparent -> set_shadow_transparent ()
-    | Shadow_transparent_opacity op -> set_shadow_transparent_opacity op
-    | Shadow_bracket_color (_orig, c) -> set_shadow_bracket_color c
+    | Shadow_color (c, s) -> Color.channel_color ~theme shadow_channel c s
+    | Shadow_color_opacity (c, s, op) ->
+        Color.channel_color_opacity ~theme shadow_channel c s op
+    | Shadow_current -> Color.channel_current shadow_channel
+    | Shadow_current_opacity op ->
+        Color.channel_current_opacity shadow_channel op
+    | Shadow_inherit -> Color.channel_inherit shadow_channel
+    | Shadow_transparent -> Color.channel_transparent shadow_channel
+    | Shadow_transparent_opacity op ->
+        Color.channel_transparent_opacity shadow_channel op
+    | Shadow_bracket_color (_orig, c) ->
+        Color.channel_bracket_color ~theme shadow_channel c
     | Shadow_bracket_color_opacity (_orig, c, op) ->
-        set_shadow_bracket_color_opacity c op
-    | Shadow_bracket_color_var v -> set_shadow_bracket_color_var v
+        Color.channel_bracket_color_opacity ~theme shadow_channel c op
+    | Shadow_bracket_color_var v -> Color.channel_bracket_var shadow_channel v
     | Shadow_bracket_color_var_opacity (v, op) ->
-        set_shadow_bracket_cvar_opacity v op
+        Color.channel_bracket_var_opacity shadow_channel v op
     | Shadow_bracket_shadow s ->
         if Parse.is_var s then shadow_raw_var s else shadow_arbitrary s
     | Shadow_bracket_shadow_opacity (s, opacity) ->
@@ -2270,21 +1838,25 @@ module Handler = struct
         inset_shadow_arbitrary_opacity arb op
     | Inset_shadow_shape_opacity (shape, op) ->
         inset_shadow_shape_opacity_style ~theme shape op
-    | Inset_shadow_color (c, s) -> set_inset_shadow_color c s
+    | Inset_shadow_color (c, s) ->
+        Color.channel_color ~theme inset_shadow_channel c s
     | Inset_shadow_color_opacity (c, s, op) ->
-        set_inset_shadow_color_opacity c s op
-    | Inset_shadow_current -> set_inset_shadow_current ()
-    | Inset_shadow_current_opacity op -> set_inset_shadow_current_opacity op
-    | Inset_shadow_inherit -> set_inset_shadow_inherit ()
-    | Inset_shadow_transparent -> set_inset_shadow_transparent ()
+        Color.channel_color_opacity ~theme inset_shadow_channel c s op
+    | Inset_shadow_current -> Color.channel_current inset_shadow_channel
+    | Inset_shadow_current_opacity op ->
+        Color.channel_current_opacity inset_shadow_channel op
+    | Inset_shadow_inherit -> Color.channel_inherit inset_shadow_channel
+    | Inset_shadow_transparent -> Color.channel_transparent inset_shadow_channel
     | Inset_shadow_transparent_opacity op ->
-        set_inset_shadow_transparent_opacity op
-    | Inset_shadow_bracket_color (_orig, c) -> set_inset_shadow_bracket_color c
+        Color.channel_transparent_opacity inset_shadow_channel op
+    | Inset_shadow_bracket_color (_orig, c) ->
+        Color.channel_bracket_color ~theme inset_shadow_channel c
     | Inset_shadow_bracket_color_opacity (_orig, c, op) ->
-        set_ishadow_bracket_color_opacity c op
-    | Inset_shadow_bracket_color_var v -> set_ishadow_bracket_cvar v
+        Color.channel_bracket_color_opacity ~theme inset_shadow_channel c op
+    | Inset_shadow_bracket_color_var v ->
+        Color.channel_bracket_var inset_shadow_channel v
     | Inset_shadow_bracket_cvar_opacity (v, op) ->
-        set_ishadow_bracket_cvar_opacity v op
+        Color.channel_bracket_var_opacity inset_shadow_channel v op
     | Inset_shadow_bracket_shadow s ->
         if Parse.is_var s then inset_shadow_raw_var s
         else inset_shadow_arbitrary s

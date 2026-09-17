@@ -692,3 +692,91 @@ val bracket_color_style :
 
 val round_n : int -> float -> float
 (** [round_n n f] rounds [f] to [n] decimal places. *)
+
+(** {1 Colour channels}
+
+    A family that paints through a [--tw-<family>-color] custom property with a
+    [--tw-<family>-alpha] companion sets the pair the same way whatever the
+    family: the box shadow, inset shadow and text shadow utilities share these
+    builders. Each writes the colour every browser reads in the open and, behind
+    {!color_mix_supports_condition}, the colour with the alpha channel mixed in.
+*)
+
+type channel = {
+  color : Css.color Var.channel;  (** the colour custom property *)
+  alpha : Css.percentage Var.property_default;  (** its alpha companion *)
+  property_prefix : string;
+      (** the prefix of a property-scoped palette token, [box-shadow-color] *)
+  metadata : Var.metadata list;  (** what {!Style.style} gets as [metadata] *)
+  property_rules : Css.t;  (** and as [property_rules] *)
+}
+
+val channel_style :
+  ?decls:Css.declaration list ->
+  channel ->
+  fallback:Css.color ->
+  Css.color ->
+  Style.t
+(** [channel_style ?decls ch ~fallback c] sets [ch] to [fallback] and, behind
+    the guard, to [c] at the channel's alpha, with [decls] declared beside it.
+*)
+
+val channel_inherit : channel -> Style.t
+(** [channel_inherit ch] sets [ch] to [inherit], which no alpha applies to. *)
+
+val palette_hex :
+  ?theme:Scheme.t -> ?property_prefix:string -> color -> int -> string
+(** [palette_hex ?theme ?property_prefix c shade] is the hex a browser without
+    [color-mix()] reads for [c] at [shade]: the scheme's own hex, else the
+    [property_prefix]-scoped token [theme] declares, else its [--color-*] token,
+    else the palette colour converted. *)
+
+val channel_color : ?theme:Scheme.t -> channel -> color -> int -> Style.t
+(** [channel_color ?theme ch c shade] sets [ch] to a palette colour. *)
+
+val channel_color_opacity :
+  ?theme:Scheme.t -> channel -> color -> int -> opacity_modifier -> Style.t
+(** [channel_color_opacity ?theme ch c shade opacity] sets [ch] to a palette
+    colour at [opacity]: a hex carrying the alpha byte in the open, the mix
+    behind the guard. *)
+
+val channel_current : channel -> Style.t
+(** [channel_current ch] sets [ch] to [currentcolor]. *)
+
+val channel_current_opacity : channel -> opacity_modifier -> Style.t
+(** [channel_current_opacity ch opacity] sets [ch] to [currentcolor] at
+    [opacity]. *)
+
+val channel_transparent : channel -> Style.t
+(** [channel_transparent ch] sets [ch] to [transparent]. *)
+
+val channel_transparent_opacity : channel -> opacity_modifier -> Style.t
+(** [channel_transparent_opacity ch opacity] sets [ch] to [transparent] at
+    [opacity]. *)
+
+val channel_bracket_color : theme:Scheme.t -> channel -> Css.color -> Style.t
+(** [channel_bracket_color ~theme ch c] sets [ch] to the bracket colour [c],
+    with its {!pre_color_mix_fallback} in the open when it needs one. *)
+
+val channel_bracket_color_opacity :
+  theme:Scheme.t -> channel -> Css.color -> opacity_modifier -> Style.t
+(** [channel_bracket_color_opacity ~theme ch c opacity] sets [ch] to the bracket
+    colour [c] at [opacity]: a colour with a hex spelling carries the alpha byte
+    in the open, one without takes an sRGB mix there. *)
+
+val bracket_var_ref : string -> Css.color
+(** [bracket_var_ref v] is the reference the [var()] expression [v] of a bracket
+    names, as a colour. *)
+
+val bracket_var_color : string -> Css.color
+(** [bracket_var_color v] is the colour a [var()] token in an arbitrary value
+    paints with: the colour reader's reading of [v] when it has one, else
+    {!bracket_var_ref}. *)
+
+val channel_bracket_var : channel -> string -> Style.t
+(** [channel_bracket_var ch v] sets [ch] to the [var()] reference [v]. *)
+
+val channel_bracket_var_opacity :
+  channel -> string -> opacity_modifier -> Style.t
+(** [channel_bracket_var_opacity ch v opacity] sets [ch] to the [var()]
+    reference [v] at [opacity]. *)
