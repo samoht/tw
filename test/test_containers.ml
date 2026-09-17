@@ -212,9 +212,54 @@ let test_container_reads_the_breakpoint_scale () =
     (List.sort Int.compare positions)
     positions
 
+(* A size query reads the width the project's [@theme] binds to
+   [--container-<size>], as [max-w-<size>] does: under [--container-lg: 40rem]
+   Tailwind writes [@lg:flex] as [@container (width >= 40rem)], and its [@max-]
+   twin as the negation. The scale was a fixed table, so the query kept 32rem
+   while [max-w-lg] took the project's width. *)
+let test_container_size_reads_the_theme () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("container-lg", "40rem") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "@lg:flex" "@container(width>=40rem)";
+  has "@min-lg:flex" "@container(width>=40rem)";
+  has "@max-lg:hidden" "@container not (width>=40rem)";
+  has "@lg/main:flex" "@container main (width>=40rem)";
+  has "@md:flex" "@container(width>=28rem)"
+
+(* A size the block removed names no query, under [@min-], [@max-] and a [/name]
+   tail alike, the way a removed breakpoint names no variant. *)
+let test_removed_container_size_drops_its_variants () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("container-lg", "initial") ]
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " names a size the theme removed")
+        true
+        (Result.is_error (Tw.of_string ~theme cls)))
+    [ "@lg:flex"; "@min-lg:flex"; "@max-lg:flex"; "@lg/main:flex" ];
+  Alcotest.(check bool)
+    "the other sizes still resolve" true
+    (Result.is_ok (Tw.of_string ~theme "@md:flex"))
+
 let tests =
   [
     test_case "types" `Quick test_container_types;
+    test_case "a size query reads the theme" `Quick
+      test_container_size_reads_the_theme;
+    test_case "a removed size drops its variants" `Quick
+      test_removed_container_size_drops_its_variants;
     test_case "container reads the breakpoint scale" `Quick
       test_container_reads_the_breakpoint_scale;
     test_case "variant width order" `Quick test_variant_width_order;
