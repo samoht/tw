@@ -119,13 +119,7 @@ module Handler = struct
             ~percent1:percent
         in
         let supports_decl, _ = Var.binding set_var oklab in
-        let supports =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [ color_decl; supports_decl ];
-            ]
-        in
+        let supports = Color.color_mix_supports [ color_decl; supports_decl ] in
         ([ fallback ], [ supports ])
     | Bracket (_, css_color, Color.No_opacity) -> (
         let enhanced = Color.resolve_bracket_css_color css_color in
@@ -135,12 +129,7 @@ module Handler = struct
         | Some fallback ->
             let fallback_decl, _ = Var.binding set_var fallback in
             let enhanced_decl, _ = Var.binding set_var enhanced in
-            let supports =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_") [ enhanced_decl ];
-                ]
-            in
+            let supports = Color.color_mix_supports [ enhanced_decl ] in
             ([ fallback_decl ], [ supports ]))
     | Bracket (_, css_color, op) -> (
         let scheme = Option.value ~default:Scheme.default theme in
@@ -148,12 +137,7 @@ module Handler = struct
         | Color.Guarded { fallback; mixed } ->
             let fallback_decl, _ = Var.binding set_var fallback in
             let enhanced_decl, _ = Var.binding set_var mixed in
-            let supports =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_") [ enhanced_decl ];
-                ]
-            in
+            let supports = Color.color_mix_supports [ enhanced_decl ] in
             ([ fallback_decl ], [ supports ])
         | Color.Folded value -> ([ fst (Var.binding set_var value) ], []))
 

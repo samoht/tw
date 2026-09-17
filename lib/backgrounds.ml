@@ -1080,10 +1080,7 @@ module Handler = struct
     let fallback_decl = Css.background_color (Var var_ref) in
     let oklab_color = Color.mix_alpha opacity (Css.Var var_ref) in
     let oklab_decl = Css.background_color oklab_color in
-    let supports_rule =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_rule = Color.color_mix_supports [ oklab_decl ] in
     style ~rules:(Some [ supports_rule ]) [ fallback_decl ]
 
   (* Gradient color with opacity - generates same structure as Tailwind: 1.
@@ -1217,12 +1214,7 @@ module Handler = struct
         let d_oklab, _ = Var.binding set_var oklab_color in
 
         (* Build @supports block with placeholder selector *)
-        let supports_rule =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ d_oklab ]);
-            ]
-        in
+        let supports_rule = Color.color_mix_supports (decls @ [ d_oklab ]) in
 
         (* Build stops rule with placeholder selector (will be replaced) *)
         let stops_decls =

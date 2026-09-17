@@ -86,10 +86,6 @@ module Handler = struct
   let opacity_decl opacity =
     fst (Var.binding text_shadow_alpha_var (Color.opacity_alpha_value opacity))
 
-  let color_mix_supports decls =
-    Css.supports ~condition:Color.color_mix_supports_condition
-      [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
-
   let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
 
   let make_full_color_var (v : string) : Css.color =
@@ -370,7 +366,7 @@ module Handler = struct
         color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
+    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -393,7 +389,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
+    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -405,7 +401,7 @@ module Handler = struct
         Css.Current Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -422,7 +418,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -434,7 +430,7 @@ module Handler = struct
         Css.Transparent Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -447,7 +443,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -465,7 +461,7 @@ module Handler = struct
         color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -483,7 +479,7 @@ module Handler = struct
         oklab_color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -504,7 +500,7 @@ module Handler = struct
         enhanced Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -527,7 +523,7 @@ module Handler = struct
         guarded Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -541,7 +537,7 @@ module Handler = struct
         var_color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]
@@ -559,7 +555,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ])
       ~metadata:text_shadow_property_metadata
       ~property_rules:text_shadow_property_rules [ base_decl ]

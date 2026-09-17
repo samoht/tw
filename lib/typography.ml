@@ -2919,11 +2919,7 @@ module Typography_late = struct
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    [ webkit_decl; oklab_decl ];
-                ]
+              Color.color_mix_supports [ webkit_decl; oklab_decl ]
             in
             style ~rules:(Some [ supports_block ]) (decls @ [ fallback_decl ])
         | None ->
@@ -2951,11 +2947,7 @@ module Typography_late = struct
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    [ webkit_decl; oklab_decl ];
-                ]
+              Color.color_mix_supports [ webkit_decl; oklab_decl ]
             in
             style ~rules:(Some [ supports_block ]) (decls @ [ fallback_decl ]))
 
@@ -2975,13 +2967,7 @@ module Typography_late = struct
     in
     let webkit_decl = webkit_text_decoration_color oklab_color in
     let oklab_decl = text_decoration_color oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_")
-            [ webkit_decl; oklab_decl ];
-        ]
-    in
+    let supports_block = Color.color_mix_supports [ webkit_decl; oklab_decl ] in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let decoration_bracket_color_style ~theme c =
@@ -2990,13 +2976,10 @@ module Typography_late = struct
     | None -> style ~merge_key:"decoration-" [ text_decoration_color enhanced ]
     | Some fallback ->
         let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
+          Color.color_mix_supports
             [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [
-                  webkit_text_decoration_color enhanced;
-                  text_decoration_color enhanced;
-                ];
+              webkit_text_decoration_color enhanced;
+              text_decoration_color enhanced;
             ]
         in
         style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
@@ -3012,14 +2995,8 @@ module Typography_late = struct
         style ~merge_key:"decoration-" [ text_decoration_color value ]
     | Color.Guarded { fallback; mixed } ->
         let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [
-                  webkit_text_decoration_color mixed;
-                  text_decoration_color mixed;
-                ];
-            ]
+          Color.color_mix_supports
+            [ webkit_text_decoration_color mixed; text_decoration_color mixed ]
         in
         style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
           [ text_decoration_color fallback ]
@@ -3043,13 +3020,7 @@ module Typography_late = struct
     in
     let webkit_decl = webkit_text_decoration_color oklab_color in
     let oklab_decl = text_decoration_color oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_")
-            [ webkit_decl; oklab_decl ];
-        ]
-    in
+    let supports_block = Color.color_mix_supports [ webkit_decl; oklab_decl ] in
     style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
       [ fallback_webkit; fallback_decl ]
 

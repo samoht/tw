@@ -943,10 +943,7 @@ module Handler = struct
         (Css.color_mix_var_percent ~in_space:Oklab
            ~var_name:"tw-drop-shadow-alpha" color Css.Transparent)
     in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ supports_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ supports_decl ] in
     Group
       [
         style ~rules:(Option.Some [ supports_block ])
@@ -960,14 +957,11 @@ module Handler = struct
      has no token for, so the value goes in directly. *)
   let drop_shadow_keyword_color color =
     let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
+      Color.color_mix_supports
         [
-          Css.rule ~selector:(Css.Selector.class_ "_")
-            [
-              bind_drop_shadow_color
-                (Css.color_mix_var_percent ~in_space:Oklab
-                   ~var_name:"tw-drop-shadow-alpha" color Css.Transparent);
-            ];
+          bind_drop_shadow_color
+            (Css.color_mix_var_percent ~in_space:Oklab
+               ~var_name:"tw-drop-shadow-alpha" color Css.Transparent);
         ]
     in
     Group
@@ -982,14 +976,11 @@ module Handler = struct
   let drop_shadow_keyword_color_opacity color opacity =
     let inner = Color.apply_alpha opacity color in
     let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
+      Color.color_mix_supports
         [
-          Css.rule ~selector:(Css.Selector.class_ "_")
-            [
-              bind_drop_shadow_color
-                (Css.color_mix_var_percent ~in_space:Oklab
-                   ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent);
-            ];
+          bind_drop_shadow_color
+            (Css.color_mix_var_percent ~in_space:Oklab
+               ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent);
         ]
     in
     Group
@@ -1031,10 +1022,7 @@ module Handler = struct
         (Css.color_mix_var_percent ~in_space:Oklab
            ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent)
     in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ supports_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ supports_decl ] in
     Group
       [
         style ~rules:(Option.Some [ supports_block ])

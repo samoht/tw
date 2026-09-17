@@ -2738,6 +2738,11 @@ module Handler = struct
   let color_mix_supports_condition =
     Css.Supports.property "color" "color-mix(in lab, red, red)"
 
+  (* [decls] on the utility's own class, behind the [color-mix()] guard. *)
+  let color_mix_supports decls =
+    Css.supports ~condition:color_mix_supports_condition
+      [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
+
   (* What a browser without [color-mix()] reads. A palette colour converts to a
      plain hex carrying the alpha. A project token has no such conversion - its
      value is whatever the [\@theme] block bound it to, and that may be a colour
@@ -2839,12 +2844,7 @@ module Handler = struct
     match pre_color_mix_fallback theme color with
     | None -> style ?merge_key (declarations color)
     | Some fallback ->
-        let supports_block =
-          Css.supports ~condition:color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_") (declarations color);
-            ]
-        in
+        let supports_block = color_mix_supports (declarations color) in
         style ?merge_key ~rules:(Some [ supports_block ])
           (declarations fallback)
 
@@ -2901,11 +2901,7 @@ module Handler = struct
             (* Create @supports block with oklab version as top-level rule. Use
                placeholder selector that rule.ml replaces with actual class. *)
             let supports_block =
-              Css.supports ~condition:color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    (property_decls oklab_color);
-                ]
+              color_mix_supports (property_decls oklab_color)
             in
             style ?merge_key ~rules:(Some [ supports_block ])
               (decls @ fallback_decls)
@@ -2944,11 +2940,7 @@ module Handler = struct
                     ~percent1:percent
             in
             let supports_block =
-              Css.supports ~condition:color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    (property_decls oklab_color);
-                ]
+              color_mix_supports (property_decls oklab_color)
             in
             style ?merge_key ~rules:(Some [ supports_block ])
               (decls @ fallback_decls))
@@ -3028,10 +3020,7 @@ module Handler = struct
     let oklab_decl = property oklab_color in
     (* Create @supports block with oklab version as top-level rule. Use
        placeholder selector that rule.ml replaces with actual class. *)
-    let supports_block =
-      Css.supports ~condition:color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = color_mix_supports [ oklab_decl ] in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   (* What an opacity modifier makes of a bracket colour. [Folded] is the single
@@ -3075,10 +3064,7 @@ module Handler = struct
     match bracket_color_opacity ~theme css_color opacity with
     | Folded value -> style ?merge_key [ property value ]
     | Guarded { fallback; mixed } ->
-        let supports_block =
-          Css.supports ~condition:color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ property mixed ] ]
-        in
+        let supports_block = color_mix_supports [ property mixed ] in
         style ?merge_key ~rules:(Some [ supports_block ]) [ property fallback ]
 
   let outline_bracket_color_opacity_style ~theme inner css_color opacity =
@@ -3104,10 +3090,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl = Css.outline_color oklab_color in
-    let supports_block =
-      Css.supports ~condition:color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = color_mix_supports [ oklab_decl ] in
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
@@ -3120,10 +3103,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl = Css.outline_color oklab_color in
-    let supports_block =
-      Css.supports ~condition:color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = color_mix_supports [ oklab_decl ] in
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
@@ -3185,10 +3165,7 @@ module Handler = struct
             ~percent1:percent
         in
         let oklab_decl = Css.color oklab_color in
-        let supports_block =
-          Css.supports ~condition:color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = color_mix_supports [ oklab_decl ] in
         style ~merge_key:"text-" ~rules:(Some [ supports_block ])
           [ fallback_decl ]
     | Text_bracket_typed_var v ->
@@ -3204,10 +3181,7 @@ module Handler = struct
             ~percent1:percent
         in
         let oklab_decl = Css.color oklab_color in
-        let supports_block =
-          Css.supports ~condition:color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = color_mix_supports [ oklab_decl ] in
         style ~merge_key:"text-" ~rules:(Some [ supports_block ])
           [ fallback_decl ]
     | Border_side_color (side, value) ->
@@ -3656,6 +3630,7 @@ let hex_alpha_color ?theme c shade opacity =
         Some (hex_with_alpha hex_value percent)
 
 let color_mix_supports_condition = Handler.color_mix_supports_condition
+let color_mix_supports = Handler.color_mix_supports
 
 (** {1 Color with Opacity Helpers}
 
@@ -3671,10 +3646,6 @@ let custom_color_to_oklab c =
       | None -> (0.0, 0.0, 0.0))
   | Rgb { red; green; blue } -> rgb_to_oklab { r = red; g = green; b = blue }
   | _ -> (0.0, 0.0, 0.0)
-
-let color_mix_supports ~decls =
-  Css.supports ~condition:color_mix_supports_condition
-    [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
 
 let color_mix_supports_stmts ~stmts =
   Css.supports ~condition:color_mix_supports_condition stmts
@@ -3776,7 +3747,7 @@ let oklab_with_supports ?theme ~property ~fallback_decl c shade opacity =
   let decls, color = bound ?theme cvar color_value in
   let oklab_color = mix_alpha opacity color in
   let oklab_decl = property oklab_color in
-  let supports_block = color_mix_supports ~decls:(decls @ [ oklab_decl ]) in
+  let supports_block = color_mix_supports (decls @ [ oklab_decl ]) in
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 let generic_color_with_opacity ?theme ~property c shade opacity =
@@ -3821,10 +3792,7 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
 let generic_current_with_opacity ?merge_key ~fallback_decl ~property opacity =
   let oklab_color = mix_alpha opacity Css.Current in
   let oklab_decl = property oklab_color in
-  let supports_block =
-    Css.supports ~condition:color_mix_supports_condition
-      [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-  in
+  let supports_block = color_mix_supports [ oklab_decl ] in
   Style.style ?merge_key ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (* Fill/stroke helpers for SVG utilities *)
@@ -3889,7 +3857,7 @@ let bg_opacity_via_property ?theme c shade opacity =
              c shade color_value)
   in
   let oklab_decl = Css.background_color (mix_alpha opacity color) in
-  let supports_block = color_mix_supports ~decls:(decls @ [ oklab_decl ]) in
+  let supports_block = color_mix_supports (decls @ [ oklab_decl ]) in
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (* Divide helpers with custom selector *)
@@ -3998,7 +3966,7 @@ let bg_with_opacity ?theme c shade opacity =
               Css.background_color (Css.hex (hex_with_alpha hex_value percent))
           in
           let oklab_decl = Css.background_color (mix_alpha opacity color) in
-          let supports_block = color_mix_supports ~decls:[ oklab_decl ] in
+          let supports_block = color_mix_supports [ oklab_decl ] in
           Style.style ~rules:(Some [ supports_block ])
             (decls @ [ fallback_decl ])
       | None -> bg_opacity_via_property ?theme c shade opacity)
@@ -4048,10 +4016,7 @@ let bg_current_with_opacity ?theme opacity =
           ~percent1:percent
   in
   let oklab_decl = Css.background_color oklab_color in
-  let supports_block =
-    Css.supports ~condition:color_mix_supports_condition
-      [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-  in
+  let supports_block = color_mix_supports [ oklab_decl ] in
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
 (** Public API *)

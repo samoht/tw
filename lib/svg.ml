@@ -124,10 +124,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl = property (Css.Color oklab_color : Css.svg_paint) in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let to_style theme =

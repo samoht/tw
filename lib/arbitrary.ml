@@ -121,10 +121,7 @@ module Handler = struct
             color Css.Transparent
         in
         let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
     | Color.Opacity_percent { value = p; _ } ->
         let srgb_fallback =
@@ -135,10 +132,7 @@ module Handler = struct
           Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
         in
         let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
     | Color.Opacity_arbitrary f ->
         let p = f.value *. 100.0 in
@@ -150,10 +144,7 @@ module Handler = struct
           Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
         in
         let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
     | Color.Opacity_bracket_percent { value = p; _ } ->
         let srgb_fallback =
@@ -164,10 +155,7 @@ module Handler = struct
           Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
         in
         let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
     | Color.Opacity_var var_str ->
         let bare = Color.opacity_var_bare var_str in
@@ -181,10 +169,7 @@ module Handler = struct
             Css.Transparent
         in
         let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
     | Color.No_opacity -> style [ prop color ]
 
@@ -229,10 +214,7 @@ module Handler = struct
               | None -> emit (Css.Var var_ref : Css.color))
           | None -> emit (Css.Var var_ref : Css.color)
         in
-        let supports =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports ]) [ fallback ]
 
   (* Place a colour on the declaration's target property: a known colour

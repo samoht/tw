@@ -342,10 +342,6 @@ module Handler = struct
   let shadow_opacity_decl opacity =
     fst (Var.binding shadow_alpha_var (Color.opacity_alpha_value opacity))
 
-  let color_mix_supports decls =
-    Css.supports ~condition:Color.color_mix_supports_condition
-      [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
-
   (* A bracket colour may need two assignments: the value a browser without
      [color-mix()] can use, and the authored value under [@supports]. *)
   let bracket_color_pair theme c =
@@ -361,7 +357,7 @@ module Handler = struct
     | Stdlib.Option.None -> style [ fallback_decl ]
     | Stdlib.Option.Some color ->
         let enhanced_decl, _ = Var.binding var color in
-        let supports_block = color_mix_supports [ enhanced_decl ] in
+        let supports_block = Color.color_mix_supports [ enhanced_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let bracket_color_var_opacity_style ~theme var c opacity =
@@ -370,7 +366,7 @@ module Handler = struct
     | Color.Guarded { fallback; mixed } ->
         let fallback_decl, _ = Var.binding var fallback in
         let enhanced_decl, _ = Var.binding var mixed in
-        let supports_block = color_mix_supports [ enhanced_decl ] in
+        let supports_block = Color.color_mix_supports [ enhanced_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let bracket_opacity_pair theme c opacity =
@@ -882,7 +878,7 @@ module Handler = struct
         color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
+    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -906,7 +902,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
-    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
+    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -917,7 +913,7 @@ module Handler = struct
         Css.Current Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -933,7 +929,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -944,7 +940,7 @@ module Handler = struct
         Css.Transparent Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -956,7 +952,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -974,7 +970,7 @@ module Handler = struct
         Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1016,7 +1012,7 @@ module Handler = struct
         with_alpha Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1029,7 +1025,7 @@ module Handler = struct
         var_color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1046,7 +1042,7 @@ module Handler = struct
         inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1420,7 +1416,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
+    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1447,7 +1443,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports (decls @ [ enhanced_decl ]) in
+    let supports_block = Color.color_mix_supports (decls @ [ enhanced_decl ]) in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1458,7 +1454,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" Css.Current Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1474,7 +1470,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1485,7 +1481,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" Css.Transparent Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1497,7 +1493,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1515,7 +1511,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" c Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1550,7 +1546,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" with_alpha Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1563,7 +1559,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" var_color Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1580,7 +1576,7 @@ module Handler = struct
         ~var_name:"tw-inset-shadow-alpha" inner_mix Css.Transparent
     in
     let enhanced_decl, _ = Var.binding inset_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
+    let supports_block = Color.color_mix_supports [ enhanced_decl ] in
     style ~rules:(Some [ supports_block ]) ~metadata:shadow_property_metadata
       ~property_rules:shadow_property_rules [ base_decl ]
 
@@ -1775,12 +1771,7 @@ module Handler = struct
       Var.binding ring_color_var
         (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
     in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ oklab_decl ]);
-        ]
-    in
+    let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_width n =
@@ -1876,12 +1867,7 @@ module Handler = struct
       Var.binding ring_offset_color_var
         (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
     in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ oklab_decl ]);
-        ]
-    in
+    let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_transparent =
@@ -1900,10 +1886,7 @@ module Handler = struct
         ~percent1:percent
     in
     let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_offset_inherit =
@@ -1944,10 +1927,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-offset-color:" ^ v)
       ~rules:(Some [ supports_block ]) [ fallback ]
 
@@ -1967,10 +1947,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl, _ = Var.binding ring_offset_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-offset-" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
 
@@ -2012,12 +1989,7 @@ module Handler = struct
       Var.binding inset_ring_color_var
         (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
     in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_") (decls @ [ oklab_decl ]);
-        ]
-    in
+    let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let inset_ring_transparent =
@@ -2036,10 +2008,7 @@ module Handler = struct
         ~percent1:percent
     in
     let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let inset_ring_inherit =
@@ -2068,10 +2037,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("inset-ring-color:" ^ v)
       ~rules:(Some [ supports_block ]) [ fallback ]
 
@@ -2091,10 +2057,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl, _ = Var.binding inset_ring_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("inset-ring-" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
 
@@ -2115,10 +2078,7 @@ module Handler = struct
         ~percent1:percent
     in
     let oklab_decl, _ = Var.binding ring_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_inherit =
@@ -2129,10 +2089,7 @@ module Handler = struct
     let fallback, _ = Var.binding var keyword in
     let mixed = Color.apply_alpha opacity keyword in
     let enhanced, _ = Var.binding var mixed in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ enhanced ] ]
-    in
+    let supports_block = Color.color_mix_supports [ enhanced ] in
     style ~rules:(Some [ supports_block ]) [ fallback ]
 
   let ring_bracket_color ~theme (c : Css.color) =
@@ -2155,10 +2112,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl, _ = Var.binding ring_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-color:" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
 
@@ -2176,10 +2130,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl, _ = Var.binding ring_color_var oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key:("ring-" ^ v) ~rules:(Some [ supports_block ])
       [ fallback ]
 

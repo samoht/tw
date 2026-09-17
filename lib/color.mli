@@ -287,6 +287,11 @@ val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
     [(color: color-mix(in lab, red, red))]. *)
 
+val color_mix_supports : Css.declaration list -> Css.statement
+(** [color_mix_supports decls] is [decls] on the utility's own class behind
+    {!color_mix_supports_condition}: the [\@supports] block a colour utility
+    puts its [color-mix()] value in, with the fallback left in the open. *)
+
 val opacity_fallback_for_theme_value :
   ?theme:Scheme.t -> string -> string -> Css.percentage Css.fallback
 (** [opacity_fallback_for_theme_value ?theme var_name bare] determines the
