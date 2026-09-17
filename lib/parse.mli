@@ -266,6 +266,11 @@ val is_bare_var : string -> bool
 (** [is_bare_var s] returns [true] if [s] is a bare var reference like
     ["(--name)"]. *)
 
+val bare_name : string -> string option
+(** [bare_name s] is the name after the [--] a custom property starts with:
+    [Some "x"] for ["--x"]. [None] for an [s] that does not start with [--], or
+    is only that. *)
+
 val bare_var_inner : string -> string
 (** [bare_var_inner s] extracts the inner content from ["(--name)"], returning
     ["--name"]. *)

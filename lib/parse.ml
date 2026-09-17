@@ -654,6 +654,11 @@ let is_bare_var s =
   && s.[1] = '-'
   && s.[2] = '-'
 
+let bare_name s =
+  if String.starts_with ~prefix:"--" s && String.length s > 2 then
+    Some (String.sub s 2 (String.length s - 2))
+  else None
+
 (** Extract the var name from a bare var "(--name)" → "--name" *)
 let bare_var_inner s =
   if is_bare_var s then String.sub s 1 (String.length s - 2) else s

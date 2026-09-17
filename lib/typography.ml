@@ -1739,11 +1739,7 @@ module Typography_early = struct
         (* bare_var_inner "(--my-features)" → "--my-features"; strip the --
            prefix since var_ref adds it *)
         let inner = Parse.bare_var_inner v in
-        let bare_name =
-          if String.starts_with ~prefix:"--" inner && String.length inner > 2
-          then String.sub inner 2 (String.length inner - 2)
-          else inner
-        in
+        let bare_name = Option.value ~default:inner (Parse.bare_name inner) in
         let var_ref : Css.font_feature_settings Css.var =
           Var.bracket bare_name
         in
@@ -3362,9 +3358,7 @@ module Typography_late = struct
     let inner =
       if Parse.is_bare_var s then
         let bare = Parse.bare_var_inner s in
-        if String.starts_with ~prefix:"--" bare && String.length bare > 2 then
-          String.sub bare 2 (String.length bare - 2)
-        else bare
+        Option.value ~default:bare (Parse.bare_name bare)
       else Parse.extract_var_name s
     in
     let ref : Css.list_style_image Css.var = Var.bracket inner in

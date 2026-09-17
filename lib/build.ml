@@ -782,12 +782,9 @@ let declared_order declared name =
   match name with
   | None -> None
   | Some full ->
-      let bare =
-        if String.starts_with ~prefix:"--" full && String.length full > 2 then
-          String.sub full 2 (String.length full - 2)
-        else full
-      in
-      List.assoc_opt bare declared
+      List.assoc_opt
+        (Option.value ~default:full (Parse.bare_name full))
+        declared
 
 (* Sort declarations by their Var order metadata, then declaration order within
    a shared slot, then alphabetical fallback. A project-named family
@@ -908,12 +905,11 @@ let removed_token_read ~theme ~authored outputs =
   in
   List.find_map
     (fun full ->
-      if String.starts_with ~prefix:"--" full && String.length full > 2 then
-        let bare = String.sub full 2 (String.length full - 2) in
-        if Scheme.is_removed_token theme bare && not (authored full) then
+      match Parse.bare_name full with
+      | Some bare when Scheme.is_removed_token theme bare && not (authored full)
+        ->
           Some bare
-        else None
-      else None)
+      | _ -> None)
     (List.rev reads)
 
 let add_output_metadata index = function
@@ -938,37 +934,33 @@ let referenced_theme_decls ~theme ~exclude selector_props =
   referenced_var_names selector_props
   |> Strings.to_list
   |> List.filter_map (fun full ->
-      if
-        (not (String.starts_with ~prefix:"--" full && String.length full > 2))
-        || Strings.mem full exclude
-      then None
-      else
-        let bare = String.sub full 2 (String.length full - 2) in
-        match bare with
-        (* An arbitrary value may name the spacing scale directly, as
-           [p-[calc(--spacing(2)+1px)]] does. *)
-        | "spacing" ->
-            let decl =
-              Var.set Theme.spacing_var
-                (Option.value
-                   (Option.bind
-                      (Scheme.theme_value (Some theme) "spacing")
-                      Css.parse_length)
-                   ~default:Theme.spacing_base)
-            in
-            Some decl
-        | _ -> (
-            match Color.Handler.theme_color_decl ~theme bare with
-            | Some _ as decl -> decl
-            | None ->
-                if
-                  Scheme.is_inline_token theme bare
-                  || Scheme.is_reference_token theme bare
-                then None
-                else
-                  Option.map
-                    (Css.custom_property ~layer:"theme" full)
-                    (Scheme.token_override theme bare)))
+      match Parse.bare_name full with
+      | None -> None
+      | Some _ when Strings.mem full exclude -> None
+      (* An arbitrary value may name the spacing scale directly, as
+         [p-[calc(--spacing(2)+1px)]] does. *)
+      | Some "spacing" ->
+          let decl =
+            Var.set Theme.spacing_var
+              (Option.value
+                 (Option.bind
+                    (Scheme.theme_value (Some theme) "spacing")
+                    Css.parse_length)
+                 ~default:Theme.spacing_base)
+          in
+          Some decl
+      | Some bare -> (
+          match Color.Handler.theme_color_decl ~theme bare with
+          | Some _ as decl -> decl
+          | None ->
+              if
+                Scheme.is_inline_token theme bare
+                || Scheme.is_reference_token theme bare
+              then None
+              else
+                Option.map
+                  (Css.custom_property ~layer:"theme" full)
+                  (Scheme.token_override theme bare)))
 
 (* [--default-font-family] points at [--font-sans], [--default-mono-font-family]
    at [--font-mono]. Tailwind spells the pair [--theme(--font-sans, initial)],
@@ -2065,11 +2057,7 @@ let with_reference_fallbacks ~theme sheet =
   else
     Css.add_var_fallbacks
       (fun name ->
-        let bare =
-          if String.starts_with ~prefix:"--" name && String.length name > 2 then
-            String.sub name 2 (String.length name - 2)
-          else name
-        in
+        let bare = Option.value ~default:name (Parse.bare_name name) in
         if Scheme.is_reference_token theme bare then reference_value ~theme bare
         else None)
       sheet

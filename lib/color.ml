@@ -2697,9 +2697,7 @@ module Handler = struct
       else v
     in
     let name = Parse.extract_var_name inner in
-    if String.starts_with ~prefix:"--" name && String.length name > 2 then
-      String.sub name 2 (String.length name - 2)
-    else name
+    Option.value ~default:name (Parse.bare_name name)
 
   (* The custom property an opacity modifier reads its percentage from, when it
      names one rather than giving a number. *)
@@ -3977,12 +3975,7 @@ let opacity_fallback_for_theme_value ?theme var_name bare :
     when String.starts_with ~prefix:"var(" value && String.length value > 4 ->
       (* Theme value is a var reference like "var(--custom-opacity)" *)
       let inner = String.sub value 4 (String.length value - 5) in
-      let name =
-        if String.starts_with ~prefix:"--" inner && String.length inner > 2 then
-          String.sub inner 2 (String.length inner - 2)
-        else inner
-      in
-      Css.Var_fallback name
+      Css.Var_fallback (Option.value ~default:inner (Parse.bare_name inner))
   | Some value -> (
       match float_of_string_opt (String.trim value) with
       | Some f -> Css.Fallback (Css.Num f)

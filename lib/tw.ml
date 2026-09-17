@@ -226,9 +226,7 @@ let theme_token_binding ~theme name =
    lookup, and it reads the token table itself rather than one of the v3
    namespaces the dot paths name. *)
 let theme_token_value ~theme path =
-  if String.starts_with ~prefix:"--" path && String.length path > 2 then
-    theme_token_binding ~theme (String.sub path 2 (String.length path - 2))
-  else None
+  Option.bind (Parse.bare_name path) (theme_token_binding ~theme)
 
 (* Resolve one theme() argument.
 

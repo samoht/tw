@@ -152,12 +152,11 @@ let theme_tokens body =
         let { Cascade.Component.name; value; _ } =
           decl.Cascade.Component.node
         in
-        if String.starts_with ~prefix:"--" name && String.length name > 2 then
-          Some
+        Option.map
+          (fun bare ->
             ( decl.Cascade.Component.loc.Cascade.Loc.start_pos,
-              ( String.sub name 2 (String.length name - 2),
-                Cascade.Parser.string_of_components value ) )
-        else None)
+              (bare, Cascade.Parser.string_of_components value) ))
+          (Tw.Parse.bare_name name))
   in
   List.stable_sort
     (fun (a, _) (b, _) -> Int.compare a b)
@@ -1794,11 +1793,7 @@ let resolve_theme_fn ~theme css =
       | None -> None
       | Some { body; next } -> (
           let name = String.trim body in
-          let bare =
-            if String.starts_with ~prefix:"--" name && String.length name > 2
-            then String.sub name 2 (String.length name - 2)
-            else name
-          in
+          let bare = Option.value ~default:name (Tw.Parse.bare_name name) in
           match
             match theme_token_value theme bare with
             | Some _ as v -> v
@@ -1848,18 +1843,17 @@ let dashed_theme_value ~theme ~in_prelude body =
         else first
       in
       let fallback = String.concat ", " (List.map String.trim fallback) in
-      if not (String.starts_with ~prefix:"--" token && String.length token > 2)
-      then None
-      else
-        let bare = String.sub token 2 (String.length token - 2) in
-        match theme_token_value theme bare with
-        | Some value when inline || in_prelude -> Some value
-        | Some _ when fallback = "" ->
-            Some (String.concat "" [ "var("; token; ")" ])
-        | Some _ ->
-            Some (String.concat "" [ "var("; token; ", "; fallback; ")" ])
-        | None when fallback = "" -> None
-        | None -> Some fallback)
+      match Tw.Parse.bare_name token with
+      | None -> None
+      | Some bare -> (
+          match theme_token_value theme bare with
+          | Some value when inline || in_prelude -> Some value
+          | Some _ when fallback = "" ->
+              Some (String.concat "" [ "var("; token; ")" ])
+          | Some _ ->
+              Some (String.concat "" [ "var("; token; ", "; fallback; ")" ])
+          | None when fallback = "" -> None
+          | None -> Some fallback))
 
 let resolve_dashed_theme_fn ~theme css =
   rewrite ~names:[ "--theme(" ] css (fun index buf ->
