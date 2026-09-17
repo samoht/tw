@@ -504,6 +504,35 @@ let test_empty_hint_or_blank_value_names_no_utility () =
     (Test_helpers.check_invalid_input (module Tw.Layout.Handler))
     [ "z-[:5]"; "z-[foo:]"; "z-[foo:_]"; "z-[_]"; "z-[__]" ]
 
+(* Tailwind reads a shadow by taking its lengths and leaving what is left as the
+   colour, so a trailing [var()] the shadow grammar puts in the next length slot
+   is the colour: [0 1px 2px var(--c)] paints with [--c], and so does the second
+   layer of a list. A [var()] followed by a colour is a length as written. *)
+let test_shadow_trailing_var_is_the_colour () =
+  let render sh =
+    Cascade.Css.Pp.to_string ~minify:true Css.Properties.pp_shadow sh
+  in
+  let check expected input =
+    match Tw.Parse.shadow input with
+    | Some sh -> Alcotest.(check string) input expected (render sh)
+    | None -> Alcotest.failf "%s does not read as a shadow" input
+  in
+  check "0 1px 2px var(--c)" "0 1px 2px var(--c)";
+  check "0 1px var(--c)" "0 1px var(--c)";
+  check "0 1px 2px red,0 2px var(--c)" "0 1px 2px red, 0 2px var(--c)";
+  check "0 var(--y) 2px red" "0 var(--y) 2px red";
+  let colour_of input =
+    match Tw.Parse.shadow input with
+    | Some (Css.Shadow { color; spread; _ }) -> (color, spread)
+    | _ -> Alcotest.failf "%s does not read as one shadow" input
+  in
+  let colour, spread = colour_of "0 1px 2px var(--c)" in
+  Alcotest.(check bool) "the var() is the colour" true (Option.is_some colour);
+  Alcotest.(check bool) "and not the spread" true (Option.is_none spread);
+  Alcotest.(check bool)
+    "text that is no shadow reads as none" true
+    (Option.is_none (Tw.Parse.shadow "nonsense here"))
+
 let tests =
   Alcotest.
     [
@@ -551,6 +580,8 @@ let tests =
         test_only_a_lower_case_run_names_a_hint;
       test_case "empty hint or blank value names no utility" `Quick
         test_empty_hint_or_blank_value_names_no_utility;
+      test_case "shadow trailing var is the colour" `Quick
+        test_shadow_trailing_var_is_the_colour;
     ]
 
 let suite = ("parse", tests)

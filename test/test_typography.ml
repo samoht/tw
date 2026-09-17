@@ -382,7 +382,10 @@ let test_text_size_namespace_boundaries () =
       match Tw.of_string ~theme cls with
       | Error _ -> ()
       | Ok u -> Alcotest.failf "%s parsed as a font size (%s)" cls (Tw.pp u))
-    [ "text-shadow-pop"; "text-huge--line-height"; "text-loud" ]
+    [ "text-huge--line-height"; "text-loud" ];
+  (* The shadow token is the text-shadow family's, and reads as one. *)
+  Test_helpers.check_declarations ~theme "text-shadow-pop"
+    [ "text-shadow:0 1px 0 var(--tw-text-shadow-color,teal)" ]
 
 (* The line-height modifier names a [--leading-*] token, and a project's own
    counts the same as a built-in one. *)

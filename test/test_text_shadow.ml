@@ -102,7 +102,11 @@ let test_arbitrary_color_function () =
     ];
   rejected "text-shadow-[0_1px_rgb(zz)]"
 
-(* Where the alpha reads a custom property there is nothing to fold, so the
+(* A colour no hex spells takes the modifier's alpha in place of its own, as
+   Tailwind's [oklab(from <colour> l a b / <alpha>)] does, and the relative form
+   is what the sheet carries; a [color-mix()] would multiply the two alphas.
+
+   Where the alpha reads a custom property there is nothing to fold, so the
    authored colour stands unguarded and the relative colour goes behind the
    guard. Folding that unguarded value through oklab at full opacity paints an
    opaque shadow in a browser with no relative colours, where Tailwind paints
@@ -111,8 +115,8 @@ let test_arbitrary_colour_opacity () =
   Test_helpers.check_declarations "text-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     [
       "--tw-text-shadow-alpha:50%";
-      "text-shadow:0 0 8px var(--tw-text-shadow-color,color-mix(in \
-       oklab,oklch(50%.2 250) 50%,transparent))";
+      "text-shadow:0 0 8px var(--tw-text-shadow-color,oklab(from oklch(50%.2 \
+       250) l a b/.5))";
     ];
   Test_helpers.check_declarations ~minify:false
     "text-shadow-[0_0_8px_#f00]/[var(--x)]"
@@ -264,6 +268,49 @@ let test_underscore_escape () =
     {|text-shadow-[0_0_1px_var(--a\_b)]|}
     [ "text-shadow: 0 0 1px var(--tw-text-shadow-color, var(--a_b))" ]
 
+(* A project [--text-shadow-<name>] is a text-shadow utility, with the modifier
+   the scale takes: [text-shadow-pop] and [text-shadow-pop/50] were unknown
+   classes. Its layers read as a box shadow's do, a trailing [var()] being the
+   colour, and under a modifier a [var()] layer keeps its authored colour in the
+   open and takes the alpha behind the relative colour guard, with the
+   [color-mix()] guard for a [currentcolor] layer nested inside. *)
+let test_project_token () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("text-shadow-pop", "0 1px 0 teal");
+        ("text-shadow-glow", "0 0 8px currentColor, 0 0 2px var(--g)");
+      ]
+  in
+  Test_helpers.check_declarations ~theme "text-shadow-pop"
+    [ "text-shadow:0 1px 0 var(--tw-text-shadow-color,teal)" ];
+  Test_helpers.check_declarations ~theme "text-shadow-pop/50"
+    [
+      "--tw-text-shadow-alpha:50%";
+      "text-shadow:0 1px 0 \
+       var(--tw-text-shadow-color,oklab(54.31225655%-.08964706 -.0236338/.5))";
+    ];
+  Test_helpers.check_declarations ~theme "text-shadow-glow"
+    [
+      "text-shadow:0 0 8px var(--tw-text-shadow-color,currentcolor),0 0 2px \
+       var(--tw-text-shadow-color,var(--g))";
+    ];
+  let sheet =
+    match Tw.of_string ~theme "text-shadow-glow/50" with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "text-shadow-glow/50: %s" m
+  in
+  Alcotest.(check bool)
+    "text-shadow-glow/50 nests the color-mix guard in the relative one" true
+    (Astring.String.is_infix
+       ~affix:
+         {|@supports(color:lab(from red l a b)){.text-shadow-glow\/50{text-shadow:0 0 8px var(--tw-text-shadow-color,currentcolor),0 0 2px var(--tw-text-shadow-color,oklab(from var(--g) l a b/.5))}@supports(color:color-mix(in lab,red,red)){.text-shadow-glow\/50{text-shadow:0 0 8px var(--tw-text-shadow-color,color-mix(in oklab,currentcolor 50%,transparent)),0 0 2px var(--tw-text-shadow-color,oklab(from var(--g) l a b/.5))}}}|}
+       sheet);
+  Alcotest.(check bool)
+    "an undeclared text-shadow name is rejected" true
+    (Result.is_error (Tw.of_string ~theme "text-shadow-nope"))
+
 let tests =
   [
     Alcotest.test_case "colour hint takes a colour" `Quick
@@ -278,6 +325,7 @@ let tests =
       Alcotest.test_case "default scale (v4.3.1)" `Quick test_default_scale;
       Alcotest.test_case "@theme override threads through" `Quick
         test_theme_override;
+      Alcotest.test_case "project token" `Quick test_project_token;
       Alcotest.test_case "palette color keeps OKLCH" `Quick
         test_palette_color_keeps_oklch;
       Alcotest.test_case "arbitrary colour function" `Quick
