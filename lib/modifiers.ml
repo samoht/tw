@@ -2128,36 +2128,56 @@ let rec container_query_theme_decls (q : container_query) =
       container_query_theme_decls inner
   | Container_3xs | Container_2xs | Container_xs | Container_sm | Container_md
   | Container_lg | Container_xl | Container_2xl | Container_3xl | Container_4xl
-  | Container_5xl | Container_6xl | Container_7xl | Container_named _ ->
+  | Container_5xl | Container_6xl | Container_7xl | Container_theme _
+  | Container_named _ ->
       []
 
 (* [@sm/main] aims a size query at the container named [main]. The name is the
    tail after the last [/]; the head is any other container-query spelling. *)
-let rec try_container_query s =
-  (* Match ["<prefix>[<len>]"] and build a modifier from the parsed length. *)
-  let bracketed prefix mk =
-    let plen = String.length prefix and slen = String.length s in
-    if
-      slen > plen + 2
-      && String.sub s 0 plen = prefix
-      && s.[plen] = '['
-      && s.[slen - 1] = ']'
-    then
-      let raw = String.sub s (plen + 1) (slen - plen - 2) in
-      match parse_container_length raw with
-      | Some len -> Some (mk raw len)
-      | None -> None
-    else None
-  in
-  (* Match ["<prefix><size>"] against the named size scale. *)
+(* A size the project's [@theme] declared as [--container-<name>], read the
+   way the built-in scale is; the scale's own names stay built in. *)
+let theme_container_size theme name =
+  match container_size_of_string name with
+  | Some _ -> None
+  | None ->
+      if
+        Parse.is_valid_theme_name name
+        && Option.is_some
+             (Option.bind
+                (Scheme.token theme ("container-" ^ name))
+                Css.parse_length)
+      then Some (Container_theme name)
+      else None
+
+(* Match ["<prefix>[<len>]"] and build a modifier from the parsed length. *)
+let bracketed_container s prefix mk =
+  let plen = String.length prefix and slen = String.length s in
+  if
+    slen > plen + 2
+    && String.sub s 0 plen = prefix
+    && s.[plen] = '['
+    && s.[slen - 1] = ']'
+  then
+    let raw = String.sub s (plen + 1) (slen - plen - 2) in
+    match parse_container_length raw with
+    | Some len -> Some (mk raw len)
+    | None -> None
+  else None
+
+let rec try_container_query ?(theme = Scheme.default) s =
+  let bracketed = bracketed_container s in
+  (* Match ["<prefix><size>"] against the named size scale, then against the
+     sizes the project declared. *)
   let sized prefix cmp =
     let plen = String.length prefix in
     if String.length s > plen && String.sub s 0 plen = prefix then
-      match
-        container_size_of_string (String.sub s plen (String.length s - plen))
-      with
+      let name = String.sub s plen (String.length s - plen) in
+      match container_size_of_string name with
       | Some q -> Some (Container (Container_size (cmp, q)))
-      | None -> None
+      | None ->
+          Option.map
+            (fun q -> Container (Container_size (cmp, q)))
+            (theme_container_size theme name)
     else None
   in
   if String.length s < 2 || s.[0] <> '@' then None
@@ -2175,10 +2195,14 @@ let rec try_container_query s =
               Container (Container_len_cmp (Max, raw, len))));
         (fun () -> sized "@min-" Min);
         (fun () -> sized "@max-" Max);
-        (fun () -> try_scoped_container_query s);
+        (fun () ->
+          Option.map
+            (fun q -> Container q)
+            (theme_container_size theme (String.sub s 1 (String.length s - 1))));
+        (fun () -> try_scoped_container_query ~theme s);
       ]
 
-and try_scoped_container_query s =
+and try_scoped_container_query ?(theme = Scheme.default) s =
   match String.rindex_opt s '/' with
   | None -> None
   | Some i -> (
@@ -2189,17 +2213,17 @@ and try_scoped_container_query s =
         match
           match List.assoc_opt head simple_modifiers with
           | Some _ as m -> m
-          | None -> try_container_query head
+          | None -> try_container_query ~theme head
         with
         | Some (Container q) -> Some (Container (Container_scoped (name, q)))
         | _ -> None)
 
-let container_query_of_token token =
+let container_query_of_token ?theme token =
   match List.assoc_opt token simple_modifiers with
   | Some (Container q) -> Some q
   | Some _ -> None
   | None -> (
-      match try_container_query token with
+      match try_container_query ?theme token with
       | Some (Container q) -> Some q
       | Some _ | None -> None)
 
@@ -2211,7 +2235,8 @@ let rec container_size_is_defined theme = function
       container_size_is_defined theme inner
   | ( Container_3xs | Container_2xs | Container_xs | Container_sm | Container_md
     | Container_lg | Container_xl | Container_2xl | Container_3xl
-    | Container_4xl | Container_5xl | Container_6xl | Container_7xl ) as q ->
+    | Container_4xl | Container_5xl | Container_6xl | Container_7xl
+    | Container_theme _ ) as q ->
       not (Scheme.is_removed theme ("container-" ^ Style.container_size_name q))
   | Container_named _ | Container_len _ | Container_len_cmp _ -> true
 
@@ -2220,7 +2245,7 @@ let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
     [
       (fun () -> lookup_simple theme s);
-      (fun () -> try_container_query s);
+      (fun () -> try_container_query ~theme s);
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
       (fun () -> try_has_shorthand s);

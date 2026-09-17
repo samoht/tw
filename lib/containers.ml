@@ -181,8 +181,9 @@ let container_size_rem = function
   | Style.Container_5xl -> Some 64.
   | Style.Container_6xl -> Some 72.
   | Style.Container_7xl -> Some 80.
-  | Style.Container_named _ | Style.Container_size _ | Style.Container_len _
-  | Style.Container_len_cmp _ | Style.Container_scoped _ ->
+  | Style.Container_theme _ | Style.Container_named _ | Style.Container_size _
+  | Style.Container_len _ | Style.Container_len_cmp _ | Style.Container_scoped _
+    ->
       None
 
 (* A [(width <op> len)] container feature query, matching Tailwind v4's range
@@ -225,7 +226,7 @@ let rec container_query_to_condition ?theme q =
   | Style.Container_sm | Style.Container_md | Style.Container_lg
   | Style.Container_xl | Style.Container_2xl | Style.Container_3xl
   | Style.Container_4xl | Style.Container_5xl | Style.Container_6xl
-  | Style.Container_7xl ->
+  | Style.Container_7xl | Style.Container_theme _ ->
       geq (sized q)
   | Style.Container_named ("", width) ->
       geq (Css.Values.Px (float_of_int width))

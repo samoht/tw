@@ -57,6 +57,8 @@ type container_query =
   | Container_5xl
   | Container_6xl
   | Container_7xl
+  | Container_theme of string
+      (** A size the project's [@theme] declared as [--container-<name>]. *)
   | Container_named of string * int
   | Container_size of container_cmp * container_query
   | Container_len of string * Css.length
@@ -455,6 +457,7 @@ let rec container_size_name = function
   | Container_5xl -> "5xl"
   | Container_6xl -> "6xl"
   | Container_7xl -> "7xl"
+  | Container_theme name -> name
   (* An unnamed container query is an arbitrary width, and its class is the
      bracket form the parser reads back: [@[600px]], not [@600px]. *)
   | Container_named ("", size) -> "[" ^ string_of_int size ^ "px]"
