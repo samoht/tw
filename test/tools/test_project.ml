@@ -330,6 +330,64 @@ let test_static_theme_routed_once () =
   check int "one theme block" 1 (occurrences ":root,:host{" css);
   check int "one @keyframes spin" 1 (occurrences "@keyframes spin" css)
 
+(* Tailwind applies a candidate's variants left to right, each putting the
+   selector so far in its [&], so a declared variant sits where it was written
+   among the built-in ones: [hover:dark:] is [.x:hover:where(...)] and
+   [dark:hover:] is [.x:where(...):hover]. The routed block wrapped the declared
+   variants outermost whatever their place, so both spelled
+   [:where(...):hover]. *)
+let test_declared_variant_keeps_its_place () =
+  let css =
+    compiled
+      ~classes:
+        [
+          "hover:dark:text-white";
+          "dark:hover:text-white";
+          "first:dark:flex";
+          "dark:before:flex";
+        ]
+      "declared-place" "@custom-variant dark (&:where(.dark, .dark *));\n"
+  in
+  List.iter
+    (fun selector ->
+      check bool selector true (Astring.String.is_infix ~affix:selector css))
+    [
+      ".hover\\:dark\\:text-white:hover:where(.dark,.dark *)";
+      ".dark\\:hover\\:text-white:where(.dark,.dark *):hover";
+      ".first\\:dark\\:flex:first-child:where(.dark,.dark *)";
+      ".dark\\:before\\:flex:where(.dark,.dark *):before";
+    ];
+  (* What the built-in prefix hoists, [before:]'s content registration, still
+     arrives when every prefix is routed as a variant. *)
+  check bool "before: still registers --tw-content" true
+    (Astring.String.is_infix ~affix:"@property --tw-content" css)
+
+(* The bare [--*: initial] takes the [--default-*] tokens away. Tailwind spells
+   each read of one [--theme(--default-<x>, <fallback>)]: preflight then writes
+   the font stack and [normal] themselves, and the transition family the
+   property's own initial value, [ease] and [0s], where tw kept referencing a
+   token nothing declared. *)
+let test_whole_theme_reset_resolves_the_defaults () =
+  let css =
+    compiled_with ~base:true
+      ~classes:[ "transition"; "transition-colors" ]
+      "whole-reset" ~import:"@import \"tailwindcss\" source(none);\n"
+      "@theme { --*: initial; --spacing: 4px; }\n"
+  in
+  List.iter
+    (fun affix -> check bool affix true (Astring.String.is_infix ~affix css))
+    [
+      "transition-timing-function:var(--tw-ease,ease)";
+      "transition-duration:var(--tw-duration,0s)";
+      "font-feature-settings:normal";
+      "font-family:-apple-system,";
+      "font-family:ui-monospace,";
+    ];
+  List.iter
+    (fun affix ->
+      check bool ("no " ^ affix) false (Astring.String.is_infix ~affix css))
+    [ "--default-"; "--font-sans"; "--font-mono" ]
+
 (* [@plugin "@tailwindcss/forms"] resets native form controls in the base layer
    unless its options ask for [strategy: "class"]. Tailwind 4.3.3 writes
    [input:where([type=text])] and the [select] rules there for the default
@@ -393,6 +451,10 @@ let suite =
       test_case "static theme declared once" `Quick
         test_static_theme_declared_once;
       test_case "static theme routed once" `Quick test_static_theme_routed_once;
+      test_case "a declared variant keeps its place" `Quick
+        test_declared_variant_keeps_its_place;
+      test_case "a whole-theme reset resolves the defaults" `Quick
+        test_whole_theme_reset_resolves_the_defaults;
       test_case "forms plugin base" `Quick test_forms_plugin_base;
       test_case "forms plugin base without preflight" `Quick
         test_forms_plugin_base_without_preflight;
