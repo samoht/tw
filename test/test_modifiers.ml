@@ -482,6 +482,25 @@ let test_removed_breakpoint_drops_its_variants () =
   check bool "the theme's own breakpoint still resolves" true
     (Result.is_ok (Tw.of_string ~theme "tablet:flex"))
 
+(* [--breakpoint-md: initial] removes the one breakpoint, and Tailwind emits
+   nothing for [md:flex]. The built-in table let it go, and the custom
+   breakpoints then took it back: [initial] reads as a length, so the removed
+   token was a custom breakpoint of that width, and the sheet carried [@media
+   (min-width: initial)], a query no browser honours. *)
+let test_removed_single_breakpoint_drops_its_variants () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("breakpoint-md", "initial") ]
+  in
+  List.iter
+    (fun cls ->
+      check bool
+        (cls ^ " names a breakpoint the theme removed")
+        true
+        (Result.is_error (Tw.of_string ~theme cls)))
+    [ "md:flex"; "min-md:flex"; "max-md:flex"; "not-md:flex" ];
+  check bool "the other breakpoints still resolve" true
+    (Result.is_ok (Tw.of_string ~theme "lg:flex"))
+
 (* The variant cascade the one table defines, read as a ladder: every token
    sorts strictly after the one before it. A token the table has no position for
    returns 0, and the comparator reads 0 as "this rule carries no variant" and
@@ -1671,6 +1690,8 @@ let tests =
         test_container_variant_is_theme_local;
       test_case "removed breakpoint drops its variants" `Quick
         test_removed_breakpoint_drops_its_variants;
+      test_case "a removed single breakpoint drops its variants" `Quick
+        test_removed_single_breakpoint_drops_its_variants;
       test_case "prose element variants" `Quick test_prose_element_variants;
       test_case "prose element variant invalid" `Quick
         test_prose_element_variant_invalid;
