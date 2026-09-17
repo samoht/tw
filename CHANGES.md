@@ -83,45 +83,29 @@
   var(--tw-leading, var(--text-huge--line-height))` and the rest beside
   `font-size`, as the built-in scale does, and
   `--font-display--font-feature-settings` and `--font-variation-settings` are
-  tokens of their own that `font-display` reads. The size stood alone, the
-  feature settings were inlined and the variation settings ignored (#847).
+  tokens of their own that `font-display` reads (#847).
 - A container size the project declares, `--container-hero: 100rem`, names a
   query: `@hero:`, `@min-hero:`, `@max-hero:` and `@hero/main:` compile and
-  sort among the built-in sizes by width. They were unknown modifiers (#847).
+  sort among the built-in sizes by width, and a breakpoint of the project's
+  own, `xs:` under `--breakpoint-xs`, sorts with the built-in scale, between
+  the upper bounds and `sm:` (#847).
 - A project shadow takes an opacity: `shadow-card/50` and
   `inset-shadow-deep/50` fold the alpha into every layer, as Tailwind's
-  relative `oklab()` does. They were unknown classes, and an arbitrary shadow
-  whose colour carried an alpha of its own, `shadow-[0_1px_2px_#0000001a]/50`,
-  kept that alpha where Tailwind replaces it. An arbitrary drop shadow takes
-  one too, `drop-shadow-[0_1px_2px_var(--c)]/50` keeping the variable in the
-  fallback and taking the relative form behind a guard, and a trailing
-  `var()` in either bracket is the colour, as Tailwind reads it, where the
-  drop shadow read it as a length and lost it. The modifier's `/` is the last
-  one outside a bracket, so `shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50` and
-  `bg-[rgb(0_0_0_/_0.5)]/50` parse (#847).
+  relative `oklab()` does (#847).
 - The bare `--*: initial` reset reaches the `--default-*` tokens the way
   Tailwind reads them, as `--theme(--default-<x>, <fallback>)`: preflight
   writes its font stacks and `normal` themselves, the transition family
   `var(--tw-ease, ease)` and `var(--tw-duration, 0s)`, and a font stack no
-  default reads any more stays out of the theme layer. Each kept a `var()`
-  reference to a token nothing declared (#847).
+  default reads any more stays out of the theme layer (#847).
 - A `@custom-variant` sits where it was written among the built-in variants,
   as Tailwind applies them left to right: `hover:dark:text-white` is
   `.x:hover:where(.dark, .dark *)` and `dark:hover:text-white`
-  `.x:where(.dark, .dark *):hover`. The declared variant wrapped outermost
-  whatever its place, so both spelled the second (#847).
-- `inset-shadow-[inset_0_1px_red]`, a bracket spelling the `inset` the utility
-  supplies itself, is refused. Tailwind writes `inset inset 0 1px red`, which
-  no browser draws and which takes the element's whole `box-shadow` down with
-  it; tw drew the shadow the author did not get (#847).
-- A breakpoint the project declares, `xs:` under `--breakpoint-xs`, sorts
-  with the built-in scale, between the upper bounds and `sm:`; it carried no
-  variant at all in the sort and came out among the plain rules. And a
-  candidate a functional `@utility` declines falls to the built-in utility of
-  its root, as Tailwind tries every one registered: `tab-[13]` under
-  `@utility tab-* { tab-size: --value(integer) }` came out as nothing, and so
-  did a declared utility under the `!` mark, `content-auto!`, which marks its
-  declarations `!important` now (#847).
+  `.x:where(.dark, .dark *):hover` (#847).
+- A candidate a functional `@utility` declines falls to the built-in utility
+  of its root, as Tailwind tries every one registered: `tab-[13]` under
+  `@utility tab-* { tab-size: --value(integer) }` is the built-in `tab-*`'s,
+  and a declared utility under the `!` mark, `content-auto!`, marks its
+  declarations `!important` (#847).
 - A `theme(static)` entrypoint declares its theme and keyframes once. Each
   `@apply`, and each class under a `@custom-variant`, repeated the whole theme
   block and every `@keyframes` beside the generated sheet's (#801).
@@ -274,18 +258,13 @@
   initial`) now reaches tw at all, `--spacing: initial` drops the multiplier,
   a removed breakpoint stops resolving its variant, and a removed palette
   entry no longer leaves a utility referencing a variable nothing declares
-  (#507, #515). A removal reaches every family now. `--breakpoint-md:
-  initial` on its own removes `md:`, where the custom breakpoints read
-  `initial` back as a width and `md:flex` came out under `@media (min-width:
-  initial)`; `--text-*: initial` refuses `text-lg`, `--shadow-*: initial`
-  `shadow-md`, `--container-*: initial` `max-w-4xl` and `@lg:`, and so on
-  through the fonts, radii, animations, blurs, shadows, easings, weights,
-  tracking, leading, aspect ratios and perspectives, where only the palette,
-  the spacing scale and the breakpoints honoured one and every other utility
-  kept reading a variable the theme layer no longer declared, or wrote its
-  default where the family inlines the token. A size query reads the width
-  the theme binds as well: under `--container-lg: 40rem`, `@lg:flex` queried
-  32rem while `max-w-lg` took the project's width (#847).
+  (#507, #515). A removal reaches every family: `--breakpoint-md: initial`
+  on its own removes `md:`, `--text-*: initial` refuses `text-lg`,
+  `--shadow-*: initial` `shadow-md`, `--container-*: initial` `max-w-4xl` and
+  `@lg:`, and so on through the fonts, radii, animations, blurs, shadows,
+  easings, weights, tracking, leading, aspect ratios and perspectives. A size
+  query reads the width the theme binds as well, `@lg:` querying 40rem under
+  `--container-lg: 40rem` (#847).
 - Keep `@keyframes` when a `@theme` redefines an animation. The keyframes
   follow the animation the value names, so retiming `--animate-ping` no longer
   emitted an animation that never ran (#510).
@@ -513,14 +492,23 @@
 ### Colours and effects
 
 - An `@theme inline` colour goes into every utility that reads it, as the
-  value, with no `--color-<name>` declared, the shape the shadcn-style
-  `@theme inline { --color-brand: var(--brand) }` entrypoint relies on. Only
-  `bg-<name>` folded it; the text, border, fill, stroke, decoration, gradient,
-  shadow, ring, divide and every opacity form declared the token and wrote
-  `var(--color-brand)`, which Tailwind never emits for an inline token (#847).
-- `ring-<name>`, `ring-offset-<name>` and `inset-ring-<name>` take a colour
-  the project's `@theme` declares, with an optional opacity, as
-  `shadow-<name>` does. They were unknown classes (#847).
+  value, with no `--color-<name>` declared, in every colour family and opacity
+  form: the shape the shadcn-style `@theme inline { --color-brand:
+  var(--brand) }` entrypoint relies on. `ring-<name>`, `ring-offset-<name>`
+  and `inset-ring-<name>` take a colour the project's `@theme` declares, with
+  an optional opacity, as `shadow-<name>` does (#847).
+- Under a modifier a shadow's alpha replaces the colour's own, as Tailwind's
+  `oklab(from … / 50%)` does: `shadow-[0_1px_2px_#0000001a]/50` kept the
+  colour's 10%. An arbitrary drop shadow takes the modifier too,
+  `drop-shadow-[0_1px_2px_var(--c)]/50` keeping the variable in the fallback
+  and taking the relative form behind a guard, and a trailing `var()` in
+  either bracket is the colour, as Tailwind reads it, where the drop shadow
+  read it as a length and lost it. The modifier's `/` is the last one outside
+  a bracket, so `shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50` and
+  `bg-[rgb(0_0_0_/_0.5)]/50` parse. `inset-shadow-[inset_0_1px_red]`, a
+  bracket spelling the `inset` the utility supplies itself, is refused:
+  Tailwind writes `inset inset 0 1px red`, which no browser draws, where tw
+  drew the shadow the author did not get (#847).
 - A gradient stop with an opacity keeps its theme colour as the palette declares
   it. `to-gray-950/40` registered `--color-gray-950` as `#030712`, which moved
   every other use of the token on the page off the palette's oklch (#822).
