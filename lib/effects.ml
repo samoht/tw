@@ -24,20 +24,13 @@ module Handler = struct
 
   type inset_shadow_shape = Ish_2xs | Ish_xs | Ish_sm
 
-  (* Color in an arbitrary shadow value *)
-  type arbitrary =
-    | Hex of string
-    | Var of string
-    | Css_color of Css.color
-    | None
-
   (* One layer of an arbitrary shadow value, read from its bracket. *)
   type arbitrary_shadow = {
     h_offset : Css.length;
     v_offset : Css.length;
     blur : Css.length option;
     spread : Css.length option;
-    color : arbitrary;
+    color : Parse.shadow_colour;
   }
 
   type t =
@@ -551,52 +544,17 @@ module Handler = struct
   let shadow_2xl = shadow_shape_style Two_xl
   let shadow_inner = shadow_shape_style Inner
 
-  (* Parse arbitrary shadow value like "12px_12px_#0088cc" *)
+  (* One layer of a bracket: two lengths, a blur, a spread. *)
   let parse_arbitrary_shadow (s : string) : arbitrary_shadow option =
-    let normalized = Parse.decode_underscores s in
-    let parts = String.split_on_char ' ' normalized in
-    let rec find_color_and_lengths acc (parts : string list) :
-        string list * arbitrary =
-      match parts with
-      | [] -> (List.rev acc, None)
-      | x :: _rest when String.length x > 0 && x.[0] = '#' ->
-          (List.rev acc, Hex x)
-      | x :: _rest when String.length x > 4 && String.sub x 0 4 = "var(" ->
-          (List.rev acc, Var x)
-      | x :: rest when Parse.is_css_color_fn x -> (
-          (* Rejoin remaining parts with x in case the color fn spans spaces *)
-          let color_str = String.concat " " (x :: rest) in
-          match Css.parse_color color_str with
-          | Some c -> (List.rev acc, Css_color c)
-          | None -> find_color_and_lengths (x :: acc) rest)
-      | x :: rest -> find_color_and_lengths (x :: acc) rest
-    in
-    let length_strs, color = find_color_and_lengths [] parts in
-    let lengths = List.filter_map Parse.arbitrary_length length_strs in
-    (* A token that is not a length makes the value not a shadow. Dropping it
-       instead would slide the surviving lengths into the wrong slots. A [#]
-       token is only the shadow's colour when it is a hex spelling. *)
-    if List.compare_lengths lengths length_strs <> 0 then None
-    else
-      match color with
-      | Hex h when Option.is_none (Css.hex_opt h) -> None
-      | _ -> (
-          match lengths with
-          | [ h_offset; v_offset ] ->
-              Some { h_offset; v_offset; blur = None; spread = None; color }
-          | [ h_offset; v_offset; blur ] ->
-              Some
-                { h_offset; v_offset; blur = Some blur; spread = None; color }
-          | [ h_offset; v_offset; blur; spread ] ->
-              Some
-                {
-                  h_offset;
-                  v_offset;
-                  blur = Some blur;
-                  spread = Some spread;
-                  color;
-                }
-          | _ -> None)
+    match Parse.shadow_layer s with
+    | Some ([ h_offset; v_offset ], color) ->
+        Some { h_offset; v_offset; blur = None; spread = None; color }
+    | Some ([ h_offset; v_offset; blur ], color) ->
+        Some { h_offset; v_offset; blur = Some blur; spread = None; color }
+    | Some ([ h_offset; v_offset; blur; spread ], color) ->
+        Some
+          { h_offset; v_offset; blur = Some blur; spread = Some spread; color }
+    | _ -> None
 
   (* A layer that names no colour paints in the current colour, so read a
      missing one as [currentcolor] rather than carrying the absence around. *)
@@ -680,37 +638,25 @@ module Handler = struct
     in
     let v_shadow = Var.reference shadow_var in
     match supports with
-    | Stdlib.Option.None ->
+    | None ->
         style ~metadata:shadow_property_metadata
           ~property_rules:shadow_property_rules
           [ alpha_decl; d_shadow; composition v_shadow ]
-    | Stdlib.Option.Some supports_block ->
+    | Some supports_block ->
         let alpha_shadow_rule =
           Css.rule ~selector:(Css.Selector.class_ "_") [ alpha_decl; d_shadow ]
         in
         style
-          ~rules:(Stdlib.Option.Some [ alpha_shadow_rule; supports_block ])
+          ~rules:(Some [ alpha_shadow_rule; supports_block ])
           ~metadata:shadow_property_metadata
           ~property_rules:shadow_property_rules
           [ composition v_shadow ]
 
-  (* The colour a bracket layer wrote, as the class spelled it: a hex keeps its
-     case, a [var()] its reference, a colour function folds to hex where one
-     spells it, and no colour is the current colour. *)
-  let arbitrary_colour (c : arbitrary) : Css.color =
-    match c with
-    | Hex h -> Color.authored_hex h
-    | Var v -> Color.bracket_var_color v
-    | Css_color c -> (
-        match Color.css_color_to_hex c with
-        | Some h -> h
-        | Stdlib.Option.None -> c)
-    | None -> Css.Current
-
   let arbitrary_shadow_layer ?inset { h_offset; v_offset; blur; spread; color }
       =
     Css.shadow ?inset ~h_offset ~v_offset ?blur ?spread
-      ~color:(arbitrary_colour color) ()
+      ~color:(Color.shadow_token_colour color)
+      ()
 
   let shadow_shape_opacity_style shape opacity =
     arbitrary_shadow_alpha_style ~shadow_var ~color_var:shadow_color_var
@@ -735,7 +681,7 @@ module Handler = struct
       if String.contains arb ',' then Option.None
       else parse_arbitrary_shadow arb
     with
-    | Some { h_offset; v_offset; blur; spread; color = Var v } ->
+    | Some { h_offset; v_offset; blur; spread; color = Parse.Var_token v } ->
         (* A trailing var() is the colour, not the blur (Tailwind). *)
         let color_ref =
           Var.reference_with_fallback shadow_color_var
@@ -792,7 +738,7 @@ module Handler = struct
           ~composition:box_shadow_composition
           (arbitrary_shadow_layer layer)
           opacity
-    | Stdlib.Option.None -> (
+    | None -> (
         (* The bracket reaches here because [is_shadow_bracket] read it as a
            shadow, and the reader that said so is [Parse.shadow], which reads a
            colour keyword, a layer list and the [inset] keyword the reading
@@ -1023,30 +969,11 @@ module Handler = struct
       (declarations
       @ [ inset_box_shadow_composition (Var.reference inset_shadow_var) ])
 
-  (* Split a string on top-level commas (not inside parentheses) *)
-  let split_top_level_commas (s : string) : string list =
-    let len = String.length s in
-    let depth = ref 0 in
-    let parts = ref [] in
-    let start = ref 0 in
-    for i = 0 to len - 1 do
-      match s.[i] with
-      | '(' -> incr depth
-      | ')' -> decr depth
-      | ',' when !depth = 0 ->
-          parts := String.sub s !start (i - !start) :: !parts;
-          start := i + 1
-      | _ -> ()
-    done;
-    parts := String.sub s !start (len - !start) :: !parts;
-    List.rev !parts
-
   (* Parse multi-value shadow (comma-separated) *)
   let parse_multi_shadow (s : string) =
-    let parts = split_top_level_commas s in
+    let parts = Parse.split_top_level ',' s in
     let parsed = List.filter_map parse_arbitrary_shadow parts in
-    if List.length parsed = List.length parts then Stdlib.Option.Some parsed
-    else Stdlib.Option.None
+    if List.compare_lengths parsed parts = 0 then Some parsed else None
 
   (* [Parse.shadow] reads a non-inset shadow, which is the spelling an
      [inset-shadow-*] bracket carries; the utility supplies the [inset] keyword
@@ -1059,23 +986,13 @@ module Handler = struct
 
   let inset_shadow_arbitrary (arb : string) =
     match parse_multi_shadow arb with
-    | Stdlib.Option.Some parsed_parts ->
+    | Some parsed_parts ->
         let shadow_values =
           List.map
             (fun { h_offset; v_offset; blur; spread; color } ->
-              let fallback_color : Css.color =
-                match color with
-                | Hex c -> Color.authored_hex c
-                | Var v -> Color.bracket_var_color v
-                | Css_color c -> (
-                    match Color.css_color_to_hex c with
-                    | Some h -> h
-                    | None -> c)
-                | None -> Css.Current
-              in
               let color_ref =
                 Var.reference_with_fallback inset_shadow_color_var
-                  fallback_color
+                  (Color.shadow_token_colour color)
               in
               Css.shadow ~inset:true ~h_offset ~v_offset ?blur ?spread
                 ~color:(Var color_ref) ())
@@ -1090,7 +1007,7 @@ module Handler = struct
         style ~metadata:shadow_property_metadata
           ~property_rules:shadow_property_rules
           [ d_inset_shadow; inset_box_shadow_composition v_inset_shadow ]
-    | Stdlib.Option.None -> (
+    | None -> (
         (* The bracket reaches here because [is_shadow_bracket] read it as a
            shadow, and the reader that said so is [Parse.shadow], which knows
            every colour spelling rather than the hex, [var()] and colour
@@ -1129,7 +1046,7 @@ module Handler = struct
 
   let inset_shadow_arbitrary_opacity (arb : string) opacity =
     match parse_multi_shadow arb with
-    | Stdlib.Option.Some layers ->
+    | Some layers ->
         let shadow : Css.shadow =
           match List.map (arbitrary_shadow_layer ~inset:true) layers with
           | [ single ] -> single
@@ -1139,7 +1056,7 @@ module Handler = struct
           ~color_var:inset_shadow_color_var
           ~alpha_decl:(inset_shadow_opacity_decl opacity)
           ~composition:inset_box_shadow_composition shadow opacity
-    | Stdlib.Option.None -> (
+    | None -> (
         (* Read the bracket with the reader that accepted it, as
            [inset_shadow_arbitrary] does without a modifier. *)
         match Parse.shadow (Parse.decode_underscores arb) with

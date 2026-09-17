@@ -4153,6 +4153,13 @@ let bracket_var_ref v : Css.color =
 let bracket_var_color v =
   match Css.parse_color v with Some c -> c | None -> bracket_var_ref v
 
+let shadow_token_colour (c : Parse.shadow_colour) : Css.color =
+  match c with
+  | Parse.Hex_token h -> authored_hex h
+  | Parse.Var_token v -> bracket_var_color v
+  | Parse.Colour c -> Option.value ~default:c (css_color_to_hex c)
+  | Parse.No_colour -> Css.Current
+
 let channel_bracket_var ch v =
   let color = bracket_var_ref v in
   channel_style ch ~fallback:color color

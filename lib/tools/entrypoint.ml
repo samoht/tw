@@ -298,22 +298,7 @@ let import_prefix css =
   | name :: _ -> Some name
   | [] -> None
 
-(* Split [s] on [sep] where no bracket is open, so a [,] or a space inside
-   [[...]], [(...)] or a nested [{...}] stays in its segment. *)
-let split_top_level sep s =
-  let len = String.length s in
-  let rec go depth start i acc =
-    if i >= len then List.rev (String.sub s start (len - start) :: acc)
-    else
-      match s.[i] with
-      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
-      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
-      | c when c = sep && depth = 0 ->
-          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
-      | _ -> go depth start (i + 1) acc
-  in
-  go 0 0 0 []
-
+let split_top_level = Tw.Parse.split_top_level
 let brace_bound = Re.seq [ Re.opt (Re.char '-'); Re.rep1 Re.digit ]
 
 let brace_range_re =

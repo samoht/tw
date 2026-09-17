@@ -782,3 +782,49 @@ let shadow s : Cascade.Css.shadow option =
     | other -> other
   in
   Option.map reslot (Cascade.Css.parse_shadow s)
+
+type shadow_colour =
+  | Hex_token of string
+  | Var_token of string
+  | Colour of Cascade.Css.color
+  | No_colour
+
+let shadow_layer s =
+  let parts = String.split_on_char ' ' (decode_underscores s) in
+  let rec split acc = function
+    | [] -> (List.rev acc, No_colour)
+    | x :: _ when String.length x > 0 && x.[0] = '#' ->
+        (List.rev acc, Hex_token x)
+    | x :: _ when is_var x -> (List.rev acc, Var_token x)
+    | x :: rest when is_css_color_fn x -> (
+        (* A colour function may carry spaces, so it runs to the end of the
+           value. *)
+        match Cascade.Css.parse_color (String.concat " " (x :: rest)) with
+        | Some c -> (List.rev acc, Colour c)
+        | None -> split (x :: acc) rest)
+    | x :: rest -> split (x :: acc) rest
+  in
+  let length_strs, colour = split [] parts in
+  let lengths = List.filter_map arbitrary_length length_strs in
+  (* A token that is not a length makes the value not a shadow. Dropping it
+     instead would slide the surviving lengths into the wrong slots. A [#] token
+     is only the shadow's colour when it is a hex spelling. *)
+  if List.compare_lengths lengths length_strs <> 0 then None
+  else
+    match colour with
+    | Hex_token h when Option.is_none (Cascade.Css.hex_opt h) -> None
+    | _ -> Some (lengths, colour)
+
+let split_top_level sep s =
+  let len = String.length s in
+  let rec go depth start i acc =
+    if i >= len then List.rev (String.sub s start (len - start) :: acc)
+    else
+      match s.[i] with
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
+      | c when c = sep && depth = 0 ->
+          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | _ -> go depth start (i + 1) acc
+  in
+  go 0 0 0 []

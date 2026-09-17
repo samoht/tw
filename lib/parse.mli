@@ -276,3 +276,27 @@ val shadow : string -> Cascade.Css.shadow option
     are taken and what is left is the colour, so a trailing [var()] in a length
     slot is the colour ([0 1px 2px var(--c)] paints with [--c]). [None] when [s]
     is not a shadow. *)
+
+(** {1 Arbitrary shadows} *)
+
+(** The colour token of one arbitrary shadow layer, as the class spelled it. *)
+type shadow_colour =
+  | Hex_token of string  (** a [#] spelling, kept as written *)
+  | Var_token of string  (** a [var()] reference, kept as written *)
+  | Colour of Cascade.Css.color  (** a colour function, read *)
+  | No_colour  (** the layer names no colour *)
+
+val shadow_layer : string -> (Cascade.Css.length list * shadow_colour) option
+(** [shadow_layer s] scans the inside of one shadow bracket the way the shadow
+    families read it: a [#] token or a [var()] is the colour, kept as written; a
+    colour function, which may span several tokens, goes through the colour
+    reader; every other token has to be a length. The lengths come back in the
+    order written, and how many a family takes is the family's own business.
+    [None] when a token is neither, or the [#] token is no hex. [s] goes through
+    {!decode_underscores} first. *)
+
+val split_top_level : char -> string -> string list
+(** [split_top_level sep s] splits [s] on [sep] where no bracket is open, so a
+    [sep] inside [(...)], [[...]] or [{...}] stays in its piece. Always yields
+    one piece more than the separators it split on; a closing bracket with no
+    opener is passed over. *)

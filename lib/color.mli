@@ -773,6 +773,12 @@ val bracket_var_color : string -> Css.color
     paints with: the colour reader's reading of [v] when it has one, else
     {!bracket_var_ref}. *)
 
+val shadow_token_colour : Parse.shadow_colour -> Css.color
+(** [shadow_token_colour t] is the colour a bracket shadow layer wrote, as the
+    class spelled it: a hex keeps its case, a [var()] its reference, a colour
+    function folds to hex where one spells it, and no colour is the current
+    colour. *)
+
 val channel_bracket_var : channel -> string -> Style.t
 (** [channel_bracket_var ch v] sets [ch] to the [var()] reference [v]. *)
 

@@ -11,12 +11,6 @@ module Handler = struct
   type shape = S_2xs | S_xs | S_sm | S_md | S_lg
 
   (* Color in an arbitrary shadow value *)
-  type arb_color =
-    | Hex of string
-    | Var_ref of string
-    | Css_color of Css.color
-    | No_color
-
   type t =
     | None
     | Shape of shape
@@ -88,49 +82,19 @@ module Handler = struct
 
   (* ============ Parse arbitrary shadow ============ *)
 
-  (* The two colours the utility has to keep as written: a [#] hex it
-     re-shortens and a var() it wraps. Everything else in the value is read as a
-     length, so a colour spelled any other way lands in a length slot. *)
+  (* CSS text-shadow has no spread, so a fourth length is not one. *)
   let scan_verbatim_colour (s : string) :
-      (length * length * length option * arb_color) option =
-    let normalized = Parse.decode_underscores s in
-    let parts = String.split_on_char ' ' normalized in
-    let rec find_color_and_lengths acc (parts : string list) :
-        string list * arb_color =
-      match parts with
-      | [] -> (List.rev acc, No_color)
-      | x :: _rest when String.length x > 0 && x.[0] = '#' ->
-          (List.rev acc, Hex x)
-      | x :: _rest when String.length x > 4 && String.sub x 0 4 = "var(" ->
-          (List.rev acc, Var_ref x)
-      | x :: rest when Parse.is_css_color_fn x -> (
-          (* A colour function may carry spaces, so it runs to the end of the
-             value. *)
-          match Css.parse_color (String.concat " " (x :: rest)) with
-          | Some c -> (List.rev acc, Css_color c)
-          | None -> find_color_and_lengths (x :: acc) rest)
-      | x :: rest -> find_color_and_lengths (x :: acc) rest
-    in
-    let length_strs, color = find_color_and_lengths [] parts in
-    let lengths = List.filter_map Parse.arbitrary_length length_strs in
-    (* A token that is not a length makes the value not a shadow. Dropping it
-       instead would slide the surviving lengths into the wrong slots. CSS
-       text-shadow has no spread, so a fourth length is not one either. *)
-    if List.compare_lengths lengths length_strs <> 0 then Stdlib.Option.None
-    else
-      match color with
-      | Hex h when not (is_hex_value h) -> Stdlib.Option.None
-      | _ -> (
-          match lengths with
-          | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
-          | [ h; v; blur ] -> Some (h, v, Some blur, color)
-          | _ -> Stdlib.Option.None)
+      (length * length * length option * Parse.shadow_colour) option =
+    match Parse.shadow_layer s with
+    | Some ([ h; v ], color) -> Some (h, v, Stdlib.Option.None, color)
+    | Some ([ h; v; blur ], color) -> Some (h, v, Some blur, color)
+    | _ -> Stdlib.Option.None
 
   (* What the scan above cannot spell goes to the value parser, which reads the
      rest of the CSS colour grammar: [red] is a colour to it and a failed length
      to the scan. This is the fallback the box-shadow family already has. *)
   let parse_arbitrary_shadow (s : string) :
-      (length * length * length option * arb_color) option =
+      (length * length * length option * Parse.shadow_colour) option =
     match scan_verbatim_colour s with
     | Some _ as shadow -> shadow
     | Stdlib.Option.None -> (
@@ -143,8 +107,8 @@ module Handler = struct
           ->
             let color =
               match color with
-              | Some c -> Css_color c
-              | Stdlib.Option.None -> No_color
+              | Some c -> Parse.Colour c
+              | Stdlib.Option.None -> Parse.No_colour
             in
             Some (h_offset, v_offset, blur, color)
         | _ -> Stdlib.Option.None)
@@ -389,16 +353,7 @@ module Handler = struct
   let arbitrary_body arb : Css.shadow_body option =
     match parse_arbitrary_shadow arb with
     | Some (h_offset, v_offset, blur, color) -> (
-        let color : Css.color =
-          match color with
-          | Hex c -> Color.authored_hex c
-          | Var_ref v -> Color.bracket_var_color v
-          | Css_color c -> (
-              match Color.css_color_to_hex c with
-              | Some h -> h
-              | Stdlib.Option.None -> c)
-          | No_color -> Css.Current
-        in
+        let color = Color.shadow_token_colour color in
         match Css.shadow ~h_offset ~v_offset ?blur ~color () with
         | Css.Shadow body -> Some body
         | _ -> Stdlib.Option.None)
@@ -710,9 +665,10 @@ module Handler = struct
   let suborder = function
     | Arbitrary_opacity (arb, _) -> (
         match parse_arbitrary_shadow arb with
-        | Some (_, _, _, Var_ref _) -> 6 (* @supports lab *)
-        | Some (_, _, _, No_color) -> 7 (* @supports color-mix *)
-        | Some (_, _, _, (Hex _ | Css_color _)) -> 8 (* no @supports *)
+        | Some (_, _, _, Parse.Var_token _) -> 6 (* @supports lab *)
+        | Some (_, _, _, Parse.No_colour) -> 7 (* @supports color-mix *)
+        | Some (_, _, _, (Parse.Hex_token _ | Parse.Colour _)) ->
+            8 (* no @supports *)
         | Stdlib.Option.None -> 9)
     | Shape_opacity _ -> 8 (* no @supports *)
     | _ -> 0
