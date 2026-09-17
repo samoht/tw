@@ -2823,6 +2823,10 @@ let variant_order_of_prefix ?theme prefix =
          that exact registration changes its body but retains its slot. *)
       if String.equal prefix "dark" then Slot.rank Slot.Dark
       else Slot.rank Slot.Custom
+  (* A breakpoint the project declared, [xs:] under [--breakpoint-xs], sorts
+     with the built-in ones; the table above knows the built-in names alone. *)
+  | Some theme when Scheme.has_breakpoint theme prefix ->
+      Slot.rank Slot.Breakpoint
   | Some _ | None -> (
       match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0)
 

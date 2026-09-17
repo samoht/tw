@@ -929,12 +929,12 @@ let media_condition_of_modifier = function
 (** Compute variant_order from base_class and selector. A stacked candidate is
     placed by its highest-order modifier, matching the descending key list used
     by the comparator. *)
-let compute_variant_order ~selector base_class =
+let compute_variant_order ?theme ~selector base_class =
   let order_of_candidate c =
     let modifiers, _ = Modifiers.of_string c in
     List.fold_left
       (fun order modifier ->
-        Int.max order (Modifiers.variant_order_of_prefix modifier))
+        Int.max order (Modifiers.variant_order_of_prefix ?theme modifier))
       0 modifiers
   in
   let vo =
