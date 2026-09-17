@@ -3683,6 +3683,93 @@ let mix_alpha = Handler.mix_alpha
 let opacity_fallback = Handler.opacity_fallback
 let apply_alpha = Handler.apply_alpha
 
+let opacity_percentage opacity : Css.percentage =
+  match opacity_var_bare_of opacity with
+  | Some name -> Var (Var.bracket name)
+  | None -> Pct (opacity_to_percent opacity)
+
+(* A bracket alpha with no [%] records the author's own number, unscaled and
+   without a unit, which is what Tailwind writes: [shadow-lg/[25]] gives
+   [--tw-shadow-alpha: 25]. Every other spelling is a percentage. *)
+let opacity_alpha_value opacity : Css.percentage =
+  match opacity with
+  | Opacity_arbitrary n -> Num n.value
+  | _ -> opacity_percentage opacity
+
+let relative_color_supports =
+  Css.Supports.property "color" "lab(from red l a b)"
+
+(* Tailwind's [oklab(from <colour> l a b / <alpha>)]. A relative colour carries
+   its channel expression verbatim, in the spelling the reader normalises to -
+   no space around the slash - so the alpha is printed into it. *)
+let relative_alpha opacity (c : Css.color) : Css.color =
+  let alpha =
+    Css.Pp.to_string ~minify:true
+      (Css.Values.pp_percentage ~always:true)
+      (opacity_percentage opacity)
+  in
+  Css.Relative_color ("oklab", c, "l a b/" ^ alpha)
+
+(* A shadow list under an opacity modifier, as Tailwind's
+   [alphaReplacedShadowProperties] writes it. Each layer's colour takes the
+   alpha through [oklab(from <colour> l a b / <alpha>)], folded here when the
+   channels are named and the alpha is a number, as Tailwind's minifier folds
+   it. A [currentcolor] layer takes it through a [color-mix()] instead, behind
+   the guard for that. A [var()] colour, or an alpha read from a custom
+   property, is a value only the browser can resolve: every layer then keeps its
+   authored colour in the open and takes the alpha behind the relative colour
+   guard, with the [color-mix()] guard nested inside it for a [currentcolor]
+   layer. *)
+let shadow_alpha_decls opacity ~colours ~rebuild =
+  let dynamic = opacity_var_bare_of opacity <> None in
+  let is_current (c : Css.color) = c = Css.Current in
+  let is_var (c : Css.color) = match c with Css.Var _ -> true | _ -> false in
+  (* A [currentcolor] layer never asks for the relative guard: it takes a
+     dynamic alpha through its [color-mix()] as well. *)
+  let requires_fallback =
+    List.exists is_var colours
+    || (dynamic && List.exists (fun c -> not (is_current c)) colours)
+  in
+  let has_current = List.exists is_current colours in
+  let alpha_of c =
+    if dynamic then relative_alpha opacity c
+    else
+      match oklab_alpha c (opacity_to_percent opacity /. 100.) with
+      | Some folded -> folded
+      | None -> relative_alpha opacity c
+  in
+  let mixed_current = mix_alpha opacity Css.Current in
+  let layers ~current ~other =
+    rebuild
+      (List.map (fun c -> if is_current c then current c else other c) colours)
+  in
+  let guard condition stmts =
+    Css.supports ~condition
+      [ Css.rule ~selector:(Css.Selector.class_ "_") stmts ]
+  in
+  let base =
+    layers ~current:Fun.id ~other:(fun c ->
+        if requires_fallback then c else alpha_of c)
+  in
+  let mixed = layers ~current:(fun _ -> mixed_current) ~other:alpha_of in
+  match (requires_fallback, has_current) with
+  | false, false -> (base, None)
+  | false, true -> (base, Some (guard color_mix_supports_condition [ mixed ]))
+  | true, false ->
+      ( base,
+        Some
+          (guard relative_color_supports
+             [ layers ~current:Fun.id ~other:alpha_of ]) )
+  | true, true ->
+      ( base,
+        Some
+          (Css.supports ~condition:relative_color_supports
+             [
+               Css.rule ~selector:(Css.Selector.class_ "_")
+                 [ layers ~current:Fun.id ~other:alpha_of ];
+               guard color_mix_supports_condition [ mixed ];
+             ]) )
+
 let oklab_with_supports ?theme ~property ~fallback_decl c shade opacity =
   let cvar = color_var c shade in
   let color_value = to_css ?theme c (if is_base_color c then 500 else shade) in

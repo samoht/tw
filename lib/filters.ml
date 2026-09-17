@@ -58,6 +58,7 @@ module Handler = struct
     | Drop_shadow_none
     | Drop_shadow_inherit
     | Drop_shadow_named of string
+    | Drop_shadow_named_opacity of string * Color.opacity_modifier
     | Drop_shadow_arbitrary of string * Css.filter
     | Drop_shadow_arbitrary_opacity of
         string * Css.shadow_body list * Color.opacity_modifier
@@ -69,8 +70,7 @@ module Handler = struct
       (* drop-shadow-current / -transparent: a colour with no theme token *)
     | Drop_shadow_keyword_color_opacity of
         Css.color * string * Color.opacity_modifier
-    | Drop_shadow_size_opacity of
-        string * (Css.length * Css.length) * Color.opacity_modifier
+    | Drop_shadow_size_opacity of string * Color.opacity_modifier
     | Backdrop_filter
     | Backdrop_filter_none
     | Backdrop_filter_arbitrary of string * Css.filter
@@ -154,8 +154,11 @@ module Handler = struct
       Css.Color "tw-drop-shadow-color"
 
   let drop_shadow_alpha_var =
-    Var.property_default Css.Float ~initial:100.0 ~property_order:71
+    Var.property_default Css.Percentage ~initial:(Pct 100.) ~property_order:71
       ~family:`Drop_shadow "tw-drop-shadow-alpha"
+
+  let drop_shadow_alpha_decl opacity =
+    fst (Var.binding drop_shadow_alpha_var (Color.opacity_alpha_value opacity))
 
   let drop_shadow_size_var =
     Var.channel ~needs_property:true ~property_order:72 ~family:`Drop_shadow
@@ -597,20 +600,38 @@ module Handler = struct
   (* Published the same way, so [drop-shadow-[theme(--drop-shadow-md)]]
      resolves. The colours keep the hex spelling the sized utilities bind, which
      is the alpha Tailwind writes as an [rgb()]. *)
+  let drop_shadow_scale =
+    [
+      ("xs", drop_shadow_xs_var, 1., 1., "#0000000d");
+      ("sm", drop_shadow_sm_var, 1., 2., "#00000026");
+      ("md", drop_shadow_md_var, 3., 3., "#0000001f");
+      ("lg", drop_shadow_lg_var, 4., 4., "#00000026");
+      ("xl", drop_shadow_xl_var, 9., 7., "#0000001a");
+      ("2xl", drop_shadow_2xl_var, 25., 25., "#00000026");
+    ]
+
   let () =
     List.iter
-      (fun (var, v, blur, hex) ->
+      (fun (_, var, v, blur, hex) ->
         Theme.register_default var
           (Css.shadow ~h_offset:Zero ~v_offset:(Px v) ~blur:(Px blur)
              ~color:(Css.hex hex) ()))
-      [
-        (drop_shadow_xs_var, 1., 1., "#0000000d");
-        (drop_shadow_sm_var, 1., 2., "#00000026");
-        (drop_shadow_md_var, 3., 3., "#0000001f");
-        (drop_shadow_lg_var, 4., 4., "#00000026");
-        (drop_shadow_xl_var, 9., 7., "#0000001a");
-        (drop_shadow_2xl_var, 25., 25., "#00000026");
-      ]
+      drop_shadow_scale
+
+  (* The scale's shadow for a size, as the modifier path reads it: the body with
+     its own colour, which the alpha then replaces. *)
+  let drop_shadow_scale_body size : Css.shadow_body option =
+    List.find_map
+      (fun (name, _, v, blur, hex) ->
+        if String.equal name size then
+          match
+            Css.shadow ~h_offset:Zero ~v_offset:(Px v) ~blur:(Px blur)
+              ~color:(Css.hex hex) ()
+          with
+          | Css.Shadow body -> Some body
+          | _ -> None
+        else None)
+      drop_shadow_scale
 
   let drop_shadow_color_ref fallback =
     Var.reference_with_fallback drop_shadow_color_var fallback
@@ -629,18 +650,57 @@ module Handler = struct
         filter composable_filter_chain;
       ]
 
+  (* Build the [--tw-drop-shadow-size] filter from a parsed theme shadow body,
+     hoisting the body's colour into the [--tw-drop-shadow-color] fallback. A
+     body without an explicit colour falls back to [currentcolor]. *)
+  let drop_shadow_size_of_body (body : Css.shadow_body) : Css.filter =
+    let fallback : Css.color =
+      match body.color with Some c -> c | None -> Css.Current
+    in
+    Css.Drop_shadow
+      (Css.shadow ~h_offset:body.h_offset ~v_offset:body.v_offset
+         ?blur:body.blur ?spread:body.spread
+         ~color:(Css.Var (drop_shadow_color_ref fallback))
+         ())
+
+  (* The [--drop-shadow-<name>] theme value behind [drop-shadow-<name>], split
+     into shadow bodies. [None] means the theme has no such token, or its value
+     is not a shadow: either way the class is not a utility, so [of_class] uses
+     this to gate before [to_style] ever sees the name. *)
+  let shadow_token_bodies ?theme theme_name :
+      (string * Css.shadow_body list) option =
+    match Scheme.theme_value theme theme_name with
+    | None -> None
+    | Some value -> (
+        let body_of (sh : Css.shadow) : Css.shadow_body option =
+          match sh with Css.Shadow body -> Some body | _ -> None
+        in
+        let bodies =
+          match Parse.shadow value with
+          | Some (Css.List shadows) -> List.filter_map body_of shadows
+          | Some sh -> ( match body_of sh with Some b -> [ b ] | None -> [])
+          | None -> []
+        in
+        match bodies with [] -> None | _ -> Some (value, bodies))
+
+  let drop_shadow_theme_bodies ?theme name =
+    shadow_token_bodies ?theme ("drop-shadow-" ^ name)
+
+  let drop_shadow_size_of_bodies bodies : Css.filter =
+    match List.map drop_shadow_size_of_body bodies with
+    | [ one ] -> one
+    | many -> Css.List many
+
   (* Bare [.drop-shadow]. In the default Tailwind v4 theme this token is a
      two-shadow stack inlined as a literal (no [--drop-shadow] theme var). When
      a custom theme overrides [--drop-shadow] with a single shadow value, it is
      referenced via [drop-shadow(var(--drop-shadow))] instead. *)
-  let drop_shadow_override ?theme () =
+  let drop_shadow_override ?theme bodies =
     style ~metadata:filter_property_metadata
       ~property_rules:filter_property_rules
       (theme_decl_if_set ?theme "drop-shadow"
       @ [
-          bind_drop_shadow_size
-            (drop_shadow_filter Zero (Px 1.) (Some (Px 1.))
-               (Css.hex "#0000000d"));
+          bind_drop_shadow_size (drop_shadow_size_of_bodies bodies);
           bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
           filter composable_filter_chain;
         ])
@@ -684,91 +744,42 @@ module Handler = struct
       ]
 
   let drop_shadow_ ?theme () =
-    match Scheme.theme_value theme "drop-shadow" with
-    | Some _ -> drop_shadow_override ?theme ()
+    match shadow_token_bodies ?theme "drop-shadow" with
+    | Some (_, bodies) -> drop_shadow_override ?theme bodies
     | None -> drop_shadow_default ()
 
-  (* A sized drop-shadow utility: [drop-shadow-{sm,md,lg,xl,2xl}].
+  (* A sized drop-shadow utility: [drop-shadow-{xs,sm,md,lg,xl,2xl}].
 
      Emits the [--drop-shadow-<size>] theme token with its default value,
      references it from [--tw-drop-shadow], and builds [--tw-drop-shadow-size]
-     from the same geometry with the color hoisted into the
-     [--tw-drop-shadow-color] fallback. The theme value is bound (always
-     present, overridable). [theme_var] carries the design token; [name] is its
-     bare name. *)
-  let drop_shadow_sized theme_var name ~h ~v ~blur ~color () =
-    let theme_decl, _ref =
-      Var.binding theme_var (Css.shadow ~h_offset:h ~v_offset:v ~blur ~color ())
-    in
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      [
-        theme_decl;
-        bind_drop_shadow_size (drop_shadow_filter h v (Some blur) color);
-        bind_drop_shadow (drop_shadow_theme_ref name);
-        filter composable_filter_chain;
-      ]
-
-  let drop_shadow_xs_ () =
-    drop_shadow_sized drop_shadow_xs_var "drop-shadow-xs" ~h:Zero ~v:(Px 1.)
-      ~blur:(Px 1.) ~color:(Css.hex "#0000000d") ()
-
-  let drop_shadow_sm_ () =
-    drop_shadow_sized drop_shadow_sm_var "drop-shadow-sm" ~h:Zero ~v:(Px 1.)
-      ~blur:(Px 2.) ~color:(Css.hex "#00000026") ()
-
-  let drop_shadow_md_ () =
-    drop_shadow_sized drop_shadow_md_var "drop-shadow-md" ~h:Zero ~v:(Px 3.)
-      ~blur:(Px 3.) ~color:(Css.hex "#0000001f") ()
-
-  let drop_shadow_lg_ () =
-    drop_shadow_sized drop_shadow_lg_var "drop-shadow-lg" ~h:Zero ~v:(Px 4.)
-      ~blur:(Px 4.) ~color:(Css.hex "#00000026") ()
-
-  let drop_shadow_xl_ () =
-    drop_shadow_sized drop_shadow_xl_var "drop-shadow-xl" ~h:Zero ~v:(Px 9.)
-      ~blur:(Px 7.) ~color:(Css.hex "#0000001a") ()
-
-  let drop_shadow_2xl_ () =
-    drop_shadow_sized drop_shadow_2xl_var "drop-shadow-2xl" ~h:Zero ~v:(Px 25.)
-      ~blur:(Px 25.) ~color:(Css.hex "#00000026") ()
-
-  (* Build the [--tw-drop-shadow-size] filter from a parsed theme shadow body,
-     hoisting the body's colour into the [--tw-drop-shadow-color] fallback. A
-     body without an explicit colour falls back to [currentcolor]. *)
-  let drop_shadow_size_of_body (body : Css.shadow_body) : Css.filter =
-    let fallback : Css.color =
-      match body.color with Some c -> c | None -> Css.Current
-    in
-    Css.Drop_shadow
-      (Css.shadow ~h_offset:body.h_offset ~v_offset:body.v_offset
-         ?blur:body.blur ?spread:body.spread
-         ~color:(Css.Var (drop_shadow_color_ref fallback))
-         ())
-
-  (* The [--drop-shadow-<name>] theme value behind [drop-shadow-<name>], split
-     into shadow bodies. [None] means the theme has no such token, or its value
-     is not a shadow: either way the class is not a utility, so [of_class] uses
-     this to gate before [to_style] ever sees the name. *)
-  let drop_shadow_theme_bodies ?theme name :
-      (string * Css.shadow_body list) option =
-    let theme_name = "drop-shadow-" ^ name in
-    match Scheme.theme_value theme theme_name with
-    | None -> None
-    | Some value -> (
-        let cursor = Cascade.Cursor.of_string value in
-        let body_of (sh : Css.shadow) : Css.shadow_body option =
-          match sh with Css.Shadow body -> Some body | _ -> None
+     from the token's shadow - a project override of it first - with the colour
+     hoisted into the [--tw-drop-shadow-color] fallback. *)
+  let drop_shadow_sized ?theme size =
+    match
+      List.find_opt
+        (fun (name, _, _, _, _) -> String.equal name size)
+        drop_shadow_scale
+    with
+    | None -> invalid_arg ("drop-shadow-" ^ size ^ ": not a size")
+    | Some (_, theme_var, v, blur, hex) ->
+        let theme_decl, _ref =
+          Var.binding theme_var
+            (Css.shadow ~h_offset:Zero ~v_offset:(Px v) ~blur:(Px blur)
+               ~color:(Css.hex hex) ())
         in
         let bodies =
-          match
-            Cascade.Cursor.try_parse_full_err Css.Properties.read_shadow cursor
-          with
-          | Ok (Css.List shadows) -> List.filter_map body_of shadows
-          | Ok sh -> ( match body_of sh with Some b -> [ b ] | None -> [])
-          | Error _ -> []
+          match drop_shadow_theme_bodies ?theme size with
+          | Some (_, bodies) -> bodies
+          | None -> Option.to_list (drop_shadow_scale_body size)
         in
-        match bodies with [] -> None | _ -> Some (value, bodies))
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
+          [
+            theme_decl;
+            bind_drop_shadow_size (drop_shadow_size_of_bodies bodies);
+            bind_drop_shadow (drop_shadow_theme_ref ("drop-shadow-" ^ size));
+            filter composable_filter_chain;
+          ]
 
   (* A theme-token drop-shadow such as [drop-shadow-calc] backed by a custom
      [--drop-shadow-<name>] theme value. Parses the theme value into one or more
@@ -834,31 +845,15 @@ module Handler = struct
      that is itself a bare [var()] passes through unchanged, since the browser
      resolves the whole shadow from it. [None] means the bracket is not a
      shadow, which [of_class] rejects. *)
-  (* A trailing [var()] the shadow grammar read as the next length is the
-     colour to Tailwind, which matches lengths and takes what is left as the
-     colour: [0 1px 2px var(--c)] paints with [--c]. *)
-  let trailing_var_as_colour (body : Css.shadow_body) : Css.shadow_body =
-    let colour v : Css.color = Css.Var (Var.bracket (Css.var_name v)) in
-    match body with
-    | { color = None; spread = Some (Css.Var v); _ } ->
-        { body with spread = None; color = Some (colour v) }
-    | { color = None; spread = None; blur = Some (Css.Var v); _ } ->
-        { body with blur = None; color = Some (colour v) }
-    | _ -> body
-
   (* The shadow bodies a bracket spells, [None] when it spells no shadow. *)
   let drop_shadow_bodies s : Css.shadow_body list option =
     let inner = Parse.decode_arbitrary_value (Parse.bracket_inner s) in
-    match Css.parse_shadow inner with
-    | Some (Css.Shadow body : Css.shadow) ->
-        Some [ trailing_var_as_colour body ]
+    match Parse.shadow inner with
+    | Some (Css.Shadow body : Css.shadow) -> Some [ body ]
     | Some (Css.List shadows : Css.shadow) -> (
         match
           List.filter_map
-            (function
-              | (Css.Shadow body : Css.shadow) ->
-                  Some (trailing_var_as_colour body)
-              | _ -> None)
+            (function (Css.Shadow body : Css.shadow) -> Some body | _ -> None)
             shadows
         with
         | [] -> None
@@ -867,17 +862,15 @@ module Handler = struct
 
   let drop_shadow_arbitrary_value s : Css.filter option =
     let inner = Parse.decode_arbitrary_value (Parse.bracket_inner s) in
-    match Css.parse_shadow inner with
+    match Parse.shadow inner with
     | Some (Css.Var _ as v) -> Some (Css.Drop_shadow v)
-    | Some (Css.Shadow body) ->
-        Some (drop_shadow_size_of_body (trailing_var_as_colour body))
+    | Some (Css.Shadow body) -> Some (drop_shadow_size_of_body body)
     | Some (Css.List shadows) -> (
         match
           List.filter_map
             (fun (sh : Css.shadow) ->
               match sh with
-              | Css.Shadow body ->
-                  Some (drop_shadow_size_of_body (trailing_var_as_colour body))
+              | Css.Shadow body -> Some (drop_shadow_size_of_body body)
               | _ -> None)
             shadows
         with
@@ -1044,155 +1037,96 @@ module Handler = struct
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
-  let drop_shadow_opacity ?theme opacity =
-    let alpha_str =
-      match opacity with
-      | Color.Opacity_percent { value = p; _ } ->
-          (* keep a fractional alpha (/12.5 -> 12.5%), do not truncate to 12% *)
-          if Float.is_integer p then string_of_int (int_of_float p) ^ "%"
-          else Css.Pp.string_of_float p ^ "%"
-      | _ -> "100%"
-    in
-    let percent =
-      match opacity with Color.Opacity_percent p -> p.value | _ -> 100.
-    in
-    let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
-    (* The modifier recolours the shadow, so it applies to the size, which is
-       what [--tw-drop-shadow-color] overrides. [--tw-drop-shadow] keeps the
-       token's own value: a project that overrides [--drop-shadow] is referenced
-       there, and the default two-shadow stack is written out. *)
-    let size_and_shadow =
-      match Scheme.theme_value theme "drop-shadow" with
-      | Some _ ->
-          [
-            bind_drop_shadow_size
-              (drop_shadow_filter Zero (Px 1.) (Some (Px 1.)) fallback);
-            bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
-          ]
-      | None ->
-          [
-            bind_drop_shadow_size
-              (drop_shadow_default_size (Option.Some fallback));
-            bind_drop_shadow drop_shadow_default_literal;
-          ]
-    in
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      (theme_decl_if_set ?theme "drop-shadow"
-      @ Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
-          alpha_str
-        :: size_and_shadow
-      @ [ filter composable_filter_chain ])
+  (* The default two-layer drop shadow, the value of the deprecated
+     [--drop-shadow] token. *)
+  let drop_shadow_default_bodies : Css.shadow_body list =
+    List.filter_map
+      (function (Css.Shadow body : Css.shadow) -> Some body | _ -> None)
+      [
+        Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 2.)
+          ~color:(Css.hex "#0000001a") ();
+        Css.shadow ~h_offset:Zero ~v_offset:(Px 1.) ~blur:(Px 1.)
+          ~color:(Css.hex "#0000000f") ();
+      ]
 
-  (* [drop-shadow-xl/25]: the named size with its default colour replaced by
-     black at that alpha, which leaves the theme token out of it entirely. *)
-  let drop_shadow_size_geometry : string -> (Css.length * Css.length) option =
-    function
-    | "xs" -> Option.Some (Css.Px 1., Css.Px 1.)
-    | "sm" -> Option.Some (Css.Px 1., Css.Px 2.)
-    | "md" -> Option.Some (Css.Px 3., Css.Px 3.)
-    | "lg" -> Option.Some (Css.Px 4., Css.Px 4.)
-    | "xl" -> Option.Some (Css.Px 9., Css.Px 7.)
-    | "2xl" -> Option.Some (Css.Px 25., Css.Px 25.)
-    | _ -> Option.None
-
-  (* An arbitrary drop shadow under a modifier. The alpha replaces each layer's
-     own, as Tailwind's [oklab(from <colour> l a b / <alpha>)] does: a colour
-     with sRGB bytes folds at build time, and one the browser resolves, a
-     [var()] or [currentcolor], keeps its spelling in the fallback and takes the
-     relative form behind a guard, where the alpha alone is the part a browser
-     without relative colours would lose. *)
-  let drop_shadow_arbitrary_opacity bodies opacity =
-    let alpha = Color.opacity_to_percent opacity /. 100. in
-    let tail =
-      "l a b / "
-      ^ Css.Pp.string_of_float (Color.opacity_to_percent opacity)
-      ^ "%"
-    in
-    let colour_of (body : Css.shadow_body) =
+  (* A drop shadow list under a modifier: the scale's, an arbitrary one or a
+     project token's. Tailwind writes the alpha into every layer's colour the
+     way it does for a box shadow; [--tw-drop-shadow] reads the size, or keeps
+     the deprecated [--drop-shadow] token's own value for the bare utility. *)
+  let drop_shadow_alpha_style ?(lead = []) ~shadow bodies opacity =
+    let colour_of (body : Css.shadow_body) : Css.color =
       match body.color with Some c -> c | None -> Css.Current
     in
-    let folded body = Color.oklab_alpha (colour_of body) alpha in
-    (* [currentcolor] takes the alpha through a [color-mix()], every other
-       colour the browser resolves through a relative [oklab()]; the guard tests
-       for whichever the sheet uses. *)
-    let is_current body = colour_of body = Css.Current in
-    let size ~guarded =
+    let rebuild colours =
       let layers =
-        List.map
-          (fun (body : Css.shadow_body) ->
-            let color =
-              match folded body with
-              | Some c -> c
-              | None ->
-                  if not guarded then colour_of body
-                  else if is_current body then
-                    Color.mix_alpha opacity Css.Current
-                  else Css.Relative_color ("oklab", colour_of body, tail)
-            in
+        List.map2
+          (fun (body : Css.shadow_body) colour ->
             Css.Drop_shadow
               (Css.shadow ~h_offset:body.h_offset ~v_offset:body.v_offset
                  ?blur:body.blur ?spread:body.spread
-                 ~color:(Css.Var (drop_shadow_color_ref color))
+                 ~color:(Css.Var (drop_shadow_color_ref colour))
                  ()))
-          bodies
+          bodies colours
       in
-      match layers with [ one ] -> one | many -> Css.List many
+      bind_drop_shadow_size
+        (match layers with [ one ] -> one | many -> Css.List many)
     in
-    let alpha_decl =
-      Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
-        (Css.Pp.string_of_float (Color.opacity_to_percent opacity) ^ "%")
+    let size_decl, supports =
+      Color.shadow_alpha_decls opacity
+        ~colours:(List.map colour_of bodies)
+        ~rebuild
     in
+    let alpha_decl = drop_shadow_alpha_decl opacity in
     let tail_decls =
-      [ bind_drop_shadow drop_shadow_size_ref; filter composable_filter_chain ]
+      lead @ [ bind_drop_shadow shadow; filter composable_filter_chain ]
     in
-    if List.for_all (fun body -> Option.is_some (folded body)) bodies then
-      style ~metadata:filter_property_metadata
-        ~property_rules:filter_property_rules
-        ((alpha_decl :: [ bind_drop_shadow_size (size ~guarded:false) ])
-        @ tail_decls)
-    else
-      let placeholder = Css.Selector.class_ "_" in
-      let unguarded =
-        Css.rule ~selector:placeholder
-          [ alpha_decl; bind_drop_shadow_size (size ~guarded:false) ]
-      in
-      let guarded =
-        Css.supports
-          ~condition:
-            (if List.exists is_current bodies then
-               Color.color_mix_supports_condition
-             else Css.Supports.property "color" "lab(from red l a b)")
-          [
-            Css.rule ~selector:placeholder
-              [ bind_drop_shadow_size (size ~guarded:true) ];
-          ]
-      in
-      style
-        ~rules:(Option.Some [ unguarded; guarded ])
-        ~metadata:filter_property_metadata ~property_rules:filter_property_rules
-        tail_decls
+    match supports with
+    | Option.None ->
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
+          ((alpha_decl :: [ size_decl ]) @ tail_decls)
+    | Option.Some guarded ->
+        let unguarded =
+          Css.rule ~selector:(Css.Selector.class_ "_") [ alpha_decl; size_decl ]
+        in
+        style
+          ~rules:(Option.Some [ unguarded; guarded ])
+          ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules tail_decls
 
-  let drop_shadow_size_opacity (v, blur) opacity =
-    let percent =
-      match opacity with Color.Opacity_percent p -> p.value | _ -> 100.
+  let drop_shadow_arbitrary_opacity bodies opacity =
+    drop_shadow_alpha_style ~shadow:drop_shadow_size_ref bodies opacity
+
+  (* [drop-shadow-<name>/<alpha>] for a project [--drop-shadow-<name>]. *)
+  let drop_shadow_named_opacity ?theme name opacity =
+    match drop_shadow_theme_bodies ?theme name with
+    | None -> invalid_arg ("drop-shadow-" ^ name ^ ": no such theme token")
+    | Some (_, bodies) -> drop_shadow_arbitrary_opacity bodies opacity
+
+  (* [drop-shadow-xl/25]: the scale's shadow, a project override of it first,
+     with the alpha in place of its colour's own. *)
+  let drop_shadow_size_opacity ?theme size opacity =
+    let bodies =
+      match drop_shadow_theme_bodies ?theme size with
+      | Some (_, bodies) -> bodies
+      | None -> Option.to_list (drop_shadow_scale_body size)
     in
-    let alpha_str =
-      if Float.is_integer percent then
-        string_of_int (int_of_float percent) ^ "%"
-      else Css.Pp.string_of_float percent ^ "%"
-    in
-    let fallback = Color.hex_to_oklab_alpha "#000000" (percent /. 100.) in
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      [
-        Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
-          alpha_str;
-        bind_drop_shadow_size
-          (drop_shadow_filter Zero v (Option.Some blur) fallback);
-        bind_drop_shadow drop_shadow_size_ref;
-        filter composable_filter_chain;
-      ]
+    drop_shadow_arbitrary_opacity bodies opacity
+
+  (* [drop-shadow/25]: the modifier recolours the shadow, so it applies to the
+     size, which is what [--tw-drop-shadow-color] overrides. [--tw-drop-shadow]
+     keeps the token's own value: a project that overrides [--drop-shadow] is
+     referenced there, and the default two-shadow stack is written out. *)
+  let drop_shadow_opacity ?theme opacity =
+    match shadow_token_bodies ?theme "drop-shadow" with
+    | Some (_, bodies) ->
+        drop_shadow_alpha_style
+          ~lead:(theme_decl_if_set ?theme "drop-shadow")
+          ~shadow:(drop_shadow_theme_ref "drop-shadow")
+          bodies opacity
+    | None ->
+        drop_shadow_alpha_style ~shadow:drop_shadow_default_literal
+          drop_shadow_default_bodies opacity
 
   (* The filter list behind [filter-[...]] and [backdrop-filter-[...]]. A
      bracket spells its spaces with [_], so a chain such as
@@ -1482,6 +1416,12 @@ module Handler = struct
     let blur_none () = blur_none ~theme () in
     let drop_shadow_ () = drop_shadow_ ~theme () in
     let drop_shadow_named name = drop_shadow_named ~theme name in
+    let drop_shadow_named_opacity name op =
+      drop_shadow_named_opacity ~theme name op
+    in
+    let drop_shadow_size_opacity size op =
+      drop_shadow_size_opacity ~theme size op
+    in
     let drop_shadow_opacity op = drop_shadow_opacity ~theme op in
     let backdrop_blur_none () = backdrop_blur_none ~theme () in
     function
@@ -1519,16 +1459,17 @@ module Handler = struct
     | Hue_rotate_raw (_, value) -> hue_rotate_raw value
     | Neg_hue_rotate_arbitrary (_, angle) -> neg_hue_rotate_arbitrary angle
     | Drop_shadow -> drop_shadow_ ()
-    | Drop_shadow_xs -> drop_shadow_xs_ ()
-    | Drop_shadow_sm -> drop_shadow_sm_ ()
-    | Drop_shadow_md -> drop_shadow_md_ ()
-    | Drop_shadow_lg -> drop_shadow_lg_ ()
-    | Drop_shadow_xl -> drop_shadow_xl_ ()
-    | Drop_shadow_2xl -> drop_shadow_2xl_ ()
+    | Drop_shadow_xs -> drop_shadow_sized ~theme "xs"
+    | Drop_shadow_sm -> drop_shadow_sized ~theme "sm"
+    | Drop_shadow_md -> drop_shadow_sized ~theme "md"
+    | Drop_shadow_lg -> drop_shadow_sized ~theme "lg"
+    | Drop_shadow_xl -> drop_shadow_sized ~theme "xl"
+    | Drop_shadow_2xl -> drop_shadow_sized ~theme "2xl"
     | Drop_shadow_multi -> drop_shadow_multi_
     | Drop_shadow_none -> drop_shadow_none
     | Drop_shadow_inherit -> drop_shadow_inherit_
     | Drop_shadow_named name -> drop_shadow_named name
+    | Drop_shadow_named_opacity (name, op) -> drop_shadow_named_opacity name op
     | Drop_shadow_arbitrary (_, size) -> drop_shadow_arbitrary_impl size
     | Drop_shadow_arbitrary_opacity (_, bodies, op) ->
         drop_shadow_arbitrary_opacity bodies op
@@ -1540,7 +1481,7 @@ module Handler = struct
     | Drop_shadow_keyword_color (c, _) -> drop_shadow_keyword_color c
     | Drop_shadow_keyword_color_opacity (c, _, opacity) ->
         drop_shadow_keyword_color_opacity c opacity
-    | Drop_shadow_size_opacity (_, geom, op) -> drop_shadow_size_opacity geom op
+    | Drop_shadow_size_opacity (size, op) -> drop_shadow_size_opacity size op
     | Backdrop_blur_none -> backdrop_blur_none ()
     | Backdrop_blur_xs -> backdrop_blur_xs ()
     | Backdrop_blur_sm -> backdrop_blur_sm ()
@@ -1605,8 +1546,9 @@ module Handler = struct
        including arbitrary and project-defined values. *)
     | Drop_shadow_2xl | Drop_shadow_arbitrary _
     | Drop_shadow_arbitrary_opacity _ | Drop_shadow_raw _ | Drop_shadow_lg
-    | Drop_shadow_md | Drop_shadow_multi | Drop_shadow_named _ | Drop_shadow_sm
-    | Drop_shadow_xs | Drop_shadow_xl ->
+    | Drop_shadow_md | Drop_shadow_multi | Drop_shadow_named _
+    | Drop_shadow_named_opacity _ | Drop_shadow_sm | Drop_shadow_xs
+    | Drop_shadow_xl ->
         2703
     | Drop_shadow_none -> 2708
     (* Every drop-shadow colour shares one slot, after the sizes: Tailwind
@@ -1819,10 +1761,12 @@ module Handler = struct
                 Ok (Drop_shadow_named full)
             | Error _ -> err_not_utility)
         | op -> (
-            match drop_shadow_size_geometry base with
-            | Option.Some geom -> Ok (Drop_shadow_size_opacity (base, geom, op))
+            match drop_shadow_scale_body base with
+            | Option.Some _ -> Ok (Drop_shadow_size_opacity (base, op))
             | Option.None -> (
                 if base = "" then Ok (Drop_shadow_opacity op)
+                else if drop_shadow_theme_bodies ~theme base <> Option.None then
+                  Ok (Drop_shadow_named_opacity (base, op))
                 else if base = "inherit" then
                   Ok (Drop_shadow_keyword_color_opacity (Css.Inherit, base, op))
                 else if base = "transparent" then
@@ -1984,6 +1928,8 @@ module Handler = struct
     | Drop_shadow_none -> "drop-shadow-none"
     | Drop_shadow_inherit -> "drop-shadow-inherit"
     | Drop_shadow_named name -> "drop-shadow-" ^ name
+    | Drop_shadow_named_opacity (name, op) ->
+        "drop-shadow-" ^ name ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_arbitrary (s, _) -> "drop-shadow-" ^ s
     | Drop_shadow_arbitrary_opacity (s, _, op) ->
         "drop-shadow-" ^ s ^ "/" ^ Color.pp_opacity op
@@ -1998,7 +1944,7 @@ module Handler = struct
     | Drop_shadow_keyword_color (_, name) -> "drop-shadow-" ^ name
     | Drop_shadow_keyword_color_opacity (_, name, opacity) ->
         "drop-shadow-" ^ name ^ "/" ^ Color.pp_opacity opacity
-    | Drop_shadow_size_opacity (size, _, op) ->
+    | Drop_shadow_size_opacity (size, op) ->
         "drop-shadow-" ^ size ^ "/" ^ Color.pp_opacity op
     | Backdrop_blur_none -> "backdrop-blur-none"
     | Backdrop_blur_xs -> "backdrop-blur-xs"

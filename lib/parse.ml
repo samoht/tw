@@ -743,3 +743,42 @@ let split_class class_name =
       let parts = split_class_uncached class_name in
       Domain.DLS.set last_split (Some (class_name, parts));
       parts
+
+(* Tailwind reads a shadow by taking its lengths and leaving what is left as the
+   colour, so a trailing [var()] the shadow grammar read as the next length slot
+   is the colour: [0 1px 2px var(--c)] paints with [--c]. The reference keeps
+   its name and a syntactic fallback; a length fallback is no colour. *)
+let colour_of_length_var (v : Cascade.Css.length Cascade.Css.var) :
+    Cascade.Css.color Cascade.Css.var =
+  let fallback : Cascade.Css.color Cascade.Css.fallback =
+    match v.Cascade.Values.fallback with
+    | Fallback _ | None -> None
+    | Empty -> Empty
+    | Empty2 -> Empty2
+    | Syntax_fallback cv -> Syntax_fallback cv
+    | Var_fallback s -> Var_fallback s
+  in
+  Cascade.Css.var_ref ~fallback ?layer:v.Cascade.Values.layer
+    ?meta:v.Cascade.Values.meta ~runtime:v.Cascade.Values.runtime
+    v.Cascade.Values.name
+
+let trailing_var_as_colour (body : Cascade.Css.shadow_body) :
+    Cascade.Css.shadow_body =
+  let colour v : Cascade.Css.color = Var (colour_of_length_var v) in
+  match body with
+  | { color = None; spread = Some (Var v); _ } ->
+      { body with spread = None; color = Some (colour v) }
+  | { color = None; spread = None; blur = Some (Var v); _ } ->
+      { body with blur = None; color = Some (colour v) }
+  | _ -> body
+
+let shadow s : Cascade.Css.shadow option =
+  let rec reslot : Cascade.Css.shadow -> Cascade.Css.shadow = function
+    | Shadow body -> Shadow (trailing_var_as_colour body)
+    | Inset (Body body) -> Inset (Body (trailing_var_as_colour body))
+    | Inset (Toggle t) ->
+        Inset (Toggle { t with body = trailing_var_as_colour t.body })
+    | List layers -> List (List.map reslot layers)
+    | other -> other
+  in
+  Option.map reslot (Cascade.Css.parse_shadow s)

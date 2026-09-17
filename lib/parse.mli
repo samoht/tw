@@ -270,3 +270,9 @@ val split_on_colon : string -> string list
     separator. Always yields (colon count + 1) tokens: e.g. ["hover:focus:p-4"]
     becomes [["hover"; "focus"; "p-4"]], and a string with no unbracketed colon
     becomes a single-element list. *)
+
+val shadow : string -> Cascade.Css.shadow option
+(** [shadow s] reads [s] as a box-shadow list the way Tailwind does: the lengths
+    are taken and what is left is the colour, so a trailing [var()] in a length
+    slot is the colour ([0 1px 2px var(--c)] paints with [--c]). [None] when [s]
+    is not a shadow. *)

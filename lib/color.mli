@@ -534,6 +534,40 @@ val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
 (** [divide_current_with_opacity opacity selector] generates divide currentColor
     with opacity using the given selector. *)
 
+val relative_color_supports : Css.Supports.t
+(** [relative_color_supports] is the guard for relative colour syntax:
+    [(color: lab(from red l a b))]. *)
+
+val opacity_percentage : opacity_modifier -> Css.percentage
+(** [opacity_percentage opacity] is the alpha a modifier writes into an alpha
+    channel: a percentage, or the custom property a bracket alpha reads. *)
+
+val opacity_alpha_value : opacity_modifier -> Css.percentage
+(** [opacity_alpha_value opacity] is what a family's [--tw-<family>-alpha]
+    channel is set to: the percentage, the custom property a bracket alpha
+    reads, or the author's own unscaled number for a bracket alpha with no [%],
+    which is what Tailwind writes for [shadow-lg/[25]]. *)
+
+val relative_alpha : opacity_modifier -> Css.color -> Css.color
+(** [relative_alpha opacity c] is Tailwind's [oklab(from c l a b / alpha)]: [c]
+    with the modifier's alpha in place of its own. *)
+
+val shadow_alpha_decls :
+  opacity_modifier ->
+  colours:Css.color list ->
+  rebuild:(Css.color list -> Css.declaration) ->
+  Css.declaration * Css.statement option
+(** [shadow_alpha_decls opacity ~colours ~rebuild] is a shadow list under an
+    opacity modifier, one colour per layer, as Tailwind writes it: the
+    declaration [rebuild] makes of the colours every browser reads, and, when a
+    layer needs one, the [\@supports] block holding the declaration made of the
+    alpha-carrying forms. A colour whose channels the class names folds the
+    alpha in at build time; [currentcolor] takes it through a [color-mix()]
+    behind that guard; a [var()] colour, or an alpha read from a custom
+    property, keeps every layer's authored colour in the open and takes the
+    alpha behind the relative colour guard, with the [color-mix()] guard nested
+    inside it for a [currentcolor] layer. *)
+
 val opacity_to_percent : opacity_modifier -> float
 (** [opacity_to_percent modifier] returns the opacity as a float percentage. *)
 
