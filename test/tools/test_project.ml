@@ -362,6 +362,42 @@ let test_declared_variant_keeps_its_place () =
   check bool "before: still registers --tw-content" true
     (Astring.String.is_infix ~affix:"@property --tw-content" css)
 
+(* Tailwind tries every utility registered for a root, so a candidate a
+   project's functional declaration declines falls to the built-in one:
+   [tab-[13]] under [@utility tab-* { tab-size: --value(integer) }] is the
+   built-in [tab-*]'s, which takes the bracket. The declaration claimed every
+   candidate of its root, and the bracket came out as nothing. *)
+let test_functional_declaration_falls_back () =
+  let css =
+    compiled ~classes:[ "tab-4"; "tab-[13]" ] "functional-fallback"
+      "@utility tab-* { tab-size: --value(integer); }\n"
+  in
+  check_rules css
+    ~present:[ ".tab-4{tab-size:4}"; ".tab-\\[13\\]{tab-size:13}" ]
+    ~absent:[]
+
+(* A [!] on a declared utility marks its declarations [!important], under a
+   variant and in the v3 prefix form alike, as Tailwind marks them. The mark
+   stayed on the name, which named no declaration, so the class came out as
+   nothing. *)
+let test_declared_utility_important () =
+  let css =
+    compiled
+      ~classes:[ "content-auto!"; "!content-auto"; "dark:content-auto!" ]
+      "declared-important"
+      "@utility content-auto { content-visibility: auto; }\n\
+       @custom-variant dark (&:where(.dark, .dark *));\n"
+  in
+  check_rules css
+    ~present:
+      [
+        ".content-auto\\!{content-visibility:auto!important}";
+        ".\\!content-auto{content-visibility:auto!important}";
+        ".dark\\:content-auto\\!:where(.dark,.dark \
+         *){content-visibility:auto!important}";
+      ]
+    ~absent:[]
+
 (* The bare [--*: initial] takes the [--default-*] tokens away. Tailwind spells
    each read of one [--theme(--default-<x>, <fallback>)]: preflight then writes
    the font stack and [normal] themselves, and the transition family the
@@ -455,6 +491,10 @@ let suite =
         test_declared_variant_keeps_its_place;
       test_case "a whole-theme reset resolves the defaults" `Quick
         test_whole_theme_reset_resolves_the_defaults;
+      test_case "a functional declaration falls back" `Quick
+        test_functional_declaration_falls_back;
+      test_case "a declared utility takes the important mark" `Quick
+        test_declared_utility_important;
       test_case "forms plugin base" `Quick test_forms_plugin_base;
       test_case "forms plugin base without preflight" `Quick
         test_forms_plugin_base_without_preflight;
