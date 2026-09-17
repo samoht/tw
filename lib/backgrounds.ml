@@ -1396,13 +1396,9 @@ module Handler = struct
     (* A data-type hint says how to read the value written after it; only a
        var() reference there names a custom property. *)
     let hinted =
-      List.find_map
-        (fun prefix ->
-          let n = String.length prefix in
-          if String.length inner > n && String.sub inner 0 n = prefix then
-            Some (String.sub inner n (String.length inner - n))
-          else None)
-        [ "percentage:"; "length:" ]
+      match Parse.data_type_hint inner with
+      | Some (("percentage" | "length"), value) -> Some value
+      | _ -> None
     in
     let value = Option.value hinted ~default:inner in
     if Parse.is_var value then Some (var_ref value)

@@ -1035,13 +1035,9 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         let starts prefix s = String.starts_with ~prefix s in
         let hinted_width =
-          List.find_map
-            (fun prefix ->
-              if starts prefix inner then
-                let n = String.length prefix in
-                Some (String.sub inner n (String.length inner - n))
-              else None)
-            [ "length:"; "number:"; "percentage:" ]
+          match Parse.data_type_hint inner with
+          | Some (("length" | "number" | "percentage"), value) -> Some value
+          | _ -> None
         in
         (* A data-type hint says how to read the value written after it; only a
            var() reference there names a custom property. *)

@@ -371,13 +371,9 @@ module Handler = struct
      stroke width, so it is refused here rather than reaching to_style. *)
   let parse_bracket_stroke_width inner =
     let hinted =
-      List.find_map
-        (fun prefix ->
-          if starts prefix inner then
-            let n = String.length prefix in
-            Some (String.sub inner n (String.length inner - n))
-          else None)
-        [ "length:"; "number:"; "percentage:" ]
+      match Parse.data_type_hint inner with
+      | Some (("length" | "number" | "percentage"), value) -> Some value
+      | _ -> None
     in
     (* A data-type hint says how to read the value written after it; only a
        var() reference there names a custom property. *)
