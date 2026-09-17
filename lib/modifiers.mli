@@ -726,6 +726,10 @@ val apply : ?theme:Scheme.t -> string list -> t -> t option
 
 (** {1 Container Query Helpers} *)
 
+val negate_container : Css.Container.t -> Css.Container.t
+(** [negate_container c] is [c] negated, a double negation cancelled and the
+    negation pushed inside a named container: [name (C)] is [name (not C)]. *)
+
 val container_query_of_token :
   ?theme:Scheme.t -> string -> Style.container_query option
 (** [container_query_of_token ?theme token] reads the container query one

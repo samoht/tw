@@ -1754,15 +1754,13 @@ let try_not_shorthand inner =
   else None
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
-    starting style, children/descendants, and container queries cannot be
-    negated: a container query has no negated selector form, and tw used to
-    build [.not-\@md\:flex:not(.flex)] for one, negating the utility's own class
-    so the rule matched nothing. *)
+    starting style and children/descendants cannot be negated; a container query
+    can, as [\@container not (width >= 28rem)]. *)
 let is_not_compatible = function
   | Pseudo_before | Pseudo_after | Pseudo_marker | Pseudo_selection
   | Pseudo_placeholder | Pseudo_backdrop | Pseudo_file | Pseudo_first_letter
   | Pseudo_first_line | Pseudo_details_content | Starting | Children
-  | Descendants | Prose_element _ | Container _ ->
+  | Descendants | Prose_element _ ->
       false
   (* A bracket [@media] at-rule wraps the utility in a query and has no selector
      to negate or to look for; [not-[@media ...]] has its own reading, and
@@ -1789,6 +1787,14 @@ let rec at_rule_only = function
       || (String.length content > 9 && String.sub content 0 9 = "@supports")
   | Not m -> at_rule_only m
   | m -> renders_as_media m && not (involves_hover m)
+
+(* The variants a [group-not-] or [peer-not-] holds. A plain [not-hover] is fine
+   - it negates the selector and keeps the hover media gate - but a group or
+   peer negation has only the selector, so an inner with an at-rule half, a
+   breakpoint or a container as much as [hover], leaves it nothing to emit, and
+   Tailwind compiles nothing for it. *)
+let scoped_negation_holds m =
+  is_not_compatible m && (not (at_rule_only m)) && not (involves_hover m)
 
 (* The variants a [has-] or [in-] holds: those with a selector of their own. An
    at-rule variant has none. A negation has one unless it negates an at-rule,
@@ -1900,13 +1906,13 @@ let parse_group_peer_not_inner rest =
         let name = String.sub rest (i + 1) (String.length rest - i - 1) in
         let inner_mod =
           match List.assoc_opt inner_str simple_modifiers with
-          | Some m when not (renders_as_media m) -> Some m
+          | Some m when scoped_negation_holds m -> Some m
           | Some _ | None -> None
         in
         Option.map (fun m -> (m, Some name)) inner_mod
     | None -> (
         match List.assoc_opt rest simple_modifiers with
-        | Some m when not (renders_as_media m) -> Some (m, None)
+        | Some m when scoped_negation_holds m -> Some (m, None)
         | Some _ | None -> None)
 
 (* Try to parse compound named group variants: not-group-STATE/name,
@@ -2316,11 +2322,7 @@ and try_group_peer_not_variant ~theme s =
         split_name (String.sub s plen (String.length s - plen))
       in
       match parse_modifier ~theme base with
-      (* A plain [not-hover] is fine - it negates the selector and keeps the
-         hover media gate. A group or peer negation has only the selector, so a
-         media-rendered inner leaves it with nothing to emit. *)
-      | Some m when is_not_compatible m && not (renders_as_media m) ->
-          Some (make m name)
+      | Some m when scoped_negation_holds m -> Some (make m name)
       | Some _ | None -> None
   in
   match try_prefix "group-not-" (fun i n -> Group_not (i, n)) with
