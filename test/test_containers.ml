@@ -236,6 +236,67 @@ let test_container_size_reads_the_theme () =
   has "@lg/main:flex" "@container main (width>=40rem)";
   has "@md:flex" "@container(width>=28rem)"
 
+(* A size the project declares as [--container-<name>] names a query the way the
+   built-in scale does, under [@min-], [@max-] and a [/name] tail, and sorts
+   among the built-in sizes by its width, as Tailwind sorts it. It was an
+   unknown modifier, where [max-w-<name>] read the token. *)
+let test_container_theme_size () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("container-hero", "100rem"); ("container-card", "20rem") ]
+  in
+  let sheet classes =
+    let utilities =
+      List.map
+        (fun cls ->
+          match Tw.of_string ~theme cls with
+          | Ok u -> u
+          | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+        classes
+    in
+    Tw.to_css ~theme ~base:false utilities |> Tw.Css.to_string ~minify:true
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      cls true
+      (Astring.String.is_infix ~affix (sheet [ cls ]))
+  in
+  has "@hero:flex" "@container(width>=100rem)";
+  has "@min-hero:flex" "@container(width>=100rem)";
+  has "@max-hero:hidden" "@container not (width>=100rem)";
+  has "@hero/main:flex" "@container main (width>=100rem)";
+  Alcotest.(check bool)
+    "a name the theme does not bind is no query" true
+    (Result.is_error (Tw.of_string ~theme "@nothing:flex"));
+  let classes =
+    [
+      "@hero:flex";
+      "@sm:flex";
+      "@max-card:flex";
+      "@card:flex";
+      "@lg:flex";
+      "@max-hero:flex";
+    ]
+  in
+  let css = sheet classes in
+  let position cls =
+    let sub = "." ^ Tw.Rule.escape_class_name cls in
+    match Astring.String.find_sub ~sub css with
+    | Some i -> i
+    | None -> Alcotest.failf "no %s in %s" cls css
+  in
+  Alcotest.(check (list string))
+    "every upper bound first, then the widths ascending"
+    [
+      "@max-hero:flex";
+      "@max-card:flex";
+      "@card:flex";
+      "@sm:flex";
+      "@lg:flex";
+      "@hero:flex";
+    ]
+    (List.sort (fun a b -> Int.compare (position a) (position b)) classes)
+
 (* A size the block removed names no query, under [@min-], [@max-] and a [/name]
    tail alike, the way a removed breakpoint names no variant. *)
 let test_removed_container_size_drops_its_variants () =
@@ -260,6 +321,7 @@ let tests =
       test_container_size_reads_the_theme;
     test_case "a removed size drops its variants" `Quick
       test_removed_container_size_drops_its_variants;
+    test_case "a project size names a query" `Quick test_container_theme_size;
     test_case "container reads the breakpoint scale" `Quick
       test_container_reads_the_breakpoint_scale;
     test_case "variant width order" `Quick test_variant_width_order;
