@@ -234,11 +234,7 @@ let builtin_variants =
 module Index = Cascade.Source_index
 
 (* Whether [css] spells [name] anywhere. *)
-let mentions name css =
-  let n = String.length name and len = String.length css in
-  let rec at i j = j = n || (css.[i + j] = name.[j] && at i (j + 1)) in
-  let rec from i = i + n <= len && (at i 0 || from (i + 1)) in
-  from 0
+let mentions name css = Re.execp (Re.compile (Re.str name)) css
 
 (* [css] copied with [step] rewriting it. [step index buf i] runs at each offset
    nothing has been copied from yet: it writes to [buf] what stands for the
@@ -367,13 +363,18 @@ let rec expand_braces pattern =
                 alternatives)
             (expand_braces suffix))
 
-(* The text of a quoted argument. The bundle refuses an unquoted one. *)
-let quoted_contents body =
-  let body = String.trim body in
-  let n = String.length body in
-  if n >= 2 && (body.[0] = '"' || body.[0] = '\'') && body.[n - 1] = body.[0]
-  then Some (String.sub body 1 (n - 2))
+(* [s] without the matching quotes around it, when it has them. *)
+let strip_quotes s =
+  let n = String.length s in
+  if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
+    Some (String.sub s 1 (n - 2))
   else None
+
+(* [s] unquoted when it is quoted, else as it is. *)
+let unquote s = Option.value ~default:s (strip_quotes s)
+
+(* The text of a quoted argument. The bundle refuses an unquoted one. *)
+let quoted_contents body = strip_quotes (String.trim body)
 
 (* [@source inline("...")] is the safelist and [@source not inline("...")] the
    blocklist. The argument is read off the [inline()] call inside the statement,
@@ -546,13 +547,7 @@ let references_tailwind css =
    "class"] leaves the controls alone and styles only the [form-*] classes. *)
 let forms_base css =
   let index = Index.v css in
-  let unquote s =
-    let s = String.trim s in
-    let n = String.length s in
-    if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
-      String.sub s 1 (n - 2)
-    else s
-  in
+  let unquote s = unquote (String.trim s) in
   let names_forms prelude =
     String.equal (unquote prelude) "@tailwindcss/forms"
   in
@@ -755,35 +750,23 @@ let segment sep s =
 let is_digit c = c >= '0' && c <= '9'
 
 (* A [<number>] as a candidate spells one: an optional sign, digits with at most
-   one decimal point, and an optional exponent. *)
-let is_number text =
-  let n = String.length text in
-  let i = ref 0 in
-  if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
-  let digits () =
-    let from = !i in
-    while !i < n && is_digit text.[!i] do
-      incr i
-    done;
-    !i - from
-  in
-  let whole = digits () in
-  let fraction =
-    if !i < n && text.[!i] = '.' then (
-      incr i;
-      digits ())
-    else -1
-  in
-  let mantissa = if fraction < 0 then whole >= 1 else fraction >= 1 in
-  let exponent =
-    if !i < n && (text.[!i] = 'e' || text.[!i] = 'E') then begin
-      incr i;
-      if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
-      digits () >= 1
-    end
-    else true
-  in
-  mantissa && exponent && !i = n
+   one decimal point and at least one after it, and an optional exponent. *)
+let number_re =
+  let sign = Re.opt (Re.set "+-") in
+  Re.compile
+    (Re.whole_string
+       (Re.seq
+          [
+            sign;
+            Re.alt
+              [
+                Re.seq [ Re.rep Re.digit; Re.char '.'; Re.rep1 Re.digit ];
+                Re.rep1 Re.digit;
+              ];
+            Re.opt (Re.seq [ Re.set "eE"; sign; Re.rep1 Re.digit ]);
+          ]))
+
+let is_number text = Re.execp number_re text
 
 let is_percentage text =
   let n = String.length text in
@@ -901,8 +884,8 @@ let is_length text =
   || List.exists
        (fun unit ->
          let n = String.length text and u = String.length unit in
-         n > u
-         && String.sub text (n - u) u = unit
+         String.ends_with ~suffix:unit text
+         && n > u
          && is_number (String.sub text 0 (n - u)))
        length_units
 
@@ -962,16 +945,9 @@ let is_named_value s =
 (* [color:var(--x)] carries the hint [color]. A [:] after anything but lower
    case letters and dashes is part of the value, not the end of a hint. *)
 let split_hint text =
-  let n = String.length text in
-  let rec go i =
-    if i >= n then (None, text)
-    else
-      match text.[i] with
-      | ':' -> (Some (String.sub text 0 i), String.sub text (i + 1) (n - i - 1))
-      | c when (c >= 'a' && c <= 'z') || c = '-' -> go (i + 1)
-      | _ -> (None, text)
-  in
-  go 0
+  match Tw.Parse.data_type_hint text with
+  | Some (hint, value) -> (Some hint, value)
+  | None -> (None, text)
 
 let parse_modifier raw =
   let n = String.length raw in
@@ -1764,12 +1740,6 @@ let v3_theme_namespaces =
   ]
 
 let v3_theme_token theme path =
-  let unquote s =
-    let n = String.length s in
-    if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
-      String.sub s 1 (n - 2)
-    else s
-  in
   match String.split_on_char '.' (unquote path) with
   | [] | [ _ ] -> None
   | ns :: rest -> (
@@ -2161,21 +2131,6 @@ let variant_names_in css =
     in
     go 0 []
 
-(* Replace the first occurrence of [needle] in [hay]. *)
-let replace_first ~needle ~by hay =
-  let n = String.length needle and h = String.length hay in
-  let rec at i =
-    if i + n > h then None
-    else if String.sub hay i n = needle then Some i
-    else at (i + 1)
-  in
-  match at 0 with
-  | None -> None
-  | Some i ->
-      Some
-        (String.concat ""
-           [ String.sub hay 0 i; by; String.sub hay (i + n) (h - i - n) ])
-
 (* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
    variants, but only as part of a whole utility, so derive the wrapper from
    what it emits around a probe with a single declaration and put [@slot] where
@@ -2184,10 +2139,7 @@ let replace_first ~needle ~by hay =
    for when the project declared it. *)
 (* Replace every occurrence of [needle] in [hay]. *)
 let replace_all ~needle ~by hay =
-  let rec go hay =
-    match replace_first ~needle ~by hay with Some hay -> go hay | None -> hay
-  in
-  go hay
+  Re.replace_string (Re.compile (Re.str needle)) ~by hay
 
 (* A rule that is the bare [&] alone, as a media variant wraps the probe in,
    adds a nesting level the utility's own body cannot survive: its [@variant

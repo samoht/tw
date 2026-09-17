@@ -72,24 +72,7 @@ let entrypoint ?project_css ?(plugins = []) ?config ?(scanned_files = [])
 (* [-s "p-4 flex"] hands the harness one entry holding two candidates, and both
    routes split it, so what either compiles is the whitespace split of what the
    caller passed. *)
-let candidates classnames =
-  let is_white = function
-    | ' ' | '\t' | '\n' | '\r' | '\012' -> true
-    | _ -> false
-  in
-  let split s =
-    let n = String.length s in
-    let rec loop i start acc =
-      let taken =
-        if i > start then String.sub s start (i - start) :: acc else acc
-      in
-      if i = n then List.rev taken
-      else if is_white s.[i] then loop (i + 1) (i + 1) taken
-      else loop (i + 1) start acc
-    in
-    loop 0 0 []
-  in
-  List.concat_map split classnames
+let candidates classnames = List.concat_map Tw.split_whitespace classnames
 
 (* What the inline string cannot hold reaches the CLI through the extractor and
    nowhere else, which is the one case where a dropped candidate costs a rule

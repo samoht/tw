@@ -2,23 +2,7 @@ let is_whitespace = function
   | 0x20 | 0x09 | 0x0a | 0x0d | 0x0c -> true
   | _ -> false
 
-let split_whitespace s =
-  let len = String.length s in
-  let rec skip_ws i =
-    if i < len && is_whitespace (Char.code s.[i]) then skip_ws (i + 1) else i
-  in
-  let rec find_ws i =
-    if i < len && not (is_whitespace (Char.code s.[i])) then find_ws (i + 1)
-    else i
-  in
-  let rec loop i acc =
-    let start = skip_ws i in
-    if start >= len then List.rev acc
-    else
-      let stop = find_ws start in
-      loop stop (String.sub s start (stop - start) :: acc)
-  in
-  loop 0 []
+let split_whitespace = Tw.split_whitespace
 
 type decoded = { starts : int array; chars : int array }
 

@@ -1,7 +1,8 @@
 (** Tailwind-like source scanning. *)
 
 val split_whitespace : string -> string list
-(** Split a class list on HTML/CSS whitespace. *)
+(** [split_whitespace s] is {!Tw.split_whitespace}: a class list on HTML/CSS
+    whitespace. *)
 
 val candidates : string -> string list
 (** Extract candidate class tokens from UTF-8 source text.
