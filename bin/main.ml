@@ -262,63 +262,66 @@ let browser_verdict ~(opts : gen_opts) ~classes ~tailwind ~tw =
                report);
           if report.differences = [] then 0 else 1)
 
+(* The reference sheet the tailwindcss CLI writes for [classes]. *)
+let reference_css ~(opts : gen_opts) classes =
+  Tw_tools.Tailwind_gen.generate ~minify:opts.minify ~optimize:opts.optimize
+    ~forms:true
+    ?input_css:(reference_entrypoint ~opts)
+    classes
+
+(* [classes ()] runs under the same handler as the CLI, so a source that cannot
+   be scanned reports as a generation error, as it did. *)
+let tailwind_backend ~opts classes =
+  try
+    emit ~opts (reference_css ~opts (classes ()));
+    `Ok 0
+  with e ->
+    `Error
+      (false, Fmt.str "Error generating with Tailwind: %s" (tailwind_error e))
+
+let comparison f =
+  try f ()
+  with e ->
+    `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
+
+(* What both diff modes end in: tw's sheet against the reference, [report]
+   printing the structural diff and answering its exit status, and the browser
+   verdict. The exit statuses rank by gravity, so the graver of the two wins. *)
+let verdict ~opts ~classes ~legacy_css ~our_css report =
+  let diff =
+    Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
+  in
+  let code = report diff in
+  `Ok
+    (max code (browser_verdict ~opts ~classes ~tailwind:legacy_css ~tw:our_css))
+
 let diff_single_class class_str ~(opts : gen_opts) =
   let classes = Tw_tools.Source_scan.split_whitespace class_str in
   match uncovered_refusal ~opts classes with
   | Some reason ->
       Fmt.epr "Error: %s@." reason;
       `Ok 2
-  | None -> (
-      try
-        let legacy_css =
-          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true
-            ?input_css:(reference_entrypoint ~opts)
-            [ class_str ]
-        in
-        match single_class_sheet ~opts ~base:true class_str with
-        | None -> `Error (false, unknown_class_error ~theme:opts.theme class_str)
-        | Some stylesheet ->
-            let our_css = render_css ~opts stylesheet in
-            let diff =
-              Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css
-                our_css
-            in
-            let code =
-              if class_str = "" then print_diff_result " (empty/base only)" diff
-              else (
-                print_oracle_note [ class_str ];
-                print_diff_result
-                  (Fmt.str " between Tailwind and tw for '%s'" class_str)
-                  diff)
-            in
-            (* The exit statuses rank by gravity, so the graver of the two
-               wins. *)
-            `Ok
-              (max code
-                 (browser_verdict ~opts ~classes ~tailwind:legacy_css
-                    ~tw:our_css))
-      with e ->
-        `Error
-          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
+  | None ->
+      comparison (fun () ->
+          let legacy_css = reference_css ~opts [ class_str ] in
+          match single_class_sheet ~opts ~base:true class_str with
+          | None ->
+              `Error (false, unknown_class_error ~theme:opts.theme class_str)
+          | Some stylesheet ->
+              verdict ~opts ~classes ~legacy_css
+                ~our_css:(render_css ~opts stylesheet) (fun diff ->
+                  if class_str = "" then
+                    print_diff_result " (empty/base only)" diff
+                  else (
+                    print_oracle_note [ class_str ];
+                    print_diff_result
+                      (Fmt.str " between Tailwind and tw for '%s'" class_str)
+                      diff)))
 
 let process_single_class class_str flag ~(opts : gen_opts) =
   match opts.backend with
   | Diff -> diff_single_class class_str ~opts
-  | Tailwind -> (
-      try
-        let css =
-          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true
-            ?input_css:(reference_entrypoint ~opts)
-            [ class_str ]
-        in
-        emit ~opts css;
-        `Ok 0
-      with e ->
-        `Error
-          ( false,
-            Fmt.str "Error generating with Tailwind: %s" (tailwind_error e) ))
+  | Tailwind -> tailwind_backend ~opts (fun () -> [ class_str ])
   | Native -> (
       let include_base = eval_flag flag ~default:false in
       match single_class_sheet ~opts ~base:include_base class_str with
@@ -420,29 +423,16 @@ let diff_files paths ~(opts : gen_opts) =
   | Some reason ->
       Fmt.epr "Error: %s@." reason;
       `Ok 2
-  | None -> (
-      try
-        let legacy_css =
-          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true
-            ?input_css:(reference_entrypoint ~opts)
-            all_classes
-        in
-        let _, stylesheet =
-          native_stylesheet ~opts ~include_base:true all_classes
-        in
-        let our_css = render_css ~opts stylesheet in
-        let diff =
-          Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
-        in
-        print_oracle_note all_classes;
-        let code = print_diff_result "" diff in
-        `Ok
-          (max code
-             (browser_verdict ~opts ~classes ~tailwind:legacy_css ~tw:our_css))
-      with e ->
-        `Error
-          (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e)))
+  | None ->
+      comparison (fun () ->
+          let legacy_css = reference_css ~opts all_classes in
+          let _, stylesheet =
+            native_stylesheet ~opts ~include_base:true all_classes
+          in
+          verdict ~opts ~classes ~legacy_css
+            ~our_css:(render_css ~opts stylesheet) (fun diff ->
+              print_oracle_note all_classes;
+              print_diff_result "" diff))
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
@@ -460,20 +450,7 @@ let native_files paths flag ~(opts : gen_opts) =
 let process_files paths flag ~(opts : gen_opts) =
   match opts.backend with
   | Diff -> diff_files paths ~opts
-  | Tailwind -> (
-      try
-        let css =
-          Tw_tools.Tailwind_gen.generate ~minify:opts.minify
-            ~optimize:opts.optimize ~forms:true
-            ?input_css:(reference_entrypoint ~opts)
-            (scanned_classes ~opts paths)
-        in
-        emit ~opts css;
-        `Ok 0
-      with e ->
-        `Error
-          ( false,
-            Fmt.str "Error generating with Tailwind: %s" (tailwind_error e) ))
+  | Tailwind -> tailwind_backend ~opts (fun () -> scanned_classes ~opts paths)
   | Native -> native_files paths flag ~opts
 
 (* A v3 [@config] names a JavaScript config, which tw does not evaluate, so an
