@@ -601,6 +601,16 @@
   `not-not-md:` and `in-not-[.a]:` compile, and `not-not-hover:`, `has-md:`
   or `in-not-group-hover:` are refused rather than compiled to a selector that
   negates the utility's own class (#850).
+- `before:` and `after:` over an inner variant nest as Tailwind nests them:
+  `content` is declared once on `.x::before` under no condition, and the
+  utility's declarations go on `.x::before<inner>` under the inner's own
+  at-rules, `.x::before:hover` inside the hover media for
+  `before:hover:underline`. The two were fused into one rule under the inner's
+  condition with the inner's selector dropped, so the pseudo-element was
+  styled whether hovered or not; `marker:` and `selection:` put the inner's
+  selector after each pseudo-element as well. `@starting-style` nests with a
+  container or supports query in either order, where `starting:@md:` lost the
+  container and `@md:starting:` the block (#855).
 - `not-@md:` negates a container query as Tailwind 4.3.3 writes it,
   `@container not (width >= 28rem)`, the container's name kept outside the
   negation and `not-not-@md:` the query again; the class was refused.
