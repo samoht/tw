@@ -510,6 +510,17 @@
   bracket spelling the `inset` the utility supplies itself, is refused:
   Tailwind writes `inset inset 0 1px red`, which no browser draws, where tw
   drew the shadow the author did not get (#847).
+- A shadow list under a modifier is written the way Tailwind writes it, in
+  every family: a `var()` colour or a `var()` alpha keeps every layer's
+  authored colour in the open and takes the alpha behind the relative colour
+  guard, a `currentcolor` layer through `color-mix()` behind its own guard
+  nested inside, and a colour no hex spells takes the alpha in place of its
+  own, where a `color-mix()` multiplied the two. A trailing `var()` is the
+  colour in a project token as in a bracket, so `--shadow-card: 0 1px 2px
+  var(--c)` paints with `--c` rather than reading it as a spread. A project
+  `--text-shadow-<name>` is a utility, `--drop-shadow-<name>` and
+  `shadow-inner` take a modifier, a sized drop shadow reads its project
+  override, and `shadow-lg/[25]` records the author's own number (#852).
 - A gradient stop with an opacity keeps its theme colour as the palette declares
   it. `to-gray-950/40` registered `--color-gray-950` as `#030712`, which moved
   every other use of the token on the page off the palette's oklch (#822).
