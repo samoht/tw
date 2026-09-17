@@ -165,28 +165,25 @@ rather than from `PATH`.
 
 ### Current measurement
 
-Measured 2026-09-15 on the trees that merged unchanged as tw `main` at
-6c8a0f85 and cascade `main` at f88a46f3, with the tailwindcss 4.3.3 that
-`package-lock.json` pins. The documented command reported:
+Measured 2026-09-17 on tw at 20097b0c, the tip of #847, and cascade `main`
+at 377d7201, with the tailwindcss 4.3.3 that `package-lock.json` pins. The
+documented command reported:
 
 ```text
-minified: tw 661022 bytes, tailwindcss 664632 bytes
-Changes: 1 changed container
-└─ @layer utilities
-   ├─ @media (prefers-color-scheme: dark) (105 blocks merged into 103)
-   ├─ @media (width >= 40rem) (6 blocks merged into 5)
-   ├─ @media (width >= 48rem) (3 blocks merged into 2)
-   └─ @media (width < 64rem) (3 block split into 4)
+minified: tw 661153 bytes, tailwindcss 664632 bytes
+Changes: none classified structurally (see report below)
+top-level entries of tmp/parity/diff.txt:
+  (none)
 ```
 
 The count is only comparable against the cascade it was taken with, which is
-why the sha is quoted beside it. What is left is one shape, and it is
-cascade's: both sheets write the same rules in the same order inside those
-blocks, tw nesting `@media (prefers-color-scheme: dark)` outside the
-breakpoint and Tailwind inside, and the projection sorts a block as one unit
-keyed by whatever rules the input happened to group into it, so the two
-inputs settle into different groupings. Cascade's TODO holds the five-class
-reproducer cut from the site.
+why the sha is quoted beside it. The measurement before it, on 2026-09-15 at
+tw 6c8a0f85 and cascade f88a46f3, reported one changed container: the same
+rules in the same order inside four `@media` blocks, tw nesting
+`@media (prefers-color-scheme: dark)` outside the breakpoint and Tailwind
+inside, which the projection then grouped differently. Cascade's TODO holds
+the five-class reproducer cut from the site, and cascade `main` no longer
+reports it.
 
 The whole class list was rendered on 2026-09-16, in the 97 shards of 50
 `TW_PARITY_RENDER` names, from the tip of the stack this section arrived in
