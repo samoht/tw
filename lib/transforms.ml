@@ -1632,7 +1632,7 @@ module Handler = struct
     | [ "rotate"; n ] when Parse.is_bare_var n ->
         Ok (Rotate_bare_var (Parse.bare_var_inner n))
     | [ "rotate"; n ] when Parse.is_bracket_value n -> (
-        let inner = String.sub n 1 (String.length n - 2) in
+        let inner = Parse.bracket_inner n in
         (* The 3D form is four components, [x y z <angle>]. [_] separates them
            and [\_] is a literal underscore inside one, so the value is decoded
            before it is split. What the axes take is a CSS number, which OCaml's
@@ -1669,9 +1669,7 @@ module Handler = struct
     | [ "rotate"; n ] -> Parse.int_any n >|= fun n -> Rotate n
     | [ "translate"; "x"; n ] when Parse.is_bracket_value n -> (
         match parse_bracket_length n with
-        | Ok len ->
-            Ok
-              (Translate_x_arbitrary (String.sub n 1 (String.length n - 2), len))
+        | Ok len -> Ok (Translate_x_arbitrary (Parse.bracket_inner n, len))
         | Error _ -> (
             let raw = Parse.bracket_inner n in
             match Parse.arbitrary_declaration_value raw with
@@ -1688,9 +1686,7 @@ module Handler = struct
     | [ "translate"; "x"; n ] -> Parse.int_any n >|= fun n -> Translate_x n
     | [ "translate"; "y"; n ] when Parse.is_bracket_value n -> (
         match parse_bracket_length n with
-        | Ok len ->
-            Ok
-              (Translate_y_arbitrary (String.sub n 1 (String.length n - 2), len))
+        | Ok len -> Ok (Translate_y_arbitrary (Parse.bracket_inner n, len))
         | Error _ -> (
             let raw = Parse.bracket_inner n in
             match Parse.arbitrary_declaration_value raw with
@@ -1794,7 +1790,7 @@ module Handler = struct
     | [ ""; "translate"; "z"; n ] ->
         Parse.int_pos ~name:"translate-z" n >|= fun n -> Translate_z (-n)
     | [ "scale"; n ] when Parse.is_bracket_value n -> (
-        let inner = String.sub n 1 (String.length n - 2) in
+        let inner = Parse.bracket_inner n in
         (* Check for multi-value: x_y_z *)
         let parts =
           String.split_on_char '_' inner |> List.filter (fun s -> s <> "")
