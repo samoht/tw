@@ -389,14 +389,15 @@ let max_custom_rule ?theme ?inner_has_hover name base_class selector props =
     (fun name -> "max-" ^ name)
     Css.media_not_min_width_length name base_class selector props
 
-let container_rule ?(inner_has_hover = false) query base_class selector props =
+let container_rule ?theme ?(inner_has_hover = false) query base_class selector
+    props =
   let prefix = Containers.container_query_to_class_prefix query in
   let modified_class = prefix ^ ":" ^ base_class in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
       ~new_class:modified_class selector
   in
-  let condition = Containers.container_query_to_condition query in
+  let condition = Containers.container_query_to_condition ?theme query in
   (* A [theme()] the query read still owes the sheet its binding; carried on the
      rule's own properties, where the theme layer collects it. *)
   let theme_decls = Modifiers.container_query_theme_decls query in
@@ -1730,7 +1731,7 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
   | Style.Max_custom name ->
       max_custom_rule ?theme ~inner_has_hover name base_class selector props
   | Style.Container query ->
-      container_rule ~inner_has_hover query base_class selector props
+      container_rule ?theme ~inner_has_hover query base_class selector props
   (* :not(), :not-bracket, group-not, peer-not — handled in
      apply_modifier_to_rule for multi-rule support *)
   | Style.Not _ | Style.Not_bracket _ | Style.Group_not _ | Style.Peer_not _ ->

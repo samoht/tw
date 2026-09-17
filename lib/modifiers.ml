@@ -2203,6 +2203,18 @@ let container_query_of_token token =
       | Some (Container q) -> Some q
       | Some _ | None -> None)
 
+(* The [--container-*] scale a size query reads, held the way the breakpoints
+   are: a size the [@theme] block removed names nothing, under [@min-], [@max-]
+   and a [/name] tail alike. *)
+let rec container_size_is_defined theme = function
+  | Container_size (_, inner) | Container_scoped (_, inner) ->
+      container_size_is_defined theme inner
+  | ( Container_3xs | Container_2xs | Container_xs | Container_sm | Container_md
+    | Container_lg | Container_xl | Container_2xl | Container_3xl
+    | Container_4xl | Container_5xl | Container_6xl | Container_7xl ) as q ->
+      not (Scheme.is_removed theme ("container-" ^ Style.container_size_name q))
+  | Container_named _ | Container_len _ | Container_len_cmp _ -> true
+
 (* Parse a modifier string into a typed Style.modifier *)
 let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
@@ -2233,7 +2245,9 @@ let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
       (fun () -> try_not_of_modifier ~theme s);
     ]
   in
-  List.find_map (fun f -> f ()) fns
+  match List.find_map (fun f -> f ()) fns with
+  | Some (Container q) when not (container_size_is_defined theme q) -> None
+  | m -> m
 
 (* [group-not-has-[...]] and [peer-not-...]: the inner is any variant, read on
    its own. The reading above only knows the simple state names and a bare

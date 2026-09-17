@@ -201,34 +201,41 @@ let width_cond cmp len =
   | Style.Min -> width_range Css.Media.Ge len
   | Style.Max -> Css.Container.Not (width_range Css.Media.Ge len)
 
+(* The width a named size queries: what the project's [@theme] binds to
+   [--container-<size>], else the scale above. The value is inlined, as Tailwind
+   inlines it, so the token is not declared for the query's sake. *)
+let container_size_length ?(theme = Scheme.default) q =
+  let default = Option.map (fun r : Css.length -> Css.Values.Rem r) in
+  match
+    Option.bind
+      (Scheme.token theme ("container-" ^ Style.container_size_name q))
+      Css.parse_length
+  with
+  | Some _ as len -> len
+  | None -> default (container_size_rem q)
+
 (** Convert a container query modifier to a structured Container.t condition *)
-let rec container_query_to_condition q =
+let rec container_query_to_condition ?theme q =
   let geq len = width_range Css.Media.Ge len in
-  let rem r : Css.length = Css.Values.Rem r in
+  let sized q =
+    Option.value ~default:(Css.Values.Rem 0.) (container_size_length ?theme q)
+  in
   match q with
-  | Style.Container_3xs -> geq (rem 16.)
-  | Style.Container_2xs -> geq (rem 18.)
-  | Style.Container_xs -> geq (rem 20.)
-  | Style.Container_sm -> geq (rem 24.)
-  | Style.Container_md -> geq (rem 28.)
-  | Style.Container_lg -> geq (rem 32.)
-  | Style.Container_xl -> geq (rem 36.)
-  | Style.Container_2xl -> geq (rem 42.)
-  | Style.Container_3xl -> geq (rem 48.)
-  | Style.Container_4xl -> geq (rem 56.)
-  | Style.Container_5xl -> geq (rem 64.)
-  | Style.Container_6xl -> geq (rem 72.)
-  | Style.Container_7xl -> geq (rem 80.)
+  | Style.Container_3xs | Style.Container_2xs | Style.Container_xs
+  | Style.Container_sm | Style.Container_md | Style.Container_lg
+  | Style.Container_xl | Style.Container_2xl | Style.Container_3xl
+  | Style.Container_4xl | Style.Container_5xl | Style.Container_6xl
+  | Style.Container_7xl ->
+      geq (sized q)
   | Style.Container_named ("", width) ->
       geq (Css.Values.Px (float_of_int width))
   | Style.Container_named (name, width) ->
       Css.Container.Named (name, geq (Css.Values.Px (float_of_int width)))
-  | Style.Container_size (cmp, inner) ->
-      width_cond cmp (rem (Option.value ~default:0. (container_size_rem inner)))
+  | Style.Container_size (cmp, inner) -> width_cond cmp (sized inner)
   | Style.Container_len (_, len) -> geq len
   | Style.Container_len_cmp (cmp, _, len) -> width_cond cmp len
   | Style.Container_scoped (name, inner) ->
-      Css.Container.Named (name, container_query_to_condition inner)
+      Css.Container.Named (name, container_query_to_condition ?theme inner)
 
 (* The selector's class prefix and the class name [Utility.to_class] emits have
    to be the same string, so both come from [Style.container_size_name]. *)
