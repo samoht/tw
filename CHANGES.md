@@ -582,6 +582,18 @@
   `not-not-md:` and `in-not-[.a]:` compile, and `not-not-hover:`, `has-md:`
   or `in-not-group-hover:` are refused rather than compiled to a selector that
   negates the utility's own class (#850).
+- `not-@md:` negates a container query as Tailwind 4.3.3 writes it,
+  `@container not (width >= 28rem)`, the container's name kept outside the
+  negation and `not-not-@md:` the query again; the class was refused.
+  `group-not-@md:` and `peer-not-md:` are refused rather than compiled to a
+  selector nothing matches (#851).
+- A variant over a media inner reaches the rule the inner query nests under
+  its own gate: `in-focus:md:hover:flex` puts `:where(:focus)` in front of the
+  class inside the hover media and `hover:md:hover:flex` its second `:hover`,
+  where the nested rule kept the bare class and the outer variant styled
+  nothing. An ancestor variant puts the rest of a compound onto the class,
+  `:where(:focus) .x:hover` for `in-focus:hover:flex`, and `group-not-[.a]:`
+  negates the bracket rather than losing the negation (#851).
 - A `@custom-variant` built on a named `@container` query keeps the name:
   `card:flex` under `@container card (width >= 20rem)` queried the nearest
   container of any name, which is another box wherever one sits closer (#839).
