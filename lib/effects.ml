@@ -306,8 +306,7 @@ module Handler = struct
       Var.property_rule ring_offset_color_var;
       Var.property_rule ring_offset_shadow_var;
     ]
-    |> List.filter_map (fun x -> x)
-    |> Css.concat
+    |> List.filter_map Fun.id |> Css.concat
 
   let shadow_property_metadata =
     [
@@ -1151,7 +1150,7 @@ module Handler = struct
         Var.property_rule ring_offset_color_var;
         Var.property_rule ring_offset_shadow_var;
       ]
-      |> List.filter_map (fun x -> x)
+      |> List.filter_map Fun.id
     in
 
     style
@@ -1171,7 +1170,7 @@ module Handler = struct
   (** Bare [ring] — uses scheme's [default_ring_width] (configurable via
       Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
   let ring_default ?theme () =
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let scheme = Scheme.or_default theme in
     ring_internal scheme.Scheme.default_ring_width
 
   let inset_ring_internal width_px =
@@ -1218,7 +1217,7 @@ module Handler = struct
         Var.property_rule ring_offset_color_var;
         Var.property_rule ring_offset_shadow_var;
       ]
-      |> List.filter_map (fun x -> x)
+      |> List.filter_map Fun.id
     in
     style
       ~property_rules:(Css.concat property_rules)
@@ -1911,7 +1910,7 @@ module Handler = struct
             Var.property_rule ring_offset_color_var;
             Var.property_rule ring_offset_shadow_var;
           ]
-          |> List.filter_map (fun x -> x)
+          |> List.filter_map Fun.id
         in
         style
           ~property_rules:(Css.concat property_rules)

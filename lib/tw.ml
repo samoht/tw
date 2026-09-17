@@ -167,7 +167,7 @@ let split_importance base_class =
 let theme_alpha_percent a =
   let n = String.length a in
   if n > 1 && a.[n - 1] = '%' then float_of_string_opt (String.sub a 0 (n - 1))
-  else Stdlib.Option.map (fun f -> f *. 100.) (float_of_string_opt a)
+  else Option.map (fun f -> f *. 100.) (float_of_string_opt a)
 
 (* Tailwind applies a [theme()] alpha by mixing the colour with transparent,
    which reads whatever the [@theme] bound the palette entry to. *)
@@ -204,7 +204,7 @@ let theme_key_value ~theme path =
          reading the theme would lose parity rather than gain it.
          [Theme.spacing_times] is that same fixed product, and going through it
          is what keeps the two spellings of it in step. *)
-      Stdlib.Option.bind (float_of_string_opt n) Theme.spacing_times
+      Option.bind (float_of_string_opt n) Theme.spacing_times
   | _ -> None
 
 (* The value the resolved theme binds [--<name>] to, with the [\@layer theme]
@@ -218,7 +218,7 @@ let theme_token_binding ~theme name =
   | Some css ->
       Some (css, Cascade.Css.custom_property ~layer:"theme" ("--" ^ name) css)
   | None ->
-      Stdlib.Option.map
+      Option.map
         (fun decl -> (Cascade.Css.declaration_value decl, decl))
         (Color.Handler.theme_color_decl ~theme name)
 

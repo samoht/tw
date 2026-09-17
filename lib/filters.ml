@@ -923,7 +923,7 @@ module Handler = struct
 
   let drop_shadow_color ?theme c shade =
     let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let scheme = Scheme.or_default theme in
     (* srgb fallback: the scheme hex when defined, else the colour resolved
        directly (oklch), matching Tailwind. The default scheme has no hex
        colours, so the old [Scheme.hex_color]-only path raised on every
@@ -992,7 +992,7 @@ module Handler = struct
 
   let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let scheme = Scheme.or_default theme in
     let percent = Color.opacity_to_percent opacity in
     (* The fallback is what a browser without color-mix reads, so it has to be a
        plain hex. [Scheme.hex_color] only holds the hexes a project declared, so
@@ -1618,7 +1618,7 @@ module Handler = struct
             Ok
               (Backdrop_filter_raw
                  ( s,
-                   Stdlib.Option.get
+                   Option.get
                      (Parse.arbitrary_declaration_value (Parse.bracket_inner s))
                  ))
         | Option.None -> err_not_utility)

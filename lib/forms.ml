@@ -113,6 +113,12 @@ let checkbox_focus_decls =
     ]
 
 (* Handler for checkbox/radio/input - priority 3 *)
+(* Every form control clears the box-shadow channel before painting its own
+   border, the way the plugin's reset does. *)
+let shadow_reset =
+  Var.set Effects.shadow_var
+    (Css.shadow ~h_offset:Zero ~v_offset:Zero ~color:(Css.hex "#0000") ())
+
 module Handler = struct
   open Style
 
@@ -125,16 +131,12 @@ module Handler = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-input" in
-    let d_shadow =
-      Var.set Effects.shadow_var
-        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-    in
     let rules =
       [
         rule ~selector:base_sel
           [
             appearance None;
-            d_shadow;
+            shadow_reset;
             background_color (hex "#fff");
             border_width (Px 1.);
             border_color gray_500;
@@ -196,10 +198,6 @@ module Handler = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-checkbox" in
-    let d_shadow =
-      Var.set Effects.shadow_var
-        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-    in
     let rules =
       [
         rule ~selector:base_sel
@@ -211,7 +209,7 @@ module Handler = struct
             webkit_user_select None;
             user_select None;
             color blue_600;
-            d_shadow;
+            shadow_reset;
             background_color (hex "#fff");
             background_origin Border_box;
             border_width (Px 1.);
@@ -289,10 +287,6 @@ module Handler = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-radio" in
-    let d_shadow =
-      Var.set Effects.shadow_var
-        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-    in
     let rules =
       [
         rule ~selector:base_sel
@@ -304,7 +298,7 @@ module Handler = struct
             webkit_user_select None;
             user_select None;
             color blue_600;
-            d_shadow;
+            shadow_reset;
             background_color (hex "#fff");
             background_origin Border_box;
             border_width (Px 1.);
@@ -381,16 +375,12 @@ module Select = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-textarea" in
-    let d_shadow =
-      Var.set Effects.shadow_var
-        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-    in
     let rules =
       [
         rule ~selector:base_sel
           [
             appearance None;
-            d_shadow;
+            shadow_reset;
             background_color (hex "#fff");
             border_width (Px 1.);
             border_color gray_500;
@@ -411,10 +401,6 @@ module Select = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-select" in
-    let d_shadow =
-      Var.set Effects.shadow_var
-        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-    in
     (* Emit a single .form-select base rule, then :focus, then :where(...) -
        matching Tailwind's de-nested layout. Tailwind's source uses CSS nesting
        (.form-select { base; &:focus {..}; more-base; &:where {..} }) which its
@@ -428,7 +414,7 @@ module Select = struct
         rule ~selector:base_sel
           [
             appearance None;
-            d_shadow;
+            shadow_reset;
             background_color (hex "#fff");
             border_width (Px 1.);
             border_color gray_500;
@@ -486,16 +472,12 @@ module Select = struct
     let open Css in
     let open Css.Selector in
     let base_sel = class_ "form-multiselect" in
-    let d_shadow =
-      Var.set Effects.shadow_var
-        (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-    in
     let rules =
       [
         rule ~selector:base_sel
           [
             appearance None;
-            d_shadow;
+            shadow_reset;
             background_color (hex "#fff");
             border_width (Px 1.);
             border_color gray_500;
@@ -681,15 +663,11 @@ let text_input_items =
 (** Text inputs base styles *)
 let text_inputs_base () =
   let open Css in
-  let d_shadow =
-    Var.set Effects.shadow_var
-      (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-  in
   [
     rule ~selector:text_inputs
       [
         appearance None;
-        d_shadow;
+        shadow_reset;
         background_color (hex "#fff");
         border_width (Px 1.);
         border_color gray_500;
@@ -844,10 +822,6 @@ let checkbox_indeterminate_rules () =
     interleaved forced-colors media queries *)
 let checkbox_radio_base () =
   let open Css in
-  let d_shadow =
-    Var.set Effects.shadow_var
-      (shadow ~h_offset:Zero ~v_offset:Zero ~color:(hex "#0000") ())
-  in
   [
     (* 1. Base styles for both *)
     rule
@@ -860,7 +834,7 @@ let checkbox_radio_base () =
         webkit_user_select None;
         user_select None;
         color blue_600;
-        d_shadow;
+        shadow_reset;
         background_color (hex "#fff");
         background_origin Border_box;
         border_width (Px 1.);

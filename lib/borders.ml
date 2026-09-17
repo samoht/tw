@@ -17,9 +17,6 @@
 
 module Css = Cascade.Css
 
-(* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
-let resolve_scheme = function Some s -> s | None -> Scheme.default
-
 (* Which corners a [rounded-*] utility rounds: every corner, one physical or
    logical side, or a single corner. *)
 module Corner = struct
@@ -187,7 +184,7 @@ module Handler = struct
     make_border_util
       [
         Css.border_width
-          (Px (float_of_int (resolve_scheme theme).default_border_width));
+          (Px (float_of_int (Scheme.or_default theme).default_border_width));
       ]
 
   let border_0 = make_border_util [ Css.border_width (Px 0.) ]
@@ -468,7 +465,7 @@ module Handler = struct
      fixtures use), otherwise inline the literal -- matching Tailwind, which
      inlines calc(infinity*1px)/0 by default but keys off the token when set. *)
   let scheme_keyed_radius ?theme key var ~(default : Css.length) pos =
-    match Scheme.radius (resolve_scheme theme) key with
+    match Scheme.radius (Scheme.or_default theme) key with
     | Some explicit ->
         let decl, r = Var.binding var explicit in
         style (decl :: radius_decls_for_position pos (Var r : Css.length))
@@ -516,7 +513,7 @@ module Handler = struct
             match Css.parse_length raw with
             | None -> style []
             | Some len ->
-                if Scheme.is_inline_token (resolve_scheme theme) token then
+                if Scheme.is_inline_token (Scheme.or_default theme) token then
                   style (radius_decls_for_position pos len)
                 else
                   let decl, r = Var.binding (radius_named_var name) len in
@@ -548,7 +545,7 @@ module Handler = struct
       | Some rule -> rule
       | None -> Css.empty
     in
-    let width = float_of_int (resolve_scheme theme).default_outline_width in
+    let width = float_of_int (Scheme.or_default theme).default_outline_width in
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Px width) ]
 

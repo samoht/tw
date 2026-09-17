@@ -72,20 +72,20 @@ let attr name match_type = Css.Selector.attribute name match_type
 let class_attr value = attr "class" (Whitespace_list value)
 let type_attr value = attr "type" (Exact value)
 
+(* The [:not(:where(...))] that keeps a prose rule off an element opted out with
+   [not-prose], and off its descendants. *)
+let not_prose_selector =
+  let open Css.Selector in
+  let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
+  let not_prose_descendant = combine not_prose_class Descendant universal in
+  not [ where [ not_prose_class; not_prose_descendant ] ]
+
 (* Helper to create a prose element selector with :where() and :not()
    exclusion *)
 let prose_where_element element_selector =
   let open Css.Selector in
-  (* Create the not-prose selector: [class~=not-prose] *)
-  let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
-  (* Create the descendant selector: [class~=not-prose] * *)
-  let not_prose_descendant = combine not_prose_class Descendant universal in
-  (* Create :where([class~=not-prose],[class~=not-prose] * ) *)
-  let not_prose_where = where [ not_prose_class; not_prose_descendant ] in
-  (* Create :not(:where([class~=not-prose],[class~=not-prose] * )) *)
-  let not_selector = not [ not_prose_where ] in
   (* Create :where(element):not(:where(...)) structure *)
-  compound [ where [ element_selector ]; not_selector ]
+  compound [ where [ element_selector ]; not_prose_selector ]
 
 (* Helper to create a typed selector with :where() and :not() for prose *)
 let where base_class elt =
@@ -98,12 +98,8 @@ let prose_child_selector parent_selector child_element =
   (* Create selector like: .prose-sm :where(.prose-sm>child):not(...) *)
   let open Css.Selector in
   let parent_child = combine parent_selector Child child_element in
-  let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
-  let not_prose_descendant = combine not_prose_class Descendant universal in
-  let not_prose_where = where [ not_prose_class; not_prose_descendant ] in
-  let not_selector = not [ not_prose_where ] in
   (* Wrap the parent>child in :where() then add :not() *)
-  parent_selector ++ compound [ where [ parent_child ]; not_selector ]
+  parent_selector ++ compound [ where [ parent_child ]; not_prose_selector ]
 
 let li = Css.Selector.element "li"
 let ol = Css.Selector.element "ol"

@@ -625,7 +625,7 @@ module Typography_early = struct
       a valid font-size: a length must carry a unit and a hex color must start
       with "#" (CSS Color §5.4.6). *)
   let parse_spacing_call s =
-    Stdlib.Option.bind (Parse.call_body "--spacing" s) float_of_string_opt
+    Option.bind (Parse.call_body "--spacing" s) float_of_string_opt
 
   (* A data-type hint in front of an arbitrary font size says how to read the
      value written after it, so [text-[length:1rem]] is the size [1rem] and not
@@ -1843,7 +1843,7 @@ module Typography_late = struct
      The bracket text kept on the constructor still carries the hint, because
      the class name is what the markup holds. *)
   let arbitrary_length_after_hint inner : Css.length option =
-    Stdlib.Option.bind (Parse.value_after_hint inner) Parse.arbitrary_length
+    Option.bind (Parse.value_after_hint inner) Parse.arbitrary_length
 
   (* An arbitrary decoration thickness is any CSS length. *)
   let parse_decoration_thickness inner : Css.length option =
@@ -2853,10 +2853,7 @@ module Typography_late = struct
     let var_ref : Css.length Css.var = Var.bracket bare_name in
     style [ text_decoration_thickness (Var var_ref) ]
 
-  let decoration_bracket_pct_var v =
-    let bare_name = Parse.extract_var_name v in
-    let var_ref : Css.length Css.var = Var.bracket bare_name in
-    style [ text_decoration_thickness (Var var_ref) ]
+  let decoration_bracket_pct_var = decoration_bracket_length_var
 
   let decoration_color ?theme ?(shade = 500) (color : Color.color) =
     if Color.is_custom_color color then
@@ -2882,7 +2879,7 @@ module Typography_late = struct
 
   let decoration_color_with_opacity ?theme (color : Color.color) shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let scheme = Scheme.or_default theme in
     let color_name = Color.scheme_color_name color shade in
     match Color.opacity_keyword color with
     | Some keyword ->

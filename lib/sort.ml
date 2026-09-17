@@ -371,7 +371,7 @@ let media_sort_keys rule_type nested =
     match rule_type with
     | `Media c -> Some (Css.Media.sort_key c)
     | `Container c ->
-        Stdlib.Option.map Css.Media.sort_key (container_media_projection c)
+        Option.map Css.Media.sort_key (container_media_projection c)
     | _ -> None
   in
   let nested_media_key =
@@ -395,7 +395,7 @@ let responsive_media_key rule_type nested =
     | _ -> None
   in
   match rule_type with
-  | `Media c when Stdlib.Option.is_some (of_cond c) -> of_cond c
+  | `Media c when Option.is_some (of_cond c) -> of_cond c
   | _ -> (
       match nested with
       | [ n ] -> (

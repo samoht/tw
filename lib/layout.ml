@@ -551,7 +551,7 @@ module Handler = struct
            value, which [object-[50%]] used to turn into [var(--50)]. [of_class]
            refused an empty hint, so the peel succeeds here. *)
         let raw =
-          Stdlib.Option.value (Parse.value_after_hint bracket) ~default:bracket
+          Option.value (Parse.value_after_hint bracket) ~default:bracket
         in
         match parse_object_position raw with
         | Some pos -> style [ object_position pos ]
@@ -726,9 +726,7 @@ module Handler = struct
            keeps the bracket whole, because the class name is what the markup
            carries. *)
         let readable v = parse_object_position v <> None || Parse.is_var v in
-        if
-          Stdlib.Option.fold ~none:false ~some:readable
-            (Parse.value_after_hint inner)
+        if Option.fold ~none:false ~some:readable (Parse.value_after_hint inner)
         then Ok (Object_arbitrary inner)
         else
           match Parse.arbitrary_declaration_value inner with

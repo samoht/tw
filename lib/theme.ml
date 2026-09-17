@@ -24,7 +24,6 @@ let register_default var value =
 (** {1 Spacing Variables} *)
 
 (* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
-let resolve_scheme = function Some s -> s | None -> Scheme.default
 
 (* Shared spacing variable used across padding, margin, positioning, etc.
    Tailwind v4 uses a single --spacing: 0.25rem variable and calc() for
@@ -65,7 +64,7 @@ let explicit_spacing scheme n =
    --spacing: initial }] removes the multiplier, and every step that relied on
    it stops being a utility. *)
 let has_spacing_step ?theme n =
-  let scheme = resolve_scheme theme in
+  let scheme = Scheme.or_default theme in
   Float.is_integer n
   && explicit_spacing scheme (int_of_float (Float.abs n)) <> None
   || Scheme.token scheme (Var.name spacing_var) <> None
@@ -78,7 +77,7 @@ let explicit_spacing_length ?theme (n : float) =
   if not (Float.is_integer abs_n) then None
   else
     let abs_n = int_of_float abs_n in
-    match explicit_spacing (resolve_scheme theme) abs_n with
+    match explicit_spacing (Scheme.or_default theme) abs_n with
     | None -> None
     | Some explicit_length ->
         let spacing_n = spacing_n_var abs_n in

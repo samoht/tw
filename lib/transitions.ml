@@ -87,6 +87,10 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:5 Css.Timing_function
       "tw-ease"
 
+  (* The [@property] rule a channel carries, for the styles that set it. *)
+  let property_rules_of var =
+    Option.value ~default:Css.empty (Var.property_rule var)
+
   (* Theme variable for transition-property-opacity *)
   let transition_property_opacity_var =
     Var.theme Css.Transition_property_value "transition-property-opacity"
@@ -347,27 +351,18 @@ module Handler = struct
   let duration n =
     let duration_val = Css.Ms (float_of_int n) in
     let tw_duration_decl = Var.set tw_duration_var duration_val in
-    let prop_rule = Var.property_rule tw_duration_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_duration_var in
     style ~property_rules
       [ tw_duration_decl; Css.transition_duration duration_val ]
 
   (* duration-initial / ease-initial reset the channel to the CSS initial
      keyword, clearing any inherited value. *)
   let duration_initial =
-    let property_rules =
-      match Var.property_rule tw_duration_var with
-      | Some r -> r
-      | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_duration_var in
     style ~property_rules [ Var.binding_initial tw_duration_var ]
 
   let ease_initial =
-    let property_rules =
-      match Var.property_rule tw_ease_var with Some r -> r | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules [ Var.binding_initial tw_ease_var ]
 
   (* Theme variables for easing functions - slots (7, 30-34) place them after
@@ -414,10 +409,7 @@ module Handler = struct
           Var.binding ease_linear_var Css.Linear
         in
         let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_linear_ref) in
-        let prop_rule = Var.property_rule tw_ease_var in
-        let property_rules =
-          match prop_rule with Some r -> r | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_ease_var in
         style ~property_rules
           [
             theme_decl;
@@ -426,10 +418,7 @@ module Handler = struct
           ]
     | None ->
         let tw_ease_decl = Var.set tw_ease_var Css.Linear in
-        let prop_rule = Var.property_rule tw_ease_var in
-        let property_rules =
-          match prop_rule with Some r -> r | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_ease_var in
         style ~property_rules
           [ tw_ease_decl; Css.transition_timing_function Css.Linear ]
 
@@ -437,10 +426,7 @@ module Handler = struct
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)
     let theme_decl, ease_in_ref = Var.binding ease_in_var ease_in_curve in
     let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_in_ref) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules
       [
         theme_decl;
@@ -451,10 +437,7 @@ module Handler = struct
   let ease_out =
     let theme_decl, ease_out_ref = Var.binding ease_out_var ease_out_curve in
     let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_out_ref) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules
       [
         theme_decl;
@@ -467,10 +450,7 @@ module Handler = struct
       Var.binding ease_in_out_var ease_in_out_curve
     in
     let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_in_out_ref) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules
       [
         theme_decl;
@@ -503,19 +483,11 @@ module Handler = struct
   let ease_arbitrary = function
     | `Timing_function tf ->
         let tw_ease_decl = Var.set tw_ease_var tf in
-        let property_rules =
-          match Var.property_rule tw_ease_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_ease_var in
         style ~property_rules
           [ tw_ease_decl; Css.transition_timing_function tf ]
     | `Raw raw ->
-        let property_rules =
-          match Var.property_rule tw_ease_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_ease_var in
         let timing =
           match Parse.opaque_declaration "transition-timing-function" raw with
           | Some declaration -> declaration
@@ -532,18 +504,10 @@ module Handler = struct
   let duration_arbitrary = function
     | `Duration d ->
         let tw_duration_decl = Var.set tw_duration_var d in
-        let property_rules =
-          match Var.property_rule tw_duration_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_duration_var in
         style ~property_rules [ tw_duration_decl; Css.transition_duration d ]
     | `Raw raw ->
-        let property_rules =
-          match Var.property_rule tw_duration_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_duration_var in
         let duration =
           match Parse.opaque_declaration "transition-duration" raw with
           | Some declaration -> declaration
@@ -567,11 +531,7 @@ module Handler = struct
         | Some tf ->
             let theme_decl, theme_ref = Var.binding (ease_named_var name) tf in
             let tw_ease_decl = Var.set tw_ease_var (Css.Var theme_ref) in
-            let property_rules =
-              match Var.property_rule tw_ease_var with
-              | Some r -> r
-              | None -> Css.empty
-            in
+            let property_rules = property_rules_of tw_ease_var in
             style ~property_rules
               [
                 theme_decl;

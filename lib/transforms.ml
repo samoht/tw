@@ -7,6 +7,10 @@ let err_not_utility = Error (`Msg "Not a transform utility")
 
 module Handler = struct
   open Style
+
+  (* Capture the project Pp before [open Css] shadows it with Css.Pp. *)
+  let pp_float = Pp.float
+
   open Css
 
   type t =
@@ -1047,7 +1051,7 @@ module Handler = struct
     match Scheme.theme_value theme "perspective-none" with
     | Some value ->
         let len =
-          Stdlib.Option.value
+          Option.value
             (Css.parse_length (String.trim value))
             ~default:(None : Css.length)
         in
@@ -1614,7 +1618,7 @@ module Handler = struct
      hint is empty names no utility, which is the other [None]. The caller keeps
      the bracket whole for the class name, which is what the markup carries. *)
   let arbitrary_value read inner =
-    Stdlib.Option.bind (Parse.value_after_hint inner) (fun value ->
+    Option.bind (Parse.value_after_hint inner) (fun value ->
         let cursor =
           Cascade.Cursor.of_string (Parse.decode_arbitrary_value value)
         in
@@ -1988,7 +1992,7 @@ module Handler = struct
         Ok Perspective_origin_bottom_left
     | [ "perspective"; "origin"; "bottom"; "right" ] ->
         Ok Perspective_origin_bottom_right
-    | "perspective" :: "origin" :: rest when List.length rest > 0 ->
+    | "perspective" :: "origin" :: rest when rest <> [] ->
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
@@ -2040,7 +2044,7 @@ module Handler = struct
     | [ "origin"; "top"; "right" ] -> Ok Origin_top_right
     | [ "origin"; "bottom"; "left" ] -> Ok Origin_bottom_left
     | [ "origin"; "bottom"; "right" ] -> Ok Origin_bottom_right
-    | "origin" :: rest when List.length rest > 0 ->
+    | "origin" :: rest when rest <> [] ->
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
@@ -2060,14 +2064,7 @@ module Handler = struct
   (* [translate-x-0.5], and [-translate-x-0.5] for the negative step. Tailwind
      writes the fraction as the author did, so keep the trailing digits. *)
   let step_class prefix f =
-    let digits = Float.to_string (Float.abs f) in
-    (* [Float.to_string 0.5] is ["0.5"]; drop a trailing dot from ["2."]. *)
-    let digits =
-      let n = String.length digits in
-      if n > 0 && digits.[n - 1] = '.' then String.sub digits 0 (n - 1)
-      else digits
-    in
-    (if f < 0. then "-" else "") ^ prefix ^ "-" ^ digits
+    (if f < 0. then "-" else "") ^ prefix ^ "-" ^ pp_float (Float.abs f)
 
   let to_class = function
     | Rotate n -> neg_class "rotate-" n

@@ -546,7 +546,7 @@ let rule_sets_from_selector_props order_map all_rules =
                "SORTED: vo=";
                Pp.int r.variant_order;
                " base=";
-               (match r.base_class with Some s -> s | None -> "<none>");
+               Option.value ~default:"<none>" r.base_class;
                " type=";
                (match r.rule_type with
                | `Regular -> "R"
@@ -610,9 +610,8 @@ let sorted_indexed_rules ?theme ?declared order_map all_rules =
 (* Sort var names by property_order. Names include -- prefix. *)
 let sort_vars_by_property_order metadata vars =
   let get_order name =
-    match metadata_property_order metadata name with
-    | Some o -> o
-    | None -> 1000 (* Default for vars without property_order *)
+    (* 1000 for a var without a property_order *)
+    Option.value ~default:1000 (metadata_property_order metadata name)
   in
   (* Decorate-sort-undecorate: [get_order] allocates a [String.sub] per call,
      and a comparator runs it on both operands of every comparison. *)
@@ -1345,17 +1344,13 @@ let compare_property_vars ~metadata ~get_family_order ~get_first_usage n1 n2 po1
 let property_var_comparator metadata fallback_order first_usage_order =
   let family_order = family_order metadata first_usage_order in
   let get_family_order name =
-    match metadata_family metadata name with
-    | Some fam -> (
-        match Hashtbl.find_opt family_order fam with
-        | Some o -> o
-        | None -> 1000)
-    | None -> 1000
+    Option.value ~default:1000
+      (Option.bind
+         (metadata_family metadata name)
+         (Hashtbl.find_opt family_order))
   in
   let get_first_usage name =
-    match Hashtbl.find_opt first_usage_order name with
-    | Some idx -> idx
-    | None -> 10000
+    Option.value ~default:10000 (Hashtbl.find_opt first_usage_order name)
   in
   fun n1 n2 ->
     let fam1 = metadata_family metadata n1 in

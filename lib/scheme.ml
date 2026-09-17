@@ -213,8 +213,9 @@ let token_override scheme name =
 (** [theme_value theme name] looks up a per-render token override from the
     optionally-threaded [theme] ([None] when no theme is threaded). Threaded
     replacement for the global [Var.theme_value]. *)
-let theme_value theme name =
-  match theme with Some s -> token_override s name | None -> None
+let or_default theme = Option.value ~default theme
+
+let theme_value theme name = Option.bind theme (fun s -> token_override s name)
 
 (** Resolve a theme token: override (if any) else the registered default. A
     token the [@theme] block removed resolves to nothing, default or not. *)

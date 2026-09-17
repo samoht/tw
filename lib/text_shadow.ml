@@ -75,7 +75,7 @@ module Handler = struct
   (* A [#] value only names a colour when what follows is a hex spelling;
      [Css.hex] raises on anything else, here once the sheet is rendered. *)
   let is_hex_value s =
-    String.length s > 0 && s.[0] = '#' && Stdlib.Option.is_some (Css.hex_opt s)
+    String.length s > 0 && s.[0] = '#' && Option.is_some (Css.hex_opt s)
 
   let opacity_decl opacity =
     Var.set text_shadow_alpha_var (Color.opacity_alpha_value opacity)

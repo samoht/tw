@@ -3098,9 +3098,7 @@ let group_routed_rules ~own_order rules =
       match routed_owner owner stmt with
       | None -> classless := stmt :: !classless
       | Some cls -> (
-          let prev =
-            Stdlib.Option.value ~default:[] (Hashtbl.find_opt group cls)
-          in
+          let prev = Option.value ~default:[] (Hashtbl.find_opt group cls) in
           Hashtbl.replace group cls (prev @ [ stmt ]);
           if (not (Hashtbl.mem own_order cls)) && not (Hashtbl.mem order_of cls)
           then
@@ -3114,8 +3112,7 @@ let routed_slot ~own_order ~order_of cls =
   match Hashtbl.find_opt own_order cls with
   | Some order -> order
   | None ->
-      Stdlib.Option.value ~default:(max_int, max_int)
-        (Hashtbl.find_opt order_of cls)
+      Option.value ~default:(max_int, max_int) (Hashtbl.find_opt order_of cls)
 
 (* Tailwind counts every declaration in a utility's AST, including ones in
    nested rules and at-rules. [Css.fold] follows every kind of nested block, so

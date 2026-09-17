@@ -459,7 +459,7 @@ module Handler = struct
         if
           starts "color:" base_inner || starts "var(" base_inner
           || starts "#" base_inner
-          || Stdlib.Option.is_some (Color.parse_bracket_color base_inner)
+          || Option.is_some (Color.parse_bracket_color base_inner)
         then parse_bracket_stroke_color v
         else
           (* The width owns the numbers and lengths; what it refuses falls to

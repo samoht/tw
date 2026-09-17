@@ -106,50 +106,30 @@ module Handler = struct
      to strictness *)
   let snap_x_s =
     let ref_ = Var.reference scroll_snap_strictness_var in
-    let property_rules =
-      match Var.property_rule scroll_snap_strictness_var with
-      | Some r -> r
-      | None -> Css.empty
-    in
+    let property_rules = Var.property_rules scroll_snap_strictness_var in
     style ~property_rules
       [ scroll_snap_type (Axis_with_strictness (X, Var ref_)) ]
 
   let snap_y_s =
     let ref_ = Var.reference scroll_snap_strictness_var in
-    let property_rules =
-      match Var.property_rule scroll_snap_strictness_var with
-      | Some r -> r
-      | None -> Css.empty
-    in
+    let property_rules = Var.property_rules scroll_snap_strictness_var in
     style ~property_rules
       [ scroll_snap_type (Axis_with_strictness (Y, Var ref_)) ]
 
   let snap_both_s =
     let ref_ = Var.reference scroll_snap_strictness_var in
-    let property_rules =
-      match Var.property_rule scroll_snap_strictness_var with
-      | Some r -> r
-      | None -> Css.empty
-    in
+    let property_rules = Var.property_rules scroll_snap_strictness_var in
     style ~property_rules
       [ scroll_snap_type (Axis_with_strictness (Both, Var ref_)) ]
 
   let snap_mandatory_s =
     let d = Var.set scroll_snap_strictness_var Mandatory in
-    let property_rules =
-      match Var.property_rule scroll_snap_strictness_var with
-      | Some r -> r
-      | None -> Css.empty
-    in
+    let property_rules = Var.property_rules scroll_snap_strictness_var in
     style ~property_rules (d :: [])
 
   let snap_proximity_s =
     let d = Var.set scroll_snap_strictness_var Proximity in
-    let property_rules =
-      match Var.property_rule scroll_snap_strictness_var with
-      | Some r -> r
-      | None -> Css.empty
-    in
+    let property_rules = Var.property_rules scroll_snap_strictness_var in
     style ~property_rules (d :: [])
 
   let snap_align_none_s = style [ scroll_snap_align None ]

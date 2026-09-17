@@ -115,7 +115,7 @@ let rec style_declarations (s : Style.t) =
             match Cascade.Css.as_rule rule with
             | Some (_, decls, _) -> decls
             | None -> [])
-          (Stdlib.Option.value ~default:[] rules)
+          (Option.value ~default:[] rules)
   | Style.Modified (_, inner) -> style_declarations inner
   | Style.Group inner -> List.concat_map style_declarations inner
 

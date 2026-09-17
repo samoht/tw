@@ -99,6 +99,10 @@ val default : t
 (** [default] is the default scheme using oklch colors and calc-based spacing
     (matches Tailwind v4 default). *)
 
+val or_default : t option -> t
+(** [or_default theme] is the scheme an optionally-threaded [theme] names:
+    itself, or {!default} when none was threaded. *)
+
 val register_default_token : string -> string -> unit
 (** [register_default_token name css] registers the v4.3.1 baseline default CSS
     for theme token [name] (without [--]). It updates a lock-free immutable

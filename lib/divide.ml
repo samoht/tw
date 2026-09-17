@@ -518,8 +518,8 @@ module Handler = struct
     | [ "divide"; "transparent" ] -> Ok Transparent
     | [ "divide"; "inherit" ] -> Ok Inherit
     | [ "divide"; style_str ]
-      when Stdlib.Option.is_some (divide_style_of_string style_str) ->
-        Ok (Line_style (Stdlib.Option.get (divide_style_of_string style_str)))
+      when Option.is_some (divide_style_of_string style_str) ->
+        Ok (Line_style (Option.get (divide_style_of_string style_str)))
     | [ "divide"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in

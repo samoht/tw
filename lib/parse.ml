@@ -88,9 +88,8 @@ let nonnegative_int ~name s =
   | None -> None
 
 let int_pos ~name s =
-  match nonnegative_int ~name s with
-  | Some result -> result
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
+  Option.value (nonnegative_int ~name s)
+    ~default:(Error (`Msg ("Invalid " ^ name ^ " value: " ^ s)))
 
 (* Parse decimal values like "0.5", "1.5" for spacing utilities. Valid decimals
    must be multiples of 0.25 (i.e., value * 4 is integer). *)
@@ -528,9 +527,7 @@ let length_percentage_of_length (l : Cascade.Css.length) :
       None
 
 let arbitrary_length_percentage s =
-  match arbitrary_length s with
-  | Some l -> length_percentage_of_length l
-  | None -> None
+  Option.bind (arbitrary_length s) length_percentage_of_length
 
 (* A CSS identifier, which is what a custom-ident or a property name written in
    an arbitrary value has to be. The docs pages carry [<value>] placeholders

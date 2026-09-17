@@ -151,7 +151,7 @@ module Handler = struct
   let span_arbitrary property_name property raw =
     (* The stored text is the class name's, hint included; the value is what
        follows the hint. *)
-    let s = Stdlib.Option.value (Parse.value_after_hint raw) ~default:raw in
+    let s = Option.value (Parse.value_after_hint raw) ~default:raw in
     match Parse.decimal_int s with
     | Some n -> style [ property (Span n, Span n) ]
     | None ->
@@ -339,7 +339,7 @@ module Handler = struct
      [col-span-[foo:2]] wrote the hint into the declaration. *)
   let parse_arbitrary_value s =
     if Parse.is_bracket_value s then
-      Stdlib.Option.map Parse.decode_arbitrary_value
+      Option.map Parse.decode_arbitrary_value
         (Parse.value_after_hint (Parse.bracket_inner s))
     else None
 
@@ -347,7 +347,7 @@ module Handler = struct
      peeled one. *)
   let parse_arbitrary_pair read s =
     match (parse_arbitrary s, parse_arbitrary_value s) with
-    | Some raw, Some value -> Stdlib.Option.map (fun x -> (raw, x)) (read value)
+    | Some raw, Some value -> Option.map (fun x -> (raw, x)) (read value)
     | _ -> None
 
   let of_class theme class_name =

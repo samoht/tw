@@ -664,10 +664,10 @@ module Handler = struct
         with
         | Some w, Some h -> Some (Css.Ratio (w, h) : Css.aspect_ratio)
         | _ -> None)
-    | [ n ] -> (
-        match float_of_string_opt (String.trim n) with
-        | Some f -> Some (Css.Ratio (f, 1.) : Css.aspect_ratio)
-        | None -> None)
+    | [ n ] ->
+        Option.map
+          (fun f : Css.aspect_ratio -> Css.Ratio (f, 1.))
+          (float_of_string_opt (String.trim n))
     | _ -> None
 
   let aspect_theme' theme name =
@@ -784,14 +784,12 @@ module Handler = struct
          the class name has to. *)
       match Parse.value_after_hint inner with
       | None -> None
-      | Some value -> (
+      | Some value ->
           let css_value =
             Parse.normalize_css_math_operators
               (Parse.decode_arbitrary_value value)
           in
-          match Css.parse_length css_value with
-          | Some l -> Some (inner, l)
-          | None -> None)
+          Option.map (fun l -> (inner, l)) (Css.parse_length css_value)
     else None
 
   (* A spacing step, and a ratio part, is a non-negative multiple of 0.25

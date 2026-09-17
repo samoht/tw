@@ -204,7 +204,7 @@ let test_cascade_prose_separation () =
         | Some sel when Css.Selector.to_string sel = ".prose" -> Some i
         | _ -> None)
       sorted_output
-    |> List.filter_map (fun x -> x)
+    |> List.filter_map Fun.id
   in
 
   Fmt.pr "After of_grouped: .prose rules at indices %a@."

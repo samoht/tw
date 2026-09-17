@@ -1888,7 +1888,6 @@ module Handler = struct
   (** Extensible variant for color utilities *)
 
   (** Resolve the optionally-threaded theme, defaulting to the base scheme. *)
-  let resolve_scheme = function Some s -> s | None -> Scheme.default
 
   (** Get the scheme color name for a color and shade (e.g., "red-500"). Must be
       defined before [open Css] to use the outer [color] type. *)
@@ -1902,7 +1901,7 @@ module Handler = struct
       scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
   let get_color_value ?theme (c : color) shade =
     let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (resolve_scheme theme) color_name with
+    match Scheme.hex_color (Scheme.or_default theme) color_name with
     | Some hex -> Css.hex hex
     | None -> to_css ?theme c (if is_base_color c then 500 else shade)
 
@@ -1989,7 +1988,7 @@ module Handler = struct
     match Scheme.theme_value theme prop_name with
     | Some value -> parse_theme_color value
     | None -> (
-        match Scheme.hex_color (resolve_scheme theme) color_name with
+        match Scheme.hex_color (Scheme.or_default theme) color_name with
         | Some hex -> Css.hex hex
         | None -> (
             (* Check theme value overrides for standard color name *)
@@ -2127,7 +2126,7 @@ module Handler = struct
   let bracket_color_after_hint ?(not_mine = []) inner : Css.color option =
     match Parse.data_type_hint inner with
     | Some (hint, _) when List.mem hint not_mine -> None
-    | _ -> Stdlib.Option.bind (Parse.value_after_hint inner) parse_bracket_color
+    | _ -> Option.bind (Parse.value_after_hint inner) parse_bracket_color
 
   (* The colour is a colour family's last resort: a bracket no reader took is
      still a declaration, forwarded verbatim under the token-stream contract.
@@ -2874,7 +2873,7 @@ module Handler = struct
         style ?merge_key
           (property_decls (custom_color_with_alpha c (percent /. 100.0)))
     | None -> (
-        let scheme = resolve_scheme theme in
+        let scheme = Scheme.or_default theme in
         let color_name = scheme_color_name c shade in
         (* Check if color is defined as hex in the scheme *)
         match Scheme.hex_color scheme color_name with
@@ -3603,7 +3602,7 @@ let hex_alpha_color ?theme c shade opacity =
   let open Handler in
   let percent = opacity_to_percent opacity in
   let color_name = scheme_color_name c shade in
-  match Scheme.hex_color (resolve_scheme theme) color_name with
+  match Scheme.hex_color (Scheme.or_default theme) color_name with
   | Some hex_value -> Some (hex_with_alpha hex_value percent)
   | None ->
       (* Shadeless base colours (black/white) have no scheme entry but a known
@@ -3766,7 +3765,7 @@ let generic_color_with_opacity ?theme ~property c shade opacity =
         Style.style [ property oklab_value ]
   | None -> (
       let color_name = scheme_color_name c shade in
-      match Scheme.hex_color (resolve_scheme theme) color_name with
+      match Scheme.hex_color (Scheme.or_default theme) color_name with
       | Some hex_value ->
           let fallback_decl =
             if alpha_var then property (Css.hex hex_value)
@@ -3883,7 +3882,7 @@ let divide_with_opacity_selector ?theme ~selector c shade opacity =
       Style.style ~rules:(Some [ rule ]) []
   | None -> (
       let color_name = scheme_color_name c shade in
-      match Scheme.hex_color (resolve_scheme theme) color_name with
+      match Scheme.hex_color (Scheme.or_default theme) color_name with
       | Some hex_value ->
           let hex_alpha =
             if alpha_var then hex_value else hex_with_alpha hex_value percent
@@ -3951,7 +3950,7 @@ let bg_with_opacity ?theme c shade opacity =
       Style.style [ Css.background_color value ]
   | None -> (
       let color_name = scheme_color_name c shade in
-      match Scheme.hex_color (resolve_scheme theme) color_name with
+      match Scheme.hex_color (Scheme.or_default theme) color_name with
       | Some hex_value ->
           let cvar = color_var c shade in
           let decls, color = bound ?theme cvar (Css.hex hex_value) in
@@ -4048,9 +4047,7 @@ let palette_hex ?theme ?property_prefix c shade =
     | Some prefix -> Scheme.theme_value theme (prefix ^ "-" ^ color_name)
     | None -> None
   in
-  match
-    Scheme.hex_color (Option.value ~default:Scheme.default theme) color_name
-  with
+  match Scheme.hex_color (Scheme.or_default theme) color_name with
   | Some h -> h
   | None -> (
       match scoped with

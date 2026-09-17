@@ -660,8 +660,7 @@ module Handler = struct
         Var.property_rule gradient_via_position_var;
         Var.property_rule gradient_to_position_var;
       ]
-      |> List.filter_map (fun x -> x)
-      |> Css.concat
+      |> List.filter_map Fun.id |> Css.concat
     in
 
     (* Build declarations list *)
@@ -773,7 +772,7 @@ module Handler = struct
         Some (Css.Var ref)
       else parse_bracket_position value
     in
-    Stdlib.Option.bind (bracket_value_after_hint inner) read
+    Option.bind (bracket_value_after_hint inner) read
 
   (* A bracket background-image: a gradient, a url(), or a comma-separated layer
      list. [None] means the bracket is not an image, which [of_class] rejects:
@@ -1088,7 +1087,7 @@ module Handler = struct
       opacity =
     let percent = Color.opacity_to_percent opacity in
     let color_name = Color.scheme_color_name color shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let scheme = Scheme.or_default theme in
 
     (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
@@ -1148,8 +1147,7 @@ module Handler = struct
         Var.property_rule gradient_via_position_var;
         Var.property_rule gradient_to_position_var;
       ]
-      |> List.filter_map (fun x -> x)
-      |> Css.concat
+      |> List.filter_map Fun.id |> Css.concat
     in
 
     (* Without a scheme override the palette still has a hex for the colour, and
@@ -1282,8 +1280,7 @@ module Handler = struct
       Var.property_rule gradient_via_position_var;
       Var.property_rule gradient_to_position_var;
     ]
-    |> List.filter_map (fun x -> x)
-    |> Css.concat
+    |> List.filter_map Fun.id |> Css.concat
 
   (** Flatten stops into declaration list *)
   let stops_as_decls d_stops d_via_stops_opt =
@@ -1376,8 +1373,7 @@ module Handler = struct
       Var.property_rule gradient_via_position_var;
       Var.property_rule gradient_to_position_var;
     ]
-    |> List.filter_map (fun x -> x)
-    |> Css.concat
+    |> List.filter_map Fun.id |> Css.concat
 
   (* Gradient position from a length_percentage value *)
   let gradient_position_style pos_var (value : Css.length_percentage) =
@@ -1408,7 +1404,7 @@ module Handler = struct
           else None)
         [ "percentage:"; "length:" ]
     in
-    let value = Stdlib.Option.value hinted ~default:inner in
+    let value = Option.value hinted ~default:inner in
     if Parse.is_var value then Some (var_ref value)
     else Parse.arbitrary_length_percentage value
 
@@ -1640,7 +1636,7 @@ module Handler = struct
     | Bg_size_bracket inner -> (
         (* [of_class] refused an empty hint, so the peel succeeds here. *)
         let value =
-          Stdlib.Option.value (bracket_value_after_hint inner) ~default:inner
+          Option.value (bracket_value_after_hint inner) ~default:inner
         in
         match parse_bracket_size value with
         | Some decl -> style [ decl ]
@@ -1961,7 +1957,7 @@ module Handler = struct
           parse_bracket_size value <> None || Parse.is_var value
         in
         if
-          Stdlib.Option.fold ~none:false ~some:readable
+          Option.fold ~none:false ~some:readable
             (bracket_value_after_hint inner)
         then Ok (Bg_size_bracket inner)
         else if
@@ -2048,9 +2044,7 @@ module Handler = struct
                  rejects is not a utility. It used to fall through to a
                  plausible-looking [center]. *)
               let v =
-                Stdlib.Option.value
-                  (Parse.value_after_hint inner)
-                  ~default:inner
+                Option.value (Parse.value_after_hint inner) ~default:inner
               in
               match bracket_position_value v with
               | Some pos -> Ok (Bg_bracket_typed_position (inner, pos))

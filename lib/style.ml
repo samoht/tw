@@ -576,13 +576,13 @@ let rec pp_modifier = function
   | Data_inactive -> "data-inactive"
   (* A valueless data attribute is the bare form; one with a value takes
      brackets. *)
-  | Data_custom (k, "") -> String.concat "" [ "data-"; k ]
+  | Data_custom (k, "") -> "data-" ^ k
   | Data_custom (k, v) -> String.concat "" [ "data-["; k; "="; v; "]" ]
-  | Not m -> String.concat "" [ "not-"; pp_modifier m ]
+  | Not m -> "not-" ^ pp_modifier m
   (* A shorthand name is stored bare ([Has "focus"]), a bracket form with its
      CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
-  | Has s -> String.concat "" [ "has-"; has_part s ]
-  | Has_variant m -> String.concat "" [ "has-"; pp_modifier m ]
+  | Has s -> "has-" ^ has_part s
+  | Has_variant m -> "has-" ^ pp_modifier m
   | Group_has_variant (m, name) ->
       String.concat ""
         ([ "group-has-"; pp_modifier m ]
@@ -591,10 +591,10 @@ let rec pp_modifier = function
       String.concat ""
         ([ "peer-has-"; pp_modifier m ]
         @ Option.fold ~none:[] ~some:(fun n -> [ "/"; n ]) name)
-  | Group_has (s, None) -> String.concat "" [ "group-has-"; has_part s ]
+  | Group_has (s, None) -> "group-has-" ^ has_part s
   | Group_has (s, Some name) ->
       String.concat "" [ "group-has-"; has_part s; "/"; name ]
-  | Peer_has (s, None) -> String.concat "" [ "peer-has-"; has_part s ]
+  | Peer_has (s, None) -> "peer-has-" ^ has_part s
   | Peer_has (s, Some name) ->
       String.concat "" [ "peer-has-"; has_part s; "/"; name ]
   | Starting -> "starting"
@@ -743,12 +743,10 @@ let rec pp_modifier = function
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
   | In_state (_, name) -> "in-" ^ name
-  | Group_not (inner, None) ->
-      String.concat "" [ "group-not-"; pp_modifier inner ]
+  | Group_not (inner, None) -> "group-not-" ^ pp_modifier inner
   | Group_not (inner, Some name) ->
       String.concat "" [ "group-not-"; pp_modifier inner; "/"; name ]
-  | Peer_not (inner, None) ->
-      String.concat "" [ "peer-not-"; pp_modifier inner ]
+  | Peer_not (inner, None) -> "peer-not-" ^ pp_modifier inner
   | Peer_not (inner, Some name) ->
       String.concat "" [ "peer-not-"; pp_modifier inner; "/"; name ]
   | Data_bracket expr -> "data-[" ^ expr ^ "]"

@@ -122,7 +122,7 @@ module Handler = struct
         ([ fallback ], [ supports ])
     | Bracket (_, css_color, Color.No_opacity) -> (
         let enhanced = Color.resolve_bracket_css_color css_color in
-        let scheme = Option.value ~default:Scheme.default theme in
+        let scheme = Scheme.or_default theme in
         match Color.pre_color_mix_fallback scheme enhanced with
         | None -> ([ Var.set set_var enhanced ], [])
         | Some fallback ->
@@ -131,7 +131,7 @@ module Handler = struct
             let supports = Color.color_mix_supports [ enhanced_decl ] in
             ([ fallback_decl ], [ supports ]))
     | Bracket (_, css_color, op) -> (
-        let scheme = Option.value ~default:Scheme.default theme in
+        let scheme = Scheme.or_default theme in
         match Color.bracket_color_opacity ~theme:scheme css_color op with
         | Color.Guarded { fallback; mixed } ->
             let fallback_decl = Var.set set_var fallback in
@@ -149,8 +149,7 @@ module Handler = struct
     in
     let property_rules =
       [ Var.property_rule thumb_var; Var.property_rule track_var ]
-      |> List.filter_map (fun x -> x)
-      |> Css.concat
+      |> List.filter_map Fun.id |> Css.concat
     in
     let metadata =
       match spec with Raw _ -> [ Var.metadata set_var ] | _ -> []
