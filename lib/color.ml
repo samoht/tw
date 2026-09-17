@@ -154,6 +154,14 @@ let hex_to_rgb hex =
         String.sub hex 1 (String.length hex - 1)
       else hex
     in
+    (* A trailing alpha, [#rgba] or [#rrggbbaa], is not part of the colour a
+       fold replaces the alpha of, so it comes off first. *)
+    let hex_str =
+      match String.length hex_str with
+      | 4 -> String.sub hex_str 0 3
+      | 8 -> String.sub hex_str 0 6
+      | _ -> hex_str
+    in
     let len = String.length hex_str in
     if len = 3 then
       (* Short form: #RGB -> #RRGGBB *)
@@ -248,11 +256,28 @@ let hex_to_oklab_alpha hex alpha : Css.color =
    multiplying it. A hex spelling names the channels outright, and so does a
    colour keyword; every other colour names them somewhere the class cannot
    see. *)
+(* The byte an [rgb()] channel spells; a channel that reads a variable has
+   none, and folds as black would. *)
+let channel_byte : Css.channel -> int option = function
+  | Int i -> Some i
+  | Num f -> Some (Float.to_int (Float.round f))
+  | Pct f -> Some (Float.to_int (Float.round (f *. 2.55)))
+  | Var _ | None -> Option.None
+
 let oklab_alpha (c : Css.color) alpha : Css.color option =
+  let fold r g b =
+    let ok_l, ok_a, ok_b = rgb_to_oklab { r; g; b } in
+    Some (Css.oklaba ok_l ok_a ok_b alpha)
+  in
   match Cascade.Values.nonkeyword_color c with
-  | Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ } ->
-      let ok_l, ok_a, ok_b = rgb_to_oklab { r; g; b } in
-      Some (Css.oklaba ok_l ok_a ok_b alpha)
+  | Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ } -> fold r g b
+  (* An [rgb()] with plain channels folds the same way; its own alpha is
+     replaced, as [oklab(from <colour> l a b / <alpha>)] replaces it. *)
+  | Css.Rgb (Channels { r; g; b }) | Css.Rgba { rgb = Channels { r; g; b }; _ }
+    -> (
+      match (channel_byte r, channel_byte g, channel_byte b) with
+      | Some r, Some g, Some b -> fold r g b
+      | _ -> None)
   | _ -> None
 
 (* A custom colour (a hex or an rgb() the author wrote) with an alpha folded in.

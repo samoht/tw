@@ -78,6 +78,21 @@
   a directory is walked, a glob matches under its root, and `@source not`
   takes files back out. The paths were ignored, and `tw --input-css app.css`
   with no path of its own was refused (#806).
+- A project size carries its line height, letter spacing and font weight:
+  `--text-huge--line-height` and its siblings write `line-height:
+  var(--tw-leading, var(--text-huge--line-height))` and the rest beside
+  `font-size`, as the built-in scale does, and
+  `--font-display--font-feature-settings` and `--font-variation-settings` are
+  tokens of their own that `font-display` reads. The size stood alone, the
+  feature settings were inlined and the variation settings ignored (#847).
+- A container size the project declares, `--container-hero: 100rem`, names a
+  query: `@hero:`, `@min-hero:`, `@max-hero:` and `@hero/main:` compile and
+  sort among the built-in sizes by width. They were unknown modifiers (#847).
+- A project shadow takes an opacity: `shadow-card/50` and
+  `inset-shadow-deep/50` fold the alpha into every layer, as Tailwind's
+  relative `oklab()` does. They were unknown classes, and an arbitrary shadow
+  whose colour carried an alpha of its own, `shadow-[0_1px_2px_#0000001a]/50`,
+  kept that alpha where Tailwind replaces it (#847).
 - A `theme(static)` entrypoint declares its theme and keyframes once. Each
   `@apply`, and each class under a `@custom-variant`, repeated the whole theme
   block and every `@keyframes` beside the generated sheet's (#801).

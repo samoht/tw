@@ -60,7 +60,9 @@ module Handler = struct
     | Shadow_arbitrary of string
     | Shadow_raw of string * string * Color.opacity_modifier
     | Shadow_theme of string (* shadow from a --shadow-* token *)
+    | Shadow_theme_opacity of string * Color.opacity_modifier
     | Inset_shadow_theme of string (* shadow from an --inset-shadow-* token *)
+    | Inset_shadow_theme_opacity of string * Color.opacity_modifier
     | Shadow_arbitrary_opacity of string * Color.opacity_modifier
     | Shadow_shape_opacity of shadow_shape * Color.opacity_modifier
     (* Shadows — color utilities *)
@@ -878,7 +880,14 @@ module Handler = struct
               let c =
                 match Color.css_color_to_hex c with Some h -> h | None -> c
               in
-              if dynamic_opacity then c else Color.mix_alpha opacity c
+              if dynamic_opacity then c
+              else
+                (* The alpha replaces the colour's own, as the relative
+                   [oklab()] Tailwind writes does; a colour with no sRGB bytes
+                   to fold is mixed. *)
+                Option.value
+                  (Color.oklab_alpha c alpha)
+                  ~default:(Color.mix_alpha opacity c)
           | None -> Css.Current
         in
         let base_color_ref =
@@ -1210,6 +1219,21 @@ module Handler = struct
             inset_shadow_compose
               (wrap_shadow_colors ~color_var:inset_shadow_color_var shadow))
 
+  (* A project shadow under a modifier takes the alpha the way an arbitrary one
+     does: Tailwind reads the token's value at build time and folds the alpha
+     into every layer's colour. *)
+  let shadow_theme_opacity theme name opacity =
+    match
+      Option.bind
+        (Scheme.theme_value (Some theme) ("shadow-" ^ name))
+        Css.parse_shadow
+    with
+    | None -> style []
+    | Some shadow ->
+        arbitrary_shadow_alpha_style ~shadow_var ~color_var:shadow_color_var
+          ~alpha_decl:(shadow_opacity_decl opacity)
+          ~composition:box_shadow_composition shadow opacity
+
   (* v4.3.1 default inset-shadow scale (verified against the bare CLI). The
      named utilities are inset-shadow-{2xs,xs,sm}; each is a single inset
      shadow. The alpha is .05 (#0000000d). 2xs has no blur. *)
@@ -1464,6 +1488,19 @@ module Handler = struct
         inset_box_shadow_composition v_inset_shadow;
       ]
 
+  let inset_shadow_theme_opacity theme name opacity =
+    match
+      Option.bind
+        (Scheme.theme_value (Some theme) ("inset-shadow-" ^ name))
+        Css.parse_shadow
+    with
+    | None -> style []
+    | Some shadow ->
+        arbitrary_shadow_alpha_style ~shadow_var:inset_shadow_var
+          ~color_var:inset_shadow_color_var
+          ~alpha_decl:(inset_shadow_opacity_decl opacity)
+          ~composition:inset_box_shadow_composition shadow opacity
+
   let inset_shadow_arbitrary_opacity (arb : string) opacity =
     match parse_multi_shadow arb with
     | Stdlib.Option.Some parsed_parts -> (
@@ -1496,7 +1533,11 @@ module Handler = struct
                       | Some h -> h
                       | None -> c
                     in
-                    if needs_supports then c else Color.mix_alpha opacity c
+                    if needs_supports then c
+                    else
+                      Option.value
+                        (Color.oklab_alpha c alpha)
+                        ~default:(Color.mix_alpha opacity c)
                 | None -> Css.Current
               in
               let color_ref =
@@ -2519,7 +2560,10 @@ module Handler = struct
     | Shadow_arbitrary arb -> shadow_arbitrary arb
     | Shadow_raw (_, value, opacity) -> shadow_raw value opacity
     | Shadow_theme name -> shadow_theme theme name
+    | Shadow_theme_opacity (name, op) -> shadow_theme_opacity theme name op
     | Inset_shadow_theme name -> inset_shadow_theme theme name
+    | Inset_shadow_theme_opacity (name, op) ->
+        inset_shadow_theme_opacity theme name op
     | Shadow_arbitrary_opacity (arb, op) -> shadow_arbitrary_opacity arb op
     | Shadow_shape_opacity (shape, op) -> shadow_shape_opacity_style shape op
     | Shadow_color (c, s) -> set_shadow_color c s
@@ -2986,6 +3030,8 @@ module Handler = struct
         | "xl", op -> Ok (Shadow_shape_opacity (Xl, op))
         | "2xl", op -> Ok (Shadow_shape_opacity (Two_xl, op))
         | "transparent", op -> Ok (Shadow_transparent_opacity op)
+        | name, op when is_theme_shadow theme name ->
+            Ok (Shadow_theme_opacity (name, op))
         (* Not a size: a shadeless colour with an alpha, e.g. shadow-white/10 *)
         | base, op -> (
             match Color.shade_of_strings ~theme [ base ] with
@@ -3038,6 +3084,8 @@ module Handler = struct
         | "xs", op -> Ok (Inset_shadow_shape_opacity (Ish_xs, op))
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
         | "transparent", op -> Ok (Inset_shadow_transparent_opacity op)
+        | name, op when is_theme_inset_shadow theme name ->
+            Ok (Inset_shadow_theme_opacity (name, op))
         | base, op -> (
             match Color.shade_of_strings ~theme [ base ] with
             | Ok (c, s) -> Ok (Inset_shadow_color_opacity (c, s, op))
@@ -3272,7 +3320,11 @@ module Handler = struct
     | Shadow_raw (spelling, _, opacity) ->
         "shadow-[" ^ spelling ^ "]" ^ Color.opacity_suffix opacity
     | Shadow_theme name -> "shadow-" ^ name
+    | Shadow_theme_opacity (name, op) ->
+        "shadow-" ^ name ^ "/" ^ Color.pp_opacity op
     | Inset_shadow_theme name -> "inset-shadow-" ^ name
+    | Inset_shadow_theme_opacity (name, op) ->
+        "inset-shadow-" ^ name ^ "/" ^ Color.pp_opacity op
     | Shadow_arbitrary_opacity (arb, op) ->
         "shadow-[" ^ arb ^ "]/" ^ Color.pp_opacity op
     | Shadow_shape_opacity (shape, op) ->
@@ -3493,7 +3545,7 @@ module Handler = struct
             else has_var (i + 1)
           in
           if has_var 0 then 29988 else 29989
-    | Shadow_shape_opacity _ -> 29991
+    | Shadow_shape_opacity _ | Shadow_theme_opacity _ -> 29991
     (* Shadow shape utilities — all same suborder, natural_compare decides
        within-group order: bracket values ([) sort before named (none/sm/xl) *)
     | Shadow | Shadow_2xs | Shadow_xs | Shadow_2xl | Shadow_inner | Shadow_lg
@@ -3524,7 +3576,7 @@ module Handler = struct
         if has_var 0 then 31988
         else if String.contains arb '#' then 31990
         else 31989
-    | Inset_shadow_shape_opacity _ -> 31991
+    | Inset_shadow_shape_opacity _ | Inset_shadow_theme_opacity _ -> 31991
     (* Inset shadow shape utilities — all same suborder, natural_compare
        decides *)
     | Inset_shadow | Inset_shadow_2xs | Inset_shadow_xs | Inset_shadow_none
