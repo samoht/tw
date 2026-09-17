@@ -35,7 +35,9 @@ module Handler = struct
     | Bracket_color_var of string
     | Bracket_cvar_opacity of string * Color.opacity_modifier
     | Bracket_shadow of string
+    | Bracket_shadow_opacity of string * Color.opacity_modifier
     | Bracket_var of string
+    | Bracket_var_opacity of string * Color.opacity_modifier
     | Arbitrary of string
     | Arbitrary_opacity of string * Color.opacity_modifier
     | Named of string  (** a project [--text-shadow-<name>] token *)
@@ -48,7 +50,9 @@ module Handler = struct
      ordinary shape and colour utilities remain in the later text-shadow
      band. *)
   let priority = function
-    | Shape_opacity _ | Arbitrary_opacity _ | Named_opacity _ -> 38
+    | Shape_opacity _ | Arbitrary_opacity _ | Named_opacity _
+    | Bracket_var_opacity _ | Bracket_shadow_opacity _ ->
+        38
     | _ -> 41
 
   let text_shadow_color_var =
@@ -642,6 +646,19 @@ module Handler = struct
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
           [ Css.text_shadow (make_text_shadow_var var_expr) ]
+    | Bracket_shadow_opacity (payload, opacity) when not (Parse.is_var payload)
+      ->
+        arbitrary_shadow_opacity_style payload opacity
+    (* A shadow read whole from a custom property has no colour to fold the
+       alpha into: Tailwind sets the channel and leaves the value as it is. *)
+    | Bracket_var_opacity (var_expr, opacity)
+    | Bracket_shadow_opacity (var_expr, opacity) ->
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
+          [
+            opacity_decl opacity;
+            Css.text_shadow (make_text_shadow_var var_expr);
+          ]
     | Arbitrary arb -> arbitrary_shadow_style arb
     | Arbitrary_opacity (arb, opacity) ->
         arbitrary_shadow_opacity_style arb opacity
@@ -760,10 +777,15 @@ module Handler = struct
               if
                 Parse.is_var payload
                 || parse_arbitrary_shadow payload <> Stdlib.Option.None
-              then Ok (Bracket_shadow payload)
+              then
+                match opacity with
+                | Color.No_opacity -> Ok (Bracket_shadow payload)
+                | op -> Ok (Bracket_shadow_opacity (payload, op))
               else err_not_utility
             else if Parse.is_var inner && not (is_shadow_value inner) then
-              Ok (Bracket_var inner)
+              match opacity with
+              | Color.No_opacity -> Ok (Bracket_var inner)
+              | op -> Ok (Bracket_var_opacity (inner, op))
             else if is_hex_value inner then
               let hex = String.sub inner 1 (String.length inner - 1) in
               match opacity with
@@ -859,7 +881,11 @@ module Handler = struct
     | Bracket_cvar_opacity (var_expr, opacity) ->
         "text-shadow-[color:" ^ var_expr ^ "]/" ^ Color.pp_opacity opacity
     | Bracket_shadow var_expr -> "text-shadow-[shadow:" ^ var_expr ^ "]"
+    | Bracket_shadow_opacity (payload, opacity) ->
+        "text-shadow-[shadow:" ^ payload ^ "]/" ^ Color.pp_opacity opacity
     | Bracket_var var_expr -> "text-shadow-[" ^ var_expr ^ "]"
+    | Bracket_var_opacity (var_expr, opacity) ->
+        "text-shadow-[" ^ var_expr ^ "]/" ^ Color.pp_opacity opacity
     | Arbitrary arb -> "text-shadow-[" ^ arb ^ "]"
     | Arbitrary_opacity (arb, opacity) ->
         "text-shadow-[" ^ arb ^ "]/" ^ Color.pp_opacity opacity

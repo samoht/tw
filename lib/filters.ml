@@ -60,6 +60,7 @@ module Handler = struct
     | Drop_shadow_named of string
     | Drop_shadow_named_opacity of string * Color.opacity_modifier
     | Drop_shadow_arbitrary of string * Css.filter
+    | Drop_shadow_var_opacity of string * Css.filter * Color.opacity_modifier
     | Drop_shadow_arbitrary_opacity of
         string * Css.shadow_body list * Color.opacity_modifier
     | Drop_shadow_raw of string * string
@@ -883,14 +884,20 @@ module Handler = struct
     | None ->
         None
 
-  let drop_shadow_arbitrary_impl size =
+  let drop_shadow_arbitrary_impl ?(opacity = Color.No_opacity) size =
+    let alpha =
+      match opacity with
+      | Color.No_opacity -> []
+      | opacity -> [ drop_shadow_alpha_decl opacity ]
+    in
     style ~metadata:filter_property_metadata
       ~property_rules:filter_property_rules
-      [
-        bind_drop_shadow_size size;
-        bind_drop_shadow drop_shadow_size_ref;
-        filter composable_filter_chain;
-      ]
+      (alpha
+      @ [
+          bind_drop_shadow_size size;
+          bind_drop_shadow drop_shadow_size_ref;
+          filter composable_filter_chain;
+        ])
 
   let drop_shadow_raw value =
     match
@@ -1471,6 +1478,8 @@ module Handler = struct
     | Drop_shadow_named name -> drop_shadow_named name
     | Drop_shadow_named_opacity (name, op) -> drop_shadow_named_opacity name op
     | Drop_shadow_arbitrary (_, size) -> drop_shadow_arbitrary_impl size
+    | Drop_shadow_var_opacity (_, size, opacity) ->
+        drop_shadow_arbitrary_impl ~opacity size
     | Drop_shadow_arbitrary_opacity (_, bodies, op) ->
         drop_shadow_arbitrary_opacity bodies op
     | Drop_shadow_raw (_, value) -> drop_shadow_raw value
@@ -1544,7 +1553,7 @@ module Handler = struct
     | Drop_shadow -> 2700
     (* All size candidates share one slot: Tailwind orders them by class name,
        including arbitrary and project-defined values. *)
-    | Drop_shadow_2xl | Drop_shadow_arbitrary _
+    | Drop_shadow_2xl | Drop_shadow_arbitrary _ | Drop_shadow_var_opacity _
     | Drop_shadow_arbitrary_opacity _ | Drop_shadow_raw _ | Drop_shadow_lg
     | Drop_shadow_md | Drop_shadow_multi | Drop_shadow_named _
     | Drop_shadow_named_opacity _ | Drop_shadow_sm | Drop_shadow_xs
@@ -1728,9 +1737,15 @@ module Handler = struct
            opacity <> Color.No_opacity && Parse.is_bracket_value base -> (
         let base, opacity = Color.parse_opacity_modifier ~theme s in
         match drop_shadow_bodies base with
-        | None -> err_not_utility
         | Some bodies ->
-            Ok (Drop_shadow_arbitrary_opacity (base, bodies, opacity)))
+            Ok (Drop_shadow_arbitrary_opacity (base, bodies, opacity))
+        | None -> (
+            (* A shadow read whole from a custom property has no colour to fold
+               the alpha into: the channel is set and the value kept. *)
+            match drop_shadow_arbitrary_value base with
+            | Option.Some (Css.Drop_shadow (Css.Var _) as size) ->
+                Ok (Drop_shadow_var_opacity (base, size, opacity))
+            | Option.Some _ | Option.None -> err_not_utility))
     | [ "drop"; "shadow"; s ] when Parse.is_bracket_value s -> (
         (* Prefer the typed shadow representation, then preserve any safe raw
            declaration-value token stream. *)
@@ -1931,6 +1946,8 @@ module Handler = struct
     | Drop_shadow_named_opacity (name, op) ->
         "drop-shadow-" ^ name ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_arbitrary (s, _) -> "drop-shadow-" ^ s
+    | Drop_shadow_var_opacity (s, _, op) ->
+        "drop-shadow-" ^ s ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_arbitrary_opacity (s, _, op) ->
         "drop-shadow-" ^ s ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_raw (s, _) -> "drop-shadow-" ^ s
