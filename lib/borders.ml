@@ -988,6 +988,13 @@ module Handler = struct
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
+    (* The bare [rounded] and [rounded-<pos>] inline the deprecated [--radius]
+       token, so a [@theme] block that removed it leaves them no utility. *)
+    | [ "rounded" ] when Scheme.is_removed theme "radius" -> err_not_utility
+    | [ "rounded"; pos ]
+      when Option.is_some (corner_of_string pos)
+           && Scheme.is_removed theme "radius" ->
+        err_not_utility
     | [ "rounded" ] -> Ok (Rounded (Corner.All, Rsz_default))
     | [ "rounded"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in

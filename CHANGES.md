@@ -230,9 +230,18 @@
   initial`) now reaches tw at all, `--spacing: initial` drops the multiplier,
   a removed breakpoint stops resolving its variant, and a removed palette
   entry no longer leaves a utility referencing a variable nothing declares
-  (#507, #515). `--breakpoint-md: initial` on its own removes `md:` too: the
-  custom breakpoints read `initial` back as a width, so `md:flex` came out
-  under `@media (min-width: initial)`, a query no browser honours (#847).
+  (#507, #515). A removal reaches every family now. `--breakpoint-md:
+  initial` on its own removes `md:`, where the custom breakpoints read
+  `initial` back as a width and `md:flex` came out under `@media (min-width:
+  initial)`; `--text-*: initial` refuses `text-lg`, `--shadow-*: initial`
+  `shadow-md`, `--container-*: initial` `max-w-4xl` and `@lg:`, and so on
+  through the fonts, radii, animations, blurs, shadows, easings, weights,
+  tracking, leading, aspect ratios and perspectives, where only the palette,
+  the spacing scale and the breakpoints honoured one and every other utility
+  kept reading a variable the theme layer no longer declared, or wrote its
+  default where the family inlines the token. A size query reads the width
+  the theme binds as well: under `--container-lg: 40rem`, `@lg:flex` queried
+  32rem while `max-w-lg` took the project's width (#847).
 - Keep `@keyframes` when a `@theme` redefines an animation. The keyframes
   follow the animation the value names, so retiming `--animate-ping` no longer
   emitted an animation that never ran (#510).

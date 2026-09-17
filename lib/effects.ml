@@ -2924,9 +2924,26 @@ module Handler = struct
           | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
           | _ -> Ok (Inset_shadow_arbitrary_opacity (inner, opacity)))
 
+  (* A sized shadow inlines its token's value rather than reading it through
+     [var()], so a token the [@theme] block removed has to be refused here:
+     nothing downstream would see it go. The size is read under its opacity. *)
+  let removed_size theme family n =
+    match fst (Color.parse_opacity_modifier n) with
+    | ("2xs" | "xs" | "sm" | "md" | "lg" | "xl" | "2xl" | "inner") as size ->
+        Scheme.is_removed theme (family ^ "-" ^ size)
+    | _ -> false
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
+    | [ "shadow" ] when Scheme.is_removed theme "shadow" -> err_not_utility
+    | [ base ]
+      when String.starts_with ~prefix:"shadow/" base
+           && Scheme.is_removed theme "shadow" ->
+        err_not_utility
+    | [ "shadow"; n ] when removed_size theme "shadow" n -> err_not_utility
+    | [ "inset"; "shadow"; n ] when removed_size theme "inset-shadow" n ->
+        err_not_utility
     | [ "shadow"; "none" ] -> Ok Shadow_none
     | [ "shadow"; "2xs" ] -> Ok Shadow_2xs
     | [ "shadow"; "xs" ] -> Ok Shadow_xs

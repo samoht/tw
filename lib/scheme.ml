@@ -223,6 +223,18 @@ let token scheme name =
   | Some _ as v -> v
   | None -> if is_removed scheme name then None else token_default name
 
+let removes_tokens scheme =
+  List.exists
+    (fun (_, value) -> String.equal value removed_value)
+    scheme.token_overrides
+
+(* A name that was a token before the block took it away: [--tw-shadow] is
+   nobody's token, so the bare [--*: initial] does not reach it. *)
+let is_removed_token scheme name =
+  is_removed scheme name
+  && (Option.is_some (token_default name)
+     || List.mem_assoc name scheme.token_overrides)
+
 (** Lookup the exact CSS length of a breakpoint. Entrypoint [@theme] tokens take
     precedence over the legacy px-only record field. A breakpoint the block
     removed has none: [initial] reads as a length, and a query built from it is

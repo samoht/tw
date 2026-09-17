@@ -1527,6 +1527,21 @@ module Handler = struct
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
+    (* The bare [blur], [backdrop-blur] and [drop-shadow] inline the deprecated
+       [--blur] and [--drop-shadow] tokens, and a sized drop shadow under an
+       opacity inlines its own, so a token the [@theme] block removed is refused
+       here rather than read through a [var()] the theme layer drops. *)
+    | ([ "blur" ] | [ "backdrop"; "blur" ]) when Scheme.is_removed theme "blur"
+      ->
+        err_not_utility
+    | [ "drop"; "shadow" ] when Scheme.is_removed theme "drop-shadow" ->
+        err_not_utility
+    | [ "drop"; "shadow"; n ]
+      when match fst (Color.parse_opacity_modifier n) with
+           | ("xs" | "sm" | "md" | "lg" | "xl" | "2xl") as size ->
+               Scheme.is_removed theme ("drop-shadow-" ^ size)
+           | _ -> false ->
+        err_not_utility
     | [ "filter" ] -> Ok Filter
     | [ "filter"; "none" ] -> Ok Filter_none
     | [ "filter"; s ] when Parse.is_bracket_value s -> (

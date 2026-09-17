@@ -827,6 +827,14 @@ module Handler = struct
     (* Bare `text-shadow` is not a utility in v4 (no `--text-shadow` token); the
        named scale is `text-shadow-{2xs,xs,sm,md,lg}`. *)
     | [ "text"; "shadow" ] -> err_not_utility
+    (* A sized text shadow inlines its token's value, so one the [@theme] block
+       removed is refused here rather than read through a [var()]. *)
+    | [ "text"; "shadow"; size_str ]
+      when match fst (Color.parse_opacity_modifier size_str) with
+           | ("2xs" | "xs" | "sm" | "md" | "lg") as size ->
+               Scheme.is_removed theme ("text-shadow-" ^ size)
+           | _ -> false ->
+        err_not_utility
     | [ "text"; "shadow"; size_str ] -> (
         let base, opacity = Color.parse_opacity_modifier ~theme size_str in
         let shape_opt =

@@ -854,6 +854,66 @@ let add_output_var_names names = function
 let referenced_var_names selector_props =
   List.fold_left add_output_var_names Strings.empty selector_props
 
+(* The first ident of a [var()]: its name, up to the comma a fallback
+   follows. *)
+let rec var_name = function
+  | [] -> None
+  | Cascade.Component.Preserved { kind = Cascade.Token.Ident n; _ } :: _ ->
+      Some n
+  | Cascade.Component.Preserved { kind = Cascade.Token.Comma; _ } :: _ -> None
+  | _ :: rest -> var_name rest
+
+(* The variables a value reads: every [var(--x)] outside a fallback. In
+   [var(--a, var(--b))] the rule reads [--a], and [--b] stands in only when
+   nothing declares [--a], which a static utility relies on where its theme
+   token is optional; so [--b] is not a read. Walked as component values, so a
+   [var(] inside a string or a [url()] is data. *)
+let rec var_reads acc (components : Cascade.Component.t list) =
+  List.fold_left
+    (fun acc (c : Cascade.Component.t) ->
+      match c with
+      | Func { node = { name; arguments; _ }; _ }
+        when String.lowercase_ascii name = "var" -> (
+          match var_name arguments with Some n -> n :: acc | None -> acc)
+      | Func { node = { arguments; _ }; _ } -> var_reads acc arguments
+      | Block { node = { value; _ }; _ } -> var_reads acc value
+      | Preserved _ -> acc)
+    acc components
+
+let declaration_reads acc declarations =
+  List.fold_left
+    (fun acc declaration ->
+      let value = Css.declaration_value declaration in
+      var_reads acc
+        (Cascade.Parser.list_of_component_values
+           (Cascade.Reader.of_string value))
+          .value)
+    acc declarations
+
+let removed_token_read ~theme ~authored outputs =
+  let reads =
+    List.fold_left
+      (fun acc -> function
+        | Regular { props; nested; _ }
+        | Media_query { props; nested; _ }
+        | Container_query { props; nested; _ }
+        | Starting_style { props; nested; _ }
+        | Supports_query { props; nested; _ } ->
+            Css.Stylesheet.fold_declarations declaration_reads
+              (declaration_reads acc props)
+              nested)
+      [] outputs
+  in
+  List.find_map
+    (fun full ->
+      if String.length full > 2 && String.sub full 0 2 = "--" then
+        let bare = String.sub full 2 (String.length full - 2) in
+        if Scheme.is_removed_token theme bare && not (authored full) then
+          Some bare
+        else None
+      else None)
+    (List.rev reads)
+
 let add_output_metadata index = function
   | Regular { props; nested; _ }
   | Media_query { props; nested; _ }
