@@ -311,6 +311,23 @@ let test_project_token () =
     "an undeclared text-shadow name is rejected" true
     (Result.is_error (Tw.of_string ~theme "text-shadow-nope"))
 
+(* A text shadow read whole from a custom property takes a modifier, under the
+   [shadow:] hint as well: the alpha channel is set and the value kept, as
+   Tailwind writes it. The bare form was refused, and the hinted one dropped the
+   modifier from the name and the value; a hinted literal shadow folds the alpha
+   as the plain bracket does. *)
+let test_var_shadow_takes_a_modifier () =
+  Test_helpers.check_declarations "text-shadow-[var(--s)]/50"
+    [ "--tw-text-shadow-alpha:50%"; "text-shadow:var(--s)" ];
+  Test_helpers.check_declarations "text-shadow-[shadow:var(--s)]/50"
+    [ "--tw-text-shadow-alpha:50%"; "text-shadow:var(--s)" ];
+  Test_helpers.check_declarations "text-shadow-[shadow:0_1px_red]/50"
+    [
+      "--tw-text-shadow-alpha:50%";
+      "text-shadow:0 1px \
+       var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
+    ]
+
 let tests =
   [
     Alcotest.test_case "colour hint takes a colour" `Quick
@@ -326,6 +343,8 @@ let tests =
       Alcotest.test_case "@theme override threads through" `Quick
         test_theme_override;
       Alcotest.test_case "project token" `Quick test_project_token;
+      Alcotest.test_case "var shadow takes a modifier" `Quick
+        test_var_shadow_takes_a_modifier;
       Alcotest.test_case "palette color keeps OKLCH" `Quick
         test_palette_color_keeps_oklch;
       Alcotest.test_case "arbitrary colour function" `Quick

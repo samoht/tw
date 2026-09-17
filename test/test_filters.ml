@@ -614,6 +614,18 @@ let test_drop_shadow_size_reads_the_theme () =
       chain_min;
     ]
 
+(* A drop shadow read whole from a custom property takes a modifier: the alpha
+   channel is set and the value kept, as Tailwind writes it. The class was
+   refused. *)
+let test_var_drop_shadow_takes_a_modifier () =
+  Test_helpers.check_declarations "drop-shadow-[var(--s)]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(var(--s))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ]
+
 let tests =
   [
     test_case "drop-shadow arbitrary opacity" `Quick
@@ -622,6 +634,8 @@ let tests =
       test_project_drop_shadow_opacity;
     test_case "drop-shadow size reads the theme" `Quick
       test_drop_shadow_size_reads_the_theme;
+    test_case "var drop-shadow takes a modifier" `Quick
+      test_var_drop_shadow_takes_a_modifier;
     test_case "arbitrary angle class name" `Quick
       test_arbitrary_angle_class_name;
     test_case "arbitrary angle token streams" `Quick
