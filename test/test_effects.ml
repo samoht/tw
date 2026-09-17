@@ -75,6 +75,47 @@ let test_ring_theme_colour () =
       "--tw-ring-color:color-mix(in oklab,var(--color-brand) 50%,transparent)";
     ]
 
+(* A project shadow takes a [/opacity] the way a built-in size does: the
+   modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
+   does, and [--tw-shadow-alpha] carries it. [shadow-card/50] was an unknown
+   class. An arbitrary shadow whose colour carries an alpha of its own folds the
+   same way; the colour's alpha was kept or multiplied instead. *)
+let test_project_shadow_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("shadow-card", "0 1px 2px rgb(0 0 0 / 0.1)");
+        ("inset-shadow-deep", "inset 0 4px 8px rgb(0 0 0 / 0.2)");
+      ]
+  in
+  let composition =
+    "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)"
+  in
+  Test_helpers.check_declarations ~theme "shadow-card/50"
+    [
+      "--tw-shadow-alpha:50%";
+      "--tw-shadow:0 1px 2px var(--tw-shadow-color,oklab(0%0 0/.5))";
+      composition;
+    ];
+  Test_helpers.check_declarations ~theme "inset-shadow-deep/50"
+    [
+      "--tw-inset-shadow-alpha:50%";
+      "--tw-inset-shadow:inset 0 4px 8px var(--tw-inset-shadow-color,oklab(0%0 \
+       0/.5))";
+      composition;
+    ];
+  List.iter
+    (fun cls ->
+      Test_helpers.check_declarations cls
+        [
+          "--tw-shadow-alpha:50%";
+          "--tw-shadow:0 1px 2px var(--tw-shadow-color,oklab(0%0 0/.5))";
+          composition;
+        ])
+    [
+      "shadow-[0_1px_2px_#0000001a]/50"; "shadow-[0_1px_2px_rgb(0,0,0,0.1)]/50";
+    ]
+
 let test_ring_width_order () =
   Test_helpers.check_class_order ~test_name:"ring width order"
     [ "ring-8"; "ring-4"; "ring-3"; "ring-2"; "ring-1"; "ring-0"; "ring" ]
@@ -887,6 +928,7 @@ let tests =
       test_arbitrary_bracket_color_token_stream;
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;
     test_case "ring theme colour" `Quick test_ring_theme_colour;
+    test_case "project shadow opacity" `Quick test_project_shadow_opacity;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "undefined colour shade" `Quick test_undefined_shade;
