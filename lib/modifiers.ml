@@ -569,6 +569,15 @@ let renders_as_media = function
       true
   | _ -> false
 
+(* A variant whose rendering gates on [\@media (hover: hover)]: [hover] itself,
+   its group, peer, named, ancestor and [has-] forms. [has-hover] holds the
+   state as a name. *)
+let rec involves_hover = function
+  | Hover | Group_hover | Peer_hover | Device_hocus | Has "hover" -> true
+  | Named_group (m, _) | Named_peer (m, _) | In_state (m, _) | Has_variant m ->
+      involves_hover m
+  | _ -> false
+
 let wrap m styles =
   match styles with
   | [] -> Utility.Group []
@@ -1738,14 +1747,7 @@ let try_not_shorthand inner =
     (* data-X shorthand — attribute presence check *)
   else if String.length inner > 5 && String.sub inner 0 5 = "data-" then
     let attr = String.sub inner 5 (String.length inner - 5) in
-    Some (Not (Data_custom (attr, "")))
-    (* has-X shorthand — :has(:X) pseudo-class *)
-  else if String.length inner > 4 && String.sub inner 0 4 = "has-" then
-    (* The shorthand names a pseudo-class, so it has to read as one; the bracket
-       form validates its selector the same way. *)
-    let sel = ":" ^ String.sub inner 4 (String.length inner - 4) in
-    if is_valid_has_selector sel then Some (Not (Has sel)) else None
-    (* nth-X shorthand — :nth-child(X) *)
+    Some (Not (Data_custom (attr, ""))) (* nth-X shorthand — :nth-child(X) *)
   else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
     let expr = String.sub inner 4 (String.length inner - 4) in
     Some (Not (Nth (Style.nth_expr expr)))
@@ -1773,6 +1775,30 @@ let is_not_compatible = function
     when String.length content > 9 && String.sub content 0 9 = "@supports" ->
       false
   | _ -> true
+
+(* A variant that is an at-rule and nothing else: a media, breakpoint, supports
+   or container query, or the negation of one. *)
+let rec at_rule_only = function
+  | Responsive _ | Min_responsive _ | Max_responsive _ | Min_arbitrary _
+  | Max_arbitrary _ | Min_arbitrary_length _ | Max_arbitrary_length _
+  | Custom_responsive _ | Min_custom _ | Max_custom _ | Supports_property _
+  | Supports_condition _ | Container _ | Starting ->
+      true
+  | At_rule content | Not_bracket content ->
+      Option.is_some (bracket_media_condition content)
+      || (String.length content > 9 && String.sub content 0 9 = "@supports")
+  | Not m -> at_rule_only m
+  | m -> renders_as_media m && not (involves_hover m)
+
+(* The variants a [has-] or [in-] holds: those with a selector of their own. An
+   at-rule variant has none. A negation has one unless it negates an at-rule,
+   and [not-hover] pairs its selector with [\@media not (hover: hover)], which a
+   compound cannot carry: Tailwind compiles nothing for [has-md], [has-not-dark]
+   or [in-not-group-hover]. [hover] itself keeps its gate around the compound,
+   so [has-hover] is fine. *)
+let rec has_selector = function
+  | Not m -> is_not_compatible m && has_selector m && not (involves_hover m)
+  | m -> is_not_compatible m && not (at_rule_only m)
 
 (* [not-[...]] whose content is neither a media condition nor a pseudo-class
    negates the content read as a selector, so text the selector grammar cannot
@@ -1924,8 +1950,11 @@ let try_in_modifier s =
       | Some i when i = String.length after - 1 ->
           Some (In_bracket (String.sub after 0 i))
       | _ -> None
-    else if String.length rest > 5 && String.sub rest 0 5 = "data-" then
-      Some (In_data (String.sub rest 5 (String.length rest - 5)))
+    else if
+      String.length rest > 5
+      && String.sub rest 0 5 = "data-"
+      && not (String.contains rest '[')
+    then Some (In_data (String.sub rest 5 (String.length rest - 5)))
     else
       (* [in-focus]: an ancestor in that state, the same state names the other
          variants take. *)
@@ -2268,6 +2297,7 @@ let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
          The readings above come first because several [not-] spellings need
          their own handling. *)
       (fun () -> try_not_of_modifier ~theme s);
+      (fun () -> try_in_variant ~theme s);
     ]
   in
   match List.find_map (fun f -> f ()) fns with
@@ -2303,7 +2333,7 @@ and try_group_peer_not_variant ~theme s =
 and try_has_variant ~theme s =
   if String.length s > 4 && String.sub s 0 4 = "has-" then
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
-    | Some m when is_not_compatible m -> Some (Has_variant m)
+    | Some m when has_selector m -> Some (Has_variant m)
     | Some _ | None -> None
   else
     match try_scoped_has_variant ~theme "group-has-" s with
@@ -2323,16 +2353,32 @@ and try_scoped_has_variant ~theme prefix s =
     if base = "" || base.[0] = '[' || is_has_shorthand base then None
     else
       match parse_modifier ~theme base with
-      | Some m when is_not_compatible m -> Some (m, name)
+      | Some m when has_selector m -> Some (m, name)
       | Some _ | None -> None
   else None
 
+(* A [not-] over any variant, including another negation: [not-not-md] is [md]
+   again. A negation with two halves has no single negation, so [not-not-hover]
+   reads as nothing, which is what Tailwind compiles for it. *)
 and try_not_of_modifier ~theme s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
   else
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
+    | Some (Not inner) when involves_hover inner -> None
     | Some m when is_not_compatible m -> Some (Not m)
     | Some _ | None -> None
+
+(* [in-<variant>]: an ancestor the variant's selector matches. The readings
+   above know a bracket, a data attribute, a named group and the state names;
+   any other variant with a selector reads here, as [has-] does, and
+   [in-not-focus], [in-has-focus] and [in-group-hover] all read. *)
+and try_in_variant ~theme s =
+  if String.length s > 3 && String.sub s 0 3 = "in-" then
+    let rest = String.sub s 3 (String.length s - 3) in
+    match parse_modifier ~theme rest with
+    | Some m when has_selector m -> Some (In_state (m, rest))
+    | Some _ | None -> None
+  else None
 
 (* Apply a list of modifier strings to a base utility *)
 let apply ?(theme = Scheme.default) modifiers base_utility =

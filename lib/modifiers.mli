@@ -31,6 +31,11 @@ val prose_element_inner_selector : string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
+val involves_hover : modifier -> bool
+(** [involves_hover m] is whether [m]'s rendering gates on
+    [\@media (hover: hover)]: the hover state itself and its group, peer, named,
+    ancestor and [has-] forms. *)
+
 val bracket_media_condition : string -> Css.Media.t option
 (** [bracket_media_condition inner] is the media query a bracket at-rule [inner]
     names when it is an [@media] one, [@media_print] or [@media(width>=600px)],
