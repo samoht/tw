@@ -92,7 +92,13 @@
   `inset-shadow-deep/50` fold the alpha into every layer, as Tailwind's
   relative `oklab()` does. They were unknown classes, and an arbitrary shadow
   whose colour carried an alpha of its own, `shadow-[0_1px_2px_#0000001a]/50`,
-  kept that alpha where Tailwind replaces it (#847).
+  kept that alpha where Tailwind replaces it. An arbitrary drop shadow takes
+  one too, `drop-shadow-[0_1px_2px_var(--c)]/50` keeping the variable in the
+  fallback and taking the relative form behind a guard, and a trailing
+  `var()` in either bracket is the colour, as Tailwind reads it, where the
+  drop shadow read it as a length and lost it. The modifier's `/` is the last
+  one outside a bracket, so `shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50` and
+  `bg-[rgb(0_0_0_/_0.5)]/50` parse (#847).
 - A `theme(static)` entrypoint declares its theme and keyframes once. Each
   `@apply`, and each class under a `@custom-variant`, repeated the whole theme
   block and every `@keyframes` beside the generated sheet's (#801).

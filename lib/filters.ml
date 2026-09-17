@@ -59,6 +59,8 @@ module Handler = struct
     | Drop_shadow_inherit
     | Drop_shadow_named of string
     | Drop_shadow_arbitrary of string * Css.filter
+    | Drop_shadow_arbitrary_opacity of
+        string * Css.shadow_body list * Color.opacity_modifier
     | Drop_shadow_raw of string * string
     | Drop_shadow_color of Color.color * int
     | Drop_shadow_color_opacity of Color.color * int * Color.opacity_modifier
@@ -832,17 +834,50 @@ module Handler = struct
      that is itself a bare [var()] passes through unchanged, since the browser
      resolves the whole shadow from it. [None] means the bracket is not a
      shadow, which [of_class] rejects. *)
+  (* A trailing [var()] the shadow grammar read as the next length is the
+     colour to Tailwind, which matches lengths and takes what is left as the
+     colour: [0 1px 2px var(--c)] paints with [--c]. *)
+  let trailing_var_as_colour (body : Css.shadow_body) : Css.shadow_body =
+    let colour v : Css.color = Css.Var (Var.bracket (Css.var_name v)) in
+    match body with
+    | { color = None; spread = Some (Css.Var v); _ } ->
+        { body with spread = None; color = Some (colour v) }
+    | { color = None; spread = None; blur = Some (Css.Var v); _ } ->
+        { body with blur = None; color = Some (colour v) }
+    | _ -> body
+
+  (* The shadow bodies a bracket spells, [None] when it spells no shadow. *)
+  let drop_shadow_bodies s : Css.shadow_body list option =
+    let inner = Parse.decode_arbitrary_value (Parse.bracket_inner s) in
+    match Css.parse_shadow inner with
+    | Some (Css.Shadow body : Css.shadow) ->
+        Some [ trailing_var_as_colour body ]
+    | Some (Css.List shadows : Css.shadow) -> (
+        match
+          List.filter_map
+            (function
+              | (Css.Shadow body : Css.shadow) ->
+                  Some (trailing_var_as_colour body)
+              | _ -> None)
+            shadows
+        with
+        | [] -> None
+        | bodies -> Some bodies)
+    | _ -> None
+
   let drop_shadow_arbitrary_value s : Css.filter option =
     let inner = Parse.decode_arbitrary_value (Parse.bracket_inner s) in
     match Css.parse_shadow inner with
     | Some (Css.Var _ as v) -> Some (Css.Drop_shadow v)
-    | Some (Css.Shadow body) -> Some (drop_shadow_size_of_body body)
+    | Some (Css.Shadow body) ->
+        Some (drop_shadow_size_of_body (trailing_var_as_colour body))
     | Some (Css.List shadows) -> (
         match
           List.filter_map
             (fun (sh : Css.shadow) ->
               match sh with
-              | Css.Shadow body -> Some (drop_shadow_size_of_body body)
+              | Css.Shadow body ->
+                  Some (drop_shadow_size_of_body (trailing_var_as_colour body))
               | _ -> None)
             shadows
         with
@@ -1060,6 +1095,83 @@ module Handler = struct
     | "xl" -> Option.Some (Css.Px 9., Css.Px 7.)
     | "2xl" -> Option.Some (Css.Px 25., Css.Px 25.)
     | _ -> Option.None
+
+  (* An arbitrary drop shadow under a modifier. The alpha replaces each layer's
+     own, as Tailwind's [oklab(from <colour> l a b / <alpha>)] does: a colour
+     with sRGB bytes folds at build time, and one the browser resolves, a
+     [var()] or [currentcolor], keeps its spelling in the fallback and takes the
+     relative form behind a guard, where the alpha alone is the part a browser
+     without relative colours would lose. *)
+  let drop_shadow_arbitrary_opacity bodies opacity =
+    let alpha = Color.opacity_to_percent opacity /. 100. in
+    let tail =
+      "l a b / "
+      ^ Css.Pp.string_of_float (Color.opacity_to_percent opacity)
+      ^ "%"
+    in
+    let colour_of (body : Css.shadow_body) =
+      match body.color with Some c -> c | None -> Css.Current
+    in
+    let folded body = Color.oklab_alpha (colour_of body) alpha in
+    (* [currentcolor] takes the alpha through a [color-mix()], every other
+       colour the browser resolves through a relative [oklab()]; the guard tests
+       for whichever the sheet uses. *)
+    let is_current body = colour_of body = Css.Current in
+    let size ~guarded =
+      let layers =
+        List.map
+          (fun (body : Css.shadow_body) ->
+            let color =
+              match folded body with
+              | Some c -> c
+              | None ->
+                  if not guarded then colour_of body
+                  else if is_current body then
+                    Color.mix_alpha opacity Css.Current
+                  else Css.Relative_color ("oklab", colour_of body, tail)
+            in
+            Css.Drop_shadow
+              (Css.shadow ~h_offset:body.h_offset ~v_offset:body.v_offset
+                 ?blur:body.blur ?spread:body.spread
+                 ~color:(Css.Var (drop_shadow_color_ref color))
+                 ()))
+          bodies
+      in
+      match layers with [ one ] -> one | many -> Css.List many
+    in
+    let alpha_decl =
+      Css.custom_property ~layer:"utilities" "--tw-drop-shadow-alpha"
+        (Css.Pp.string_of_float (Color.opacity_to_percent opacity) ^ "%")
+    in
+    let tail_decls =
+      [ bind_drop_shadow drop_shadow_size_ref; filter composable_filter_chain ]
+    in
+    if List.for_all (fun body -> Option.is_some (folded body)) bodies then
+      style ~metadata:filter_property_metadata
+        ~property_rules:filter_property_rules
+        ((alpha_decl :: [ bind_drop_shadow_size (size ~guarded:false) ])
+        @ tail_decls)
+    else
+      let placeholder = Css.Selector.class_ "_" in
+      let unguarded =
+        Css.rule ~selector:placeholder
+          [ alpha_decl; bind_drop_shadow_size (size ~guarded:false) ]
+      in
+      let guarded =
+        Css.supports
+          ~condition:
+            (if List.exists is_current bodies then
+               Color.color_mix_supports_condition
+             else Css.Supports.property "color" "lab(from red l a b)")
+          [
+            Css.rule ~selector:placeholder
+              [ bind_drop_shadow_size (size ~guarded:true) ];
+          ]
+      in
+      style
+        ~rules:(Option.Some [ unguarded; guarded ])
+        ~metadata:filter_property_metadata ~property_rules:filter_property_rules
+        tail_decls
 
   let drop_shadow_size_opacity (v, blur) opacity =
     let percent =
@@ -1418,6 +1530,8 @@ module Handler = struct
     | Drop_shadow_inherit -> drop_shadow_inherit_
     | Drop_shadow_named name -> drop_shadow_named name
     | Drop_shadow_arbitrary (_, size) -> drop_shadow_arbitrary_impl size
+    | Drop_shadow_arbitrary_opacity (_, bodies, op) ->
+        drop_shadow_arbitrary_opacity bodies op
     | Drop_shadow_raw (_, value) -> drop_shadow_raw value
     | Drop_shadow_color (c, shade) -> drop_shadow_color c shade
     | Drop_shadow_color_opacity (c, shade, op) ->
@@ -1489,9 +1603,10 @@ module Handler = struct
     | Drop_shadow -> 2700
     (* All size candidates share one slot: Tailwind orders them by class name,
        including arbitrary and project-defined values. *)
-    | Drop_shadow_2xl | Drop_shadow_arbitrary _ | Drop_shadow_raw _
-    | Drop_shadow_lg | Drop_shadow_md | Drop_shadow_multi | Drop_shadow_named _
-    | Drop_shadow_sm | Drop_shadow_xs | Drop_shadow_xl ->
+    | Drop_shadow_2xl | Drop_shadow_arbitrary _
+    | Drop_shadow_arbitrary_opacity _ | Drop_shadow_raw _ | Drop_shadow_lg
+    | Drop_shadow_md | Drop_shadow_multi | Drop_shadow_named _ | Drop_shadow_sm
+    | Drop_shadow_xs | Drop_shadow_xl ->
         2703
     | Drop_shadow_none -> 2708
     (* Every drop-shadow colour shares one slot, after the sizes: Tailwind
@@ -1666,6 +1781,14 @@ module Handler = struct
         Ok (Drop_shadow_keyword_color (Css.Current, "current"))
     | [ "drop"; "shadow"; "transparent" ] ->
         Ok (Drop_shadow_keyword_color (Css.Transparent, "transparent"))
+    | [ "drop"; "shadow"; s ]
+      when let base, opacity = Color.parse_opacity_modifier ~theme s in
+           opacity <> Color.No_opacity && Parse.is_bracket_value base -> (
+        let base, opacity = Color.parse_opacity_modifier ~theme s in
+        match drop_shadow_bodies base with
+        | None -> err_not_utility
+        | Some bodies ->
+            Ok (Drop_shadow_arbitrary_opacity (base, bodies, opacity)))
     | [ "drop"; "shadow"; s ] when Parse.is_bracket_value s -> (
         (* Prefer the typed shadow representation, then preserve any safe raw
            declaration-value token stream. *)
@@ -1862,6 +1985,8 @@ module Handler = struct
     | Drop_shadow_inherit -> "drop-shadow-inherit"
     | Drop_shadow_named name -> "drop-shadow-" ^ name
     | Drop_shadow_arbitrary (s, _) -> "drop-shadow-" ^ s
+    | Drop_shadow_arbitrary_opacity (s, _, op) ->
+        "drop-shadow-" ^ s ^ "/" ^ Color.pp_opacity op
     | Drop_shadow_raw (s, _) -> "drop-shadow-" ^ s
     | Drop_shadow_color (c, shade) ->
         "drop-shadow-" ^ Color.scheme_color_name c shade
