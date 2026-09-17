@@ -569,6 +569,19 @@
 
 ### Variants and selectors
 
+- A negated hover variant carries its `@media not (hover: hover)` twin whatever
+  form the hover takes: `not-group-hover:`, `not-peer-hover/x:`, `not-in-hover:`
+  and `not-has-hover:` pair `.x:not(...)` with the twin as `not-hover:` does,
+  and the twin keeps the leaf the inner variants built, so
+  `not-hover:focus:flex` styles `.x:focus` on a touch device and
+  `not-dark:hover:flex` keeps its hover gate. `not-group-hover:flex` used to
+  emit the selector half alone, and `not-in-hover:` negated the utility's own
+  class (#850).
+- `has-`, `in-` and a second `not-` take any variant with a selector, as they
+  do in Tailwind: `has-not-focus:`, `in-group-hover:`, `in-nth-3:`,
+  `not-not-md:` and `in-not-[.a]:` compile, and `not-not-hover:`, `has-md:`
+  or `in-not-group-hover:` are refused rather than compiled to a selector that
+  negates the utility's own class (#850).
 - A `@custom-variant` built on a named `@container` query keeps the name:
   `card:flex` under `@container card (width >= 20rem)` queried the nearest
   container of any name, which is another box wherever one sits closer (#839).
