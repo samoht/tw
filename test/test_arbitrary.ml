@@ -277,6 +277,51 @@ let test_var_opacity_spelling () =
       "color: color-mix(in oklab, red var(--x), transparent)";
     ]
 
+(* A modifier reading a custom property mixes that property into the guarded
+   value on a bracket [var()] colour as on a plain one. The var arm folded the
+   modifier to a percentage, which a var() has none of, so the mix said [100%]
+   and the modifier was dropped. The fallback keeps the var() bare, the shape
+   the CLI writes. *)
+let test_var_colour_opacity_var () =
+  let mixed cls property =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        property ^ ": var(--c)";
+        property ^ ": color-mix(in oklab, var(--c) var(--o), transparent)";
+      ]
+  in
+  mixed "[color:var(--c)]/(--o)" "color";
+  mixed "[color:var(--c)]/[var(--o)]" "color";
+  mixed "[background-color:var(--c)]/(--o)" "background-color";
+  mixed "[--x:var(--c)]/(--o)" "--x"
+
+(* A named [--opacity-*] token reads as [var(--opacity-half)] and nothing else,
+   in the guarded mix, and as the percentage the theme binds it to in the srgb
+   fallback. The token's value is a percentage, which the reader took for a
+   float and could not read, so the fallback said [100%] and the reference grew
+   a second fallback, [var(--half-opacity)], that Tailwind never writes. The var
+   arm folded the token to [100%] outright. *)
+let test_named_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let mixed cls property colour =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [
+        property ^ ": color-mix(in srgb, " ^ colour ^ " 50%, transparent)";
+        property ^ ": color-mix(in oklab, " ^ colour
+        ^ " var(--opacity-half), transparent)";
+      ]
+  in
+  mixed "[color:red]/half" "color" "red";
+  mixed "[background-color:#123456]/half" "background-color" "#123456";
+  mixed "[--my-color:red]/half" "--my-color" "red";
+  Test_helpers.check_declarations ~theme ~minify:false "[color:var(--c)]/half"
+    [
+      "color: var(--c)";
+      "color: color-mix(in oklab, var(--c) var(--opacity-half), transparent)";
+    ]
+
 (* Colour values go through the CSS reader, so every named colour is a colour,
    not a hand-picked subset of them. *)
 let test_named_colour_value () =
@@ -473,6 +518,9 @@ let tests =
     test_case "var-valued opacity modifier spelling" `Quick
       test_var_opacity_spelling;
     test_case "named colour value" `Quick test_named_colour_value;
+    test_case "var-valued colour opacity from a var" `Quick
+      test_var_colour_opacity_var;
+    test_case "named opacity token" `Quick test_named_opacity;
     test_case "property value calc operators" `Quick
       test_property_calc_operators;
     test_case "property value --spacing()" `Quick test_property_spacing_fn;
