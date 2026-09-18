@@ -152,32 +152,6 @@ let has_explicit_radius scheme name = Option.is_some (radius scheme name)
 (** Lookup a breakpoint px value in the scheme *)
 let breakpoint scheme name = List.assoc_opt name scheme.breakpoints
 
-(** Lookup the exact CSS length of a breakpoint. Entrypoint [@theme] tokens take
-    precedence over the legacy px-only record field. *)
-let breakpoint_length scheme name =
-  match List.assoc_opt ("breakpoint-" ^ name) scheme.token_overrides with
-  | Some value -> Css.parse_length value
-  | None ->
-      Option.map (fun px -> (Css.Px px : Css.length)) (breakpoint scheme name)
-
-let breakpoint_names scheme =
-  let from_tokens =
-    List.filter_map
-      (fun (name, value) ->
-        let prefix = "breakpoint-" in
-        if
-          String.starts_with ~prefix name
-          && Option.is_some (Css.parse_length value)
-        then
-          Some
-            (String.sub name (String.length prefix)
-               (String.length name - String.length prefix))
-        else None)
-      scheme.token_overrides
-  in
-  List.sort_uniq String.compare (List.map fst scheme.breakpoints @ from_tokens)
-  |> List.filter (fun name -> Option.is_some (breakpoint_length scheme name))
-
 (* Tailwind reads [--name: initial] in a [@theme] block as "remove this token",
    and [--namespace-*: initial] as "remove the whole namespace", so a candidate
    that needed the token stops resolving. *)
@@ -210,8 +184,8 @@ let in_nested_scale namespace name =
     (Option.value ~default:[] (List.assoc_opt namespace nested_scales))
 
 let clears_one_namespace name key =
-  String.length key > 2
-  && String.equal (String.sub key (String.length key - 2) 2) "-*"
+  String.ends_with ~suffix:"-*" key
+  && String.length key > 2
   &&
   let namespace = String.sub key 0 (String.length key - 2) in
   String.starts_with ~prefix:namespace name
@@ -239,8 +213,9 @@ let token_override scheme name =
 (** [theme_value theme name] looks up a per-render token override from the
     optionally-threaded [theme] ([None] when no theme is threaded). Threaded
     replacement for the global [Var.theme_value]. *)
-let theme_value theme name =
-  match theme with Some s -> token_override s name | None -> None
+let or_default theme = Option.value ~default theme
+
+let theme_value theme name = Option.bind theme (fun s -> token_override s name)
 
 (** Resolve a theme token: override (if any) else the registered default. A
     token the [@theme] block removed resolves to nothing, default or not. *)
@@ -248,6 +223,31 @@ let token scheme name =
   match token_override scheme name with
   | Some _ as v -> v
   | None -> if is_removed scheme name then None else token_default name
+
+let removes_tokens scheme =
+  List.exists
+    (fun (_, value) -> String.equal value removed_value)
+    scheme.token_overrides
+
+(* A name that was a token before the block took it away: [--tw-shadow] is
+   nobody's token, so the bare [--*: initial] does not reach it. *)
+let is_removed_token scheme name =
+  is_removed scheme name
+  && (Option.is_some (token_default name)
+     || List.mem_assoc name scheme.token_overrides)
+
+(** Lookup the exact CSS length of a breakpoint. Entrypoint [@theme] tokens take
+    precedence over the legacy px-only record field. A breakpoint the block
+    removed has none: [initial] reads as a length, and a query built from it is
+    one no browser honours. *)
+let breakpoint_length scheme name =
+  let key = "breakpoint-" ^ name in
+  if is_removed scheme key then None
+  else
+    match List.assoc_opt key scheme.token_overrides with
+    | Some value -> Css.parse_length value
+    | None ->
+        Option.map (fun px -> (Css.Px px : Css.length)) (breakpoint scheme name)
 
 (** Every breakpoint the theme defines, keyed by name: the registered defaults,
     the [--breakpoint-*] tokens a [@theme] block set, and the legacy px-only
@@ -281,6 +281,11 @@ let all_breakpoints scheme =
     breakpoint [name], reading the same set as {!all_breakpoints} so a variant
     and a container agree on what the theme has. *)
 let has_breakpoint scheme name = List.mem_assoc name (all_breakpoints scheme)
+
+(* The names a variant may spell, read off the same set: a breakpoint the
+   [@theme] block removed is not among them, whatever value the removal
+   wrote. *)
+let breakpoint_names scheme = List.map fst (all_breakpoints scheme)
 
 (** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
     on top of any existing token overrides (new entries win). *)

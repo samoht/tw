@@ -408,12 +408,13 @@ let minimize_failing_case check_fails initial =
     in
     Some final
 
-(* Differential rendering. Both sheets are loaded in headless Chromium and the
-   computed styles compared: a property that computes the same is equivalent
-   however the two sheets spell it, and one that differs is observable by
-   definition. It needs node, Playwright and its Chromium, none of which a plain
-   opam build has, so the check skips when they are missing rather than being
-   gated in dune. Set TW_BROWSER_TESTS=0 to opt out where they are present. *)
+(* Differential rendering. Both sheets are loaded in headless Chromium over one
+   page and the computed styles compared, by cascade's browser comparison: a
+   property that computes the same is equivalent however the two sheets spell
+   it, and one that differs is observable by definition. It needs node and a
+   headless Chromium, which a plain opam build has neither of, so the check
+   skips when they are missing rather than being gated in dune. Set
+   TW_BROWSER_TESTS=0 to opt out where they are present. *)
 let rec dir_containing name dir =
   if Sys.file_exists (Filename.concat dir name) then Some dir
   else
@@ -421,16 +422,8 @@ let rec dir_containing name dir =
     if String.equal parent dir then None else dir_containing name parent
 
 (* Tests run from the build directory, which is itself inside the project, so
-   the walk up finds the root whether or not dune sandboxed us. node_modules is
-   what we are really after: node resolves playwright from there. *)
+   the walk up finds the root whether or not dune sandboxed us. *)
 let project_root = lazy (dir_containing "node_modules" (Sys.getcwd ()))
-let browser_script = "test/helpers/browser/compare.js"
-
-let browser_available root =
-  Sys.getenv_opt "TW_BROWSER_TESTS" <> Some "0"
-  && Sys.file_exists (Filename.concat root "node_modules/playwright")
-  && Sys.file_exists (Filename.concat root browser_script)
-  && Sys.command "node --version > /dev/null 2>&1" = 0
 
 (* Skipping is right on a developer machine with no browser, and wrong on CI,
    where it reports eight suites as finding no rendering difference because they
@@ -452,15 +445,9 @@ let write_file path content =
   output_string oc content;
   close_out oc
 
-let read_file path =
-  let ic = open_in path in
-  let n = in_channel_length ic in
-  let s = really_input_string ic n in
-  close_in ic;
-  s
-
-(* One directory per test, kept after the run: the two sheets and the element
-   list are what you need to reproduce a failure by hand. *)
+(* One directory per test, kept after the run: the two sheets and the page are
+   what you need to reproduce a failure by hand, with [cascade diff --browser
+   --html page.html tailwind.css tw.css]. *)
 let render_dir root test_name =
   let safe =
     String.map
@@ -502,52 +489,74 @@ let render_elements classnames =
     (classnames
     @ List.map (fun (a, b) -> a ^ " " ^ b) (interacting_pairs classnames))
 
-(* The element list is line-oriented, so markup that spans lines in the test
-   source is folded onto one. HTML reads the two the same, and nothing the
-   comparison looks at is computed from the markup's own whitespace. *)
-let one_line s = String.map (function '\n' | '\r' | '\t' -> ' ' | c -> c) s
+(* Arbitrary values carry quotes and angle brackets of their own
+   ([content-["x"]], [bg-[url("/img/x.png")]]), so a class is escaped as
+   attribute text or it ends the attribute it sits in. *)
+let escape_attribute s =
+  let buf = Buffer.create (String.length s) in
+  String.iter
+    (function
+      | '&' -> Buffer.add_string buf "&amp;"
+      | '"' -> Buffer.add_string buf "&quot;"
+      | '<' -> Buffer.add_string buf "&lt;"
+      | '>' -> Buffer.add_string buf "&gt;"
+      | c -> Buffer.add_char buf c)
+    s;
+  Buffer.contents buf
 
-let check_rendering_matches ?(forms = false) ?(inner = "") ~test_name utilities
-    =
-  let root =
-    match Lazy.force project_root with Some r -> r | None -> Alcotest.skip ()
-  in
-  if not (browser_available root) then
-    unavailable test_name "node, Playwright or the compare script is missing";
+let render_page ?(inner = "") elements =
+  String.concat ""
+    ([ "<!doctype html><html><head><meta charset=\"utf-8\"></head><body>" ]
+    @ List.mapi
+        (fun i classes ->
+          String.concat ""
+            [
+              "<div id=\"e";
+              string_of_int i;
+              "\" class=\"";
+              escape_attribute classes;
+              "\">";
+              inner;
+              "</div>";
+            ])
+        elements
+    @ [ "</body></html>" ])
+
+let rendering_report ?inner ~test_name ~elements ~tailwind ~tw () =
+  if Sys.getenv_opt "TW_BROWSER_TESTS" = Some "0" then Alcotest.skip ();
+  (match (Browser.node_binary (), Browser.chrome_binary ()) with
+  | Some _, Some _ -> ()
+  | None, _ -> unavailable test_name "no node on PATH or in NODE"
+  | _, None -> unavailable test_name "no headless Chromium found");
+  let html = render_page ?inner elements in
+  (match Lazy.force project_root with
+  | Some root ->
+      let dir = render_dir root test_name in
+      let path name = Filename.concat dir name in
+      write_file (path "page.html") html;
+      write_file (path "tailwind.css") tailwind;
+      write_file (path "tw.css") tw
+  | None -> ());
+  (* With both tools found, a run that fails measured nothing: a failure, never
+     a skip. *)
+  match Browser_compare.run ~html [ ("tailwind", tailwind); ("tw", tw) ] with
+  | Ok report -> report
+  | Error reason -> Alcotest.failf "%s: %s" test_name reason
+
+let check_rendering_matches ?(forms = false) ?inner ~test_name utilities =
   let classnames = List.map Tw.pp utilities in
-  let elements = render_elements classnames in
-  let tailwind = tailwind_css ~forms classnames in
-  let dir = render_dir root test_name in
-  let path name = Filename.concat dir name in
-  let entry cls =
-    if String.equal inner "" then cls else cls ^ "\t" ^ one_line inner
+  let report =
+    rendering_report ?inner ~test_name
+      ~elements:(render_elements classnames)
+      ~tailwind:(tailwind_css ~forms classnames)
+      ~tw:(our_css utilities) ()
   in
-  write_file (path "tw.css") (respelled (our_css utilities));
-  write_file (path "tailwind.css") (respelled tailwind);
-  write_file (path "elements.txt")
-    (String.concat "\n" (List.map entry elements));
-  let out = path "diff.txt" and err = path "stderr.txt" in
-  let cmd =
-    Fmt.str "node %s %s %s %s > %s 2> %s"
-      (Filename.quote (Filename.concat root browser_script))
-      (Filename.quote (path "elements.txt"))
-      (Filename.quote (path "tw.css"))
-      (Filename.quote (path "tailwind.css"))
-      (Filename.quote out) (Filename.quote err)
-  in
-  match Sys.command cmd with
-  | 0 -> ()
-  | 1 -> Alcotest.failf "%s\n%s" test_name (read_file out)
-  | 3 ->
-      (* The elements did not carry the classes we asked for, so what they
-         computed compares nothing. Fail: it is a broken harness, not a missing
-         tool. *)
-      Alcotest.failf "%s: browser harness built unusable markup\n%s" test_name
-        (read_file out)
-  | _ ->
-      (* No usable browser (Chromium not downloaded, sandbox refused to start).
-         A missing tool, not a difference. *)
-      unavailable test_name (String.trim (read_file err))
+  match report.differences with
+  | [] -> ()
+  | _ :: _ ->
+      Alcotest.failf "%s\n%s" test_name
+        (Browser_compare.to_string ~first:"tailwind.css" ~second:"tw.css"
+           ~html:"page.html" report)
 
 let check_ordering_matches ?forms ~test_name utilities =
   let diff = ordering_diff ?forms utilities in

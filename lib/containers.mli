@@ -57,9 +57,12 @@ val container_query : ?name:string -> int -> t list -> t
 
 (** {1 Helper Functions} *)
 
-val container_query_to_condition : Style.container_query -> Css.Container.t
-(** [container_query_to_condition q] converts [q] to a structured Container.t
-    condition. *)
+val container_query_to_condition :
+  ?theme:Scheme.t -> Style.container_query -> Css.Container.t
+(** [container_query_to_condition ?theme q] is the [\@container] condition [q]
+    queries. A named size queries the width [theme] binds to
+    [--container-<size>], Tailwind's default scale where the theme binds none
+    (default {!Scheme.default}). *)
 
 val container_query_to_class_prefix : Style.container_query -> string
 (** [container_query_to_class_prefix q] converts [q] to its class name prefix

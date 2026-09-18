@@ -88,9 +88,8 @@ let nonnegative_int ~name s =
   | None -> None
 
 let int_pos ~name s =
-  match nonnegative_int ~name s with
-  | Some result -> result
-  | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
+  Option.value (nonnegative_int ~name s)
+    ~default:(Error (`Msg ("Invalid " ^ name ^ " value: " ^ s)))
 
 (* Parse decimal values like "0.5", "1.5" for spacing utilities. Valid decimals
    must be multiples of 0.25 (i.e., value * 4 is integer). *)
@@ -528,9 +527,7 @@ let length_percentage_of_length (l : Cascade.Css.length) :
       None
 
 let arbitrary_length_percentage s =
-  match arbitrary_length s with
-  | Some l -> length_percentage_of_length l
-  | None -> None
+  Option.bind (arbitrary_length s) length_percentage_of_length
 
 (* A CSS identifier, which is what a custom-ident or a property name written in
    an arbitrary value has to be. The docs pages carry [<value>] placeholders
@@ -616,11 +613,29 @@ let opaque_declaration property value =
   else None
 
 (** Check if a string starts with "var(" — works on inner bracket content *)
-let is_var s = String.length s > 4 && String.sub s 0 4 = "var("
+let is_var s = String.starts_with ~prefix:"var(" s && String.length s > 4
 
 (** Check if a bracket value contains a var() reference *)
 let is_bracket_var s =
   if is_bracket_value s then is_var (bracket_inner s) else false
+
+let call_body name s =
+  let head = name ^ "(" in
+  let n = String.length s and m = String.length head in
+  if n > m && String.starts_with ~prefix:head s && s.[n - 1] = ')' then
+    Some (String.sub s m (n - m - 1))
+  else None
+
+let alpha_call s =
+  match call_body "--alpha" s with
+  | None -> None
+  | Some body -> (
+      match String.rindex_opt body '/' with
+      | Some i ->
+          Some
+            ( String.sub body 0 i,
+              String.sub body (i + 1) (String.length body - i - 1) )
+      | None -> None)
 
 (** Check if a string looks like a CSS color function call (e.g., "rgba(...)",
     "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
@@ -639,43 +654,40 @@ let is_bare_var s =
   && s.[1] = '-'
   && s.[2] = '-'
 
+let bare_name s =
+  if String.starts_with ~prefix:"--" s && String.length s > 2 then
+    Some (String.sub s 2 (String.length s - 2))
+  else None
+
 (** Extract the var name from a bare var "(--name)" → "--name" *)
 let bare_var_inner s =
   if is_bare_var s then String.sub s 1 (String.length s - 2) else s
 
-(** Split a class name on '-' but treat '[...]' as atomic. E.g.
-    "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
-    [""; "m"; "[var(--value)]"] *)
-let split_class_uncached class_name =
-  let len = String.length class_name in
+(* Split [s] on [sep], reading a [[...]] or a [(...)] group, nested brackets of
+   its own kind included, as one atom: the separator inside one belongs to the
+   piece around it. Always yields one piece more than the separators it split
+   on, so joining the pieces back with [sep] reconstructs [s]. *)
+let split_atomic sep s =
+  let len = String.length s in
   let buf = Buffer.create 16 in
   let parts = ref [] in
   let i = ref 0 in
+  let group opening closing =
+    let depth = ref 1 in
+    Buffer.add_char buf opening;
+    incr i;
+    while !i < len && !depth > 0 do
+      let c = s.[!i] in
+      Buffer.add_char buf c;
+      if c = opening then incr depth else if c = closing then decr depth;
+      incr i
+    done
+  in
   while !i < len do
-    let c = class_name.[!i] in
-    if c = '[' then (
-      (* Read until matching ']', including nested brackets *)
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = class_name.[!i] in
-        Buffer.add_char buf c;
-        if c = '[' then incr depth else if c = ']' then decr depth;
-        incr i
-      done)
-    else if c = '(' then (
-      (* Read until matching ')', including nested parens *)
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = class_name.[!i] in
-        Buffer.add_char buf c;
-        if c = '(' then incr depth else if c = ')' then decr depth;
-        incr i
-      done)
-    else if c = '-' then (
+    let c = s.[!i] in
+    if c = '[' then group '[' ']'
+    else if c = '(' then group '(' ')'
+    else if c = sep then (
       parts := Buffer.contents buf :: !parts;
       Buffer.clear buf;
       incr i)
@@ -685,49 +697,18 @@ let split_class_uncached class_name =
   done;
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
+
+(** Split a class name on '-' but treat '[...]' as atomic. E.g.
+    "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
+    [""; "m"; "[var(--value)]"] *)
+let split_class_uncached = split_atomic '-'
 
 (** Split a variant chain on ':', treating '[...]' and '(...)' as atomic so a
     colon inside an arbitrary value or a shorthand var reference (e.g.
     "hover:bg-[color:var(--x)]") is not read as a variant separator. Always
     yields (colon count + 1) tokens: joining the result back with ':'
     reconstructs the input. *)
-let split_on_colon s =
-  let len = String.length s in
-  let buf = Buffer.create 16 in
-  let parts = ref [] in
-  let i = ref 0 in
-  while !i < len do
-    let c = s.[!i] in
-    if c = '[' then (
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = s.[!i] in
-        Buffer.add_char buf c;
-        if c = '[' then incr depth else if c = ']' then decr depth;
-        incr i
-      done)
-    else if c = '(' then (
-      let depth = ref 1 in
-      Buffer.add_char buf c;
-      incr i;
-      while !i < len && !depth > 0 do
-        let c = s.[!i] in
-        Buffer.add_char buf c;
-        if c = '(' then incr depth else if c = ')' then decr depth;
-        incr i
-      done)
-    else if c = ':' then (
-      parts := Buffer.contents buf :: !parts;
-      Buffer.clear buf;
-      incr i)
-    else (
-      Buffer.add_char buf c;
-      incr i)
-  done;
-  parts := Buffer.contents buf :: !parts;
-  List.rev !parts
+let split_on_colon = split_atomic ':'
 
 (* Utility.base_of_class offers one class name to every handler in turn until
    one accepts it, and most handlers open by splitting that same name, so a
@@ -743,3 +724,88 @@ let split_class class_name =
       let parts = split_class_uncached class_name in
       Domain.DLS.set last_split (Some (class_name, parts));
       parts
+
+(* Tailwind reads a shadow by taking its lengths and leaving what is left as the
+   colour, so a trailing [var()] the shadow grammar read as the next length slot
+   is the colour: [0 1px 2px var(--c)] paints with [--c]. The reference keeps
+   its name and a syntactic fallback; a length fallback is no colour. *)
+let colour_of_length_var (v : Cascade.Css.length Cascade.Css.var) :
+    Cascade.Css.color Cascade.Css.var =
+  let fallback : Cascade.Css.color Cascade.Css.fallback =
+    match v.Cascade.Values.fallback with
+    | Fallback _ | None -> None
+    | Empty -> Empty
+    | Empty2 -> Empty2
+    | Syntax_fallback cv -> Syntax_fallback cv
+    | Var_fallback s -> Var_fallback s
+  in
+  Cascade.Css.var_ref ~fallback ?layer:v.Cascade.Values.layer
+    ?meta:v.Cascade.Values.meta ~runtime:v.Cascade.Values.runtime
+    v.Cascade.Values.name
+
+let trailing_var_as_colour (body : Cascade.Css.shadow_body) :
+    Cascade.Css.shadow_body =
+  let colour v : Cascade.Css.color = Var (colour_of_length_var v) in
+  match body with
+  | { color = None; spread = Some (Var v); _ } ->
+      { body with spread = None; color = Some (colour v) }
+  | { color = None; spread = None; blur = Some (Var v); _ } ->
+      { body with blur = None; color = Some (colour v) }
+  | _ -> body
+
+let shadow s : Cascade.Css.shadow option =
+  let rec reslot : Cascade.Css.shadow -> Cascade.Css.shadow = function
+    | Shadow body -> Shadow (trailing_var_as_colour body)
+    | Inset (Body body) -> Inset (Body (trailing_var_as_colour body))
+    | Inset (Toggle t) ->
+        Inset (Toggle { t with body = trailing_var_as_colour t.body })
+    | List layers -> List (List.map reslot layers)
+    | other -> other
+  in
+  Option.map reslot (Cascade.Css.parse_shadow s)
+
+type shadow_colour =
+  | Hex_token of string
+  | Var_token of string
+  | Colour of Cascade.Css.color
+  | No_colour
+
+let shadow_layer s =
+  let parts = String.split_on_char ' ' (decode_underscores s) in
+  let rec split acc = function
+    | [] -> (List.rev acc, No_colour)
+    | x :: _ when String.length x > 0 && x.[0] = '#' ->
+        (List.rev acc, Hex_token x)
+    | x :: _ when is_var x -> (List.rev acc, Var_token x)
+    | x :: rest when is_css_color_fn x -> (
+        (* A colour function may carry spaces, so it runs to the end of the
+           value. *)
+        match Cascade.Css.parse_color (String.concat " " (x :: rest)) with
+        | Some c -> (List.rev acc, Colour c)
+        | None -> split (x :: acc) rest)
+    | x :: rest -> split (x :: acc) rest
+  in
+  let length_strs, colour = split [] parts in
+  let lengths = List.filter_map arbitrary_length length_strs in
+  (* A token that is not a length makes the value not a shadow. Dropping it
+     instead would slide the surviving lengths into the wrong slots. A [#] token
+     is only the shadow's colour when it is a hex spelling. *)
+  if List.compare_lengths lengths length_strs <> 0 then None
+  else
+    match colour with
+    | Hex_token h when Option.is_none (Cascade.Css.hex_opt h) -> None
+    | _ -> Some (lengths, colour)
+
+let split_top_level sep s =
+  let len = String.length s in
+  let rec go depth start i acc =
+    if i >= len then List.rev (String.sub s start (len - start) :: acc)
+    else
+      match s.[i] with
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
+      | c when c = sep && depth = 0 ->
+          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | _ -> go depth start (i + 1) acc
+  in
+  go 0 0 0 []

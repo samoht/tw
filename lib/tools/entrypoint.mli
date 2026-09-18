@@ -63,6 +63,20 @@ val source_paths : string -> string list * string list
     stylesheet and may be a glob; the [inline()] forms are {!source_inline}'s.
 *)
 
+val source_root : string -> [ `Detect | `None | `Dir of string ]
+(** [source_root css] is where the automatic source detection of [css] starts:
+    [`None] when its [\@import] (or [\@tailwind utilities]) says [source(none)],
+    [`Dir dir] when it says [source("dir")], a path relative to the stylesheet,
+    and [`Detect] otherwise, which starts at the working directory. *)
+
+val rooted : dir:string -> string -> string
+(** [rooted ~dir css] is [css] with the relative path of each [\@import],
+    [\@source], [\@plugin], [\@config] and [\@reference] resolved against [dir],
+    the directory [css] was read from, so the text compiles from another
+    directory. A path is relative when it starts [./] or [../]; a package name
+    such as [tailwindcss] is left as written, and so is an
+    [\@source inline(...)] argument, which names candidates. *)
+
 val source_inline : string -> string list * string list
 (** [source_inline css] is the candidates the [@source inline("...")] directives
     of [css] safelist, and those its [@source not inline("...")] directives
@@ -95,6 +109,15 @@ val entry_variant_defs : string option -> (string * string) list
     entrypoint at [path], or none when there is no entrypoint or it cannot be
     read. *)
 
+val with_negated_variants :
+  (string * string) list -> (string * string) list * string list
+(** [with_negated_variants defs] is [defs] with a [not-NAME] template for every
+    declared [NAME] whose body Tailwind negates, and the [not-NAME]s it refuses.
+    Tailwind negates a body in place, one node at a time, so a body of sibling
+    branches is refused, as are a pseudo-element, a compound condition and an
+    at-rule other than [\@media], [\@supports] and [\@container]. A [not-NAME]
+    the project declared itself is left as declared. *)
+
 val entry_utility_defs : string option -> (string * string) list
 (** [entry_utility_defs path] is the [@utility] declarations of the entrypoint
     at [path], the same way. *)
@@ -111,11 +134,17 @@ val split_declared_variants :
     their media queries keep wrapping the declared variant's selector. *)
 
 val is_custom_routed :
-  defs:(string * string) list -> udefs:(string * string) list -> string -> bool
-(** [is_custom_routed ~defs ~udefs cls] is [true] when [cls] names a variant or
-    a utility the project declared - a functional one included, whose root [cls]
-    carries a value for - which {!Tw.of_string} cannot produce and
-    {!custom_routed_utilities} generates instead. *)
+  theme:Tw.Scheme.t ->
+  defs:(string * string) list ->
+  udefs:(string * string) list ->
+  string ->
+  bool
+(** [is_custom_routed ~theme ~defs ~udefs cls] is [true] when [cls] names a
+    variant or a utility the project declared - a functional one included, whose
+    value reads resolve for [cls] - which {!Tw.of_string} cannot produce and
+    {!custom_routed_utilities} generates instead. A candidate a functional
+    declaration declines falls to the built-in utility of its root, as it does
+    in Tailwind. *)
 
 val custom_routed_utilities :
   theme:Tw.Scheme.t ->

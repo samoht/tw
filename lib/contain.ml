@@ -101,9 +101,7 @@ module Handler = struct
 
   (* Create a composable contain style that sets one variable *)
   let composable_contain var set_value =
-    let decl, _ =
-      Var.binding var (Css.Variables.custom_value_ident set_value)
-    in
+    let decl = Var.set var (Css.Variables.custom_value_ident set_value) in
     style ~property_rules:contain_property_rules
       [ decl; contain composable_contain_value ]
 

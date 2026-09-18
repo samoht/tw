@@ -99,6 +99,10 @@ val default : t
 (** [default] is the default scheme using oklch colors and calc-based spacing
     (matches Tailwind v4 default). *)
 
+val or_default : t option -> t
+(** [or_default theme] is the scheme an optionally-threaded [theme] names:
+    itself, or {!default} when none was threaded. *)
+
 val register_default_token : string -> string -> unit
 (** [register_default_token name css] registers the v4.3.1 baseline default CSS
     for theme token [name] (without [--]). It updates a lock-free immutable
@@ -133,6 +137,15 @@ val theme_value : t option -> string -> string option
 val token : t -> string -> string option
 (** [token t name] resolves a theme token: override (if any) else default, or
     nothing at all when the [\@theme] block removed it. *)
+
+val removes_tokens : t -> bool
+(** [removes_tokens t] is whether the [\@theme] block took any token away, so a
+    candidate has to be held against {!is_removed_token} at all. *)
+
+val is_removed_token : t -> string -> bool
+(** [is_removed_token t name] is {!is_removed} narrowed to a name that was a
+    theme token to begin with: a registered default or one the block declared. A
+    [--tw-*] channel is neither, so the bare [--*: initial] leaves it be. *)
 
 val with_overrides :
   ?inline:string list ->

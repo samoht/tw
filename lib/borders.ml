@@ -17,9 +17,6 @@
 
 module Css = Cascade.Css
 
-(* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
-let resolve_scheme = function Some s -> s | None -> Scheme.default
-
 (* Which corners a [rounded-*] utility rounds: every corner, one physical or
    logical side, or a single corner. *)
 module Corner = struct
@@ -180,14 +177,14 @@ module Handler = struct
 
   (* Helper for border style utilities that set the variable *)
   let border_style_util border_style_value =
-    let decl, _ = Var.binding border_style_var border_style_value in
+    let decl = Var.set border_style_var border_style_value in
     style [ decl; border_style border_style_value ]
 
   let border_default ?theme () =
     make_border_util
       [
         Css.border_width
-          (Px (float_of_int (resolve_scheme theme).default_border_width));
+          (Px (float_of_int (Scheme.or_default theme).default_border_width));
       ]
 
   let border_0 = make_border_util [ Css.border_width (Px 0.) ]
@@ -468,7 +465,7 @@ module Handler = struct
      fixtures use), otherwise inline the literal -- matching Tailwind, which
      inlines calc(infinity*1px)/0 by default but keys off the token when set. *)
   let scheme_keyed_radius ?theme key var ~(default : Css.length) pos =
-    match Scheme.radius (resolve_scheme theme) key with
+    match Scheme.radius (Scheme.or_default theme) key with
     | Some explicit ->
         let decl, r = Var.binding var explicit in
         style (decl :: radius_decls_for_position pos (Var r : Css.length))
@@ -516,7 +513,7 @@ module Handler = struct
             match Css.parse_length raw with
             | None -> style []
             | Some len ->
-                if Scheme.is_inline_token (resolve_scheme theme) token then
+                if Scheme.is_inline_token (Scheme.or_default theme) token then
                   style (radius_decls_for_position pos len)
                 else
                   let decl, r = Var.binding (radius_named_var name) len in
@@ -548,7 +545,7 @@ module Handler = struct
       | Some rule -> rule
       | None -> Css.empty
     in
-    let width = float_of_int (resolve_scheme theme).default_outline_width in
+    let width = float_of_int (Scheme.or_default theme).default_outline_width in
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Px width) ]
 
@@ -635,7 +632,7 @@ module Handler = struct
 
   (* Outline style utilities that set the variable *)
   let outline_hidden =
-    let decl, _ = Var.binding outline_style_var Css.None in
+    let decl = Var.set outline_style_var Css.None in
     (* Base style: outline-style: none *)
     (* In forced-colors mode, reset outline with shorthand + offset *)
     let forced_colors_active =
@@ -988,6 +985,13 @@ module Handler = struct
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
+    (* The bare [rounded] and [rounded-<pos>] inline the deprecated [--radius]
+       token, so a [@theme] block that removed it leaves them no utility. *)
+    | [ "rounded" ] when Scheme.is_removed theme "radius" -> err_not_utility
+    | [ "rounded"; pos ]
+      when Option.is_some (corner_of_string pos)
+           && Scheme.is_removed theme "radius" ->
+        err_not_utility
     | [ "rounded" ] -> Ok (Rounded (Corner.All, Rsz_default))
     | [ "rounded"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
@@ -1029,18 +1033,11 @@ module Handler = struct
         Ok (Outline_width (int_of_string n))
     | [ "outline"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
-        let starts prefix s =
-          String.length s >= String.length prefix
-          && String.sub s 0 (String.length prefix) = prefix
-        in
+        let starts prefix s = String.starts_with ~prefix s in
         let hinted_width =
-          List.find_map
-            (fun prefix ->
-              if starts prefix inner then
-                let n = String.length prefix in
-                Some (String.sub inner n (String.length inner - n))
-              else None)
-            [ "length:"; "number:"; "percentage:" ]
+          match Parse.data_type_hint inner with
+          | Some (("length" | "number" | "percentage"), value) -> Some value
+          | _ -> None
         in
         (* A data-type hint says how to read the value written after it; only a
            var() reference there names a custom property. *)
@@ -1229,19 +1226,19 @@ module Outline_style_handler = struct
 
   let to_style _theme = function
     | Dashed ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Dashed in
+        let decl = Var.set Handler.outline_style_var Css.Dashed in
         style [ decl; Css.outline_style Css.Dashed ]
     | Dotted ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Dotted in
+        let decl = Var.set Handler.outline_style_var Css.Dotted in
         style [ decl; Css.outline_style Css.Dotted ]
     | Double ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Double in
+        let decl = Var.set Handler.outline_style_var Css.Double in
         style [ decl; Css.outline_style Css.Double ]
     | None_ ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.None in
+        let decl = Var.set Handler.outline_style_var Css.None in
         style [ decl; Css.outline_style Css.None ]
     | Solid ->
-        let decl, _ = Var.binding Handler.outline_style_var Css.Solid in
+        let decl = Var.set Handler.outline_style_var Css.Solid in
         style [ decl; Css.outline_style Css.Solid ]
 
   (* These outline-style utilities form a late property band. *)

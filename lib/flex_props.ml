@@ -106,7 +106,7 @@ module Handler = struct
      [calc(var(--spacing) * <n>)] otherwise; [basis-full] emits a literal
      [100%], and [basis-1/1] the division like any other fraction. *)
   let basis_spacing n =
-    let spacing_decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+    let spacing_decl = Var.set Theme.spacing_var Theme.spacing_base in
     let spacing = Var.name Theme.spacing_var in
     let value : Css.flex_basis =
       if n = 1 then Var (Var.theme_ref spacing)
@@ -148,7 +148,7 @@ module Handler = struct
     | None -> (
         match Sizing.container_binding name with
         | Some (v, d) ->
-            let decl, _ = Var.binding v d in
+            let decl = Var.set v d in
             let ref : Css.flex_basis Css.var =
               Var.theme_ref var_name
                 ~default:(Css.Zero : Css.flex_basis)

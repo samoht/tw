@@ -4,6 +4,10 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
+
+  (* Capture the project Pp before [open Css] shadows it with Css.Pp. *)
+  let format_float = Pp.float
+
   open Css
 
   type t = Clip_polygon of (float * float) list
@@ -32,14 +36,6 @@ module Handler = struct
                spaced = false;
              });
       ]
-
-  (** Format a float without trailing zeros for class name generation *)
-  let format_float f =
-    let s = string_of_float f in
-    (* Remove trailing dot if present (e.g., "5." -> "5") *)
-    if String.length s > 0 && s.[String.length s - 1] = '.' then
-      String.sub s 0 (String.length s - 1)
-    else s
 
   let to_class = function
     | Clip_polygon points ->

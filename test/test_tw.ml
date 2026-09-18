@@ -335,7 +335,7 @@ let check_upstream_positive_fixture_parse filename () =
            [Entrypoint]. *)
         |> List.filter (fun cls ->
             not
-              (Tw_tools.Entrypoint.is_custom_routed ~defs:[]
+              (Tw_tools.Entrypoint.is_custom_routed ~theme ~defs:[]
                  ~udefs:c.utility_defs cls))
         |> List.filter_map (fun cls ->
             match Tw.of_string ~theme cls with
@@ -1384,6 +1384,12 @@ let prefixed_candidates () =
       ("tw:p-4", ".tw\\:p-4{");
       ("tw:hover:underline", ".tw\\:hover\\:underline:hover{");
       ("tw:group-hover:underline", ".tw\\:group");
+      (* A stacked variant puts the rule under a query of its own, and the
+         written name reaches it there too; the anchor of a named group or peer
+         is a class the author writes, so it carries the prefix. *)
+      ("tw:md:hover:text-lg", ".tw\\:md\\:hover\\:text-lg:hover{");
+      ("tw:group-hover/x:md:flex", ":where(.tw\\:group\\/x):hover");
+      ("tw:peer-checked/y:flex", ":where(.tw\\:peer\\/y):checked");
     ];
   List.iter
     (fun cls ->
@@ -1725,6 +1731,53 @@ let unknown_class_keeps_source_order () =
 
 (* ===== TEST SUITE ===== *)
 
+(* A [@theme] block that removes a token takes every utility reading it: a
+   namespace reset such as [--text-*: initial] leaves [text-lg] no size to
+   write, and Tailwind compiles nothing for the candidate. The palette and the
+   breakpoints refused theirs already; every other family let the utility
+   through, reading a variable the theme layer no longer declares, or, where the
+   family inlines the token's value, writing the default as if the block had
+   said nothing. A utility of another family, and a static utility whose theme
+   token stands only in a [var()] fallback, is untouched. *)
+let test_removed_token_refuses_its_readers () =
+  let refused namespace classes =
+    let theme =
+      Tw.Scheme.with_overrides Tw.Scheme.default [ (namespace, "initial") ]
+    in
+    List.iter
+      (fun cls ->
+        Alcotest.(check bool)
+          (cls ^ " reads a token --" ^ namespace ^ " removed")
+          true
+          (Result.is_error (Tw.of_string ~theme cls)))
+      classes;
+    theme
+  in
+  ignore (refused "font-*" [ "font-sans"; "font-mono" ]);
+  ignore (refused "text-*" [ "text-lg"; "text-sm/6" ]);
+  ignore (refused "radius-*" [ "rounded"; "rounded-t"; "rounded-lg" ]);
+  ignore (refused "animate-*" [ "animate-spin"; "animate-ping" ]);
+  ignore (refused "container-*" [ "max-w-4xl"; "@lg:flex"; "@max-lg:hidden" ]);
+  ignore (refused "shadow-*" [ "shadow"; "shadow-md"; "shadow-md/50" ]);
+  ignore (refused "inset-shadow-*" [ "inset-shadow-sm"; "inset-shadow-xs/50" ]);
+  ignore (refused "drop-shadow-*" [ "drop-shadow"; "drop-shadow-md" ]);
+  ignore (refused "text-shadow-*" [ "text-shadow-md"; "text-shadow-lg/50" ]);
+  ignore (refused "blur-*" [ "blur"; "blur-sm"; "backdrop-blur" ]);
+  ignore (refused "leading-*" [ "leading-tight" ]);
+  ignore (refused "ease-*" [ "ease-in" ]);
+  ignore (refused "font-weight-*" [ "font-bold" ]);
+  ignore (refused "tracking-*" [ "tracking-wide" ]);
+  ignore (refused "aspect-*" [ "aspect-video" ]);
+  ignore (refused "perspective-*" [ "perspective-near" ]);
+  let theme = refused "shadow-md" [ "shadow-md"; "shadow-md/50" ] in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " reads no token the block removed")
+        true
+        (Result.is_ok (Tw.of_string ~theme cls)))
+    [ "shadow-lg"; "shadow-white"; "text-lg"; "p-4"; "transition"; "rounded" ]
+
 let core_tests =
   [
     test_case "debug artefacts" `Quick debug_artefacts;
@@ -1853,6 +1906,8 @@ let core_tests =
     test_case "arbitrary will-change" `Quick arbitrary_will_change;
     test_case "arbitrary misc" `Quick arbitrary_misc;
     test_case "paren var colour opacity" `Quick test_paren_var_colour_opacity;
+    test_case "a removed token refuses its readers" `Quick
+      test_removed_token_refuses_its_readers;
   ]
 
 let suite = ("tw", core_tests)

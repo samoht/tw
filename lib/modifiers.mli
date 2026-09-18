@@ -31,6 +31,11 @@ val prose_element_inner_selector : string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
+val involves_hover : modifier -> bool
+(** [involves_hover m] is whether [m]'s rendering gates on
+    [\@media (hover: hover)]: the hover state itself and its group, peer, named,
+    ancestor and [has-] forms. *)
+
 val bracket_media_condition : string -> Css.Media.t option
 (** [bracket_media_condition inner] is the media query a bracket at-rule [inner]
     names when it is an [@media] one, [@media_print] or [@media(width>=600px)],
@@ -721,10 +726,17 @@ val apply : ?theme:Scheme.t -> string list -> t -> t option
 
 (** {1 Container Query Helpers} *)
 
-val container_query_of_token : string -> Style.container_query option
-(** [container_query_of_token token] reads the container query one modifier
-    token spells, [\@sm], [\@max-md], [\@min-[theme(--breakpoint-lg)]] or
-    [\@lg/main]; [None] for any other token. *)
+val negate_container : Css.Container.t -> Css.Container.t
+(** [negate_container c] is [c] negated, a double negation cancelled and the
+    negation pushed inside a named container: [name (C)] is [name (not C)]. *)
+
+val container_query_of_token :
+  ?theme:Scheme.t -> string -> Style.container_query option
+(** [container_query_of_token ?theme token] reads the container query one
+    modifier token spells, [\@sm], [\@max-md], [\@min-[theme(--breakpoint-lg)]]
+    or [\@lg/main]; [None] for any other token. A size the project's [\@theme]
+    declared as [--container-<name>] is read through [theme] (default
+    {!Scheme.default}). *)
 
 val container_query_theme_decls : Style.container_query -> Css.declaration list
 (** [container_query_theme_decls q] is the theme-layer bindings [q] read through

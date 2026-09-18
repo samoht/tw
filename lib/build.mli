@@ -92,6 +92,16 @@ val theme_layer_of :
     declarations). [theme] (default {!Scheme.default}) supplies the token
     overrides and their declaration order. *)
 
+val removed_token_read :
+  theme:Scheme.t -> authored:(string -> bool) -> Output.t list -> string option
+(** [removed_token_read ~theme ~authored outputs] is the first theme token a
+    rule in [outputs] reads that [theme]'s [\@theme] block removed, as its bare
+    name ([text-lg] for [var(--text-lg)]). A read is a [var()] outside a
+    fallback: the [--b] of [var(--a, var(--b))] stands in only when nothing
+    declares [--a], which a static utility relies on where its theme token is
+    optional, so it is not one. A variable [authored] answers for, given with
+    its [--], is the author's own reference and not a read either. *)
+
 val rule_sets : Utility.t list -> Css.statement list
 (** [rule_sets utilities] extracts and sorts CSS statements for [utilities] with
     media queries interleaved in Tailwind order. Used by the [tw] CLI and by

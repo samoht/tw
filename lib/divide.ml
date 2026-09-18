@@ -187,7 +187,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ "divide-x-reverse" >> not [ Last_child ] ])
     in
-    let decl, _ = Var.binding divide_x_reverse_var (Css.Num 1.0) in
+    let decl = Var.set divide_x_reverse_var (Css.Num 1.0) in
     let property_rules =
       [ Var.property_rule divide_x_reverse_var ] |> List.filter_map Fun.id
     in
@@ -199,7 +199,7 @@ module Handler = struct
     let selector =
       Css.Selector.(where [ class_ "divide-y-reverse" >> not [ Last_child ] ])
     in
-    let decl, _ = Var.binding divide_y_reverse_var (Css.Num 1.0) in
+    let decl = Var.set divide_y_reverse_var (Css.Num 1.0) in
     let property_rules =
       [ Var.property_rule divide_y_reverse_var ] |> List.filter_map Fun.id
     in
@@ -234,10 +234,8 @@ module Handler = struct
         Color.property_color_value ?theme ~property_prefix:"border-color" color
           shade
       in
-      let decl, color_ref = Var.binding color_var color_value in
-      let rule =
-        Css.rule ~selector [ decl; Css.border_color (Css.Var color_ref) ]
-      in
+      let decls, color = Color.bound ?theme color_var color_value in
+      let rule = Css.rule ~selector (decls @ [ Css.border_color color ]) in
       style ~rules:(Some [ rule ]) []
 
   let divide_transparent_style () =
@@ -329,7 +327,7 @@ module Handler = struct
     let name = border_style_to_string bs in
     let class_name = "divide-" ^ name in
     let selector = divide_children_selector class_name in
-    let decl, _ = Var.binding border_style_var bs in
+    let decl = Var.set border_style_var bs in
     let rule = Css.rule ~selector [ decl; Css.border_style bs ] in
     style ~rules:(Some [ rule ]) []
 
@@ -520,8 +518,8 @@ module Handler = struct
     | [ "divide"; "transparent" ] -> Ok Transparent
     | [ "divide"; "inherit" ] -> Ok Inherit
     | [ "divide"; style_str ]
-      when Stdlib.Option.is_some (divide_style_of_string style_str) ->
-        Ok (Line_style (Stdlib.Option.get (divide_style_of_string style_str)))
+      when Option.is_some (divide_style_of_string style_str) ->
+        Ok (Line_style (Option.get (divide_style_of_string style_str)))
     | [ "divide"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in

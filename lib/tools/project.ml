@@ -17,6 +17,37 @@ let is_prose_class cls =
       bare = "prose" || String.starts_with ~prefix:"prose-" bare
   | None -> false
 
+let raised_rendering = function
+  | Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _ -> true
+  | _ -> false
+
+(* A handler may accept a class at parse yet raise when it renders an arbitrary
+   value it cannot serialise. Such a class produces no rule, so it is dropped
+   rather than let it abort the whole sheet. The sheet is rendered once for
+   every class, and only a render that raises splits the classes, down to those
+   that do: a separate probe render before the real one cost as much as the real
+   one. *)
+let render_known render known =
+  match render known with
+  | sheet -> (known, sheet)
+  | exception e when raised_rendering e ->
+      let renders known =
+        match render known with
+        | (_ : Cascade.Css.t) -> true
+        | exception e when raised_rendering e -> false
+      in
+      let rec keep = function
+        | [] -> []
+        | known when renders known -> known
+        | [ _ ] -> []
+        | known ->
+            let half = List.length known / 2 in
+            keep (List.filteri (fun i _ -> i < half) known)
+            @ keep (List.filteri (fun i _ -> i >= half) known)
+      in
+      let known = keep known in
+      (known, render known)
+
 let parse_known_candidates ~theme ?input_css candidates =
   let typography = declares_plugin input_css "typography" in
   List.filter_map
@@ -24,17 +55,7 @@ let parse_known_candidates ~theme ?input_css candidates =
       if (not typography) && is_prose_class cls then None
       else
         match Tw.of_string ~theme cls with
-        | Ok style -> (
-            (* A handler may accept a class at parse yet raise when it renders
-               an arbitrary value it cannot serialise, as the docs'
-               [prop-[<value>]] placeholders do. Such a class produces no rule,
-               so drop it rather than let it abort the whole sheet. *)
-            match Tw.to_css ~theme [ style ] with
-            | (_ : Cascade.Css.t) -> Some (cls, style)
-            | exception
-                (Invalid_argument _ | Failure _ | Cascade.Error.Parse_error _)
-              ->
-                None)
+        | Ok style -> Some (cls, style)
         | Error _ -> None)
     candidates
 
@@ -44,10 +65,15 @@ let parse_known_candidates ~theme ?input_css candidates =
    failed to emit. *)
 let utilities ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
-  let defs = Entrypoint.entry_variant_defs entrypoint in
+  let declared = Entrypoint.entry_variant_defs entrypoint in
+  let defs, refused = Entrypoint.with_negated_variants declared in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
+  let names_refused cls =
+    List.exists (fun v -> List.mem v refused) (Entrypoint.variant_segments cls)
+  in
+  let classes = List.filter (fun cls -> not (names_refused cls)) classes in
   let routed, normal =
-    List.partition (Entrypoint.is_custom_routed ~defs ~udefs) classes
+    List.partition (Entrypoint.is_custom_routed ~theme ~defs ~udefs) classes
   in
   let known = parse_known_candidates ~theme ?input_css normal in
   let routed_count, routed_extra, routed_stmts =
@@ -65,16 +91,19 @@ let utilities ~theme ?entrypoint ~base classes =
         (fun variants (name, _) ->
           if List.mem_assoc name variants then variants
           else (name, custom) :: variants)
-        theme.Tw.Scheme.custom_variants defs
+        theme.Tw.Scheme.custom_variants declared
     in
     { theme with custom_variants }
   in
   (* The forms plugin's reset belongs to the base layer, which [to_css] writes
      only when it is asked for. *)
   let forms = Option.fold ~none:false ~some:Entrypoint.forms_base input_css in
-  let sheet =
-    Tw.to_css ~theme:sort_theme ~base ~forms ~extra:routed_extra
-      (List.map snd known)
+  let known, sheet =
+    render_known
+      (fun known ->
+        Tw.to_css ~theme:sort_theme ~base ~forms ~extra:routed_extra
+          (List.map snd known))
+      known
   in
   (List.length known + routed_count, Entrypoint.place_routed routed_stmts sheet)
 

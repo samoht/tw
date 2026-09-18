@@ -260,6 +260,23 @@ let font_named_var name =
   Domain_cache.or_add font_named_cache name (fun () ->
       Var.theme Css.Font_family ("font-" ^ name) ~order:(1, 100))
 
+(* The [--font-<name>--font-feature-settings] and [--font-variation-settings]
+   tokens a project declares beside a family, each after the family. *)
+let font_named_features_cache = Domain_cache.v 8
+let font_named_variations_cache = Domain_cache.v 8
+
+let font_named_features_var name =
+  Domain_cache.or_add font_named_features_cache name (fun () ->
+      Var.theme Css.Font_feature_settings
+        ("font-" ^ name ^ "--font-feature-settings")
+        ~order:(1, 101))
+
+let font_named_variations_var name =
+  Domain_cache.or_add font_named_variations_cache name (fun () ->
+      Var.theme Css.Font_variation_settings
+        ("font-" ^ name ^ "--font-variation-settings")
+        ~order:(1, 101))
+
 (* A [--text-*] token the project declared names a font size the built-in scale
    has no slot for; they share the slot after the scale, the way the project's
    font families share theirs. *)
@@ -268,6 +285,24 @@ let text_named_cache = Domain_cache.v 8
 let text_named_var name =
   Domain_cache.or_add text_named_cache name (fun () ->
       Var.theme Css.Length ("text-" ^ name) ~order:(6, 26))
+
+(* The [--text-<name>--line-height], [--letter-spacing] and [--font-weight]
+   tokens a project declares beside a size of its own, each after the size. *)
+let text_named_lh_cache = Domain_cache.v 8
+let text_named_tracking_cache = Domain_cache.v 8
+let text_named_weight_cache = Domain_cache.v 8
+
+let text_named_lh_var name =
+  Domain_cache.or_add text_named_lh_cache name (fun () ->
+      Var.theme Css.Line_height ("text-" ^ name ^ "--line-height") ~order:(6, 27))
+
+let text_named_tracking_var name =
+  Domain_cache.or_add text_named_tracking_cache name (fun () ->
+      Var.theme Css.Length ("text-" ^ name ^ "--letter-spacing") ~order:(6, 27))
+
+let text_named_weight_var name =
+  Domain_cache.or_add text_named_weight_cache name (fun () ->
+      Var.theme Css.Font_weight ("text-" ^ name ^ "--font-weight") ~order:(6, 27))
 
 (* The same for a [--leading-*] token the project declared. *)
 let leading_named_cache = Domain_cache.v 8
@@ -334,19 +369,17 @@ let () =
 
 (* Base font family variables for theme layer *)
 let default_font_declarations =
-  let sans_decl, _ = Var.binding font_sans_var default_sans_stack in
-  let mono_decl, _ = Var.binding font_mono_var default_mono_stack in
+  let sans_decl = Var.set font_sans_var default_sans_stack in
+  let mono_decl = Var.set font_mono_var default_mono_stack in
   [ sans_decl; mono_decl ]
 
 (* Default font family variables that reference the base font variables. *)
 let default_font_family_declarations =
   let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
   let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
-  let default_font_decl, _ =
-    Var.binding default_font_family_var (Css.Var sans_ref)
-  in
-  let default_mono_decl, _ =
-    Var.binding default_mono_font_family_var (Css.Var mono_ref)
+  let default_font_decl = Var.set default_font_family_var (Css.Var sans_ref) in
+  let default_mono_decl =
+    Var.set default_mono_font_family_var (Css.Var mono_ref)
   in
   [ sans_decl; mono_decl; default_font_decl; default_mono_decl ]
 
@@ -592,11 +625,7 @@ module Typography_early = struct
       a valid font-size: a length must carry a unit and a hex color must start
       with "#" (CSS Color §5.4.6). *)
   let parse_spacing_call s =
-    let prefix = "--spacing(" in
-    let pl = String.length prefix and n = String.length s in
-    if n > pl && String.sub s 0 pl = prefix && s.[n - 1] = ')' then
-      float_of_string_opt (String.sub s pl (n - pl - 1))
-    else Stdlib.Option.None
+    Option.bind (Parse.call_body "--spacing" s) float_of_string_opt
 
   (* A data-type hint in front of an arbitrary font size says how to read the
      value written after it, so [text-[length:1rem]] is the size [1rem] and not
@@ -655,7 +684,7 @@ module Typography_early = struct
     (* Hex color *)
     (String.length inner > 0 && inner.[0] = '#')
     (* color: typed prefix *)
-    || (String.length inner >= 6 && String.sub inner 0 6 = "color:")
+    || String.starts_with ~prefix:"color:" inner
     (* bare var() without type prefix defaults to color *)
     || Parse.is_var inner
     (* CSS color functions like rgba(...), hsl(...), oklch(...) *)
@@ -1174,9 +1203,7 @@ module Typography_early = struct
     let weight_theme_decl, weight_theme_ref =
       Var.binding weight_var weight_value
     in
-    let weight_util_decl, _ =
-      Var.binding font_weight_var (Css.Var weight_theme_ref)
-    in
+    let weight_util_decl = Var.set font_weight_var (Css.Var weight_theme_ref) in
     (* Get @property rule for font-weight channel (needed for animations) *)
     let property_rules =
       match Var.property_rule font_weight_var with
@@ -1230,17 +1257,39 @@ module Typography_early = struct
      reference dangling, so the token keeps its declaration. *)
   (* A family the project declared also carries the [--font-<name>--font-
      feature-settings] beside it, the way Tailwind emits it. *)
-  let font_feature_decls theme token =
-    match
-      Scheme.theme_value (Some theme) (token ^ "--font-feature-settings")
-    with
-    | None -> []
-    | Some v -> (
-        (* The token holds the declaration's text, so cascade's own parser turns
-           it into the tag/value list the property carries. *)
-        match Css.parse_declaration "font-feature-settings" v with
-        | Some decl -> [ decl ]
-        | None -> [])
+  (* The feature and variation settings a project declares beside a family, as
+     [--font-<name>--font-feature-settings]: each is a token of its own that
+     the utility reads, or the value itself when the block is inline. *)
+  let font_feature_decls theme name =
+    let sub : type a.
+        string ->
+        (Cascade.Cursor.t -> a) ->
+        a Var.theme ->
+        (a -> Css.declaration) ->
+        (a Css.var -> Css.declaration) ->
+        Css.declaration list =
+     fun suffix read var property property_of_var ->
+      let token = String.concat "" [ "font-"; name; "--"; suffix ] in
+      match Scheme.theme_value (Some theme) token with
+      | None -> []
+      | Some raw -> (
+          match
+            Cascade.Cursor.try_parse_full_err read
+              (Cascade.Cursor.of_string raw)
+          with
+          | Error _ -> []
+          | Ok value ->
+              if Scheme.is_inline_token theme token then [ property value ]
+              else
+                let decl, ref_ = Var.binding var value in
+                [ decl; property_of_var ref_ ])
+    in
+    sub "font-feature-settings" Css.Properties.read_font_feature_settings
+      (font_named_features_var name) font_feature_settings (fun v ->
+        font_feature_settings (Var v))
+    @ sub "font-variation-settings" Css.Properties.read_font_variation_settings
+        (font_named_variations_var name) font_variation_settings (fun v ->
+          font_variation_settings (Var v))
 
   let font_weight_theme theme name =
     match Scheme.theme_value (Some theme) ("font-weight-" ^ name) with
@@ -1266,7 +1315,7 @@ module Typography_early = struct
               | Css.Var v -> Css.var_name v = token
               | _ -> false
             in
-            let features = font_feature_decls theme token in
+            let features = font_feature_decls theme name in
             if Scheme.is_inline_token theme token && not self_referential then
               style (font_family family :: features)
             else
@@ -1284,7 +1333,7 @@ module Typography_early = struct
 
   let leading_with_theme_var theme_var default_value =
     let theme_decl, theme_ref = Var.binding theme_var default_value in
-    let channel_decl, _ = Var.binding leading_var (Css.Var theme_ref) in
+    let channel_decl = Var.set leading_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule leading_var |> Option.to_list |> Css.concat
     in
@@ -1307,7 +1356,7 @@ module Typography_early = struct
         (* Tailwind v4.3 ships no --leading-none token, so inline the literal
            rather than minting a var. *)
         let value : line_height = Num 1.0 in
-        let channel_decl, _ = Var.binding leading_var value in
+        let channel_decl = Var.set leading_var value in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -1332,7 +1381,7 @@ module Typography_early = struct
     | None when n = 0.0 ->
         (* leading-0 is a literal 0, not calc(var(--spacing) * 0). *)
         let value : line_height = Num 0.0 in
-        let channel_decl, _ = Var.binding leading_var value in
+        let channel_decl = Var.set leading_var value in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -1341,15 +1390,13 @@ module Typography_early = struct
         (* Tailwind v4.3 default: derive numeric leading from the spacing scale,
            leading-1 -> var(--spacing), leading-N -> calc(var(--spacing) *
            N). *)
-        let spacing_decl, _ =
-          Var.binding Theme.spacing_var Theme.spacing_base
-        in
+        let spacing_decl = Var.set Theme.spacing_var Theme.spacing_base in
         let spacing = Var.name Theme.spacing_var in
         let value : line_height =
           if n = 1.0 then Css.Var (Var.theme_ref spacing)
           else Css.Calc (Css.Calc.mul (Css.Calc.var spacing) (Css.Calc.float n))
         in
-        let channel_decl, _ = Var.binding leading_var value in
+        let channel_decl = Var.set leading_var value in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -1459,20 +1506,68 @@ module Typography_early = struct
     | Bracket (_, lh) -> ([], lh)
     | Var_shorthand name -> ([], Css.Var (Var.bracket ("var(" ^ name ^ ")")))
 
-  (* A size the project declared carries no line height of its own, so the
-     utility sets font-size alone unless a modifier asks for one. *)
-  let text_theme_decls theme name =
+  (* A size the project declared, with the line height, letter spacing and font
+     weight the block may declare beside it as [--text-<name>--line-height] and
+     its siblings. Each goes through its channel with the token as the fallback,
+     as a built-in size's line height does, so [leading-*] on the same element
+     still wins. A [/modifier] names the line height itself, and Tailwind then
+     writes the size and that line height alone. *)
+  let text_theme_decls ?(modified = false) theme name =
     let token = "text-" ^ name in
+    (* The channel keeps the token as its fallback either way; an inline token
+       puts its value there, as Tailwind writes [var(--tw-leading, 1.2)]. *)
+    let sub : type a.
+        string ->
+        (Cascade.Cursor.t -> a) ->
+        a Var.theme ->
+        a Var.channel ->
+        (a Css.var -> Css.declaration) ->
+        Css.declaration list =
+     fun suffix read var channel property ->
+      let token = String.concat "" [ token; "--"; suffix ] in
+      match Scheme.theme_value (Some theme) token with
+      | None -> []
+      | Some raw -> (
+          match
+            Cascade.Cursor.try_parse_full_err read
+              (Cascade.Cursor.of_string raw)
+          with
+          | Error _ -> []
+          | Ok value ->
+              if Scheme.is_inline_token theme token then
+                [ property (Var.reference_with_fallback channel value) ]
+              else
+                let decl = Var.set var value in
+                [
+                  decl;
+                  property (Var.reference_with_var_fallback channel var value);
+                ])
+    in
     match Scheme.theme_value (Some theme) token with
     | None -> []
     | Some raw -> (
         match Css.parse_length raw with
         | None -> []
         | Some len ->
-            if Scheme.is_inline_token theme token then [ font_size len ]
+            let size =
+              if Scheme.is_inline_token theme token then [ font_size len ]
+              else
+                let decl, ref = Var.binding (text_named_var name) len in
+                [ decl; font_size (Css.Var ref) ]
+            in
+            if modified then size
             else
-              let decl, ref = Var.binding (text_named_var name) len in
-              [ decl; font_size (Css.Var ref) ])
+              size
+              @ sub "line-height" Css.Properties.read_line_height
+                  (text_named_lh_var name) leading_var (fun v ->
+                    line_height (Var v))
+              @ sub "letter-spacing"
+                  (Css.Values.read_length ~allow_negative:true ~length_only:true)
+                  (text_named_tracking_var name) tracking_var (fun v ->
+                    letter_spacing (Var v))
+              @ sub "font-weight" Css.Properties.read_font_weight
+                  (text_named_weight_var name) font_weight_var (fun v ->
+                    font_weight (Var v)))
 
   (** Generate font-size + line-height style for a named text size with
       modifier. *)
@@ -1548,8 +1643,8 @@ module Typography_early = struct
     | Font_extrabold -> font_extrabold
     | Font_black -> font_black
     | Font_bracket_weight (_, n) ->
-        let weight_util_decl, _ =
-          Var.binding font_weight_var (Weight (float_of_int n))
+        let weight_util_decl =
+          Var.set font_weight_var (Weight (float_of_int n))
         in
         let property_rules =
           match Var.property_rule font_weight_var with
@@ -1561,9 +1656,7 @@ module Typography_early = struct
     | Font_bracket_weight_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_weight Css.var = Var.bracket bare_name in
-        let weight_util_decl, _ =
-          Var.binding font_weight_var (Css.Var var_ref)
-        in
+        let weight_util_decl = Var.set font_weight_var (Css.Var var_ref) in
         let property_rules =
           match Var.property_rule font_weight_var with
           | None -> Css.empty
@@ -1646,11 +1739,7 @@ module Typography_early = struct
         (* bare_var_inner "(--my-features)" → "--my-features"; strip the --
            prefix since var_ref adds it *)
         let inner = Parse.bare_var_inner v in
-        let bare_name =
-          if String.length inner > 2 && String.sub inner 0 2 = "--" then
-            String.sub inner 2 (String.length inner - 2)
-          else inner
-        in
+        let bare_name = Option.value ~default:inner (Parse.bare_name inner) in
         let var_ref : Css.font_feature_settings Css.var =
           Var.bracket bare_name
         in
@@ -1680,13 +1769,13 @@ module Typography_early = struct
     | Leading_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.line_height Css.var = Var.bracket bare_name in
-        let channel_decl, _ = Var.binding leading_var (Css.Var var_ref) in
+        let channel_decl = Var.set leading_var (Css.Var var_ref) in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
         style ~property_rules [ channel_decl; line_height (Css.Var var_ref) ]
     | Leading_bracket (_, lh) ->
-        let channel_decl, _ = Var.binding leading_var lh in
+        let channel_decl = Var.set leading_var lh in
         let property_rules =
           Var.property_rule leading_var |> Option.to_list |> Css.concat
         in
@@ -1712,7 +1801,10 @@ module Typography_early = struct
     | Text_theme name -> style (text_theme_decls theme name)
     | Text_theme_lh (name, lh_mod) ->
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
-        style (text_theme_decls theme name @ lh_extra @ [ line_height lh_value ])
+        style
+          (text_theme_decls ~modified:true theme name
+          @ lh_extra
+          @ [ line_height lh_value ])
     | Text_bracket_fs raw -> bracket_font_size_style raw
     | Text_bracket_fs_raw (_, value) ->
         style (Option.to_list (Parse.opaque_declaration "font-size" value))
@@ -1747,7 +1839,7 @@ module Typography_late = struct
      The bracket text kept on the constructor still carries the hint, because
      the class name is what the markup holds. *)
   let arbitrary_length_after_hint inner : Css.length option =
-    Stdlib.Option.bind (Parse.value_after_hint inner) Parse.arbitrary_length
+    Option.bind (Parse.value_after_hint inner) Parse.arbitrary_length
 
   (* An arbitrary decoration thickness is any CSS length. *)
   let parse_decoration_thickness inner : Css.length option =
@@ -2757,10 +2849,7 @@ module Typography_late = struct
     let var_ref : Css.length Css.var = Var.bracket bare_name in
     style [ text_decoration_thickness (Var var_ref) ]
 
-  let decoration_bracket_pct_var v =
-    let bare_name = Parse.extract_var_name v in
-    let var_ref : Css.length Css.var = Var.bracket bare_name in
-    style [ text_decoration_thickness (Var var_ref) ]
+  let decoration_bracket_pct_var = decoration_bracket_length_var
 
   let decoration_color ?theme ?(shade = 500) (color : Color.color) =
     if Color.is_custom_color color then
@@ -2779,17 +2868,14 @@ module Typography_late = struct
         Color.property_color_value ?theme
           ~property_prefix:"text-decoration-color" color shade
       in
-      let color_decl, color_ref = Var.binding color_var color_value in
+      let decls, color = Color.bound ?theme color_var color_value in
       style
-        [
-          color_decl;
-          webkit_text_decoration_color (Css.Var color_ref);
-          text_decoration_color (Css.Var color_ref);
-        ]
+        (decls
+        @ [ webkit_text_decoration_color color; text_decoration_color color ])
 
   let decoration_color_with_opacity ?theme (color : Color.color) shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
+    let scheme = Scheme.or_default theme in
     let color_name = Color.scheme_color_name color shade in
     match Color.opacity_keyword color with
     | Some keyword ->
@@ -2805,21 +2891,18 @@ module Typography_late = struct
             let fallback_decl =
               text_decoration_color (Css.hex hex_with_alpha)
             in
-            let color_var = Color.color_var color shade in
-            let theme_decl, color_ref =
-              Var.binding color_var (Css.hex hex_value)
+            let decls, color =
+              Color.bound ?theme
+                (Color.color_var color shade)
+                (Css.hex hex_value)
             in
-            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
+            let oklab_color = Color.mix_alpha opacity color in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    [ webkit_decl; oklab_decl ];
-                ]
+              Color.color_mix_supports [ webkit_decl; oklab_decl ]
             in
-            style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
+            style ~rules:(Some [ supports_block ]) (decls @ [ fallback_decl ])
         | None ->
             (* No scheme hex: use property-scoped variable *)
             let color_var =
@@ -2840,19 +2923,14 @@ module Typography_late = struct
               else Color.opacity_fallback ~percent color shade color_value
             in
             let fallback_decl = text_decoration_color fallback_color in
-            let theme_decl, color_ref = Var.binding color_var color_value in
-            let oklab_color = Color.mix_alpha opacity (Css.Var color_ref) in
+            let decls, color = Color.bound ?theme color_var color_value in
+            let oklab_color = Color.mix_alpha opacity color in
             let webkit_decl = webkit_text_decoration_color oklab_color in
             let oklab_decl = text_decoration_color oklab_color in
             let supports_block =
-              Css.supports ~condition:Color.color_mix_supports_condition
-                [
-                  Css.rule ~selector:(Css.Selector.class_ "_")
-                    [ webkit_decl; oklab_decl ];
-                ]
+              Color.color_mix_supports [ webkit_decl; oklab_decl ]
             in
-            style ~rules:(Some [ supports_block ]) [ theme_decl; fallback_decl ]
-        )
+            style ~rules:(Some [ supports_block ]) (decls @ [ fallback_decl ]))
 
   let decoration_transparent = style [ text_decoration_color (Css.hex "#0000") ]
   let decoration_current = style [ text_decoration_color Current ]
@@ -2870,13 +2948,7 @@ module Typography_late = struct
     in
     let webkit_decl = webkit_text_decoration_color oklab_color in
     let oklab_decl = text_decoration_color oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_")
-            [ webkit_decl; oklab_decl ];
-        ]
-    in
+    let supports_block = Color.color_mix_supports [ webkit_decl; oklab_decl ] in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let decoration_bracket_color_style ~theme c =
@@ -2885,13 +2957,10 @@ module Typography_late = struct
     | None -> style ~merge_key:"decoration-" [ text_decoration_color enhanced ]
     | Some fallback ->
         let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
+          Color.color_mix_supports
             [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [
-                  webkit_text_decoration_color enhanced;
-                  text_decoration_color enhanced;
-                ];
+              webkit_text_decoration_color enhanced;
+              text_decoration_color enhanced;
             ]
         in
         style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
@@ -2907,14 +2976,8 @@ module Typography_late = struct
         style ~merge_key:"decoration-" [ text_decoration_color value ]
     | Color.Guarded { fallback; mixed } ->
         let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [
-              Css.rule ~selector:(Css.Selector.class_ "_")
-                [
-                  webkit_text_decoration_color mixed;
-                  text_decoration_color mixed;
-                ];
-            ]
+          Color.color_mix_supports
+            [ webkit_text_decoration_color mixed; text_decoration_color mixed ]
         in
         style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
           [ text_decoration_color fallback ]
@@ -2938,13 +3001,7 @@ module Typography_late = struct
     in
     let webkit_decl = webkit_text_decoration_color oklab_color in
     let oklab_decl = text_decoration_color oklab_color in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [
-          Css.rule ~selector:(Css.Selector.class_ "_")
-            [ webkit_decl; oklab_decl ];
-        ]
-    in
+    let supports_block = Color.color_mix_supports [ webkit_decl; oklab_decl ] in
     style ~merge_key:"decoration-" ~rules:(Some [ supports_block ])
       [ fallback_webkit; fallback_decl ]
 
@@ -2957,7 +3014,7 @@ module Typography_late = struct
 
   let tracking_tighter =
     let theme_decl, theme_ref = Var.binding tracking_tighter_var (Em (-0.05)) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -2968,7 +3025,7 @@ module Typography_late = struct
     (* Theme var: --tracking-tight: -0.025em *)
     let theme_decl, theme_ref = Var.binding tracking_tight_var (Em (-0.025)) in
     (* Channel var: --tw-tracking: var(--tracking-tight) *)
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     (* Property: letter-spacing: var(--tracking-tight) *)
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
@@ -2980,7 +3037,7 @@ module Typography_late = struct
     (* Tailwind's default theme defines --tracking-normal as 0em, not a unitless
        0, so keep the explicit em unit. *)
     let theme_decl, theme_ref = Var.binding tracking_normal_var (Em 0.0) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -2989,7 +3046,7 @@ module Typography_late = struct
 
   let tracking_wide =
     let theme_decl, theme_ref = Var.binding tracking_wide_var (Em 0.025) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3007,9 +3064,7 @@ module Typography_late = struct
             let theme_decl, theme_ref =
               Var.binding (tracking_named_var name) len
             in
-            let channel_decl, _ =
-              Var.binding tracking_var (Css.Var theme_ref)
-            in
+            let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
             let property_rules =
               Var.property_rule tracking_var |> Option.to_list |> Css.concat
             in
@@ -3018,7 +3073,7 @@ module Typography_late = struct
 
   let tracking_wider =
     let theme_decl, theme_ref = Var.binding tracking_wider_var (Em 0.05) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3027,7 +3082,7 @@ module Typography_late = struct
 
   let tracking_widest =
     let theme_decl, theme_ref = Var.binding tracking_widest_var (Em 0.1) in
-    let channel_decl, _ = Var.binding tracking_var (Css.Var theme_ref) in
+    let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3040,7 +3095,7 @@ module Typography_late = struct
   let normal_case = style [ text_transform None ]
 
   let tracking_arbitrary len =
-    let channel_decl, _ = Var.binding tracking_var len in
+    let channel_decl = Var.set tracking_var len in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3082,7 +3137,7 @@ module Typography_late = struct
       Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))
     in
     let direct_neg = negate_length len in
-    let channel_decl, _ = Var.binding tracking_var calc_neg in
+    let channel_decl = Var.set tracking_var calc_neg in
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in
@@ -3303,9 +3358,7 @@ module Typography_late = struct
     let inner =
       if Parse.is_bare_var s then
         let bare = Parse.bare_var_inner s in
-        if String.length bare > 2 && String.sub bare 0 2 = "--" then
-          String.sub bare 2 (String.length bare - 2)
-        else bare
+        Option.value ~default:bare (Parse.bare_name bare)
       else Parse.extract_var_name s
     in
     let ref : Css.list_style_image Css.var = Var.bracket inner in
@@ -3501,7 +3554,7 @@ module Typography_late = struct
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in
-        let channel_decl, _ = Var.binding tracking_var (Css.Var var_ref) in
+        let channel_decl = Var.set tracking_var (Css.Var var_ref) in
         let property_rules =
           Var.property_rule tracking_var |> Option.to_list |> Css.concat
         in
@@ -3511,7 +3564,7 @@ module Typography_late = struct
         let neg_len : Css.length =
           Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
         in
-        let channel_decl, _ = Var.binding tracking_var neg_len in
+        let channel_decl = Var.set tracking_var neg_len in
         let property_rules =
           Var.property_rule tracking_var |> Option.to_list |> Css.concat
         in

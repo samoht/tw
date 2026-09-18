@@ -87,6 +87,10 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:5 Css.Timing_function
       "tw-ease"
 
+  (* The [@property] rule a channel carries, for the styles that set it. *)
+  let property_rules_of var =
+    Option.value ~default:Css.empty (Var.property_rule var)
+
   (* Theme variable for transition-property-opacity *)
   let transition_property_opacity_var =
     Var.theme Css.Transition_property_value "transition-property-opacity"
@@ -94,20 +98,28 @@ module Handler = struct
 
   let transition_none = style [ Css.transition_property [ Css.None ] ]
 
-  (* Shared ease and duration refs using nested var fallback to theme defaults.
-     Produces var(--tw-ease, var(--default-transition-timing-function)) and
-     var(--tw-duration, var(--default-transition-duration)). Note: standalone
-     tests (transition-all alone) expect direct fallbacks like ease/0s, but the
-     full-set test expects nested var. We match the full-set behavior since it's
-     correct when theme vars are declared. *)
-  let ease_ref =
-    Var.reference_with_var_fallback tw_ease_var
-      default_transition_timing_function_var
-      (Css.Cubic_bezier (0., 0., 0., 0.))
+  (* The ease and duration reads, each through its channel with the default
+     token as the fallback: [var(--tw-ease, var(--default-transition-timing-
+     function))] and [var(--tw-duration, var(--default-transition-duration))].
+     Once a [@theme] block takes the default token away, as the bare [--*:
+     initial] does, Tailwind writes the property's own initial value in its
+     place, [ease] and [0s]. *)
+  let ease_ref ?theme () =
+    match theme with
+    | Some t when Scheme.is_removed t "default-transition-timing-function" ->
+        Var.reference_with_fallback tw_ease_var Css.Ease
+    | Some _ | None ->
+        Var.reference_with_var_fallback tw_ease_var
+          default_transition_timing_function_var
+          (Css.Cubic_bezier (0., 0., 0., 0.))
 
-  let duration_ref =
-    Var.reference_with_var_fallback tw_duration_var
-      default_transition_duration_var (Css.Ms 0.)
+  let duration_ref ?theme () =
+    match theme with
+    | Some t when Scheme.is_removed t "default-transition-duration" ->
+        Var.reference_with_fallback tw_duration_var (Css.S 0.)
+    | Some _ | None ->
+        Var.reference_with_var_fallback tw_duration_var
+          default_transition_duration_var (Css.Ms 0.)
 
   (* Theme declarations for the default transition vars. These go into :root,
      :host when transition utilities are used. Only included when theme values
@@ -121,15 +133,13 @@ module Handler = struct
     in
     let timing =
       if has_timing then
-        let d, _ =
-          Var.binding default_transition_timing_function_var Css.Ease
-        in
+        let d = Var.set default_transition_timing_function_var Css.Ease in
         [ d ]
       else []
     in
     let duration =
       if has_duration then
-        let d, _ = Var.binding default_transition_duration_var (Css.Ms 100.) in
+        let d = Var.set default_transition_duration_var (Css.Ms 100.) in
         [ d ]
       else []
     in
@@ -171,8 +181,8 @@ module Handler = struct
               Css.Property "overlay";
               Css.Property "pointer-events";
             ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_all ?theme () =
@@ -180,8 +190,8 @@ module Handler = struct
       (default_theme_decls ?theme ()
       @ [
           Css.transition_property [ Css.All ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   (* Theme variable for transition-property-colors *)
@@ -240,8 +250,8 @@ module Handler = struct
       @ extra_decls
       @ [
           Css.transition_property transition_props;
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_opacity ?theme () =
@@ -261,8 +271,8 @@ module Handler = struct
       @ extra_decls
       @ [
           Css.transition_property transition_props;
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_shadow ?theme () =
@@ -270,8 +280,8 @@ module Handler = struct
       (default_theme_decls ?theme ()
       @ [
           Css.transition_property [ Css.Property "box-shadow" ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_transform ?theme () =
@@ -285,8 +295,8 @@ module Handler = struct
               Css.Property "scale";
               Css.Property "rotate";
             ];
-          Css.transition_timing_function (Css.Var ease_ref);
-          Css.transition_duration (Css.Var duration_ref);
+          Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+          Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
   let transition_arbitrary ?theme spelling =
@@ -300,8 +310,8 @@ module Handler = struct
         (default_theme_decls ?theme ()
         @ [
             Css.transition_property [ Css.Var ref_ ];
-            Css.transition_timing_function (Css.Var ease_ref);
-            Css.transition_duration (Css.Var duration_ref);
+            Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+            Css.transition_duration (Css.Var (duration_ref ?theme ()));
           ])
     else if
       String.split_on_char ',' value
@@ -317,8 +327,8 @@ module Handler = struct
         (default_theme_decls ?theme ()
         @ [
             Css.transition_property props;
-            Css.transition_timing_function (Css.Var ease_ref);
-            Css.transition_duration (Css.Var duration_ref);
+            Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+            Css.transition_duration (Css.Var (duration_ref ?theme ()));
           ])
     else
       match Parse.opaque_declaration "transition-property" value with
@@ -328,8 +338,8 @@ module Handler = struct
             (default_theme_decls ?theme ()
             @ [
                 transition_property;
-                Css.transition_timing_function (Css.Var ease_ref);
-                Css.transition_duration (Css.Var duration_ref);
+                Css.transition_timing_function (Css.Var (ease_ref ?theme ()));
+                Css.transition_duration (Css.Var (duration_ref ?theme ()));
               ])
 
   (* Transition behavior (CSS Transitions Level 2) *)
@@ -340,28 +350,19 @@ module Handler = struct
 
   let duration n =
     let duration_val = Css.Ms (float_of_int n) in
-    let tw_duration_decl, _ = Var.binding tw_duration_var duration_val in
-    let prop_rule = Var.property_rule tw_duration_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let tw_duration_decl = Var.set tw_duration_var duration_val in
+    let property_rules = property_rules_of tw_duration_var in
     style ~property_rules
       [ tw_duration_decl; Css.transition_duration duration_val ]
 
   (* duration-initial / ease-initial reset the channel to the CSS initial
      keyword, clearing any inherited value. *)
   let duration_initial =
-    let property_rules =
-      match Var.property_rule tw_duration_var with
-      | Some r -> r
-      | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_duration_var in
     style ~property_rules [ Var.binding_initial tw_duration_var ]
 
   let ease_initial =
-    let property_rules =
-      match Var.property_rule tw_ease_var with Some r -> r | None -> Css.empty
-    in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules [ Var.binding_initial tw_ease_var ]
 
   (* Theme variables for easing functions - slots (7, 30-34) place them after
@@ -407,13 +408,8 @@ module Handler = struct
         let theme_decl, ease_linear_ref =
           Var.binding ease_linear_var Css.Linear
         in
-        let tw_ease_decl, _ =
-          Var.binding tw_ease_var (Css.Var ease_linear_ref)
-        in
-        let prop_rule = Var.property_rule tw_ease_var in
-        let property_rules =
-          match prop_rule with Some r -> r | None -> Css.empty
-        in
+        let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_linear_ref) in
+        let property_rules = property_rules_of tw_ease_var in
         style ~property_rules
           [
             theme_decl;
@@ -421,22 +417,16 @@ module Handler = struct
             Css.transition_timing_function (Css.Var ease_linear_ref);
           ]
     | None ->
-        let tw_ease_decl, _ = Var.binding tw_ease_var Css.Linear in
-        let prop_rule = Var.property_rule tw_ease_var in
-        let property_rules =
-          match prop_rule with Some r -> r | None -> Css.empty
-        in
+        let tw_ease_decl = Var.set tw_ease_var Css.Linear in
+        let property_rules = property_rules_of tw_ease_var in
         style ~property_rules
           [ tw_ease_decl; Css.transition_timing_function Css.Linear ]
 
   let ease_in =
     (* Set --tw-ease to var(--ease-in) and use the theme variable *)
     let theme_decl, ease_in_ref = Var.binding ease_in_var ease_in_curve in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_in_ref) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_in_ref) in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules
       [
         theme_decl;
@@ -446,11 +436,8 @@ module Handler = struct
 
   let ease_out =
     let theme_decl, ease_out_ref = Var.binding ease_out_var ease_out_curve in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_out_ref) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_out_ref) in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules
       [
         theme_decl;
@@ -462,11 +449,8 @@ module Handler = struct
     let theme_decl, ease_in_out_ref =
       Var.binding ease_in_out_var ease_in_out_curve
     in
-    let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var ease_in_out_ref) in
-    let prop_rule = Var.property_rule tw_ease_var in
-    let property_rules =
-      match prop_rule with Some r -> r | None -> Css.empty
-    in
+    let tw_ease_decl = Var.set tw_ease_var (Css.Var ease_in_out_ref) in
+    let property_rules = property_rules_of tw_ease_var in
     style ~property_rules
       [
         theme_decl;
@@ -498,20 +482,12 @@ module Handler = struct
 
   let ease_arbitrary = function
     | `Timing_function tf ->
-        let tw_ease_decl, _ = Var.binding tw_ease_var tf in
-        let property_rules =
-          match Var.property_rule tw_ease_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let tw_ease_decl = Var.set tw_ease_var tf in
+        let property_rules = property_rules_of tw_ease_var in
         style ~property_rules
           [ tw_ease_decl; Css.transition_timing_function tf ]
     | `Raw raw ->
-        let property_rules =
-          match Var.property_rule tw_ease_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_ease_var in
         let timing =
           match Parse.opaque_declaration "transition-timing-function" raw with
           | Some declaration -> declaration
@@ -527,19 +503,11 @@ module Handler = struct
 
   let duration_arbitrary = function
     | `Duration d ->
-        let tw_duration_decl, _ = Var.binding tw_duration_var d in
-        let property_rules =
-          match Var.property_rule tw_duration_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let tw_duration_decl = Var.set tw_duration_var d in
+        let property_rules = property_rules_of tw_duration_var in
         style ~property_rules [ tw_duration_decl; Css.transition_duration d ]
     | `Raw raw ->
-        let property_rules =
-          match Var.property_rule tw_duration_var with
-          | Some r -> r
-          | None -> Css.empty
-        in
+        let property_rules = property_rules_of tw_duration_var in
         let duration =
           match Parse.opaque_declaration "transition-duration" raw with
           | Some declaration -> declaration
@@ -562,12 +530,8 @@ module Handler = struct
         | None -> style []
         | Some tf ->
             let theme_decl, theme_ref = Var.binding (ease_named_var name) tf in
-            let tw_ease_decl, _ = Var.binding tw_ease_var (Css.Var theme_ref) in
-            let property_rules =
-              match Var.property_rule tw_ease_var with
-              | Some r -> r
-              | None -> Css.empty
-            in
+            let tw_ease_decl = Var.set tw_ease_var (Css.Var theme_ref) in
+            let property_rules = property_rules_of tw_ease_var in
             style ~property_rules
               [
                 theme_decl;
@@ -774,12 +738,12 @@ let ease_in_out = utility Ease_in_out
 
 (* Theme declarations for default transition values *)
 let default_transition_declarations =
-  let duration_decl, _ =
-    Var.binding Handler.default_transition_duration_var
+  let duration_decl =
+    Var.set Handler.default_transition_duration_var
       Handler.default_transition_duration
   in
-  let timing_decl, _ =
-    Var.binding Handler.default_transition_timing_function_var
+  let timing_decl =
+    Var.set Handler.default_transition_timing_function_var
       Handler.default_transition_timing_function
   in
   [ duration_decl; timing_decl ]

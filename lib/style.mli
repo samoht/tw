@@ -23,6 +23,9 @@ type container_query =
   | Container_5xl
   | Container_6xl
   | Container_7xl
+  | Container_theme of string
+      (** [@<name>]: a size the project's [\@theme] declared as
+          [--container-<name>]. *)
   | Container_named of string * int
   | Container_size of container_cmp * container_query
       (** [@min-<size>] / [@max-<size>]; the inner query is a bare named size.

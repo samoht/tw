@@ -7,7 +7,7 @@
 ; documented command produces.
 
 (executables
- (names sheet_order gen_order_fixture frozen_order)
+ (names sheet_order gen_order_fixture frozen_order site_page)
  (libraries fmt tw_tools test_helpers))
 
 ; package-lock.json pins the tailwindcss the reference comes from, and the CLI

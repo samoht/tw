@@ -1,11 +1,6 @@
 open Alcotest
 
-let check class_name =
-  match Tw.Transforms.Handler.of_class Tw.Scheme.default class_name with
-  | Ok t ->
-      check string "transforms class" class_name
-        (Tw.Transforms.Handler.to_class t)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Transforms.Handler)
 
 let test_translate_rotate () =
   check "translate-x-4";

@@ -721,7 +721,9 @@ let run_test_case test expected () =
        empty and this is the plain per-class path. *)
     let udefs = test.utility_defs in
     let routed, direct =
-      List.partition (Entrypoint.is_custom_routed ~defs:[] ~udefs) test.classes
+      List.partition
+        (Entrypoint.is_custom_routed ~theme:scheme ~defs:[] ~udefs)
+        test.classes
     in
     let parsed, rejected =
       List.fold_left

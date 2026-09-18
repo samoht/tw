@@ -34,8 +34,8 @@ let extract_var_names_with_prefix (prefix : string) (props : string list) :
   List.filter_map
     (fun prop ->
       if
-        String.length prop > String.length prefix
-        && String.sub prop 0 (String.length prefix) = prefix
+        String.starts_with ~prefix prop
+        && String.length prop > String.length prefix
       then
         let rest =
           String.sub prop (String.length prefix)
@@ -55,7 +55,7 @@ let extract_theme_color_vars sheet =
   |> Option.value ~default:[]
 
 let extract_bg_color_name sel_str =
-  if String.length sel_str > 4 && String.sub sel_str 0 4 = ".bg-" then
+  if String.starts_with ~prefix:".bg-" sel_str && String.length sel_str > 4 then
     let rest = String.sub sel_str 4 (String.length sel_str - 4) in
     match String.index_opt rest '-' with
     | Some idx -> Some (String.sub rest 0 idx)
@@ -204,7 +204,7 @@ let test_cascade_prose_separation () =
         | Some sel when Css.Selector.to_string sel = ".prose" -> Some i
         | _ -> None)
       sorted_output
-    |> List.filter_map (fun x -> x)
+    |> List.filter_map Fun.id
   in
 
   Fmt.pr "After of_grouped: .prose rules at indices %a@."
@@ -774,6 +774,44 @@ let test_arbitrary_font_family_boundary () =
   in
   Alcotest.(check (list string))
     "arbitrary font family follows sans and precedes serif" classes actual
+
+(* A breakpoint the project declares sorts with the built-in ones: every upper
+   bound first, then the widths ascending, so under [--breakpoint-xs: 30rem] the
+   [xs:] rules sit between [max-xs:] and [sm:], as Tailwind writes them. The
+   variant table knew the built-in names alone, so [xs:] carried no variant at
+   all and sorted among the plain rules, ahead of every [max-*]. *)
+let test_declared_breakpoint_sorts_with_the_scale () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("breakpoint-xs", "30rem") ]
+  in
+  let classes =
+    [
+      "max-sm:flex";
+      "max-xs:hidden";
+      "min-xs:block";
+      "xs:flex";
+      "sm:flex";
+      "md:flex";
+    ]
+  in
+  let utilities =
+    List.map (fun c -> Result.get_ok (Tw.of_string ~theme c)) classes
+  in
+  let css =
+    Tw.to_css ~theme ~base:false utilities
+    |> Cascade.Css.to_string ~minify:true ~lossless:true
+  in
+  let position cls =
+    match Test_helpers.class_position css cls with
+    | Some i -> (i, cls)
+    | None -> Alcotest.failf "%s missing from %s" cls css
+  in
+  let actual =
+    classes |> List.map position |> List.sort compare |> List.map snd
+  in
+  Alcotest.(check (list string))
+    "the declared breakpoint sits between the upper bounds and sm" classes
+    actual
 
 (* Test 1: Verify priority order - one utility per group *)
 let test_priority_order_per_group () =
@@ -3277,6 +3315,8 @@ let rules_of_grouped_prose_bug () =
 
 let tests =
   [
+    test_case "declared breakpoint sorts with the scale" `Quick
+      test_declared_breakpoint_sorts_with_the_scale;
     (* New tests for exposed functions *)
     test_case "color_order" `Quick test_color_order;
     (* Layer ordering tests *)

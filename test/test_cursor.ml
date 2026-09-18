@@ -2,11 +2,9 @@ open Alcotest
 open Tw.Cursor.Handler
 
 let check parts =
-  let expected = String.concat "-" parts in
-  match of_class Tw.Scheme.default expected with
-  | Ok result ->
-      Alcotest.check string "cursor class name" expected (to_class result)
-  | Error (`Msg msg) -> fail msg
+  Test_helpers.check_handler_roundtrip
+    (module Tw.Cursor.Handler)
+    (String.concat "-" parts)
 
 let of_string_valid () =
   check [ "cursor"; "auto" ];

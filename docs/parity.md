@@ -53,18 +53,19 @@ All four run under `dune runtest`.
 
 **Rendering, `check_rendering_matches`.** Nine suites render their classes in
 headless Chromium under tw's sheet and Tailwind's, and compare every computed
-property and which custom properties each element carries. Each class gets an
-element of its own. A pair that writes a common property, or whose order
-cascade cannot prove neutral, gets one more element carrying both, because an
-ordering difference shows only there. The page
-is sampled at 1280x800, as it loads and under seven states forced through the
-DevTools protocol, on every element with its `::before`, `::after` and
-`::marker`. The comparison is exact, and both sheets are printed through
-cascade before loading, so a declaration cascade's reader drops is missing
-from both pages. The check predates `cascade diff --browser` and runs its own
-Playwright harness, `test/helpers/browser/compare.js`. It skips without node,
-Playwright and Chromium, and `TW_BROWSER_TESTS=1`, which CI sets, turns the
-skip into a failure.
+property. Each class gets an element of its own. A pair that writes a common
+property, or whose order cascade cannot prove neutral, gets one more element
+carrying both, because an ordering difference shows only there. The page is
+rendered by cascade's `Browser_compare`, the runner behind `cascade diff
+--browser`, so the check and the manual verdict below are one oracle: every
+element and its pseudo-elements are sampled at every viewport width a media
+condition in either sheet names, and under every interaction state either sheet
+names, applied to every element at once. The sheets load as written, so no
+cascade printer stands between them and the browser, and every computed value
+that differs fails, a value that paints the same included. It skips without
+node and a headless Chromium, and `TW_BROWSER_TESTS=1`, which CI sets, turns
+the skip into a failure. The page and both sheets of each run stay under
+`tmp/browser/`.
 
 **Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt` are
 Tailwind's own test corpus, extracted from the v4.3.3 tag: a class list and the
@@ -103,24 +104,43 @@ failure.
 ## The site comparison
 
 The comparison against tailwindcss.com finds most real bugs, because it
-exercises class combinations no fixture covers. It runs the canonical diff
-alone, because its inputs are a class list with no page for a browser to
-render. Its report is a list of candidates, each settled in the browser as
-[Reading a failure](#reading-a-failure) shows. The inputs are committed under
-`test/parity/`, so anyone can re-derive the number:
+exercises class combinations no fixture covers. Its inputs are a class list
+rather than the site's pages, so it runs the canonical diff over the whole
+list, and renders a page built from the list in the browser shard by shard.
+The inputs are committed under `test/parity/`, so anyone can re-derive the
+number:
 
 <!-- $MDX skip -->
 ```sh
 sh test/parity/measure.sh
+TW_PARITY_RENDER="0 50" sh test/parity/measure.sh
 ```
 
-That takes about 17 seconds on a warm build: a fifth of a second in Tailwind,
-three seconds in tw, the rest in the differ. It writes the compiled reference
-`ref.css`, the minified one `ref_local.css`, `tw_all.css` and `diff.txt` under
-`tmp/parity`, prints the two minified sizes and fails when tw's is the larger,
-then prints the diff followed by its top-level entries. The report is not
-wired into `dune runtest`; the order gate above, which reads the same inputs,
-is.
+Almost all of the first is the differ. Measured with hyperfine on 2026-09-16,
+release builds, user time: 0.58 s for Tailwind to compile the reference, 0.58
+s for tw to compile `tw_all.css`, and 24 s for the canonical diff of the two,
+which cascade's TODO holds. It writes the compiled
+reference `ref.css`, the minified one `ref_local.css`, `tw_all.css` and
+`diff.txt` under `tmp/parity`, prints the two minified sizes and fails when
+tw's is the larger, then prints the diff followed by its top-level entries.
+The report is not wired into `dune runtest`; the order gate above, which reads
+the same inputs, is.
+
+The second also renders the 50 classes from index 0, in the order of
+`classlist.txt`, and prints the browser's report after the canonical one.
+`site_page.exe` puts each class on an element of its own, inside a wrapper
+carrying every `group` name the list uses and after a sibling carrying every
+`peer` name, with children for a class whose variants read descendants, so
+`group-*`, `peer-*`, `has-*`, `in-*` and `*:` have the markup they read. A
+variant testing an attribute or a class on an ancestor (`group-data-[checked]:`,
+`in-[.dark]:`) matches on neither side, so the render covers it unmatched only,
+and no element carries two classes: the order a pair would expose is the order
+gate's. Both sheets are pruned to the page with `cascade prune` before the
+render, since a rule no element matches cannot change what the page computes.
+Unpruned, every width and state the whole sheet names is sampled on every
+element, and a 50-class shard did not finish in ten minutes on 2026-09-16;
+pruned, it took 218 seconds on a machine at load 100 to 200. The list is 97
+shards of that size, so the render runs by hand and not in CI.
 
 The inputs are:
 
@@ -145,28 +165,37 @@ rather than from `PATH`.
 
 ### Current measurement
 
-Measured 2026-09-15 on the trees that merged unchanged as tw `main` at
-6c8a0f85 and cascade `main` at f88a46f3, with the tailwindcss 4.3.3 that
-`package-lock.json` pins. The documented command reported:
+Measured 2026-09-17 on tw at 20097b0c, the tip of #847, and cascade `main`
+at 377d7201, with the tailwindcss 4.3.3 that `package-lock.json` pins. The
+documented command reported:
 
 ```text
-minified: tw 661022 bytes, tailwindcss 664632 bytes
-Changes: 1 changed container
-└─ @layer utilities
-   ├─ @media (prefers-color-scheme: dark) (105 blocks merged into 103)
-   ├─ @media (width >= 40rem) (6 blocks merged into 5)
-   ├─ @media (width >= 48rem) (3 blocks merged into 2)
-   └─ @media (width < 64rem) (3 block split into 4)
+minified: tw 661153 bytes, tailwindcss 664632 bytes
+Changes: none classified structurally (see report below)
+top-level entries of tmp/parity/diff.txt:
+  (none)
 ```
 
 The count is only comparable against the cascade it was taken with, which is
-why the sha is quoted beside it. What is left is one shape, and it is
-cascade's: both sheets write the same rules in the same order inside those
-blocks, tw nesting `@media (prefers-color-scheme: dark)` outside the
-breakpoint and Tailwind inside, and the projection sorts a block as one unit
-keyed by whatever rules the input happened to group into it, so the two
-inputs settle into different groupings. Cascade's TODO holds the five-class
-reproducer cut from the site.
+why the sha is quoted beside it. The measurement before it, on 2026-09-15 at
+tw 6c8a0f85 and cascade f88a46f3, reported one changed container: the same
+rules in the same order inside four `@media` blocks, tw nesting
+`@media (prefers-color-scheme: dark)` outside the breakpoint and Tailwind
+inside, which the projection then grouped differently. Cascade's TODO holds
+the five-class reproducer cut from the site, and cascade `main` no longer
+reports it.
+
+The whole class list was rendered on 2026-09-16, in the 97 shards of 50
+`TW_PARITY_RENDER` names, from the tip of the stack this section arrived in
+and cascade #1260. 93 shards compute the same on every element. The other
+four render the same and are spelled differently: `bg-top-left`,
+`bg-top-right` and `bg-bottom-left` compute `background-position` as `0%`
+under Tailwind and `0px` under tw, which the report marks as painting the
+same, and `mask-[radial-gradient(ellipse_25%_50%_at_30%_50%,...)]` computes
+without the final colour stop's `100%`, which tw's minifier drops because CSS
+Images 3 puts an unpositioned last stop there. The report marks that one as
+painting differently, since its paint check counts the numbers in a value;
+cascade's TODO holds it.
 
 Two decisions taken on 2026-09-15 shaped the measurement:
 
@@ -233,21 +262,26 @@ dune exec -- tw --single="hover:bg-blue-600" --diff
 Use `--single=` rather than `-s` for a class that starts with `-` or contains
 spaces.
 
-An entry either report lists is settled in the browser. Build both sheets for
-the classes involved, put the classes on a page, and render the two over it:
+An entry either report lists is settled in the browser. Put the classes
+involved on a page and hand it to `--diff`, which compiles both sheets the way
+it always does and renders the two over the page after the canonical report:
 
 <!-- $MDX skip -->
 ```sh
 mkdir -p tmp
-dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --variables --base > tmp/tw.css
-dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --tailwind > tmp/tailwind.css
 echo '<div class="bg-blue-500 hover:bg-blue-600">x</div>' > tmp/page.html
-dune exec -- cascade diff --browser --html tmp/page.html tmp/tw.css tmp/tailwind.css
+dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --diff --html tmp/page.html
 ```
 
-It samples every viewport width and interaction state either sheet names, and
-exits 0 when nothing differs, 1 with the computed values that do, and 2 when
-no browser ran or nothing was sampled. A difference marked as painting the
+The same works with an entrypoint, `tw --input-css app.css page.html --diff
+--html page.html`, where the page is both the source scanned and the document
+rendered. The page has to carry every class compared: one it lacks is refused
+rather than compared on no element. With the two sheets already on
+disk, `cascade diff --browser --html tmp/page.html tmp/tw.css tmp/tailwind.css`
+is the same comparison. It samples every viewport width and interaction state
+either sheet names, and exits 0 when neither report finds a difference, 1 when
+one does, and 2 when no browser ran, nothing was sampled or a sheet could not
+be read. A difference marked as painting the
 same is a precision question for cascade. An entry the canonical diff listed
 that renders the same is an over-report to cut down and file in cascade. The
 page decides what the answer covers: a `group-hover:` or `peer-` class needs

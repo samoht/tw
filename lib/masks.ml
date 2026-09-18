@@ -596,7 +596,9 @@ module Handler = struct
         match inner with
         | "contain" -> Ok Bracket_contain
         | "cover" -> Ok Bracket_cover
-        | _ when String.length inner > 7 && String.sub inner 0 7 = "length:" ->
+        | _
+          when String.starts_with ~prefix:"length:" inner
+               && String.length inner > 7 ->
             (* The [length:] hint forces a mask-size, and says nothing about
                whether the value is one: a size the grammar cannot take is
                written out as the author spelled it. *)
@@ -604,13 +606,16 @@ module Handler = struct
             if parse_bracket_size v = None then
               opaque class_name Longhand.Size inner
             else Ok (Bracket_length v)
-        | _ when String.length inner > 5 && String.sub inner 0 5 = "size:" ->
+        | _
+          when String.starts_with ~prefix:"size:" inner
+               && String.length inner > 5 ->
             let v = String.sub inner 5 (String.length inner - 5) in
             if parse_bracket_size v = None then
               opaque class_name Longhand.Size inner
             else Ok (Bracket_size v)
-        | _ when String.length inner > 9 && String.sub inner 0 9 = "position:"
-          -> (
+        | _
+          when String.starts_with ~prefix:"position:" inner
+               && String.length inner > 9 -> (
             (* The [position:] hint forces a mask-position the same way. *)
             let v = String.sub inner 9 (String.length inner - 9) in
             match parse_bracket_position v with
@@ -618,11 +623,15 @@ module Handler = struct
             | None -> opaque class_name Longhand.Position inner)
         (* An [image:]/[url:] hint says how to read the value written after it;
            only a var() reference there names a custom property. *)
-        | _ when String.length inner > 6 && String.sub inner 0 6 = "image:" ->
+        | _
+          when String.starts_with ~prefix:"image:" inner
+               && String.length inner > 6 ->
             let v = String.sub inner 6 (String.length inner - 6) in
             if is_mask_image_value v then Ok (Bracket_image_var v)
             else opaque class_name Longhand.Image inner
-        | _ when String.length inner > 4 && String.sub inner 0 4 = "url:" ->
+        | _
+          when String.starts_with ~prefix:"url:" inner
+               && String.length inner > 4 ->
             let v = String.sub inner 4 (String.length inner - 4) in
             if is_mask_image_value v then Ok (Bracket_url_var v)
             else opaque class_name Longhand.Image inner

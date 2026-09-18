@@ -75,8 +75,8 @@ module Handler = struct
       let color_value =
         Color.property_color_value ?theme ~property_prefix:"fill" color shade
       in
-      let theme_decl, color_ref = Var.binding color_var color_value in
-      style [ theme_decl; Css.fill (Css.Color (Css.Var color_ref)) ]
+      let decls, color = Color.bound ?theme color_var color_value in
+      style (decls @ [ Css.fill (Css.Color color) ])
 
   (* Stroke color style with scheme support *)
   let stroke_color_style ?theme color shade =
@@ -90,8 +90,8 @@ module Handler = struct
       let color_value =
         Color.property_color_value ?theme ~property_prefix:"stroke" color shade
       in
-      let theme_decl, color_ref = Var.binding color_var color_value in
-      style [ theme_decl; Css.stroke (Css.Color (Css.Var color_ref)) ]
+      let decls, color = Color.bound ?theme color_var color_value in
+      style (decls @ [ Css.stroke (Css.Color color) ])
 
   (* Bracket color: fill/stroke with a typed Css.color, converting to hex when
      possible for minified output *)
@@ -124,10 +124,7 @@ module Handler = struct
       Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
     in
     let oklab_decl = property (Css.Color oklab_color : Css.svg_paint) in
-    let supports_block =
-      Css.supports ~condition:Color.color_mix_supports_condition
-        [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-    in
+    let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
   let to_style theme =
@@ -312,10 +309,7 @@ module Handler = struct
     | Stroke_width_raw (v, _) -> "stroke-[" ^ v ^ "]"
 
   let has_opacity s = String.contains s '/'
-
-  let starts prefix s =
-    String.length s >= String.length prefix
-    && String.sub s 0 (String.length prefix) = prefix
+  let starts prefix s = String.starts_with ~prefix s
 
   (* Parse bracket value for fill/stroke: determine if it's a color or typed
      var. Returns the variant constructor for the appropriate type. *)
@@ -377,13 +371,9 @@ module Handler = struct
      stroke width, so it is refused here rather than reaching to_style. *)
   let parse_bracket_stroke_width inner =
     let hinted =
-      List.find_map
-        (fun prefix ->
-          if starts prefix inner then
-            let n = String.length prefix in
-            Some (String.sub inner n (String.length inner - n))
-          else None)
-        [ "length:"; "number:"; "percentage:" ]
+      match Parse.data_type_hint inner with
+      | Some (("length" | "number" | "percentage"), value) -> Some value
+      | _ -> None
     in
     (* A data-type hint says how to read the value written after it; only a
        var() reference there names a custom property. *)
@@ -465,7 +455,7 @@ module Handler = struct
         if
           starts "color:" base_inner || starts "var(" base_inner
           || starts "#" base_inner
-          || Stdlib.Option.is_some (Color.parse_bracket_color base_inner)
+          || Option.is_some (Color.parse_bracket_color base_inner)
         then parse_bracket_stroke_color v
         else
           (* The width owns the numbers and lengths; what it refuses falls to

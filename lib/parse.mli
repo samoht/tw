@@ -243,6 +243,18 @@ val is_bracket_var : string -> bool
 (** [is_bracket_var s] returns [true] if [s] is a bracket-wrapped var()
     reference like ["[var(--value)]"]. *)
 
+val call_body : string -> string -> string option
+(** [call_body name s] is the text between [name(] and the [)] that ends [s],
+    when [s] is one such call: [call_body "--spacing" "--spacing(4)"] is
+    [Some "4"]. The body comes back as written, blank or empty included; [None]
+    when [s] is not the call. *)
+
+val alpha_call : string -> (string * string) option
+(** [alpha_call s] reads Tailwind's [--alpha(<color>/<percentage>)]: the colour
+    and the alpha it is mixed with, as written. The separating slash is the last
+    one, so a colour carrying its own, as [oklch(1 0 0 / 50%)] does, still
+    reads. [None] when [s] is not the call or has no slash. *)
+
 val is_css_color_fn : string -> bool
 (** [is_css_color_fn s] returns [true] if [s] looks like a CSS color function
     call such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]: the part of [s]
@@ -253,6 +265,11 @@ val is_css_color_fn : string -> bool
 val is_bare_var : string -> bool
 (** [is_bare_var s] returns [true] if [s] is a bare var reference like
     ["(--name)"]. *)
+
+val bare_name : string -> string option
+(** [bare_name s] is the name after the [--] a custom property starts with:
+    [Some "x"] for ["--x"]. [None] for an [s] that does not start with [--], or
+    is only that. *)
 
 val bare_var_inner : string -> string
 (** [bare_var_inner s] extracts the inner content from ["(--name)"], returning
@@ -270,3 +287,33 @@ val split_on_colon : string -> string list
     separator. Always yields (colon count + 1) tokens: e.g. ["hover:focus:p-4"]
     becomes [["hover"; "focus"; "p-4"]], and a string with no unbracketed colon
     becomes a single-element list. *)
+
+val shadow : string -> Cascade.Css.shadow option
+(** [shadow s] reads [s] as a box-shadow list the way Tailwind does: the lengths
+    are taken and what is left is the colour, so a trailing [var()] in a length
+    slot is the colour ([0 1px 2px var(--c)] paints with [--c]). [None] when [s]
+    is not a shadow. *)
+
+(** {1 Arbitrary shadows} *)
+
+(** The colour token of one arbitrary shadow layer, as the class spelled it. *)
+type shadow_colour =
+  | Hex_token of string  (** a [#] spelling, kept as written *)
+  | Var_token of string  (** a [var()] reference, kept as written *)
+  | Colour of Cascade.Css.color  (** a colour function, read *)
+  | No_colour  (** the layer names no colour *)
+
+val shadow_layer : string -> (Cascade.Css.length list * shadow_colour) option
+(** [shadow_layer s] scans the inside of one shadow bracket the way the shadow
+    families read it: a [#] token or a [var()] is the colour, kept as written; a
+    colour function, which may span several tokens, goes through the colour
+    reader; every other token has to be a length. The lengths come back in the
+    order written, and how many a family takes is the family's own business.
+    [None] when a token is neither, or the [#] token is no hex. [s] goes through
+    {!decode_underscores} first. *)
+
+val split_top_level : char -> string -> string list
+(** [split_top_level sep s] splits [s] on [sep] where no bracket is open, so a
+    [sep] inside [(...)], [[...]] or [{...}] stays in its piece. Always yields
+    one piece more than the separators it split on; a closing bracket with no
+    opener is passed over. *)

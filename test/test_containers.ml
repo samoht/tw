@@ -1,11 +1,6 @@
 open Alcotest
 
-let check class_name =
-  match Tw.Containers.Handler.of_class Tw.Scheme.default class_name with
-  | Ok t ->
-      check string "containers class" class_name
-        (Tw.Containers.Handler.to_class t)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Containers.Handler)
 
 let test_container_types () =
   check "@container";
@@ -212,9 +207,116 @@ let test_container_reads_the_breakpoint_scale () =
     (List.sort Int.compare positions)
     positions
 
+(* A size query reads the width the project's [@theme] binds to
+   [--container-<size>], as [max-w-<size>] does: under [--container-lg: 40rem]
+   Tailwind writes [@lg:flex] as [@container (width >= 40rem)], and its [@max-]
+   twin as the negation. The scale was a fixed table, so the query kept 32rem
+   while [max-w-lg] took the project's width. *)
+let test_container_size_reads_the_theme () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("container-lg", "40rem") ]
+  in
+  let css cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool) cls true (Astring.String.is_infix ~affix (css cls))
+  in
+  has "@lg:flex" "@container(width>=40rem)";
+  has "@min-lg:flex" "@container(width>=40rem)";
+  has "@max-lg:hidden" "@container not (width>=40rem)";
+  has "@lg/main:flex" "@container main (width>=40rem)";
+  has "@md:flex" "@container(width>=28rem)"
+
+(* A size the project declares as [--container-<name>] names a query the way the
+   built-in scale does, under [@min-], [@max-] and a [/name] tail, and sorts
+   among the built-in sizes by its width, as Tailwind sorts it. It was an
+   unknown modifier, where [max-w-<name>] read the token. *)
+let test_container_theme_size () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("container-hero", "100rem"); ("container-card", "20rem") ]
+  in
+  let sheet classes =
+    let utilities =
+      List.map
+        (fun cls ->
+          match Tw.of_string ~theme cls with
+          | Ok u -> u
+          | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+        classes
+    in
+    Tw.to_css ~theme ~base:false utilities |> Tw.Css.to_string ~minify:true
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      cls true
+      (Astring.String.is_infix ~affix (sheet [ cls ]))
+  in
+  has "@hero:flex" "@container(width>=100rem)";
+  has "@min-hero:flex" "@container(width>=100rem)";
+  has "@max-hero:hidden" "@container not (width>=100rem)";
+  has "@hero/main:flex" "@container main (width>=100rem)";
+  Alcotest.(check bool)
+    "a name the theme does not bind is no query" true
+    (Result.is_error (Tw.of_string ~theme "@nothing:flex"));
+  let classes =
+    [
+      "@hero:flex";
+      "@sm:flex";
+      "@max-card:flex";
+      "@card:flex";
+      "@lg:flex";
+      "@max-hero:flex";
+    ]
+  in
+  let css = sheet classes in
+  let position cls =
+    let sub = "." ^ Tw.Rule.escape_class_name cls in
+    match Astring.String.find_sub ~sub css with
+    | Some i -> i
+    | None -> Alcotest.failf "no %s in %s" cls css
+  in
+  Alcotest.(check (list string))
+    "every upper bound first, then the widths ascending"
+    [
+      "@max-hero:flex";
+      "@max-card:flex";
+      "@card:flex";
+      "@sm:flex";
+      "@lg:flex";
+      "@hero:flex";
+    ]
+    (List.sort (fun a b -> Int.compare (position a) (position b)) classes)
+
+(* A size the block removed names no query, under [@min-], [@max-] and a [/name]
+   tail alike, the way a removed breakpoint names no variant. *)
+let test_removed_container_size_drops_its_variants () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("container-lg", "initial") ]
+  in
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " names a size the theme removed")
+        true
+        (Result.is_error (Tw.of_string ~theme cls)))
+    [ "@lg:flex"; "@min-lg:flex"; "@max-lg:flex"; "@lg/main:flex" ];
+  Alcotest.(check bool)
+    "the other sizes still resolve" true
+    (Result.is_ok (Tw.of_string ~theme "@md:flex"))
+
 let tests =
   [
     test_case "types" `Quick test_container_types;
+    test_case "a size query reads the theme" `Quick
+      test_container_size_reads_the_theme;
+    test_case "a removed size drops its variants" `Quick
+      test_removed_container_size_drops_its_variants;
+    test_case "a project size names a query" `Quick test_container_theme_size;
     test_case "container reads the breakpoint scale" `Quick
       test_container_reads_the_breakpoint_scale;
     test_case "variant width order" `Quick test_variant_width_order;

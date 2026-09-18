@@ -482,6 +482,25 @@ let test_removed_breakpoint_drops_its_variants () =
   check bool "the theme's own breakpoint still resolves" true
     (Result.is_ok (Tw.of_string ~theme "tablet:flex"))
 
+(* [--breakpoint-md: initial] removes the one breakpoint, and Tailwind emits
+   nothing for [md:flex]. The built-in table let it go, and the custom
+   breakpoints then took it back: [initial] reads as a length, so the removed
+   token was a custom breakpoint of that width, and the sheet carried [@media
+   (min-width: initial)], a query no browser honours. *)
+let test_removed_single_breakpoint_drops_its_variants () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("breakpoint-md", "initial") ]
+  in
+  List.iter
+    (fun cls ->
+      check bool
+        (cls ^ " names a breakpoint the theme removed")
+        true
+        (Result.is_error (Tw.of_string ~theme cls)))
+    [ "md:flex"; "min-md:flex"; "max-md:flex"; "not-md:flex" ];
+  check bool "the other breakpoints still resolve" true
+    (Result.is_ok (Tw.of_string ~theme "lg:flex"))
+
 (* The variant cascade the one table defines, read as a ladder: every token
    sorts strictly after the one before it. A token the table has no position for
    returns 0, and the comparator reads 0 as "this rule carries no variant" and
@@ -833,6 +852,187 @@ let test_prose_element_variant_invalid () =
   Alcotest.(check bool)
     "prose-h7: is not a variant" true
     (Result.is_error (Tw.of_string "prose-h7:underline"))
+
+(* Negating a hover-gated variant negates the gate as well: Tailwind pairs
+   [.x:not(<rel>)] with [@media not (hover: hover) { .x }] for [not-hover], and
+   the group, peer, ancestor and [has-] forms of [hover] carry the gate along
+   with the state, so their negations carry the twin. Without it the class only
+   held the selector half, and a touch device - where the gate fails and the
+   twin applies - got nothing. [not-in-hover] read its inner through the plain
+   selector reading and negated the utility's own class. *)
+let test_negated_hover_forms_carry_the_twin () =
+  check_utilities "not-group-hover:flex"
+    {|.not-group-hover\:flex:not(:is(:where(.group):hover *)){display:flex}@media not all and (hover:hover){.not-group-hover\:flex{display:flex}}|};
+  check_utilities "not-peer-hover/x:flex"
+    {|.not-peer-hover\/x\:flex:not(:is(:where(.peer\/x):hover~*)){display:flex}@media not all and (hover:hover){.not-peer-hover\/x\:flex{display:flex}}|};
+  check_utilities "not-in-hover:flex"
+    {|.not-in-hover\:flex:not(:where(:hover) *){display:flex}@media not all and (hover:hover){.not-in-hover\:flex{display:flex}}|};
+  check_utilities "not-has-hover:flex"
+    {|.not-has-hover\:flex:not(:has(:hover)){display:flex}@media not all and (hover:hover){.not-has-hover\:flex{display:flex}}|}
+
+(* The at-rule half of a negation is built over the leaf the inner variants
+   made, as Tailwind builds it: the block keeps that leaf's selector, [.x:focus]
+   for [not-hover:focus:flex], and stays inside the [@media (hover: hover)] an
+   inner [hover] brought, [@media (hover:hover) { @media not (...) { .x:hover }
+   }] for [not-dark:hover:flex]. It used to name the bare class and drop the
+   gate, so [not-hover:focus:flex] styled the element whether focused or not. *)
+let test_negation_keeps_the_inner_leaf () =
+  check_utilities "not-hover:focus:flex"
+    {|.not-hover\:focus\:flex:not(:hover):focus{display:flex}@media not all and (hover:hover){.not-hover\:focus\:flex:focus{display:flex}}|};
+  check_utilities "not-dark:hover:flex"
+    {|@media(hover:hover){@media not all and (prefers-color-scheme:dark){.not-dark\:hover\:flex:hover{display:flex}}}|};
+  check_utilities "not-supports-grid:focus:flex"
+    {|@supports not (grid:var(--tw)){.not-supports-grid\:focus\:flex:focus{display:flex}}|};
+  check_utilities "not-max-md:hover:flex"
+    {|@media(hover:hover){@media(min-width:48rem){.not-max-md\:hover\:flex:hover{display:flex}}}|};
+  check_utilities "not-group-hover/x:hover:flex"
+    {|@media(hover:hover){.not-group-hover\/x\:hover\:flex:not(:is(:where(.group\/x):hover *)):hover{display:flex}@media not all and (hover:hover){.not-group-hover\/x\:hover\:flex:hover{display:flex}}}|}
+
+(* A selector variant over a media inner: the regular arm builds the anchor or
+   the negation over the inner rule's selector, and the inner query goes back
+   around each rule that comes out, inside the gate the variant added. A named
+   group or peer over [md:] lost its anchor, and a negation over it lost its
+   twin. *)
+let test_selector_variant_over_media_inner () =
+  check_utilities "not-hover:md:flex"
+    {|@media(min-width:48rem){.not-hover\:md\:flex:not(:hover){display:flex}}@media not all and (hover:hover){@media(min-width:48rem){.not-hover\:md\:flex{display:flex}}}|};
+  check_utilities "not-group-hover/x:md:flex"
+    {|@media(min-width:48rem){.not-group-hover\/x\:md\:flex:not(:is(:where(.group\/x):hover *)){display:flex}}@media not all and (hover:hover){@media(min-width:48rem){.not-group-hover\/x\:md\:flex{display:flex}}}|};
+  check_utilities "peer-checked/x:md:flex"
+    {|@media(min-width:48rem){.peer-checked\/x\:md\:flex:is(:where(.peer\/x):checked~*){display:flex}}|};
+  check_utilities "group-hover/x:md:flex"
+    {|@media(hover:hover){@media(min-width:48rem){.group-hover\/x\:md\:flex:is(:where(.group\/x):hover *){display:flex}}}|}
+
+(* A negation inside a compound is the negated selector, and a double negation
+   of a media or supports variant is the variant again: [has-not-focus] is
+   [:has(:not(:focus))], [not-not-md] is [md]. Each read as the utility's own
+   class negated, [.x:has(.flex)], which matched nothing the author meant. A
+   negation with two halves - [not-hover] - has no single negation, and a
+   compound holds only a selector, so [not-not-hover], [has-not-hover], [has-md]
+   and [in-not-group-hover] name nothing, as they do in Tailwind. *)
+let test_compound_negations () =
+  check_utilities "has-not-focus:flex"
+    {|.has-not-focus\:flex:has(:not(:focus)){display:flex}|};
+  check_utilities "in-not-focus:flex"
+    {|:where(:not(:focus)) .in-not-focus\:flex{display:flex}|};
+  check_utilities "not-not-focus:flex"
+    {|.not-not-focus\:flex:focus{display:flex}|};
+  check_utilities "not-not-md:flex"
+    {|@media(min-width:48rem){.not-not-md\:flex{display:flex}}|};
+  check_utilities "not-not-[@media_print]:flex"
+    {|@media print{.not-not-\[\@media_print\]\:flex{display:flex}}|};
+  check_utilities "has-not-[.a]:flex"
+    {|.has-not-\[\.a\]\:flex:has(:not(.a)){display:flex}|};
+  check_utilities "not-has-[.a]:flex"
+    {|.not-has-\[\.a\]\:flex:not(:has(.a)){display:flex}|};
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  List.iter rejected
+    [
+      "not-not-hover:flex";
+      "has-not-hover:flex";
+      "has-not-dark:flex";
+      "has-md:flex";
+      "has-supports-grid:flex";
+      "in-not-group-hover:flex";
+      "in-not-[@supports(display:grid)]:flex";
+      "not-has-first-child:flex";
+    ]
+
+(* [in-<variant>] holds any variant with a selector, the way [has-] does, and an
+   ancestor in a hover state keeps the pointer gate. The reading knew a bracket,
+   a data attribute and the bare state names, so [in-group-hover],
+   [in-has-focus] and [in-nth-3] were unknown classes. A media variant has no
+   selector to hold, and a modifier is not a name an ancestor takes. *)
+let test_in_holds_any_selector_variant () =
+  check_utilities "in-group-hover:flex"
+    {|@media(hover:hover){:where(:is(:where(.group):hover *)) .in-group-hover\:flex{display:flex}}|};
+  check_utilities "in-peer-checked:flex"
+    {|:where(:is(:where(.peer):checked~*)) .in-peer-checked\:flex{display:flex}|};
+  check_utilities "in-has-focus:flex"
+    {|:where(:has(:focus)) .in-has-focus\:flex{display:flex}|};
+  check_utilities "in-aria-checked:flex"
+    {|:where([aria-checked=true]) .in-aria-checked\:flex{display:flex}|};
+  check_utilities "in-nth-3:flex"
+    {|:where(:nth-child(3)) .in-nth-3\:flex{display:flex}|};
+  check_utilities "in-data-[x=1]:flex"
+    {|:where([data-x="1"]) .in-data-\[x\=1\]\:flex{display:flex}|};
+  check_utilities "in-in-focus:flex"
+    {|:where(:where(:focus) *) .in-in-focus\:flex{display:flex}|};
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
+    | Error _ -> ()
+  in
+  List.iter rejected [ "in-print:flex"; "in-md:flex"; "in-focus/x:flex" ]
+
+(* [has-group-hover/x] and [in-group-hover/x] gate on the pointer as
+   [group-hover/x] does; they used to apply on touch. *)
+let test_has_and_in_named_hover_gate () =
+  check_utilities "has-group-hover/x:flex"
+    {|@media(hover:hover){.has-group-hover\/x\:flex:has(:is(:where(.group\/x):hover *)){display:flex}}|};
+  check_utilities "in-group-hover/x:flex"
+    {|@media(hover:hover){:where(:is(:where(.group\/x):hover *)) .in-group-hover\/x\:flex{display:flex}}|}
+
+(* [before:] or [after:] over an inner variant, as Tailwind nests it: the
+   variant's own rule holds the [content], under no condition, and the inner
+   variant's rule nests inside it, so the flattened sheet writes [.x::before {
+   content }] once and the utility's declarations on [.x::before<inner>] under
+   the inner's own at-rules. tw fused the two into one rule under the inner's
+   condition and dropped the inner's selector, so [before:hover:underline]
+   underlined the pseudo-element whether hovered or not. An at-rule inner and a
+   negation's two halves each write the content rule once; [marker:] and
+   [selection:] put the inner's selector after each of their pseudo-elements.
+   The utilities layer alone is compared: [before:] registers [--tw-content]
+   ahead of it. *)
+let test_pseudo_element_over_an_inner_variant () =
+  let utilities cls expected =
+    let sheet =
+      match Tw.of_string cls with
+      | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+    in
+    Alcotest.(check bool)
+      (cls ^ " writes " ^ expected)
+      true
+      (Astring.String.is_infix
+         ~affix:("@layer utilities{" ^ expected ^ "}")
+         sheet)
+  in
+  utilities "before:hover:underline"
+    {|.before\:hover\:underline:before{content:var(--tw-content)}@media(hover:hover){.before\:hover\:underline:before:hover{text-decoration-line:underline}}|};
+  utilities "before:first:underline"
+    {|.before\:first\:underline:before{content:var(--tw-content)}.before\:first\:underline:before:first-child{text-decoration-line:underline}|};
+  utilities "before:md:underline"
+    {|.before\:md\:underline:before{content:var(--tw-content)}@media(min-width:48rem){.before\:md\:underline:before{text-decoration-line:underline}}|};
+  utilities "before:not-hover:underline"
+    {|.before\:not-hover\:underline:before{content:var(--tw-content)}.before\:not-hover\:underline:before:not(:hover){text-decoration-line:underline}@media not all and (hover:hover){.before\:not-hover\:underline:before{text-decoration-line:underline}}|};
+  utilities "before:hover:content-['x']"
+    {|.before\:hover\:content-\[\'x\'\]:before{content:var(--tw-content)}@media(hover:hover){.before\:hover\:content-\[\'x\'\]:before:hover{--tw-content:"x";content:var(--tw-content)}}|};
+  utilities "before:@md:underline"
+    {|.before\:\@md\:underline:before{content:var(--tw-content)}@container(width>=28rem){.before\:\@md\:underline:before{text-decoration-line:underline}}|};
+  utilities "before:md:hover:underline"
+    {|.before\:md\:hover\:underline:before{content:var(--tw-content)}@media(min-width:48rem){@media(hover:hover){.before\:md\:hover\:underline:before:hover{text-decoration-line:underline}}}|};
+  utilities "marker:hover:underline"
+    {|@media(hover:hover){.marker\:hover\:underline ::marker:hover{text-decoration-line:underline}.marker\:hover\:underline::marker:hover{text-decoration-line:underline}.marker\:hover\:underline ::-webkit-details-marker:hover{text-decoration-line:underline}.marker\:hover\:underline::-webkit-details-marker:hover{text-decoration-line:underline}}|};
+  utilities "selection:hover:underline"
+    {|@media(hover:hover){.selection\:hover\:underline ::selection:hover{text-decoration-line:underline}.selection\:hover\:underline::selection:hover{text-decoration-line:underline}}|}
+
+(* [@starting-style] nests with a container or supports query around it in
+   either order, as a media query does; [starting:@md:] lost the container and
+   [@md:starting:] the block. *)
+let test_starting_style_nests_with_container_and_supports () =
+  check_utilities "starting:@md:underline"
+    {|@starting-style{@container(width>=28rem){.starting\:\@md\:underline{text-decoration-line:underline}}}|};
+  check_utilities "@md:starting:flex"
+    {|@container(width>=28rem){@starting-style{.\@md\:starting\:flex{display:flex}}}|};
+  check_utilities "supports-grid:starting:flex"
+    {|@supports(grid:var(--tw)){@starting-style{.supports-grid\:starting\:flex{display:flex}}}|};
+  check_utilities "starting:not-@md:flex"
+    {|@starting-style{@container not (width>=28rem){.starting\:not-\@md\:flex{display:flex}}}|}
 
 let tests =
   [
@@ -1532,23 +1732,63 @@ let test_at_rule_variant_over_media () =
   check_utilities "@md:sm:flex"
     {|@container(width>=28rem){@media(min-width:40rem){.\@md\:sm\:flex{display:flex}}}|}
 
-(* A container query is not a [not-*] inner. Tailwind rejects the class
-   outright; tw built a rule whose selector negates the utility's own class
-   ([.not-\@md\:flex:not(.flex)]), which can never match anything. *)
-let test_not_container_rejected () =
+(* [not-@md] negates the container's size condition, inside its name, the way
+   Tailwind 4.3.3 writes it; a double negation is the query again, and the query
+   wraps an inner hover's gate as [@md] does. The class used to be refused. A
+   group or peer negation has only a selector, so a container inner leaves it
+   nothing, and it stays refused. *)
+let test_not_container_negates_the_query () =
+  check_utilities "not-@md:flex"
+    {|@container not (width>=28rem){.not-\@md\:flex{display:flex}}|};
+  check_utilities "not-@md/main:flex"
+    {|@container main not (width>=28rem){.not-\@md\/main\:flex{display:flex}}|};
+  check_utilities "not-@max-md:flex"
+    {|@container(width>=28rem){.not-\@max-md\:flex{display:flex}}|};
+  check_utilities "not-@min-[30rem]:flex"
+    {|@container not (width>=30rem){.not-\@min-\[30rem\]\:flex{display:flex}}|};
+  check_utilities "not-@md:hover:flex"
+    {|@container not (width>=28rem){@media(hover:hover){.not-\@md\:hover\:flex:hover{display:flex}}}|};
+  check_utilities "not-not-@md:flex"
+    {|@container(width>=28rem){.not-not-\@md\:flex{display:flex}}|};
   let rejected cls =
     match Tw.of_string cls with
     | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
     | Error _ -> ()
   in
-  rejected "not-@md:flex";
-  rejected "not-@lg:flex";
-  rejected "not-@min-[30rem]:flex";
-  (* The negatable inners still parse. *)
-  check bool "not-hover still parses" true
-    (Result.is_ok (Tw.of_string "not-hover:flex"));
-  check bool "not-first still parses" true
-    (Result.is_ok (Tw.of_string "not-first:flex"))
+  List.iter rejected
+    [ "group-not-@md:flex"; "peer-not-md:flex"; "has-@md:flex" ]
+
+(* A variant over a media inner reaches the rule the inner query keeps in its
+   nested statements - [md:hover:flex]'s, under the hover media - as it reaches
+   the selector: [in-focus:md:hover:flex] wants [:where(:focus)] in front of the
+   class inside the hover media, and [hover:md:hover:flex] its second [:hover].
+   The nested rule used to keep the bare class, so the outer variant styled
+   nothing there. A negation's twin holds the class alone. *)
+let test_variant_reaches_the_nested_rule () =
+  check_utilities "in-focus:md:hover:flex"
+    {|@media(min-width:48rem){@media(hover:hover){:where(:focus) .in-focus\:md\:hover\:flex:hover{display:flex}}}|};
+  check_utilities "hover:md:hover:flex"
+    {|@media(hover:hover){@media(min-width:48rem){@media(hover:hover){.hover\:md\:hover\:flex:hover:hover{display:flex}}}}|};
+  check_utilities "group-hover/x:md:hover:flex"
+    {|@media(hover:hover){@media(min-width:48rem){@media(hover:hover){.group-hover\/x\:md\:hover\:flex:is(:where(.group\/x):hover *):hover{display:flex}}}}|};
+  check_utilities "not-hover:md:hover:flex"
+    {|@media(min-width:48rem){@media(hover:hover){.not-hover\:md\:hover\:flex:not(:hover):hover{display:flex}}}@media not all and (hover:hover){@media(min-width:48rem){@media(hover:hover){.not-hover\:md\:hover\:flex:hover{display:flex}}}}|}
+
+(* Under an ancestor variant the rest of a compound goes onto the class, which
+   is how CSS Nesting reads [& :hover] and how Tailwind writes
+   [in-focus:hover:flex]; wrapping the whole selector in [:is()] gave
+   [:is(:where(:focus) .x):hover]. Under a scoped negation the bracket stands
+   for its selector and the negation is the scope's own: [group-not-[.a]] read
+   as [:where(.group).a], the negation lost. *)
+let test_ancestor_variant_keeps_the_compound () =
+  check_utilities "in-focus:hover:flex"
+    {|@media(hover:hover){:where(:focus) .in-focus\:hover\:flex:hover{display:flex}}|};
+  check_utilities "in-[.a]:hover:flex"
+    {|@media(hover:hover){:where(.a) .in-\[\.a\]\:hover\:flex:hover{display:flex}}|};
+  check_utilities "in-not-focus:hover:flex"
+    {|@media(hover:hover){:where(:not(:focus)) .in-not-focus\:hover\:flex:hover{display:flex}}|};
+  check_utilities "group-not-[.a]:flex"
+    {|.group-not-\[\.a\]\:flex:is(:where(.group):not(.a) *){display:flex}|}
 
 (* A class that parses but renders no rule at all is worse than one that is
    refused: a typo in a variant name stays silent. Tailwind emits nothing for
@@ -1613,7 +1853,16 @@ let tests =
         test_supports_property_is_unprefixed;
       test_case "at-rule variant over a media query" `Quick
         test_at_rule_variant_over_media;
-      test_case "not-container is rejected" `Quick test_not_container_rejected;
+      test_case "not-container negates the query" `Quick
+        test_not_container_negates_the_query;
+      test_case "variant reaches the nested rule" `Quick
+        test_variant_reaches_the_nested_rule;
+      test_case "ancestor variant keeps the compound" `Quick
+        test_ancestor_variant_keeps_the_compound;
+      test_case "pseudo-element over an inner variant" `Quick
+        test_pseudo_element_over_an_inner_variant;
+      test_case "starting-style nests with container and supports" `Quick
+        test_starting_style_nests_with_container_and_supports;
       test_case "silent empty variants rejected" `Quick
         test_silent_empty_variants_rejected;
       test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
@@ -1671,6 +1920,8 @@ let tests =
         test_container_variant_is_theme_local;
       test_case "removed breakpoint drops its variants" `Quick
         test_removed_breakpoint_drops_its_variants;
+      test_case "a removed single breakpoint drops its variants" `Quick
+        test_removed_single_breakpoint_drops_its_variants;
       test_case "prose element variants" `Quick test_prose_element_variants;
       test_case "prose element variant invalid" `Quick
         test_prose_element_variant_invalid;
@@ -1682,6 +1933,17 @@ let tests =
         test_not_bracket_supports;
       test_case "pseudo-element supports twin declares content once" `Quick
         test_pseudo_element_supports_twin_content;
+      test_case "negated hover forms carry the twin" `Quick
+        test_negated_hover_forms_carry_the_twin;
+      test_case "negation keeps the inner leaf" `Quick
+        test_negation_keeps_the_inner_leaf;
+      test_case "selector variant over media inner" `Quick
+        test_selector_variant_over_media_inner;
+      test_case "compound negations" `Quick test_compound_negations;
+      test_case "in- holds any selector variant" `Quick
+        test_in_holds_any_selector_variant;
+      test_case "has- and in- named hover gate" `Quick
+        test_has_and_in_named_hover_gate;
     ]
 
 let suite = ("modifiers", tests)

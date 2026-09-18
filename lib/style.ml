@@ -57,6 +57,8 @@ type container_query =
   | Container_5xl
   | Container_6xl
   | Container_7xl
+  | Container_theme of string
+      (** A size the project's [@theme] declared as [--container-<name>]. *)
   | Container_named of string * int
   | Container_size of container_cmp * container_query
   | Container_len of string * Css.length
@@ -455,6 +457,7 @@ let rec container_size_name = function
   | Container_5xl -> "5xl"
   | Container_6xl -> "6xl"
   | Container_7xl -> "7xl"
+  | Container_theme name -> name
   (* An unnamed container query is an arbitrary width, and its class is the
      bracket form the parser reads back: [@[600px]], not [@600px]. *)
   | Container_named ("", size) -> "[" ^ string_of_int size ^ "px]"
@@ -514,8 +517,8 @@ let group_state_modifiers =
 (* [has-data-lg] matches an attribute rather than a state, but spells itself the
    same way, so it is a shorthand too. *)
 let is_data_attr_name name =
-  String.length name > 5
-  && String.sub name 0 5 = "data-"
+  String.starts_with ~prefix:"data-" name
+  && String.length name > 5
   && String.for_all
        (fun c ->
          (c >= 'a' && c <= 'z')
@@ -573,13 +576,13 @@ let rec pp_modifier = function
   | Data_inactive -> "data-inactive"
   (* A valueless data attribute is the bare form; one with a value takes
      brackets. *)
-  | Data_custom (k, "") -> String.concat "" [ "data-"; k ]
+  | Data_custom (k, "") -> "data-" ^ k
   | Data_custom (k, v) -> String.concat "" [ "data-["; k; "="; v; "]" ]
-  | Not m -> String.concat "" [ "not-"; pp_modifier m ]
+  | Not m -> "not-" ^ pp_modifier m
   (* A shorthand name is stored bare ([Has "focus"]), a bracket form with its
      CSS punctuation ([Has ":focus"]); only the latter renders brackets. *)
-  | Has s -> String.concat "" [ "has-"; has_part s ]
-  | Has_variant m -> String.concat "" [ "has-"; pp_modifier m ]
+  | Has s -> "has-" ^ has_part s
+  | Has_variant m -> "has-" ^ pp_modifier m
   | Group_has_variant (m, name) ->
       String.concat ""
         ([ "group-has-"; pp_modifier m ]
@@ -588,10 +591,10 @@ let rec pp_modifier = function
       String.concat ""
         ([ "peer-has-"; pp_modifier m ]
         @ Option.fold ~none:[] ~some:(fun n -> [ "/"; n ]) name)
-  | Group_has (s, None) -> String.concat "" [ "group-has-"; has_part s ]
+  | Group_has (s, None) -> "group-has-" ^ has_part s
   | Group_has (s, Some name) ->
       String.concat "" [ "group-has-"; has_part s; "/"; name ]
-  | Peer_has (s, None) -> String.concat "" [ "peer-has-"; has_part s ]
+  | Peer_has (s, None) -> "peer-has-" ^ has_part s
   | Peer_has (s, Some name) ->
       String.concat "" [ "peer-has-"; has_part s; "/"; name ]
   | Starting -> "starting"
@@ -740,12 +743,10 @@ let rec pp_modifier = function
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
   | In_state (_, name) -> "in-" ^ name
-  | Group_not (inner, None) ->
-      String.concat "" [ "group-not-"; pp_modifier inner ]
+  | Group_not (inner, None) -> "group-not-" ^ pp_modifier inner
   | Group_not (inner, Some name) ->
       String.concat "" [ "group-not-"; pp_modifier inner; "/"; name ]
-  | Peer_not (inner, None) ->
-      String.concat "" [ "peer-not-"; pp_modifier inner ]
+  | Peer_not (inner, None) -> "peer-not-" ^ pp_modifier inner
   | Peer_not (inner, Some name) ->
       String.concat "" [ "peer-not-"; pp_modifier inner; "/"; name ]
   | Data_bracket expr -> "data-[" ^ expr ^ "]"

@@ -55,6 +55,90 @@ let test_ring_of_string_valid () =
   check "inset-ring-black";
   check "inset-ring-white/10"
 
+(* A colour the project's [@theme] declares names a ring colour the way a
+   shadeless palette colour does, with an optional [/opacity], on the ring, the
+   inset ring and the offset. The three arms read the palette alone, so
+   [ring-brand] was an unknown class where [shadow-brand] was not. *)
+let test_ring_theme_colour () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-brand", "#123456") ]
+  in
+  Test_helpers.check_declarations ~theme "ring-brand"
+    [ "--tw-ring-color:var(--color-brand)" ];
+  Test_helpers.check_declarations ~theme "ring-offset-brand"
+    [ "--tw-ring-offset-color:var(--color-brand)" ];
+  Test_helpers.check_declarations ~theme "inset-ring-brand"
+    [ "--tw-inset-ring-color:var(--color-brand)" ];
+  Test_helpers.check_declarations ~theme "ring-brand/50"
+    [
+      "--tw-ring-color:#12345680";
+      "--tw-ring-color:color-mix(in oklab,var(--color-brand) 50%,transparent)";
+    ]
+
+(* A project shadow takes a [/opacity] the way a built-in size does: the
+   modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
+   does, and [--tw-shadow-alpha] carries it. [shadow-card/50] was an unknown
+   class. An arbitrary shadow whose colour carries an alpha of its own folds the
+   same way; the colour's alpha was kept or multiplied instead. *)
+let test_project_shadow_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("shadow-card", "0 1px 2px rgb(0 0 0 / 0.1)");
+        ("inset-shadow-deep", "inset 0 4px 8px rgb(0 0 0 / 0.2)");
+      ]
+  in
+  let composition =
+    "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)"
+  in
+  Test_helpers.check_declarations ~theme "shadow-card/50"
+    [
+      "--tw-shadow-alpha:50%";
+      "--tw-shadow:0 1px 2px var(--tw-shadow-color,oklab(0%0 0/.5))";
+      composition;
+    ];
+  Test_helpers.check_declarations ~theme "inset-shadow-deep/50"
+    [
+      "--tw-inset-shadow-alpha:50%";
+      "--tw-inset-shadow:inset 0 4px 8px var(--tw-inset-shadow-color,oklab(0%0 \
+       0/.5))";
+      composition;
+    ];
+  List.iter
+    (fun cls ->
+      Test_helpers.check_declarations cls
+        [
+          "--tw-shadow-alpha:50%";
+          "--tw-shadow:0 1px 2px var(--tw-shadow-color,oklab(0%0 0/.5))";
+          composition;
+        ])
+    [
+      "shadow-[0_1px_2px_#0000001a]/50"; "shadow-[0_1px_2px_rgb(0,0,0,0.1)]/50";
+    ]
+
+(* An [inset-shadow-[...]] bracket that spells [inset] itself is refused. The
+   utility supplies the keyword, so Tailwind writes the author's on top of it,
+   [inset inset 0 1px red]: a value a registered [syntax: "*"] property holds
+   and the [box-shadow] composition then cannot compute, so the element draws no
+   shadow at all. That value has no typed form; refusing the class draws nothing
+   for it, where tw used to draw the shadow the author did not get.
+   [check_invalid_input] does not apply: Tailwind compiles the class. *)
+let test_inset_shadow_bracket_refuses_inset () =
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " spells inset itself")
+        true
+        (Result.is_error (Tw.of_string cls)))
+    [
+      "inset-shadow-[inset_0_1px_red]";
+      "inset-shadow-[inset_0_1px_red]/50";
+      "inset-shadow-[0_1px_red,inset_0_2px_blue]";
+    ];
+  Alcotest.(check bool)
+    "a bracket without inset is the inset shadow" true
+    (Result.is_ok (Tw.of_string "inset-shadow-[0_1px_red]"))
+
 let test_ring_width_order () =
   Test_helpers.check_class_order ~test_name:"ring width order"
     [ "ring-8"; "ring-4"; "ring-3"; "ring-2"; "ring-1"; "ring-0"; "ring" ]
@@ -492,8 +576,10 @@ let test_arbitrary_shadow_named_colour_var_opacity () =
       composes_box_shadow;
     ]
 
-(* [shadow-[<colour>]/<alpha>] where the bracket already carries a [%] alpha:
-   the modifier folds into a [color-mix] rather than into a hex byte.
+(* [shadow-[<colour>]/<alpha>] where the colour is one no hex spells: the
+   modifier's alpha takes the place of the colour's own, as Tailwind's
+   [oklab(from <colour> l a b / <alpha>)] does, and the relative form is what
+   the sheet carries. A [color-mix()] would multiply the two alphas instead.
 
    Where the alpha reads a custom property there is nothing to fold, so the
    authored colour stands unguarded and the relative colour goes behind the
@@ -505,16 +591,15 @@ let test_arbitrary_shadow_colour_opacity () =
   Test_helpers.check_declarations "shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     [
       "--tw-shadow-alpha:50%";
-      "--tw-shadow:0 0 8px var(--tw-shadow-color,color-mix(in \
-       oklab,oklch(50%.2 250) 50%,transparent))";
+      "--tw-shadow:0 0 8px var(--tw-shadow-color,oklab(from oklch(50%.2 250) l \
+       a b/.5))";
       composes_box_shadow;
     ];
   Test_helpers.check_declarations "inset-shadow-[0_0_8px_oklch(50%_0.2_250)]/50"
     [
       "--tw-inset-shadow-alpha:50%";
-      "--tw-inset-shadow:inset 0 0 8px \
-       var(--tw-inset-shadow-color,color-mix(in oklab,oklch(50%.2 250) \
-       50%,transparent))";
+      "--tw-inset-shadow:inset 0 0 8px var(--tw-inset-shadow-color,oklab(from \
+       oklch(50%.2 250) l a b/.5))";
       composes_box_shadow;
     ];
   Test_helpers.check_declarations "shadow-[0_0_8px_#f00]/[var(--x)]"
@@ -858,6 +943,156 @@ let test_bracket_data_type_hint_reads_the_value () =
     (module Tw.Effects.Handler)
     "shadow-[shadow:notashadow]"
 
+(* A project shadow reads a trailing [var()] as its colour, the way Tailwind
+   does: it takes the lengths and what is left is the colour. The shadow grammar
+   read it as the next length slot, so [--shadow-card: 0 1px 2px
+   var(--card-shadow)] painted in [currentcolor] with [--card-shadow] as the
+   spread. Under a modifier the reference is a value only the browser can
+   resolve: the authored colour stays in the open and the relative form goes
+   behind the guard. *)
+let test_project_shadow_trailing_var_colour () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [
+        ("shadow-card", "0 1px 2px var(--card-shadow)");
+        ("inset-shadow-lip", "inset 0 1px var(--lip)");
+      ]
+  in
+  Test_helpers.check_declarations ~theme "shadow-card"
+    [
+      "--tw-shadow:0 1px 2px var(--tw-shadow-color,var(--card-shadow))";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations ~theme "shadow-card/50"
+    [
+      "--tw-shadow-alpha:50%";
+      "--tw-shadow:0 1px 2px var(--tw-shadow-color,var(--card-shadow))";
+      "--tw-shadow:0 1px 2px var(--tw-shadow-color,oklab(from \
+       var(--card-shadow) l a b/.5))";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations ~theme "inset-shadow-lip/50"
+    [
+      "--tw-inset-shadow-alpha:50%";
+      "--tw-inset-shadow:inset 0 1px var(--tw-inset-shadow-color,var(--lip))";
+      "--tw-inset-shadow:inset 0 1px var(--tw-inset-shadow-color,oklab(from \
+       var(--lip) l a b/.5))";
+      composes_box_shadow;
+    ]
+
+(* A shadow list under a modifier, as Tailwind writes it. A [var()] colour, or
+   an alpha read from a custom property, asks for the relative colour guard, and
+   every layer then keeps its authored colour in the open - a literal colour
+   beside the [var()] is left as written, not folded. A [currentcolor] layer
+   takes the alpha through a [color-mix()] behind its own guard, which nests
+   inside the relative one when both are needed. A list of literal colours with
+   a literal alpha folds outright, and the scale's own shadows go the same way,
+   [shadow-inner] included, which had no modifier at all. *)
+let test_shadow_list_alpha_guards () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("shadow-stack", "0 1px 2px, 0 2px var(--c)") ]
+  in
+  let sheet cls =
+    match Tw.of_string ~theme cls with
+    | Ok u ->
+        Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  in
+  let has cls affix =
+    Alcotest.(check bool)
+      (cls ^ " has " ^ affix)
+      true
+      (Astring.String.is_infix ~affix (sheet cls))
+  in
+  has "shadow-stack/50"
+    {|.shadow-stack\/50{--tw-shadow-alpha:50%;--tw-shadow:0 1px 2px var(--tw-shadow-color,currentcolor),0 2px var(--tw-shadow-color,var(--c))}@supports(color:lab(from red l a b)){.shadow-stack\/50{--tw-shadow:0 1px 2px var(--tw-shadow-color,currentcolor),0 2px var(--tw-shadow-color,oklab(from var(--c) l a b/.5))}@supports(color:color-mix(in lab,red,red)){.shadow-stack\/50{--tw-shadow:0 1px 2px var(--tw-shadow-color,color-mix(in oklab,currentcolor 50%,transparent)),0 2px var(--tw-shadow-color,oklab(from var(--c) l a b/.5))}}}|};
+  Test_helpers.check_declarations "shadow-[0_1px_2px_red,0_2px_var(--c)]/50"
+    [
+      "--tw-shadow-alpha:50%";
+      "--tw-shadow:0 1px 2px var(--tw-shadow-color,red),0 2px \
+       var(--tw-shadow-color,var(--c))";
+      "--tw-shadow:0 1px 2px var(--tw-shadow-color,oklab(62.79553606%.22486306 \
+       .1258463/.5)),0 2px var(--tw-shadow-color,oklab(from var(--c) l a \
+       b/.5))";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations "shadow-lg/[var(--o)]"
+    [
+      "--tw-shadow-alpha:var(--o)";
+      "--tw-shadow:0 10px 15px -3px var(--tw-shadow-color,#0000001a),0 4px 6px \
+       -4px var(--tw-shadow-color,#0000001a)";
+      "--tw-shadow:0 10px 15px -3px var(--tw-shadow-color,oklab(from #0000001a \
+       l a b/var(--o))),0 4px 6px -4px var(--tw-shadow-color,oklab(from \
+       #0000001a l a b/var(--o)))";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations "shadow-inner/50"
+    [
+      "--tw-shadow-alpha:50%";
+      "--tw-shadow:inset 0 2px 4px 0 var(--tw-shadow-color,oklab(0%0 0/.5))";
+      composes_box_shadow;
+    ]
+
+(* A bracket ring width is the ring [ring-2] draws with its width replaced: it
+   reads [--tw-ring-inset] and [--tw-ring-color], and declares them, as the
+   scale does. [ring-[3px]] left both out of the properties layer, so the sheet
+   dropped the reads and the ring lost its inset toggle and its colour. A width
+   takes no opacity: Tailwind compiles nothing for [ring-[3px]/50]. *)
+let test_ring_bracket_width_reads_its_variables () =
+  Test_helpers.check_declarations "ring-[3px]"
+    [
+      "--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(3px + \
+       var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor)";
+      composes_box_shadow;
+    ];
+  let css =
+    match Tw.of_string "ring-[3px]" with
+    | Ok u -> Tw.to_css ~base:false [ u ]
+    | Error (`Msg m) -> Alcotest.failf "ring-[3px]: %s" m
+  in
+  List.iter
+    (fun name ->
+      Alcotest.(check bool)
+        (name ^ " is declared in the properties layer")
+        true
+        (Test_helpers.has_var_in_layer name "properties" css))
+    [ "--tw-ring-inset"; "--tw-ring-color" ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check bool)
+        (cls ^ " is rejected") true
+        (Result.is_error (Tw.of_string cls)))
+    [
+      "ring-[3px]/50";
+      "ring-[length:3px]/50";
+      "ring-offset-[3px]/50";
+      "inset-ring-[3px]/50";
+    ]
+
+(* A shadow read whole from a custom property takes a modifier: there is no
+   colour in the value to fold the alpha into, so Tailwind sets the alpha
+   channel and leaves the value as it is. The class was refused, and under the
+   [shadow:] hint the modifier was dropped from the name and the value. *)
+let test_var_shadow_takes_a_modifier () =
+  Test_helpers.check_declarations "shadow-[var(--s)]/50"
+    [ "--tw-shadow-alpha:50%"; "--tw-shadow:var(--s)"; composes_box_shadow ];
+  Test_helpers.check_declarations "inset-shadow-[var(--s)]/50"
+    [
+      "--tw-inset-shadow-alpha:50%";
+      "--tw-inset-shadow:inset var(--s)";
+      composes_box_shadow;
+    ];
+  Test_helpers.check_declarations "shadow-[shadow:var(--s)]/50"
+    [ "--tw-shadow-alpha:50%"; "--tw-shadow:var(--s)"; composes_box_shadow ];
+  Test_helpers.check_declarations "shadow-[shadow:0_1px_red]/50"
+    [
+      "--tw-shadow-alpha:50%";
+      "--tw-shadow:0 1px var(--tw-shadow-color,oklab(62.79553606%.22486306 \
+       .1258463/.5))";
+      composes_box_shadow;
+    ]
+
 let tests =
   [
     test_case "bracket data-type hint reads the value" `Quick
@@ -866,6 +1101,17 @@ let tests =
     test_case "arbitrary bracket color token stream" `Quick
       test_arbitrary_bracket_color_token_stream;
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;
+    test_case "ring theme colour" `Quick test_ring_theme_colour;
+    test_case "project shadow opacity" `Quick test_project_shadow_opacity;
+    test_case "project shadow trailing var colour" `Quick
+      test_project_shadow_trailing_var_colour;
+    test_case "shadow list alpha guards" `Quick test_shadow_list_alpha_guards;
+    test_case "ring bracket width reads its variables" `Quick
+      test_ring_bracket_width_reads_its_variables;
+    test_case "var shadow takes a modifier" `Quick
+      test_var_shadow_takes_a_modifier;
+    test_case "inset shadow bracket refuses inset" `Quick
+      test_inset_shadow_bracket_refuses_inset;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "undefined colour shade" `Quick test_undefined_shade;

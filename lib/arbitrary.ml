@@ -18,24 +18,11 @@ let color_property_of_name = function
   | "stroke" -> Some (fun c -> Css.stroke (Css.Color c : Css.svg_paint))
   | _ -> None
 
-(* Tailwind's [--alpha(<color>/<percentage>)]: the colour and the alpha it is
-   mixed with. The separating slash is the last one, so a colour that carries
-   its own (as [oklch(1 0 0 / 50%)] does) still reads. *)
+(* The two halves of a [--alpha()] call, trimmed. *)
 let alpha_fn_parts value =
-  let n = String.length value in
-  let prefix = "--alpha(" in
-  let plen = String.length prefix in
-  if n > plen + 1 && String.sub value 0 plen = prefix && value.[n - 1] = ')'
-  then
-    let inner = String.sub value plen (n - plen - 1) in
-    match String.rindex_opt inner '/' with
-    | Some i ->
-        Some
-          ( String.trim (String.sub inner 0 i),
-            String.trim (String.sub inner (i + 1) (String.length inner - i - 1))
-          )
-    | None -> None
-  else None
+  Option.map
+    (fun (colour, alpha) -> (String.trim colour, String.trim alpha))
+    (Parse.alpha_call value)
 
 module Handler = struct
   open Style
@@ -91,9 +78,19 @@ module Handler = struct
   let priority t =
     match slot t with Some (priority, _) -> priority | None -> unclaimed
 
+  (* [prop] set to the sRGB mix in the open and the oklab mix behind the
+     colour-mix guard, [mix] taking the space. *)
+  let guarded_mix prop (mix : Css.color_space -> Css.color) =
+    style
+      ~rules:(Some [ Color.color_mix_supports [ prop (mix Oklab) ] ])
+      [ prop (mix Srgb) ]
+
   (* Render a known colour-property declaration ([color], [background-color],
      ...) with a parsed colour value and an /opacity modifier. *)
   let color_opacity_render theme prop color opacity =
+    let at_percent p in_space =
+      Css.color_mix ~in_space ~percent1:p color Css.Transparent
+    in
     match opacity with
     | Color.Opacity_named name ->
         let bare = Parse.extract_var_name name in
@@ -121,71 +118,17 @@ module Handler = struct
             color Css.Transparent
         in
         let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports_block = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-    | Color.Opacity_percent { value = p; _ } ->
-        let srgb_fallback =
-          Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
-        in
-        let fallback_decl = prop srgb_fallback in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
-        in
-        let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-    | Color.Opacity_arbitrary f ->
-        let p = f.value *. 100.0 in
-        let srgb_fallback =
-          Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
-        in
-        let fallback_decl = prop srgb_fallback in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
-        in
-        let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+    | Color.Opacity_percent { value = p; _ }
     | Color.Opacity_bracket_percent { value = p; _ } ->
-        let srgb_fallback =
-          Css.color_mix ~in_space:Srgb ~percent1:p color Css.Transparent
-        in
-        let fallback_decl = prop srgb_fallback in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab ~percent1:p color Css.Transparent
-        in
-        let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+        guarded_mix prop (at_percent p)
+    | Color.Opacity_arbitrary f ->
+        guarded_mix prop (at_percent (f.value *. 100.0))
     | Color.Opacity_var var_str ->
-        let bare = Color.opacity_var_bare var_str in
-        let srgb_fallback =
-          Css.color_mix_var_percent ~in_space:Srgb ~var_name:bare color
-            Css.Transparent
-        in
-        let fallback_decl = prop srgb_fallback in
-        let oklab_color =
-          Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare color
-            Css.Transparent
-        in
-        let oklab_decl = prop oklab_color in
-        let supports_block =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
+        let var_name = Color.opacity_var_bare var_str in
+        guarded_mix prop (fun in_space ->
+            Css.color_mix_var_percent ~in_space ~var_name color Css.Transparent)
     | Color.No_opacity -> style [ prop color ]
 
   (* A var-valued colour with /opacity: oklab color-mix under @supports, with an
@@ -229,10 +172,7 @@ module Handler = struct
               | None -> emit (Css.Var var_ref : Css.color))
           | None -> emit (Css.Var var_ref : Css.color)
         in
-        let supports =
-          Css.supports ~condition:Color.color_mix_supports_condition
-            [ Css.rule ~selector:(Css.Selector.class_ "_") [ oklab_decl ] ]
-        in
+        let supports = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports ]) [ fallback ]
 
   (* Place a colour on the declaration's target property: a known colour
@@ -244,10 +184,9 @@ module Handler = struct
     match color_property_of_name property with
     | Some prop -> Some prop
     | None ->
-        if String.length property > 2 && String.sub property 0 2 = "--" then
-          let name = String.sub property 2 (String.length property - 2) in
-          Some (fun c -> fst (Css.var ~layer:"utilities" name Css.Color c))
-        else None
+        Option.map
+          (fun name c -> fst (Css.var ~layer:"utilities" name Css.Color c))
+          (Parse.bare_name property)
 
   (* Arbitrary values use [_] for spaces (Tailwind); a literal underscore is
      escaped as [\_]. *)

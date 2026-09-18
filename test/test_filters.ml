@@ -1,10 +1,6 @@
 open Alcotest
 
-let check class_name =
-  match Tw.Filters.Handler.of_class Tw.Scheme.default class_name with
-  | Ok u ->
-      check string "filters class" class_name (Tw.Filters.Handler.to_class u)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Filters.Handler)
 
 (* Every filter utility re-declares the whole [filter] chain, so a declaration
    list that names one channel ends with this. *)
@@ -495,8 +491,147 @@ let test_project_blur_token () =
     "an undeclared blur name is rejected" true
     (Result.is_error (Tw.of_string ~theme "blur-nope"))
 
+(* An arbitrary drop shadow takes a [/opacity], as a named size does: the
+   modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
+   does, folded at build time for a colour with sRGB bytes; a [var()] keeps its
+   spelling in the fallback and takes the relative form behind a guard, and
+   [currentcolor] a [color-mix()] behind its own. A trailing [var()] is the
+   colour, as Tailwind reads it, where the shadow grammar read it as the next
+   length and dropped it. The bracket arm took no modifier. *)
+let test_drop_shadow_arbitrary_opacity () =
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_#0000001a]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,oklab(0%0 0/.5)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_var(--c)]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,var(--c)))";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,oklab(from var(--c) l a b/.5)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_currentcolor]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,currentcolor))";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,color-mix(in oklab,currentcolor \
+       50%,transparent)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow-[0_1px_2px_var(--c)]"
+    [
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,var(--c)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ]
+
+(* A project [--drop-shadow-<name>] takes a modifier the way the scale does, and
+   a trailing [var()] in its value is the colour. [drop-shadow-halo/50] was an
+   unknown class, and the [var()] read as a spread. *)
+let test_project_drop_shadow_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("drop-shadow-halo", "0 0 4px var(--halo)") ]
+  in
+  Test_helpers.check_declarations ~theme "drop-shadow-halo"
+    [
+      "--tw-drop-shadow-size:drop-shadow(0 0 4px \
+       var(--tw-drop-shadow-color,var(--halo)))";
+      "--tw-drop-shadow:drop-shadow(var(--drop-shadow-halo))";
+      chain_min;
+    ];
+  Test_helpers.check_declarations ~theme "drop-shadow-halo/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 0 4px \
+       var(--tw-drop-shadow-color,var(--halo)))";
+      "--tw-drop-shadow-size:drop-shadow(0 0 4px \
+       var(--tw-drop-shadow-color,oklab(from var(--halo) l a b/.5)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ]
+
+(* A sized drop shadow reads a project override of its token into
+   [--tw-drop-shadow-size] as well: the size wrote the scale's geometry and
+   colour whatever the [@theme] block said, and so did the modifier form. A
+   bracket alpha with no [%] is the author's own number, and an alpha read from
+   a custom property puts the default stack's colours behind the guard. *)
+let test_drop_shadow_size_reads_the_theme () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("drop-shadow-sm", "0 1px 1px red") ]
+  in
+  Test_helpers.check_declarations ~theme "drop-shadow-sm"
+    [
+      "--tw-drop-shadow-size:drop-shadow(0 1px 1px \
+       var(--tw-drop-shadow-color,red))";
+      "--tw-drop-shadow:drop-shadow(var(--drop-shadow-sm))";
+      chain_min;
+    ];
+  Test_helpers.check_declarations ~theme "drop-shadow-sm/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 1px \
+       var(--tw-drop-shadow-color,oklab(62.79553606%.22486306 .1258463/.5)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow-xl/[25]"
+    [
+      "--tw-drop-shadow-alpha:25";
+      "--tw-drop-shadow-size:drop-shadow(0 9px 7px \
+       var(--tw-drop-shadow-color,oklab(0%0 0/25)))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ];
+  Test_helpers.check_declarations "drop-shadow/[var(--o)]"
+    [
+      "--tw-drop-shadow-alpha:var(--o)";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,#0000001a))drop-shadow(0 1px 1px \
+       var(--tw-drop-shadow-color,#0000000f))";
+      "--tw-drop-shadow-size:drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color,oklab(from #0000001a l a \
+       b/var(--o))))drop-shadow(0 1px 1px \
+       var(--tw-drop-shadow-color,oklab(from #0000000f l a b/var(--o))))";
+      "--tw-drop-shadow:drop-shadow(0 1px 2px #0000001a)drop-shadow(0 1px 1px \
+       #0000000f)";
+      chain_min;
+    ]
+
+(* A drop shadow read whole from a custom property takes a modifier: the alpha
+   channel is set and the value kept, as Tailwind writes it. The class was
+   refused. *)
+let test_var_drop_shadow_takes_a_modifier () =
+  Test_helpers.check_declarations "drop-shadow-[var(--s)]/50"
+    [
+      "--tw-drop-shadow-alpha:50%";
+      "--tw-drop-shadow-size:drop-shadow(var(--s))";
+      "--tw-drop-shadow:var(--tw-drop-shadow-size)";
+      chain_min;
+    ]
+
 let tests =
   [
+    test_case "drop-shadow arbitrary opacity" `Quick
+      test_drop_shadow_arbitrary_opacity;
+    test_case "project drop-shadow opacity" `Quick
+      test_project_drop_shadow_opacity;
+    test_case "drop-shadow size reads the theme" `Quick
+      test_drop_shadow_size_reads_the_theme;
+    test_case "var drop-shadow takes a modifier" `Quick
+      test_var_drop_shadow_takes_a_modifier;
     test_case "arbitrary angle class name" `Quick
       test_arbitrary_angle_class_name;
     test_case "arbitrary angle token streams" `Quick

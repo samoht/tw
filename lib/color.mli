@@ -219,6 +219,10 @@ val is_shadeless : color -> bool
 (** [is_shadeless color] checks if a color should NOT have a shade suffix in
     class names (base colors, custom colors, or theme-named colors). *)
 
+val is_theme_named : color -> bool
+(** [is_theme_named c] is whether [c] names a token the project's [\@theme]
+    declared rather than a palette colour; such a colour carries no shade. *)
+
 val is_valid_shade : color -> int -> bool
 (** [is_valid_shade color shade] checks that [shade] is one the Tailwind palette
     defines for [color]. Shadeless colors accept any shade (it is ignored). *)
@@ -231,6 +235,16 @@ val check_shade : utility:string -> color -> int -> unit
 val color_var : color -> int -> Css.color Var.theme
 (** [color_var color shade] gets or creates a memoized color variable for the
     given color and shade. *)
+
+val bound :
+  ?theme:Scheme.t ->
+  Css.color Var.theme ->
+  Css.color ->
+  Css.declaration list * Css.color
+(** [bound ?theme var value] is the theme declaration a colour token needs and
+    the value a utility writes for it: the reference, with the token declared
+    beside it, or for a token [theme]'s [\@theme inline] block declared, [value]
+    itself and no declaration. *)
 
 val property_color_var :
   ?theme:Scheme.t ->
@@ -272,6 +286,11 @@ val oklab_alpha : Css.color -> float -> Css.color option
 val color_mix_supports_condition : Css.Supports.t
 (** [color_mix_supports_condition] is the CSS supports condition for color-mix:
     [(color: color-mix(in lab, red, red))]. *)
+
+val color_mix_supports : Css.declaration list -> Css.statement
+(** [color_mix_supports decls] is [decls] on the utility's own class behind
+    {!color_mix_supports_condition}: the [\@supports] block a colour utility
+    puts its [color-mix()] value in, with the fallback left in the open. *)
 
 val opacity_fallback_for_theme_value :
   ?theme:Scheme.t -> string -> string -> Css.percentage Css.fallback
@@ -520,6 +539,40 @@ val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
 (** [divide_current_with_opacity opacity selector] generates divide currentColor
     with opacity using the given selector. *)
 
+val relative_color_supports : Css.Supports.t
+(** [relative_color_supports] is the guard for relative colour syntax:
+    [(color: lab(from red l a b))]. *)
+
+val opacity_percentage : opacity_modifier -> Css.percentage
+(** [opacity_percentage opacity] is the alpha a modifier writes into an alpha
+    channel: a percentage, or the custom property a bracket alpha reads. *)
+
+val opacity_alpha_value : opacity_modifier -> Css.percentage
+(** [opacity_alpha_value opacity] is what a family's [--tw-<family>-alpha]
+    channel is set to: the percentage, the custom property a bracket alpha
+    reads, or the author's own unscaled number for a bracket alpha with no [%],
+    which is what Tailwind writes for [shadow-lg/[25]]. *)
+
+val relative_alpha : opacity_modifier -> Css.color -> Css.color
+(** [relative_alpha opacity c] is Tailwind's [oklab(from c l a b / alpha)]: [c]
+    with the modifier's alpha in place of its own. *)
+
+val shadow_alpha_decls :
+  opacity_modifier ->
+  colours:Css.color list ->
+  rebuild:(Css.color list -> Css.declaration) ->
+  Css.declaration * Css.statement option
+(** [shadow_alpha_decls opacity ~colours ~rebuild] is a shadow list under an
+    opacity modifier, one colour per layer, as Tailwind writes it: the
+    declaration [rebuild] makes of the colours every browser reads, and, when a
+    layer needs one, the [\@supports] block holding the declaration made of the
+    alpha-carrying forms. A colour whose channels the class names folds the
+    alpha in at build time; [currentcolor] takes it through a [color-mix()]
+    behind that guard; a [var()] colour, or an alpha read from a custom
+    property, keeps every layer's authored colour in the open and takes the
+    alpha behind the relative colour guard, with the [color-mix()] guard nested
+    inside it for a [currentcolor] layer. *)
+
 val opacity_to_percent : opacity_modifier -> float
 (** [opacity_to_percent modifier] returns the opacity as a float percentage. *)
 
@@ -639,3 +692,97 @@ val bracket_color_style :
 
 val round_n : int -> float -> float
 (** [round_n n f] rounds [f] to [n] decimal places. *)
+
+(** {1 Colour channels}
+
+    A family that paints through a [--tw-<family>-color] custom property with a
+    [--tw-<family>-alpha] companion sets the pair the same way whatever the
+    family: the box shadow, inset shadow and text shadow utilities share these
+    builders. Each writes the colour every browser reads in the open and, behind
+    {!color_mix_supports_condition}, the colour with the alpha channel mixed in.
+*)
+
+type channel = {
+  color : Css.color Var.channel;  (** the colour custom property *)
+  alpha : Css.percentage Var.property_default;  (** its alpha companion *)
+  property_prefix : string;
+      (** the prefix of a property-scoped palette token, [box-shadow-color] *)
+  metadata : Var.metadata list;  (** what {!Style.style} gets as [metadata] *)
+  property_rules : Css.t;  (** and as [property_rules] *)
+}
+
+val channel_style :
+  ?decls:Css.declaration list ->
+  channel ->
+  fallback:Css.color ->
+  Css.color ->
+  Style.t
+(** [channel_style ?decls ch ~fallback c] sets [ch] to [fallback] and, behind
+    the guard, to [c] at the channel's alpha, with [decls] declared beside it.
+*)
+
+val channel_inherit : channel -> Style.t
+(** [channel_inherit ch] sets [ch] to [inherit], which no alpha applies to. *)
+
+val palette_hex :
+  ?theme:Scheme.t -> ?property_prefix:string -> color -> int -> string
+(** [palette_hex ?theme ?property_prefix c shade] is the hex a browser without
+    [color-mix()] reads for [c] at [shade]: the scheme's own hex, else the
+    [property_prefix]-scoped token [theme] declares, else its [--color-*] token,
+    else the palette colour converted. *)
+
+val channel_color : ?theme:Scheme.t -> channel -> color -> int -> Style.t
+(** [channel_color ?theme ch c shade] sets [ch] to a palette colour. *)
+
+val channel_color_opacity :
+  ?theme:Scheme.t -> channel -> color -> int -> opacity_modifier -> Style.t
+(** [channel_color_opacity ?theme ch c shade opacity] sets [ch] to a palette
+    colour at [opacity]: a hex carrying the alpha byte in the open, the mix
+    behind the guard. *)
+
+val channel_current : channel -> Style.t
+(** [channel_current ch] sets [ch] to [currentcolor]. *)
+
+val channel_current_opacity : channel -> opacity_modifier -> Style.t
+(** [channel_current_opacity ch opacity] sets [ch] to [currentcolor] at
+    [opacity]. *)
+
+val channel_transparent : channel -> Style.t
+(** [channel_transparent ch] sets [ch] to [transparent]. *)
+
+val channel_transparent_opacity : channel -> opacity_modifier -> Style.t
+(** [channel_transparent_opacity ch opacity] sets [ch] to [transparent] at
+    [opacity]. *)
+
+val channel_bracket_color : theme:Scheme.t -> channel -> Css.color -> Style.t
+(** [channel_bracket_color ~theme ch c] sets [ch] to the bracket colour [c],
+    with its {!pre_color_mix_fallback} in the open when it needs one. *)
+
+val channel_bracket_color_opacity :
+  theme:Scheme.t -> channel -> Css.color -> opacity_modifier -> Style.t
+(** [channel_bracket_color_opacity ~theme ch c opacity] sets [ch] to the bracket
+    colour [c] at [opacity]: a colour with a hex spelling carries the alpha byte
+    in the open, one without takes an sRGB mix there. *)
+
+val bracket_var_ref : string -> Css.color
+(** [bracket_var_ref v] is the reference the [var()] expression [v] of a bracket
+    names, as a colour. *)
+
+val bracket_var_color : string -> Css.color
+(** [bracket_var_color v] is the colour a [var()] token in an arbitrary value
+    paints with: the colour reader's reading of [v] when it has one, else
+    {!bracket_var_ref}. *)
+
+val shadow_token_colour : Parse.shadow_colour -> Css.color
+(** [shadow_token_colour t] is the colour a bracket shadow layer wrote, as the
+    class spelled it: a hex keeps its case, a [var()] its reference, a colour
+    function folds to hex where one spells it, and no colour is the current
+    colour. *)
+
+val channel_bracket_var : channel -> string -> Style.t
+(** [channel_bracket_var ch v] sets [ch] to the [var()] reference [v]. *)
+
+val channel_bracket_var_opacity :
+  channel -> string -> opacity_modifier -> Style.t
+(** [channel_bracket_var_opacity ch v opacity] sets [ch] to the [var()]
+    reference [v] at [opacity]. *)

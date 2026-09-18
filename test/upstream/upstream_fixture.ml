@@ -285,19 +285,19 @@ let blocks filename =
 let declared_blocks filename =
   match lines_of filename with
   | [] -> None
-  | first :: _ ->
+  | first :: _ -> (
       let first = String.trim first in
-      let prefix = "#! " in
-      let n = String.length prefix in
-      if String.length first <= n || String.sub first 0 n <> prefix then None
-      else
-        let tail = String.sub first n (String.length first - n) in
-        let count =
-          match String.index_opt tail ' ' with
-          | Some i -> String.sub tail 0 i
-          | None -> tail
-        in
-        int_of_string_opt count
+      (* A banner that is only the prefix names no count; the empty tail reads
+         as none below. *)
+      match after_prefix "#! " first with
+      | None -> None
+      | Some tail ->
+          let count =
+            match String.index_opt tail ' ' with
+            | Some i -> String.sub tail 0 i
+            | None -> tail
+          in
+          int_of_string_opt count)
 
 (* A fixture is found beside the executable under the dune sandbox, and under
    [upstream/] or [test/upstream/] when the test runs from a parent
@@ -344,4 +344,5 @@ let extract_var_fallbacks expected =
 
 (* A [--tw-*] variable is a utility's own output rather than a theme token the
    test declared, so it must not become a token override. *)
-let is_runtime_var name = String.length name > 3 && String.sub name 0 3 = "tw-"
+let is_runtime_var name =
+  String.starts_with ~prefix:"tw-" name && String.length name > 3

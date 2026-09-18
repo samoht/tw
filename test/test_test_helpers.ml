@@ -123,6 +123,70 @@ let test_render_elements_are_unique_and_ordered () =
     [ "m-2"; "ml-2"; "m-2 ml-2" ]
     (Test_helpers.render_elements [ "m-2"; "ml-2"; "m-2" ])
 
+(* A class carrying a quote or an angle bracket stays one attribute value. *)
+let test_render_page_escapes_classes () =
+  Alcotest.(check string)
+    "quote and brackets escaped"
+    "<!doctype html><html><head><meta charset=\"utf-8\"></head><body><div \
+     id=\"e0\" \
+     class=\"content-[&quot;&lt;x&gt;&quot;]\"><b>x</b></div></body></html>"
+    (Test_helpers.render_page ~inner:"<b>x</b>" [ "content-[\"<x>\"]" ])
+
+(* The browser oracle has to see what it is there for. Each case renders one
+   sheet against a copy with a single thing changed, and the change has to come
+   back as a difference on the property it touches; an identical pair has to
+   come back with none. *)
+let rendered name ~elements ~tailwind ~tw =
+  (Test_helpers.rendering_report ~test_name:name ~elements ~tailwind ~tw ())
+    .differences
+
+let reports ?(pseudo = "") ?state property differences =
+  List.exists
+    (fun (d : Browser_compare.difference) ->
+      String.equal d.property property
+      && String.equal d.pseudo pseudo
+      && Option.fold ~none:true ~some:(String.equal d.state) state)
+    differences
+
+let test_oracle_passes_identical_sheets () =
+  let sheet = ".p-4{padding:1rem}" in
+  Alcotest.(check int)
+    "no difference" 0
+    (List.length
+       (rendered "oracle identical" ~elements:[ "p-4" ] ~tailwind:sheet
+          ~tw:sheet))
+
+let test_oracle_reports_a_changed_declaration () =
+  Alcotest.(check bool)
+    "padding reported" true
+    (reports "padding-top"
+       (rendered "oracle declaration" ~elements:[ "p-4" ]
+          ~tailwind:".p-4{padding:1rem}" ~tw:".p-4{padding:2rem}"))
+
+let test_oracle_reports_generated_content () =
+  Alcotest.(check bool)
+    "::after content reported" true
+    (reports ~pseudo:"::after" "content"
+       (rendered "oracle content" ~elements:[ "after:x" ]
+          ~tailwind:".after\\:x::after{content:\"a\"}"
+          ~tw:".after\\:x::after{content:\"b\"}"))
+
+let test_oracle_reports_a_hover_rule () =
+  Alcotest.(check bool)
+    "hover state reported" true
+    (reports ~state:"hover" "text-decoration-line"
+       (rendered "oracle hover" ~elements:[ "hover:underline" ]
+          ~tailwind:".hover\\:underline:hover{text-decoration-line:underline}"
+          ~tw:".hover\\:underline:focus{text-decoration-line:underline}"))
+
+let test_oracle_reports_a_media_condition () =
+  Alcotest.(check bool)
+    "breakpoint reported" true
+    (reports "display"
+       (rendered "oracle media" ~elements:[ "sm:flex" ]
+          ~tailwind:"@media (width>=40rem){.sm\\:flex{display:flex}}"
+          ~tw:"@media (width>=48rem){.sm\\:flex{display:flex}}"))
+
 (* The whole-sheet reader, on a sheet spelling every shape it has to survive: a
    [;]-terminated [@layer] list, a layer that is not the wanted one, a selector
    list, a nested at-rule block, and a [}] inside a string. *)
@@ -359,6 +423,18 @@ let tests =
       test_unrelated_classes_are_not_paired;
     Alcotest.test_case "render elements are unique and ordered" `Quick
       test_render_elements_are_unique_and_ordered;
+    Alcotest.test_case "render page escapes classes" `Quick
+      test_render_page_escapes_classes;
+    Alcotest.test_case "oracle: identical sheets" `Slow
+      test_oracle_passes_identical_sheets;
+    Alcotest.test_case "oracle: changed declaration" `Slow
+      test_oracle_reports_a_changed_declaration;
+    Alcotest.test_case "oracle: generated content" `Slow
+      test_oracle_reports_generated_content;
+    Alcotest.test_case "oracle: hover rule" `Slow
+      test_oracle_reports_a_hover_rule;
+    Alcotest.test_case "oracle: media condition" `Slow
+      test_oracle_reports_a_media_condition;
     Alcotest.test_case "layer keys: expanded and layer-bounded" `Quick
       test_layer_keys_expand_and_stop_at_the_layer;
     Alcotest.test_case "layer keys: absent layer" `Quick

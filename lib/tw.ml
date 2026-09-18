@@ -167,7 +167,7 @@ let split_importance base_class =
 let theme_alpha_percent a =
   let n = String.length a in
   if n > 1 && a.[n - 1] = '%' then float_of_string_opt (String.sub a 0 (n - 1))
-  else Stdlib.Option.map (fun f -> f *. 100.) (float_of_string_opt a)
+  else Option.map (fun f -> f *. 100.) (float_of_string_opt a)
 
 (* Tailwind applies a [theme()] alpha by mixing the colour with transparent,
    which reads whatever the [@theme] bound the palette entry to. *)
@@ -204,7 +204,7 @@ let theme_key_value ~theme path =
          reading the theme would lose parity rather than gain it.
          [Theme.spacing_times] is that same fixed product, and going through it
          is what keeps the two spellings of it in step. *)
-      Stdlib.Option.bind (float_of_string_opt n) Theme.spacing_times
+      Option.bind (float_of_string_opt n) Theme.spacing_times
   | _ -> None
 
 (* The value the resolved theme binds [--<name>] to, with the [\@layer theme]
@@ -218,7 +218,7 @@ let theme_token_binding ~theme name =
   | Some css ->
       Some (css, Cascade.Css.custom_property ~layer:"theme" ("--" ^ name) css)
   | None ->
-      Stdlib.Option.map
+      Option.map
         (fun decl -> (Cascade.Css.declaration_value decl, decl))
         (Color.Handler.theme_color_decl ~theme name)
 
@@ -226,9 +226,7 @@ let theme_token_binding ~theme name =
    lookup, and it reads the token table itself rather than one of the v3
    namespaces the dot paths name. *)
 let theme_token_value ~theme path =
-  if String.length path > 2 && String.sub path 0 2 = "--" then
-    theme_token_binding ~theme (String.sub path 2 (String.length path - 2))
-  else None
+  Option.bind (Parse.bare_name path) (theme_token_binding ~theme)
 
 (* Resolve one theme() argument.
 
@@ -394,6 +392,25 @@ let unknown_class_error ~base_class class_str =
             ^ "': write the opacity on the colour, as " ^ replacement))
     | None -> Error (`Msg ("Unknown class: " ^ class_str))
 
+(* Whether the candidate spells [name] itself. A [var(--x)] the author wrote
+   into an arbitrary value is their reference, and Tailwind writes it through
+   whatever the theme holds. *)
+let spells class_str name =
+  let n = String.length name and len = String.length class_str in
+  let rec at i j = j = n || (class_str.[i + j] = name.[j] && at i (j + 1)) in
+  let rec from i = i + n <= len && (at i 0 || from (i + 1)) in
+  from 0
+
+(* Tailwind compiles nothing for a candidate whose value the [@theme] block took
+   away: [--text-*: initial] leaves [text-lg] no size to write. The palette and
+   the breakpoints refuse such a candidate as they read it; every other family
+   is held here, against the tokens its rules read. *)
+let removed_token_read ~theme class_str u =
+  if Scheme.removes_tokens theme then
+    Build.removed_token_read ~theme ~authored:(spells class_str)
+      (Rule.outputs ~theme u)
+  else None
+
 (* Parse a single class string into a Tw.t *)
 let of_candidate ~theme class_str =
   let modifiers, base_class = modifiers_of_string class_str in
@@ -418,8 +435,17 @@ let of_candidate ~theme class_str =
        in, not one of the declarations the [!] marks. *)
     let base_util = Utility.theme_bound bindings base_util in
     match Modifiers.apply ~theme modifiers base_util with
-    | Some u -> Ok u
     | None -> Error (`Msg ("Unknown modifier in: " ^ class_str))
+    | Some u -> (
+        match removed_token_read ~theme class_str u with
+        | None -> Ok u
+        | Some token ->
+            Error
+              (`Msg
+                 (Pp.str
+                    [
+                      class_str; " reads --"; token; ", which the theme removed";
+                    ])))
   in
   (* Resolve theme() calls for dispatch, keeping the original spelling as the
      class-name alias so the utility still round-trips. A call naming no key

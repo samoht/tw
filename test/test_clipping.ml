@@ -34,8 +34,8 @@ let test_clip_inset_shorthand () =
           |> Css.to_string ~minify:true
         in
         let n = String.length out in
-        if n >= 4 && String.sub out 0 3 = ".x{" && out.[n - 1] = '}' then
-          String.sub out 3 (n - 4)
+        if n >= 4 && String.starts_with ~prefix:".x{" out && out.[n - 1] = '}'
+        then String.sub out 3 (n - 4)
         else out
   in
   let check_roundtrip input =

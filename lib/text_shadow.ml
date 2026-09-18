@@ -3,8 +3,6 @@
 module Css = Cascade.Css
 
 (* Capture project Pp helpers before open Css shadows Pp with Css.Pp. *)
-let pp_str = Pp.str
-let pp_hex_byte = Pp.hex_byte
 
 module Handler = struct
   open Style
@@ -13,12 +11,6 @@ module Handler = struct
   type shape = S_2xs | S_xs | S_sm | S_md | S_lg
 
   (* Color in an arbitrary shadow value *)
-  type arb_color =
-    | Hex of string
-    | Var_ref of string
-    | Css_color of Css.color
-    | No_color
-
   type t =
     | None
     | Shape of shape
@@ -37,9 +29,13 @@ module Handler = struct
     | Bracket_color_var of string
     | Bracket_cvar_opacity of string * Color.opacity_modifier
     | Bracket_shadow of string
+    | Bracket_shadow_opacity of string * Color.opacity_modifier
     | Bracket_var of string
+    | Bracket_var_opacity of string * Color.opacity_modifier
     | Arbitrary of string
     | Arbitrary_opacity of string * Color.opacity_modifier
+    | Named of string  (** a project [--text-shadow-<name>] token *)
+    | Named_opacity of string * Color.opacity_modifier
 
   let name = "text_shadow"
 
@@ -48,7 +44,9 @@ module Handler = struct
      ordinary shape and colour utilities remain in the later text-shadow
      band. *)
   let priority = function
-    | Shape_opacity _ | Arbitrary_opacity _ -> 38
+    | Shape_opacity _ | Arbitrary_opacity _ | Named_opacity _
+    | Bracket_var_opacity _ | Bracket_shadow_opacity _ ->
+        38
     | _ -> 41
 
   let text_shadow_color_var =
@@ -77,94 +75,31 @@ module Handler = struct
   (* A [#] value only names a colour when what follows is a hex spelling;
      [Css.hex] raises on anything else, here once the sheet is rendered. *)
   let is_hex_value s =
-    String.length s > 0 && s.[0] = '#' && Stdlib.Option.is_some (Css.hex_opt s)
-
-  let alpha_decl percent =
-    let alpha : Css.percentage = Pct percent in
-    fst (Var.binding text_shadow_alpha_var alpha)
-
-  let opacity_percentage opacity : Css.percentage =
-    match Color.opacity_var_bare_of opacity with
-    | Some name -> Var (Var.bracket name)
-    | None -> Pct (Color.opacity_to_percent opacity)
+    String.length s > 0 && s.[0] = '#' && Option.is_some (Css.hex_opt s)
 
   let opacity_decl opacity =
-    fst (Var.binding text_shadow_alpha_var (opacity_percentage opacity))
-
-  let color_mix_supports decls =
-    Css.supports ~condition:Color.color_mix_supports_condition
-      [ Css.rule ~selector:(Css.Selector.class_ "_") decls ]
-
-  let relative_color_supports =
-    Css.Supports.property "color" "lab(from red l a b)"
-
-  let make_color_var vn : Css.color = Css.Var (Var.bracket vn)
-
-  let make_full_color_var (v : string) : Css.color =
-    match Css.parse_color v with
-    | Some c -> c
-    | None -> make_color_var (Parse.extract_var_name v)
-
-  (* A relative colour is carried as a verbatim body, so this one path spells
-     the alpha the channel would otherwise be given as a value. *)
-  let relative_oklab_from_color v opacity =
-    let alpha =
-      Css.Pp.to_string ~minify:true
-        (Css.Values.pp_percentage ~always:true)
-        (opacity_percentage opacity)
-    in
-    Css.parse_color (pp_str [ "oklab(from "; v; " l a b / "; alpha; ")" ])
+    Var.set text_shadow_alpha_var (Color.opacity_alpha_value opacity)
 
   (* ============ Parse arbitrary shadow ============ *)
 
-  (* The two colours the utility has to keep as written: a [#] hex it
-     re-shortens and a var() it wraps. Everything else in the value is read as a
-     length, so a colour spelled any other way lands in a length slot. *)
+  (* CSS text-shadow has no spread, so a fourth length is not one. *)
   let scan_verbatim_colour (s : string) :
-      (length * length * length option * arb_color) option =
-    let normalized = Parse.decode_underscores s in
-    let parts = String.split_on_char ' ' normalized in
-    let rec find_color_and_lengths acc (parts : string list) :
-        string list * arb_color =
-      match parts with
-      | [] -> (List.rev acc, No_color)
-      | x :: _rest when String.length x > 0 && x.[0] = '#' ->
-          (List.rev acc, Hex x)
-      | x :: _rest when String.length x > 4 && String.sub x 0 4 = "var(" ->
-          (List.rev acc, Var_ref x)
-      | x :: rest when Parse.is_css_color_fn x -> (
-          (* A colour function may carry spaces, so it runs to the end of the
-             value. *)
-          match Css.parse_color (String.concat " " (x :: rest)) with
-          | Some c -> (List.rev acc, Css_color c)
-          | None -> find_color_and_lengths (x :: acc) rest)
-      | x :: rest -> find_color_and_lengths (x :: acc) rest
-    in
-    let length_strs, color = find_color_and_lengths [] parts in
-    let lengths = List.filter_map Parse.arbitrary_length length_strs in
-    (* A token that is not a length makes the value not a shadow. Dropping it
-       instead would slide the surviving lengths into the wrong slots. CSS
-       text-shadow has no spread, so a fourth length is not one either. *)
-    if List.compare_lengths lengths length_strs <> 0 then Stdlib.Option.None
-    else
-      match color with
-      | Hex h when not (is_hex_value h) -> Stdlib.Option.None
-      | _ -> (
-          match lengths with
-          | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
-          | [ h; v; blur ] -> Some (h, v, Some blur, color)
-          | _ -> Stdlib.Option.None)
+      (length * length * length option * Parse.shadow_colour) option =
+    match Parse.shadow_layer s with
+    | Some ([ h; v ], color) -> Some (h, v, Stdlib.Option.None, color)
+    | Some ([ h; v; blur ], color) -> Some (h, v, Some blur, color)
+    | _ -> Stdlib.Option.None
 
   (* What the scan above cannot spell goes to the value parser, which reads the
      rest of the CSS colour grammar: [red] is a colour to it and a failed length
      to the scan. This is the fallback the box-shadow family already has. *)
   let parse_arbitrary_shadow (s : string) :
-      (length * length * length option * arb_color) option =
+      (length * length * length option * Parse.shadow_colour) option =
     match scan_verbatim_colour s with
     | Some _ as shadow -> shadow
     | Stdlib.Option.None -> (
         let normalized = Parse.decode_underscores s in
-        match Css.parse_shadow normalized with
+        match Parse.shadow normalized with
         (* CSS text-shadow has no spread, so a body carrying one is not one. *)
         | Some
             (Shadow
@@ -172,8 +107,8 @@ module Handler = struct
           ->
             let color =
               match color with
-              | Some c -> Css_color c
-              | Stdlib.Option.None -> No_color
+              | Some c -> Parse.Colour c
+              | Stdlib.Option.None -> Parse.No_colour
             in
             Some (h_offset, v_offset, blur, color)
         | _ -> Stdlib.Option.None)
@@ -247,519 +182,222 @@ module Handler = struct
     | S_md -> "text-shadow-md"
     | S_lg -> "text-shadow-lg"
 
-  (* The hex spelling of a colour, for the colour maths that reads one. A colour
-     the fold refuses - one whose channels are not all bytes, or one in a space
-     with no sRGB spelling - has none. *)
-  let hex_string_of_css_color (c : Css.color) : string option =
-    let spell r g b a =
-      let bh = pp_hex_byte in
-      "#" ^ bh r ^ bh g ^ bh b ^ if a = 255 then "" else bh a
-    in
-    match (Color.css_color_to_hex c, c) with
-    | Some (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ }), _
-    | _, (Css.Hex { r; g; b; a } | Css.Authored_hex { r; g; b; a; _ }) ->
-        Some (spell r g b a)
-    | _ -> Stdlib.Option.None
+  (* A layer of a text shadow: the box-shadow body the readers produce, less the
+     spread CSS text-shadow has no slot for. *)
+  let layer_of_body (body : Css.shadow_body) ~(color : Css.color) :
+      Css.text_shadow =
+    Css.Text_shadow
+      {
+        h_offset = body.h_offset;
+        v_offset = body.v_offset;
+        blur = body.blur;
+        color = Some color;
+      }
 
-  (* Parse a theme shadow-list override (e.g. "0px 1px 0px rgb(0 0 0 / 0.1), 0px
-     2px 2px rgb(0 0 0 / 0.06)") into the same (h, v, blur, hex) tuples
-     [shape_shadows] returns. Splits on top-level commas, then for each shadow
-     takes the leading length tokens and converts the trailing colour to a hex
-     string. *)
-  let hex_string_of_color (s : string) : string =
-    match Css.parse_color s with
-    | Some c -> (
-        match hex_string_of_css_color c with Some hex -> hex | None -> s)
-    | None -> s
+  (* The colour a layer paints with when the class names none. *)
+  let body_colour (body : Css.shadow_body) : Css.color =
+    match body.color with Some c -> c | None -> Css.Current
 
-  let parse_shadow_list (s : string) :
-      (length * length * length option * string) list =
-    let split_top_level str =
-      let buf = Buffer.create 32 and acc = ref [] and depth = ref 0 in
-      String.iter
-        (fun c ->
-          if c = '(' then (
-            incr depth;
-            Buffer.add_char buf c)
-          else if c = ')' then (
-            decr depth;
-            Buffer.add_char buf c)
-          else if c = ',' && !depth = 0 then (
-            acc := Buffer.contents buf :: !acc;
-            Buffer.clear buf)
-          else Buffer.add_char buf c)
-        str;
-      acc := Buffer.contents buf :: !acc;
-      List.rev_map String.trim !acc
+  (* The layers of a [\@theme] shadow list. A layer carrying a spread is not a
+     text shadow, and drops. *)
+  let bodies_of_value value : Css.shadow_body list =
+    let body_of (sh : Css.shadow) : Css.shadow_body option =
+      match sh with
+      | Css.Shadow ({ spread = None; _ } as body) -> Some body
+      | _ -> None
     in
-    let parse_len str : length option =
-      match str with
-      | "0" -> Some (Zero : length)
-      | _ ->
-          let n = String.length str in
-          let cut suf = String.sub str 0 (n - String.length suf) in
-          if Filename.check_suffix str "px" then
-            Option.map
-              (fun f -> (Px f : length))
-              (float_of_string_opt (cut "px"))
-          else if Filename.check_suffix str "rem" then
-            Option.map
-              (fun f -> (Rem f : length))
-              (float_of_string_opt (cut "rem"))
-          else None
-    in
-    let parse_one shadow =
-      let toks = String.split_on_char ' ' shadow |> List.filter (( <> ) "") in
-      let rec take_lengths acc = function
-        | t :: rest -> (
-            match parse_len t with
-            | Some l -> take_lengths (l :: acc) rest
-            | None -> (List.rev acc, t :: rest))
-        | [] -> (List.rev acc, [])
-      in
-      let lengths, color_toks = take_lengths [] toks in
-      let color = hex_string_of_color (String.concat " " color_toks) in
-      match lengths with
-      | [ h; v ] -> Some (h, v, Stdlib.Option.None, color)
-      | [ h; v; blur ] -> Some (h, v, Some blur, color)
-      | _ -> Stdlib.Option.None
-    in
-    List.filter_map parse_one (split_top_level s)
+    match Parse.shadow value with
+    | Some (Css.List layers) -> List.filter_map body_of layers
+    | Some sh -> Option.to_list (body_of sh)
+    | None -> []
 
   (* Shadows for a shape: a threaded [@theme] override if present, else the
      v4.3.1 default scale. *)
-  let shadows_for ?theme shape =
+  let shadows_for ?theme shape : Css.shadow_body list =
     match Scheme.theme_value theme (shape_token shape) with
-    | Some override -> parse_shadow_list override
-    | None -> shape_shadows shape
+    | Some override -> bodies_of_value override
+    | None ->
+        List.filter_map
+          (fun (h_offset, v_offset, blur, hex) ->
+            match
+              Css.shadow ~h_offset ~v_offset ?blur ~color:(Css.hex hex) ()
+            with
+            | Css.Shadow body -> Some body
+            | _ -> None)
+          (shape_shadows shape)
 
-  let shape_text_shadow ?theme shape =
-    let shadows = shadows_for ?theme shape in
-    let text_shadows =
-      List.map
-        (fun (h, v, blur, fallback_hex) ->
-          let color_ref =
-            Var.reference_with_fallback text_shadow_color_var
-              (Css.hex fallback_hex)
-          in
-          Css.Text_shadow
-            { h_offset = h; v_offset = v; blur; color = Some (Var color_ref) })
-        shadows
-    in
-    match text_shadows with
+  (* The [--text-shadow-<name>] a project declared, as layers. [None] when the
+     theme has no such token or its value is not a shadow. *)
+  let named_bodies ?theme name : Css.shadow_body list option =
+    match Scheme.theme_value theme ("text-shadow-" ^ name) with
+    | None -> None
+    | Some value -> (
+        match bodies_of_value value with [] -> None | bodies -> Some bodies)
+
+  let text_shadow_of_layers = function
     | [ single ] -> Css.text_shadow single
     | multiple -> Css.text_shadows multiple
 
-  let shape_text_shadow_opacity ?theme shape opacity =
-    let shadows = shadows_for ?theme shape in
-    let percent = Color.opacity_to_percent opacity in
-    let alpha = percent /. 100.0 in
-    let text_shadows =
+  (* [text-shadow] for a list of layers, each colour behind the family's
+     channel. *)
+  let layers_decl bodies (colours : Css.color list) =
+    text_shadow_of_layers
+      (List.map2
+         (fun body colour ->
+           layer_of_body body
+             ~color:
+               (Css.Var
+                  (Var.reference_with_fallback text_shadow_color_var colour)))
+         bodies colours)
+
+  (* A hex spelling re-shortens, as Tailwind's does; every other colour stays as
+     the token wrote it. *)
+  let layers_style bodies =
+    let colours =
       List.map
-        (fun (h, v, blur, fallback_hex) ->
-          let base_hex =
-            if String.length fallback_hex = 9 then String.sub fallback_hex 0 7
-            else fallback_hex
-          in
-          let oklab_fallback = Color.hex_to_oklab_alpha base_hex alpha in
-          let color_ref =
-            Var.reference_with_fallback text_shadow_color_var oklab_fallback
-          in
-          Css.Text_shadow
-            { h_offset = h; v_offset = v; blur; color = Some (Var color_ref) })
-        shadows
+        (fun body ->
+          let c = body_colour body in
+          match Color.css_color_to_hex c with Some h -> h | None -> c)
+        bodies
     in
-    match text_shadows with
-    | [ single ] -> Css.text_shadow single
-    | multiple -> Css.text_shadows multiple
+    style ~metadata:text_shadow_property_metadata
+      ~property_rules:text_shadow_property_rules
+      [ layers_decl bodies colours ]
+
+  (* The layers under a modifier: the alpha channel, the declaration every
+     browser reads and, when a layer needs one, the guarded declaration. *)
+  let layers_alpha_style bodies opacity =
+    let decl, supports =
+      Color.shadow_alpha_decls opacity
+        ~colours:(List.map body_colour bodies)
+        ~rebuild:(layers_decl bodies)
+    in
+    match supports with
+    | None ->
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
+          [ opacity_decl opacity; decl ]
+    | Some guard ->
+        style ~rules:(Some [ guard ]) ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
+          [ opacity_decl opacity; decl ]
+
+  let named_style ?theme name =
+    match named_bodies ?theme name with
+    | None -> invalid_arg ("text-shadow-" ^ name ^ ": no such theme token")
+    | Some bodies -> layers_style bodies
+
+  let named_opacity_style ?theme name opacity =
+    match named_bodies ?theme name with
+    | None -> invalid_arg ("text-shadow-" ^ name ^ ": no such theme token")
+    | Some bodies -> layers_alpha_style bodies opacity
 
   (* ============ Color-setting styles ============ *)
 
-  let color_hex ?theme c shade =
-    let color_name = Color.scheme_color_name c shade in
-    let scheme = match theme with Some t -> t | None -> Scheme.default in
-    match Scheme.hex_color scheme color_name with
-    | Some h -> h
-    | Stdlib.Option.None -> (
-        match Scheme.theme_value theme ("color-" ^ color_name) with
-        | Some h -> h
-        | Stdlib.Option.None ->
-            let oklch = Color.to_oklch c shade in
-            let rgb = Color.oklch_to_rgb oklch in
-            Color.rgb_to_hex rgb)
+  let channel : Color.channel =
+    {
+      color = text_shadow_color_var;
+      alpha = text_shadow_alpha_var;
+      property_prefix = "text-shadow-color";
+      metadata = text_shadow_property_metadata;
+      property_rules = text_shadow_property_rules;
+    }
 
-  let set_color ?theme c shade =
-    let color_value =
-      Color.property_color_value ?theme ~property_prefix:"text-shadow-color" c
-        shade
-    in
-    let base_decl, _ = Var.binding text_shadow_color_var color_value in
-    let theme_color_var =
-      Color.property_color_var ?theme ~property_prefix:"text-shadow-color" c
-        shade
-    in
-    let theme_decl, color_ref = Var.binding theme_color_var color_value in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        (Css.Var color_ref) Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
+  (* Unlike {!Color.channel_color_opacity}, the palette token is the plain
+     [--color-*] one and no property-scoped [--text-shadow-color-*] token is
+     looked up, which is what this family has always emitted. *)
   let set_color_opacity ?theme c shade opacity =
     let percent = Color.opacity_to_percent opacity in
-    let hex_value = color_hex ?theme c shade in
-    let hex_with_alpha = Color.hex_with_alpha hex_value percent in
-    let base_decl, _ =
-      Var.binding text_shadow_color_var (Css.hex hex_with_alpha)
+    let hex = Color.palette_hex ?theme c shade in
+    let decls, color =
+      Color.bound ?theme (Color.color_var c shade) (Css.hex hex)
     in
-    let theme_color_var = Color.color_var c shade in
-    let theme_decl, color_ref =
-      Var.binding theme_color_var (Css.hex hex_value)
-    in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-        ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ theme_decl; enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
-  let set_current () =
-    let base_decl, _ = Var.binding text_shadow_color_var Css.Current in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        Css.Current Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
-  let set_current_opacity opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let base_decl, _ = Var.binding text_shadow_color_var Css.Current in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
-  let set_transparent () =
-    let base_decl, _ = Var.binding text_shadow_color_var Css.Transparent in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        Css.Transparent Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
-  let set_transparent_opacity opacity =
-    let base_decl, _ = Var.binding text_shadow_color_var Css.Transparent in
-    let inner_mix = Color.apply_alpha opacity Css.Transparent in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
-  let set_inherit () =
-    let base_decl, _ = Var.binding text_shadow_color_var Css.Inherit in
-    style ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
+    Color.channel_style ~decls channel
+      ~fallback:(Css.hex (Color.hex_with_alpha hex percent))
+      (Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent)
 
   let set_bracket_hex hex =
     let color = Color.authored_hex hex in
-    let base_decl, _ = Var.binding text_shadow_color_var color in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        color Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
+    Color.channel_style channel ~fallback:color color
 
   let set_bracket_hex_opacity hex opacity =
     let percent = Color.opacity_to_percent opacity in
-    let hex_with_alpha = Color.hex_with_alpha hex percent in
-    let base_decl, _ =
-      Var.binding text_shadow_color_var (Css.hex hex_with_alpha)
-    in
-    let alpha = percent /. 100.0 in
-    let oklab_color = Color.hex_to_oklab_alpha hex alpha in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        oklab_color Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
+    Color.channel_style channel
+      ~fallback:(Css.hex (Color.hex_with_alpha hex percent))
+      (Color.hex_to_oklab_alpha hex (percent /. 100.0))
 
-  (* A bracket colour spelled any way but a [#] hex: a name, a colour function
-     or a relative colour. One with an sRGB hex takes it, so it reads the same
-     as the hex arm above; one without stays as written. *)
-  let set_bracket_color ~theme (c : Css.color) =
-    let enhanced = Color.resolve_bracket_css_color c in
-    let fallback =
-      match Color.pre_color_mix_fallback theme enhanced with
-      | Some fallback -> fallback
-      | None -> enhanced
-    in
-    let base_decl, _ = Var.binding text_shadow_color_var fallback in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        enhanced Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
+  (* A bracket colour spelled any way but a [#] hex, under an opacity: one with
+     an sRGB hex takes it. A modifier reading a custom property has no
+     percentage a plain fallback can hold, so the fallback keeps the colour as
+     written. *)
   let set_bracket_color_opacity ~theme (c : Css.color) opacity =
-    let c = match Color.css_color_to_hex c with Some h -> h | None -> c in
+    let c = Option.value ~default:c (Color.css_color_to_hex c) in
     let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
-    (* A modifier reading a custom property has no percentage a plain fallback
-       can hold, so the fallback keeps the colour as written. *)
-    let base_value =
+    let fallback =
       match Color.pre_color_mix_fallback theme guarded with
       | Some fallback -> fallback
       | None ->
-          if Stdlib.Option.is_some (Color.opacity_var_bare_of opacity) then c
+          if Option.is_some (Color.opacity_var_bare_of opacity) then c
           else Color.mix_alpha ~in_space:Srgb opacity c
     in
-    let base_decl, _ = Var.binding text_shadow_color_var base_value in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        guarded Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
-  let set_bracket_color_var var_expr =
-    let var_name = Parse.extract_var_name var_expr in
-    let var_color = make_color_var var_name in
-    let base_decl, _ = Var.binding text_shadow_color_var var_color in
-    let enhanced_color =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        var_color Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var enhanced_color in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
-
-  let set_bracket_color_var_opacity var_expr opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let var_name = Parse.extract_var_name var_expr in
-    let var_color = make_color_var var_name in
-    let base_decl, _ = Var.binding text_shadow_color_var var_color in
-    let inner_mix =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let outer_mix =
-      Css.color_mix_var_percent ~in_space:Oklab ~var_name:text_shadow_alpha_name
-        inner_mix Css.Transparent
-    in
-    let enhanced_decl, _ = Var.binding text_shadow_color_var outer_mix in
-    let supports_block = color_mix_supports [ enhanced_decl ] in
-    style ~rules:(Some [ supports_block ])
-      ~metadata:text_shadow_property_metadata
-      ~property_rules:text_shadow_property_rules [ base_decl ]
+    Color.channel_style channel ~fallback guarded
 
   (* ============ Arbitrary shadow styles ============ *)
 
   let make_text_shadow_var var_expr : Css.text_shadow =
     Css.Var (Var.bracket (Parse.extract_var_name var_expr))
 
-  let arbitrary_shadow_style arb =
+  (* The layer a bracket wrote, with its colour as the class spelled it: a hex
+     keeps its case, a [var()] its reference, a colour function folds to hex
+     where one spells it, and no colour is the current colour. *)
+  let arbitrary_body arb : Css.shadow_body option =
     match parse_arbitrary_shadow arb with
-    | Some (h_offset, v_offset, blur, color) ->
-        let fallback_color : Css.color =
-          match color with
-          | Hex c -> Color.authored_hex c
-          | Var_ref v -> make_full_color_var v
-          | Css_color c -> (
-              match Color.css_color_to_hex c with Some h -> h | None -> c)
-          | No_color -> Css.Current
-        in
-        let color_ref =
-          Var.reference_with_fallback text_shadow_color_var fallback_color
-        in
-        style ~metadata:text_shadow_property_metadata
-          ~property_rules:text_shadow_property_rules
-          [
-            Css.text_shadow
-              (Css.Text_shadow
-                 { h_offset; v_offset; blur; color = Some (Var color_ref) });
-          ]
+    | Some (h_offset, v_offset, blur, color) -> (
+        let color = Color.shadow_token_colour color in
+        match Css.shadow ~h_offset ~v_offset ?blur ~color () with
+        | Css.Shadow body -> Some body
+        | _ -> Stdlib.Option.None)
+    | Stdlib.Option.None -> Stdlib.Option.None
+
+  let arbitrary_shadow_style arb =
+    match arbitrary_body arb with
+    | Some body -> layers_style [ body ]
     | Stdlib.Option.None -> style [ Css.text_shadow Css.None ]
 
   let arbitrary_shadow_opacity_style arb opacity =
-    match parse_arbitrary_shadow arb with
-    | Some (h_offset, v_offset, blur, color) ->
-        let percent = Color.opacity_to_percent opacity in
-        let alpha = percent /. 100.0 in
-        let dynamic_opacity = Color.opacity_var_bare_of opacity <> None in
-        let alpha_d = opacity_decl opacity in
-        let base_fallback : Css.color =
-          match color with
-          (* An alpha reading a custom property has no percentage to resolve
-             against, so the colour stays as the class wrote it and the relative
-             form goes behind the guard below. Folding it through oklab at full
-             opacity left the shadow opaque for a browser with no relative
-             colours, where Tailwind leaves the authored colour. *)
-          | Hex c ->
-              if dynamic_opacity then Color.authored_hex c
-              else Color.hex_to_oklab_alpha c alpha
-          | Var_ref v -> make_full_color_var v
-          | Css_color c -> (
-              match hex_string_of_css_color c with
-              | Some hex -> Color.hex_to_oklab_alpha hex alpha
-              | None -> if dynamic_opacity then c else Color.mix_alpha opacity c
-              )
-          | No_color -> Css.Current
-        in
-        let base_color_ref =
-          Var.reference_with_fallback text_shadow_color_var base_fallback
-        in
-        let base_shadow =
-          Css.text_shadow
-            (Css.Text_shadow
-               { h_offset; v_offset; blur; color = Some (Var base_color_ref) })
-        in
-        let relative_support origin =
-          match relative_oklab_from_color origin opacity with
-          | Some relative_color ->
-              let enhanced_ref =
-                Var.reference_with_fallback text_shadow_color_var relative_color
-              in
-              let enhanced_shadow =
-                Css.text_shadow
-                  (Css.Text_shadow
-                     {
-                       h_offset;
-                       v_offset;
-                       blur;
-                       color = Some (Var enhanced_ref);
-                     })
-              in
-              Some
-                [
-                  Css.supports ~condition:relative_color_supports
-                    [
-                      Css.rule ~selector:(Css.Selector.class_ "_")
-                        [ enhanced_shadow ];
-                    ];
-                ]
-          | None -> Stdlib.Option.None
-        in
-        let rules =
-          match color with
-          | Hex c when dynamic_opacity -> relative_support c
-          | Css_color c when dynamic_opacity ->
-              let origin = Css.Pp.to_string ~minify:true Css.pp_color c in
-              relative_support origin
-          | Hex _ | Css_color _ -> Stdlib.Option.None
-          | Var_ref v -> relative_support v
-          | No_color ->
-              let color_mix_fallback = Color.mix_alpha opacity Css.Current in
-              let enhanced_ref =
-                Var.reference_with_fallback text_shadow_color_var
-                  color_mix_fallback
-              in
-              let enhanced_shadow =
-                Css.text_shadow
-                  (Css.Text_shadow
-                     {
-                       h_offset;
-                       v_offset;
-                       blur;
-                       color = Some (Var enhanced_ref);
-                     })
-              in
-              let supports_block = color_mix_supports [ enhanced_shadow ] in
-              Some [ supports_block ]
-        in
-        style ~rules ~metadata:text_shadow_property_metadata
-          ~property_rules:text_shadow_property_rules [ alpha_d; base_shadow ]
+    match arbitrary_body arb with
+    | Some body -> layers_alpha_style [ body ] opacity
     | Stdlib.Option.None -> style [ Css.text_shadow Css.None ]
 
   (* ============ Style dispatch ============ *)
 
-  let to_style theme =
-    let set_bracket_color = set_bracket_color ~theme in
-    let set_bracket_color_opacity = set_bracket_color_opacity ~theme in
-    let set_color c shade = set_color ~theme c shade in
-    let set_color_opacity c shade opacity =
-      set_color_opacity ~theme c shade opacity
-    in
-    let shape_text_shadow shape = shape_text_shadow ~theme shape in
-    let shape_text_shadow_opacity shape opacity =
-      shape_text_shadow_opacity ~theme shape opacity
-    in
-    function
+  let to_style theme = function
     | None ->
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
           [ Css.text_shadow Css.None ]
-    | Shape shape ->
-        style ~metadata:text_shadow_property_metadata
-          ~property_rules:text_shadow_property_rules
-          [ shape_text_shadow shape ]
+    | Shape shape -> layers_style (shadows_for ~theme shape)
     | Shape_opacity (shape, opacity) ->
-        let percent = Color.opacity_to_percent opacity in
-        style ~metadata:text_shadow_property_metadata
-          ~property_rules:text_shadow_property_rules
-          [ alpha_decl percent; shape_text_shadow_opacity shape opacity ]
-    | Color (c, shade) -> set_color c shade
-    | Color_opacity (c, shade, opacity) -> set_color_opacity c shade opacity
-    | Current -> set_current ()
-    | Current_opacity opacity -> set_current_opacity opacity
-    | Inherit -> set_inherit ()
-    | Transparent -> set_transparent ()
-    | Transparent_opacity opacity -> set_transparent_opacity opacity
+        layers_alpha_style (shadows_for ~theme shape) opacity
+    | Named name -> named_style ~theme name
+    | Named_opacity (name, opacity) -> named_opacity_style ~theme name opacity
+    | Color (c, shade) -> Color.channel_color ~theme channel c shade
+    | Color_opacity (c, shade, opacity) ->
+        set_color_opacity ~theme c shade opacity
+    | Current -> Color.channel_current channel
+    | Current_opacity opacity -> Color.channel_current_opacity channel opacity
+    | Inherit -> Color.channel_inherit channel
+    | Transparent -> Color.channel_transparent channel
+    | Transparent_opacity opacity ->
+        Color.channel_transparent_opacity channel opacity
     | Bracket_hex hex -> set_bracket_hex hex
     | Bracket_hex_opacity (hex, opacity) -> set_bracket_hex_opacity hex opacity
-    | Bracket_color (_orig, c) -> set_bracket_color c
+    | Bracket_color (_orig, c) -> Color.channel_bracket_color ~theme channel c
     | Bracket_color_opacity (_orig, c, opacity) ->
-        set_bracket_color_opacity c opacity
-    | Bracket_color_var var_expr -> set_bracket_color_var var_expr
+        set_bracket_color_opacity ~theme c opacity
+    | Bracket_color_var var_expr -> Color.channel_bracket_var channel var_expr
     | Bracket_cvar_opacity (var_expr, opacity) ->
-        set_bracket_color_var_opacity var_expr opacity
+        Color.channel_bracket_var_opacity channel var_expr opacity
     (* The hint says the payload is a shadow, not that it names a variable. A
        [var()] still reads as one; anything else is the shadow itself. *)
     | Bracket_shadow payload when not (Parse.is_var payload) ->
@@ -772,6 +410,19 @@ module Handler = struct
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
           [ Css.text_shadow (make_text_shadow_var var_expr) ]
+    | Bracket_shadow_opacity (payload, opacity) when not (Parse.is_var payload)
+      ->
+        arbitrary_shadow_opacity_style payload opacity
+    (* A shadow read whole from a custom property has no colour to fold the
+       alpha into: Tailwind sets the channel and leaves the value as it is. *)
+    | Bracket_var_opacity (var_expr, opacity)
+    | Bracket_shadow_opacity (var_expr, opacity) ->
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
+          [
+            opacity_decl opacity;
+            Css.text_shadow (make_text_shadow_var var_expr);
+          ]
     | Arbitrary arb -> arbitrary_shadow_style arb
     | Arbitrary_opacity (arb, opacity) ->
         arbitrary_shadow_opacity_style arb opacity
@@ -780,10 +431,7 @@ module Handler = struct
 
   let err_not_utility = Error (`Msg "Not a text shadow utility")
   let has_opacity s = String.contains s '/'
-
-  let starts_with prefix s =
-    String.length s >= String.length prefix
-    && String.sub s 0 (String.length prefix) = prefix
+  let starts_with prefix s = String.starts_with ~prefix s
 
   let is_shadow_value inner =
     (* A shadow value has explicit length dimensions like "10px_10px" *)
@@ -827,6 +475,14 @@ module Handler = struct
     (* Bare `text-shadow` is not a utility in v4 (no `--text-shadow` token); the
        named scale is `text-shadow-{2xs,xs,sm,md,lg}`. *)
     | [ "text"; "shadow" ] -> err_not_utility
+    (* A sized text shadow inlines its token's value, so one the [@theme] block
+       removed is refused here rather than read through a [var()]. *)
+    | [ "text"; "shadow"; size_str ]
+      when match fst (Color.parse_opacity_modifier size_str) with
+           | ("2xs" | "xs" | "sm" | "md" | "lg") as size ->
+               Scheme.is_removed theme ("text-shadow-" ^ size)
+           | _ -> false ->
+        err_not_utility
     | [ "text"; "shadow"; size_str ] -> (
         let base, opacity = Color.parse_opacity_modifier ~theme size_str in
         let shape_opt =
@@ -882,10 +538,15 @@ module Handler = struct
               if
                 Parse.is_var payload
                 || parse_arbitrary_shadow payload <> Stdlib.Option.None
-              then Ok (Bracket_shadow payload)
+              then
+                match opacity with
+                | Color.No_opacity -> Ok (Bracket_shadow payload)
+                | op -> Ok (Bracket_shadow_opacity (payload, op))
               else err_not_utility
             else if Parse.is_var inner && not (is_shadow_value inner) then
-              Ok (Bracket_var inner)
+              match opacity with
+              | Color.No_opacity -> Ok (Bracket_var inner)
+              | op -> Ok (Bracket_var_opacity (inner, op))
             else if is_hex_value inner then
               let hex = String.sub inner 1 (String.length inner - 1) in
               match opacity with
@@ -906,8 +567,15 @@ module Handler = struct
                     match opacity with
                     | Color.No_opacity -> Ok (Arbitrary inner)
                     | op -> Ok (Arbitrary_opacity (inner, op))))
-        (* Not a size: a shadeless colour, which the multi-segment colour cases
-           below never see because it fits in this single segment. *)
+        (* Not a size: a project [--text-shadow-<name>] token, else a shadeless
+           colour, which the multi-segment colour cases below never see because
+           it fits in this single segment. *)
+        | Stdlib.Option.None, Color.No_opacity
+          when named_bodies ~theme base <> Stdlib.Option.None ->
+            Ok (Named base)
+        | Stdlib.Option.None, op
+          when named_bodies ~theme base <> Stdlib.Option.None ->
+            Ok (Named_opacity (base, op))
         | Stdlib.Option.None, Color.No_opacity -> (
             match Color.shade_of_strings ~theme [ base ] with
             | Ok (color, shade) -> Ok (Color (color, shade))
@@ -918,14 +586,22 @@ module Handler = struct
             | Error e -> Error e))
     | "text" :: "shadow" :: color_parts when List.exists has_opacity color_parts
       -> (
-        match Color.shade_and_opacity_of_strings ~theme color_parts with
-        | Ok (color, shade, opacity) ->
-            Ok (Color_opacity (color, shade, opacity))
-        | Error e -> Error e)
+        let full = String.concat "-" color_parts in
+        let base, opacity = Color.parse_opacity_modifier ~theme full in
+        if named_bodies ~theme base <> Stdlib.Option.None then
+          Ok (Named_opacity (base, opacity))
+        else
+          match Color.shade_and_opacity_of_strings ~theme color_parts with
+          | Ok (color, shade, opacity) ->
+              Ok (Color_opacity (color, shade, opacity))
+          | Error e -> Error e)
     | "text" :: "shadow" :: color_parts -> (
-        match Color.shade_of_strings ~theme color_parts with
-        | Ok (color, shade) -> Ok (Color (color, shade))
-        | Error e -> Error e)
+        let full = String.concat "-" color_parts in
+        if named_bodies ~theme full <> Stdlib.Option.None then Ok (Named full)
+        else
+          match Color.shade_of_strings ~theme color_parts with
+          | Ok (color, shade) -> Ok (Color (color, shade))
+          | Error e -> Error e)
     | _ -> err_not_utility
 
   (* ============ Class name generation ============ *)
@@ -966,10 +642,17 @@ module Handler = struct
     | Bracket_cvar_opacity (var_expr, opacity) ->
         "text-shadow-[color:" ^ var_expr ^ "]/" ^ Color.pp_opacity opacity
     | Bracket_shadow var_expr -> "text-shadow-[shadow:" ^ var_expr ^ "]"
+    | Bracket_shadow_opacity (payload, opacity) ->
+        "text-shadow-[shadow:" ^ payload ^ "]/" ^ Color.pp_opacity opacity
     | Bracket_var var_expr -> "text-shadow-[" ^ var_expr ^ "]"
+    | Bracket_var_opacity (var_expr, opacity) ->
+        "text-shadow-[" ^ var_expr ^ "]/" ^ Color.pp_opacity opacity
     | Arbitrary arb -> "text-shadow-[" ^ arb ^ "]"
     | Arbitrary_opacity (arb, opacity) ->
         "text-shadow-[" ^ arb ^ "]/" ^ Color.pp_opacity opacity
+    | Named name -> "text-shadow-" ^ name
+    | Named_opacity (name, opacity) ->
+        "text-shadow-" ^ name ^ "/" ^ Color.pp_opacity opacity
 
   (* ============ Suborder ============ *)
 
@@ -979,9 +662,10 @@ module Handler = struct
   let suborder = function
     | Arbitrary_opacity (arb, _) -> (
         match parse_arbitrary_shadow arb with
-        | Some (_, _, _, Var_ref _) -> 6 (* @supports lab *)
-        | Some (_, _, _, No_color) -> 7 (* @supports color-mix *)
-        | Some (_, _, _, (Hex _ | Css_color _)) -> 8 (* no @supports *)
+        | Some (_, _, _, Parse.Var_token _) -> 6 (* @supports lab *)
+        | Some (_, _, _, Parse.No_colour) -> 7 (* @supports color-mix *)
+        | Some (_, _, _, (Parse.Hex_token _ | Parse.Colour _)) ->
+            8 (* no @supports *)
         | Stdlib.Option.None -> 9)
     | Shape_opacity _ -> 8 (* no @supports *)
     | _ -> 0

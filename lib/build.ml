@@ -460,7 +460,9 @@ let add_index ?theme ?(declared = fun _ -> false) triples =
       in
       let media_key, nested_media_key = Sort.media_sort_keys typ nested in
       let responsive_media_key = Sort.responsive_media_key typ nested in
-      let variant_order = Rule.compute_variant_order ~selector:sel base_class in
+      let variant_order =
+        Rule.compute_variant_order ?theme ~selector:sel base_class
+      in
       ({
          index = i;
          rule_type = typ;
@@ -544,7 +546,7 @@ let rule_sets_from_selector_props order_map all_rules =
                "SORTED: vo=";
                Pp.int r.variant_order;
                " base=";
-               (match r.base_class with Some s -> s | None -> "<none>");
+               Option.value ~default:"<none>" r.base_class;
                " type=";
                (match r.rule_type with
                | `Regular -> "R"
@@ -608,9 +610,8 @@ let sorted_indexed_rules ?theme ?declared order_map all_rules =
 (* Sort var names by property_order. Names include -- prefix. *)
 let sort_vars_by_property_order metadata vars =
   let get_order name =
-    match metadata_property_order metadata name with
-    | Some o -> o
-    | None -> 1000 (* Default for vars without property_order *)
+    (* 1000 for a var without a property_order *)
+    Option.value ~default:1000 (metadata_property_order metadata name)
   in
   (* Decorate-sort-undecorate: [get_order] allocates a [String.sub] per call,
      and a comparator runs it on both operands of every comparison. *)
@@ -705,7 +706,8 @@ let extract_non_tw_custom_declarations selector_props =
 let apply_token_override theme decl =
   match Css.custom_declaration_name decl with
   | Some full_name
-    when String.length full_name > 2 && String.sub full_name 0 2 = "--" -> (
+    when String.starts_with ~prefix:"--" full_name
+         && String.length full_name > 2 -> (
       let bare = String.sub full_name 2 (String.length full_name - 2) in
       (* An [@theme reference] token is declared somewhere else, so it has no
          declaration here to override. *)
@@ -719,7 +721,7 @@ let apply_token_override theme decl =
           when String.equal bare (Var.name Theme.spacing_var)
                && Var.is_runtime_declaration decl -> (
             match Css.parse_length css with
-            | Some length -> Some (fst (Var.binding Theme.spacing_var length))
+            | Some length -> Some (Var.set Theme.spacing_var length)
             | None -> Some (Css.custom_property ~layer:"theme" full_name css))
         | Some css -> Some (Css.custom_property ~layer:"theme" full_name css)
         | None -> if Scheme.is_removed theme bare then None else Some decl)
@@ -780,12 +782,9 @@ let declared_order declared name =
   match name with
   | None -> None
   | Some full ->
-      let bare =
-        if String.length full > 2 && String.sub full 0 2 = "--" then
-          String.sub full 2 (String.length full - 2)
-        else full
-      in
-      List.assoc_opt bare declared
+      List.assoc_opt
+        (Option.value ~default:full (Parse.bare_name full))
+        declared
 
 (* Sort declarations by their Var order metadata, then declaration order within
    a shared slot, then alphabetical fallback. A project-named family
@@ -854,6 +853,65 @@ let add_output_var_names names = function
 let referenced_var_names selector_props =
   List.fold_left add_output_var_names Strings.empty selector_props
 
+(* The first ident of a [var()]: its name, up to the comma a fallback
+   follows. *)
+let rec var_name = function
+  | [] -> None
+  | Cascade.Component.Preserved { kind = Cascade.Token.Ident n; _ } :: _ ->
+      Some n
+  | Cascade.Component.Preserved { kind = Cascade.Token.Comma; _ } :: _ -> None
+  | _ :: rest -> var_name rest
+
+(* The variables a value reads: every [var(--x)] outside a fallback. In
+   [var(--a, var(--b))] the rule reads [--a], and [--b] stands in only when
+   nothing declares [--a], which a static utility relies on where its theme
+   token is optional; so [--b] is not a read. Walked as component values, so a
+   [var(] inside a string or a [url()] is data. *)
+let rec var_reads acc (components : Cascade.Component.t list) =
+  List.fold_left
+    (fun acc (c : Cascade.Component.t) ->
+      match c with
+      | Func { node = { name; arguments; _ }; _ }
+        when String.lowercase_ascii name = "var" -> (
+          match var_name arguments with Some n -> n :: acc | None -> acc)
+      | Func { node = { arguments; _ }; _ } -> var_reads acc arguments
+      | Block { node = { value; _ }; _ } -> var_reads acc value
+      | Preserved _ -> acc)
+    acc components
+
+let declaration_reads acc declarations =
+  List.fold_left
+    (fun acc declaration ->
+      let value = Css.declaration_value declaration in
+      var_reads acc
+        (Cascade.Parser.list_of_component_values
+           (Cascade.Reader.of_string value))
+          .value)
+    acc declarations
+
+let removed_token_read ~theme ~authored outputs =
+  let reads =
+    List.fold_left
+      (fun acc -> function
+        | Regular { props; nested; _ }
+        | Media_query { props; nested; _ }
+        | Container_query { props; nested; _ }
+        | Starting_style { props; nested; _ }
+        | Supports_query { props; nested; _ } ->
+            Css.Stylesheet.fold_declarations declaration_reads
+              (declaration_reads acc props)
+              nested)
+      [] outputs
+  in
+  List.find_map
+    (fun full ->
+      match Parse.bare_name full with
+      | Some bare when Scheme.is_removed_token theme bare && not (authored full)
+        ->
+          Some bare
+      | _ -> None)
+    (List.rev reads)
+
 let add_output_metadata index = function
   | Regular { props; nested; _ }
   | Media_query { props; nested; _ }
@@ -876,38 +934,33 @@ let referenced_theme_decls ~theme ~exclude selector_props =
   referenced_var_names selector_props
   |> Strings.to_list
   |> List.filter_map (fun full ->
-      if
-        String.length full <= 2
-        || String.sub full 0 2 <> "--"
-        || Strings.mem full exclude
-      then None
-      else
-        let bare = String.sub full 2 (String.length full - 2) in
-        match bare with
-        (* An arbitrary value may name the spacing scale directly, as
-           [p-[calc(--spacing(2)+1px)]] does. *)
-        | "spacing" ->
-            let decl, _ =
-              Var.binding Theme.spacing_var
-                (Option.value
-                   (Option.bind
-                      (Scheme.theme_value (Some theme) "spacing")
-                      Css.parse_length)
-                   ~default:Theme.spacing_base)
-            in
-            Some decl
-        | _ -> (
-            match Color.Handler.theme_color_decl ~theme bare with
-            | Some _ as decl -> decl
-            | None ->
-                if
-                  Scheme.is_inline_token theme bare
-                  || Scheme.is_reference_token theme bare
-                then None
-                else
-                  Option.map
-                    (Css.custom_property ~layer:"theme" full)
-                    (Scheme.token_override theme bare)))
+      match Parse.bare_name full with
+      | None -> None
+      | Some _ when Strings.mem full exclude -> None
+      (* An arbitrary value may name the spacing scale directly, as
+         [p-[calc(--spacing(2)+1px)]] does. *)
+      | Some "spacing" ->
+          let decl =
+            Var.set Theme.spacing_var
+              (Option.value
+                 (Option.bind
+                    (Scheme.theme_value (Some theme) "spacing")
+                    Css.parse_length)
+                 ~default:Theme.spacing_base)
+          in
+          Some decl
+      | Some bare -> (
+          match Color.Handler.theme_color_decl ~theme bare with
+          | Some _ as decl -> decl
+          | None ->
+              if
+                Scheme.is_inline_token theme bare
+                || Scheme.is_reference_token theme bare
+              then None
+              else
+                Option.map
+                  (Css.custom_property ~layer:"theme" full)
+                  (Scheme.token_override theme bare)))
 
 (* [--default-font-family] points at [--font-sans], [--default-mono-font-family]
    at [--font-mono]. Tailwind spells the pair [--theme(--font-sans, initial)],
@@ -1088,9 +1141,10 @@ let placeholder_supports =
         outer_support_content;
     ]
 
-let base_layer ?supports ?(forms_base = false) () =
+let base_layer ?theme ?supports ?(forms_base = false) () =
   let preflight =
-    Preflight.stylesheet ?placeholder_supports:supports ~forms:forms_base ()
+    Preflight.stylesheet ?theme ?placeholder_supports:supports ~forms:forms_base
+      ()
   in
   let base =
     if forms_base then Css.concat [ preflight; Forms.base_stylesheet () ]
@@ -1282,17 +1336,13 @@ let compare_property_vars ~metadata ~get_family_order ~get_first_usage n1 n2 po1
 let property_var_comparator metadata fallback_order first_usage_order =
   let family_order = family_order metadata first_usage_order in
   let get_family_order name =
-    match metadata_family metadata name with
-    | Some fam -> (
-        match Hashtbl.find_opt family_order fam with
-        | Some o -> o
-        | None -> 1000)
-    | None -> 1000
+    Option.value ~default:1000
+      (Option.bind
+         (metadata_family metadata name)
+         (Hashtbl.find_opt family_order))
   in
   let get_first_usage name =
-    match Hashtbl.find_opt first_usage_order name with
-    | Some idx -> idx
-    | None -> 10000
+    Option.value ~default:10000 (Hashtbl.find_opt first_usage_order name)
   in
   fun n1 n2 ->
     let fam1 = metadata_family metadata n1 in
@@ -1598,8 +1648,7 @@ let has_transition_utility tw_classes =
   let rec check = function
     | Utility.Base b ->
         let c = Utility.class_of_base b in
-        String.length c >= 10
-        && String.sub c 0 10 = "transition"
+        String.starts_with ~prefix:"transition" c
         && not (reads_no_transition_defaults c)
     | Utility.Modified (_, u)
     | Utility.Important (_, u)
@@ -1623,8 +1672,22 @@ let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
     ~metadata ~fallback_order first_usage_order selector_props
     all_property_statements statements =
   let theme_defaults =
+    (* The base layer reads [--font-sans] and [--font-mono] through the two
+       [--default-*-font-family] tokens, which is what puts the stacks in the
+       theme layer; a block that took a default token away leaves its stack
+       unread, and a utility reading it declares it on its own. *)
     let font_defaults =
-      if include_base then Typography.default_font_family_declarations else []
+      if include_base then
+        List.filter
+          (fun decl ->
+            match Css.custom_declaration_name decl with
+            | Some "--font-sans" ->
+                not (Scheme.is_removed theme "default-font-family")
+            | Some "--font-mono" ->
+                not (Scheme.is_removed theme "default-mono-font-family")
+            | _ -> true)
+          Typography.default_font_family_declarations
+      else []
     in
     let transition_defaults =
       if include_base && has_transition then
@@ -1637,7 +1700,9 @@ let individual_layers ~theme ~layers ~include_base ~forms_base ~has_transition
     theme_layer_of_props ~theme ~layers ~default_decls:theme_defaults ~metadata
       selector_props
   in
-  let base_layer = base_layer ~supports:placeholder_supports ~forms_base () in
+  let base_layer =
+    base_layer ~theme ~supports:placeholder_supports ~forms_base ()
+  in
   let properties_layer, property_rules =
     if all_property_statements = [] then (None, [])
     else
@@ -1826,7 +1891,14 @@ let outputs_of_statement ~base_class stmt =
                 inner
           | None -> (
               match Css.as_container stmt with
-              | Some (_, Some condition, inner) ->
+              | Some (name, Some condition, inner) ->
+                  (* The parsed query keeps the container's name beside its
+                     condition, and the typed condition carries it inside. *)
+                  let condition =
+                    Option.fold ~none:condition
+                      ~some:(fun name -> Css.Container.Named (name, condition))
+                      name
+                  in
                   of_inner
                     (fun ~selector ~props ~nested ->
                       Output.container_query ~condition ~selector ~props
@@ -1920,14 +1992,28 @@ let normalize_declared_property_families order_map builtins extra_outputs =
    The rename goes to the printer rather than the sheet because a [var()]
    reference sits inside a typed value, so moving it in the AST would mean
    rebuilding every value that holds one. *)
+(* Whether [name] is a theme key: a registered default, a palette colour, a
+   token the project's [@theme] declared or a [--default-*] the base layer
+   reads. The prefix moves those and nothing else: a [var(--brand)] the author
+   wrote into an arbitrary value or an inline token's value is their own. *)
+let is_theme_key theme name =
+  Option.is_some (Scheme.token_default name)
+  || Option.is_some (Scheme.theme_value (Some theme) name)
+  || Scheme.is_inline_token theme name
+  || Scheme.is_reference_token theme name
+  || String.starts_with ~prefix:"default-" name
+  || Option.is_some (Color.Handler.theme_color_decl ~theme name)
+
 let theme_token_rename ~theme =
   match theme.Scheme.prefix with
   | None -> None
   | Some prefix ->
       Some
         (fun name ->
-          if String.length name > 3 && String.sub name 0 3 = "tw-" then name
-          else prefix ^ "-" ^ name)
+          if String.starts_with ~prefix:"tw-" name && String.length name > 3
+          then name
+          else if is_theme_key theme name then prefix ^ "-" ^ name
+          else name)
 
 (* A declared utility means nothing to the handlers, so its order arrives with
    it and is seeded under the same key [order_of_base] looks up. The key is the
@@ -1971,11 +2057,7 @@ let with_reference_fallbacks ~theme sheet =
   else
     Css.add_var_fallbacks
       (fun name ->
-        let bare =
-          if String.length name > 2 && String.sub name 0 2 = "--" then
-            String.sub name 2 (String.length name - 2)
-          else name
-        in
+        let bare = Option.value ~default:name (Parse.bare_name name) in
         if Scheme.is_reference_token theme bare then reference_value ~theme bare
         else None)
       sheet

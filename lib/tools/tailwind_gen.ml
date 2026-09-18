@@ -72,24 +72,7 @@ let entrypoint ?project_css ?(plugins = []) ?config ?(scanned_files = [])
 (* [-s "p-4 flex"] hands the harness one entry holding two candidates, and both
    routes split it, so what either compiles is the whitespace split of what the
    caller passed. *)
-let candidates classnames =
-  let is_white = function
-    | ' ' | '\t' | '\n' | '\r' | '\012' -> true
-    | _ -> false
-  in
-  let split s =
-    let n = String.length s in
-    let rec loop i start acc =
-      let taken =
-        if i > start then String.sub s start (i - start) :: acc else acc
-      in
-      if i = n then List.rev taken
-      else if is_white s.[i] then loop (i + 1) (i + 1) taken
-      else loop (i + 1) start acc
-    in
-    loop 0 0 []
-  in
-  List.concat_map split classnames
+let candidates classnames = List.concat_map Tw.split_whitespace classnames
 
 (* What the inline string cannot hold reaches the CLI through the extractor and
    nowhere else, which is the one case where a dropped candidate costs a rule
@@ -495,9 +478,22 @@ let temp_dir () =
 (** Detect if any class names use forms utilities (form-input, form-select,
     etc.) *)
 let has_forms_class classnames =
-  List.exists
-    (fun cls -> String.length cls >= 5 && String.sub cls 0 5 = "form-")
-    classnames
+  List.exists (fun cls -> String.starts_with ~prefix:"form-" cls) classnames
+
+(* What the CLI said is the reason a generation failed; the class list only says
+   what was asked of it. *)
+let failure_message ~errors classnames =
+  let said =
+    try String.trim (In_channel.with_open_bin errors In_channel.input_all)
+    with Sys_error _ -> ""
+  in
+  String.concat ""
+    [
+      "Failed to generate Tailwind CSS";
+      (if said = "" then "" else ": " ^ said);
+      "\nfor classes: ";
+      String.concat " " classnames;
+    ]
 
 let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
   check_tailwindcss_available ();
@@ -531,12 +527,13 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
        no rooting at all, but a caller-supplied project entrypoint carries its
        own source decisions and may well leave detection on, and this is what
        keeps it off whatever directory the calling binary stands in. *)
+    let errors = Filename.concat dir "stderr.txt" in
     let cmd =
-      Fmt.str "%s --cwd %s -i %s -o %s%s%s 2>/dev/null" tailwind_cmd
+      Fmt.str "%s --cwd %s -i %s -o %s%s%s 2>%s" tailwind_cmd
         (Filename.quote dir)
         (Filename.quote (Filename.concat dir "input.css"))
         (Filename.quote output_file)
-        minify_flag optimize_flag
+        minify_flag optimize_flag (Filename.quote errors)
     in
 
     let exit_code = Sys.command cmd in
@@ -549,11 +546,10 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
       close_in ic;
       cleanup ();
       content)
-    else (
+    else
+      let message = failure_message ~errors classnames in
       cleanup ();
-      failwith
-        ("Failed to generate Tailwind CSS for classes: "
-        ^ String.concat " " classnames))
+      failwith message
   with e ->
     cleanup ();
     raise e

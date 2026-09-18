@@ -569,6 +569,15 @@ let renders_as_media = function
       true
   | _ -> false
 
+(* A variant whose rendering gates on [\@media (hover: hover)]: [hover] itself,
+   its group, peer, named, ancestor and [has-] forms. [has-hover] holds the
+   state as a name. *)
+let rec involves_hover = function
+  | Hover | Group_hover | Peer_hover | Device_hocus | Has "hover" -> true
+  | Named_group (m, _) | Named_peer (m, _) | In_state (m, _) | Has_variant m ->
+      involves_hover m
+  | _ -> false
+
 let wrap m styles =
   match styles with
   | [] -> Utility.Group []
@@ -1738,29 +1747,20 @@ let try_not_shorthand inner =
     (* data-X shorthand — attribute presence check *)
   else if String.length inner > 5 && String.sub inner 0 5 = "data-" then
     let attr = String.sub inner 5 (String.length inner - 5) in
-    Some (Not (Data_custom (attr, "")))
-    (* has-X shorthand — :has(:X) pseudo-class *)
-  else if String.length inner > 4 && String.sub inner 0 4 = "has-" then
-    (* The shorthand names a pseudo-class, so it has to read as one; the bracket
-       form validates its selector the same way. *)
-    let sel = ":" ^ String.sub inner 4 (String.length inner - 4) in
-    if is_valid_has_selector sel then Some (Not (Has sel)) else None
-    (* nth-X shorthand — :nth-child(X) *)
+    Some (Not (Data_custom (attr, ""))) (* nth-X shorthand — :nth-child(X) *)
   else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
     let expr = String.sub inner 4 (String.length inner - 4) in
     Some (Not (Nth (Style.nth_expr expr)))
   else None
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
-    starting style, children/descendants, and container queries cannot be
-    negated: a container query has no negated selector form, and tw used to
-    build [.not-\@md\:flex:not(.flex)] for one, negating the utility's own class
-    so the rule matched nothing. *)
+    starting style and children/descendants cannot be negated; a container query
+    can, as [\@container not (width >= 28rem)]. *)
 let is_not_compatible = function
   | Pseudo_before | Pseudo_after | Pseudo_marker | Pseudo_selection
   | Pseudo_placeholder | Pseudo_backdrop | Pseudo_file | Pseudo_first_letter
   | Pseudo_first_line | Pseudo_details_content | Starting | Children
-  | Descendants | Prose_element _ | Container _ ->
+  | Descendants | Prose_element _ ->
       false
   (* A bracket [@media] at-rule wraps the utility in a query and has no selector
      to negate or to look for; [not-[@media ...]] has its own reading, and
@@ -1773,6 +1773,38 @@ let is_not_compatible = function
     when String.length content > 9 && String.sub content 0 9 = "@supports" ->
       false
   | _ -> true
+
+(* A variant that is an at-rule and nothing else: a media, breakpoint, supports
+   or container query, or the negation of one. *)
+let rec at_rule_only = function
+  | Responsive _ | Min_responsive _ | Max_responsive _ | Min_arbitrary _
+  | Max_arbitrary _ | Min_arbitrary_length _ | Max_arbitrary_length _
+  | Custom_responsive _ | Min_custom _ | Max_custom _ | Supports_property _
+  | Supports_condition _ | Container _ | Starting ->
+      true
+  | At_rule content | Not_bracket content ->
+      Option.is_some (bracket_media_condition content)
+      || (String.length content > 9 && String.sub content 0 9 = "@supports")
+  | Not m -> at_rule_only m
+  | m -> renders_as_media m && not (involves_hover m)
+
+(* The variants a [group-not-] or [peer-not-] holds. A plain [not-hover] is fine
+   - it negates the selector and keeps the hover media gate - but a group or
+   peer negation has only the selector, so an inner with an at-rule half, a
+   breakpoint or a container as much as [hover], leaves it nothing to emit, and
+   Tailwind compiles nothing for it. *)
+let scoped_negation_holds m =
+  is_not_compatible m && (not (at_rule_only m)) && not (involves_hover m)
+
+(* The variants a [has-] or [in-] holds: those with a selector of their own. An
+   at-rule variant has none. A negation has one unless it negates an at-rule,
+   and [not-hover] pairs its selector with [\@media not (hover: hover)], which a
+   compound cannot carry: Tailwind compiles nothing for [has-md], [has-not-dark]
+   or [in-not-group-hover]. [hover] itself keeps its gate around the compound,
+   so [has-hover] is fine. *)
+let rec has_selector = function
+  | Not m -> is_not_compatible m && has_selector m && not (involves_hover m)
+  | m -> is_not_compatible m && not (at_rule_only m)
 
 (* [not-[...]] whose content is neither a media condition nor a pseudo-class
    negates the content read as a selector, so text the selector grammar cannot
@@ -1874,13 +1906,13 @@ let parse_group_peer_not_inner rest =
         let name = String.sub rest (i + 1) (String.length rest - i - 1) in
         let inner_mod =
           match List.assoc_opt inner_str simple_modifiers with
-          | Some m when not (renders_as_media m) -> Some m
+          | Some m when scoped_negation_holds m -> Some m
           | Some _ | None -> None
         in
         Option.map (fun m -> (m, Some name)) inner_mod
     | None -> (
         match List.assoc_opt rest simple_modifiers with
-        | Some m when not (renders_as_media m) -> Some (m, None)
+        | Some m when scoped_negation_holds m -> Some (m, None)
         | Some _ | None -> None)
 
 (* Try to parse compound named group variants: not-group-STATE/name,
@@ -1924,8 +1956,11 @@ let try_in_modifier s =
       | Some i when i = String.length after - 1 ->
           Some (In_bracket (String.sub after 0 i))
       | _ -> None
-    else if String.length rest > 5 && String.sub rest 0 5 = "data-" then
-      Some (In_data (String.sub rest 5 (String.length rest - 5)))
+    else if
+      String.length rest > 5
+      && String.sub rest 0 5 = "data-"
+      && not (String.contains rest '[')
+    then Some (In_data (String.sub rest 5 (String.length rest - 5)))
     else
       (* [in-focus]: an ancestor in that state, the same state names the other
          variants take. *)
@@ -2128,36 +2163,56 @@ let rec container_query_theme_decls (q : container_query) =
       container_query_theme_decls inner
   | Container_3xs | Container_2xs | Container_xs | Container_sm | Container_md
   | Container_lg | Container_xl | Container_2xl | Container_3xl | Container_4xl
-  | Container_5xl | Container_6xl | Container_7xl | Container_named _ ->
+  | Container_5xl | Container_6xl | Container_7xl | Container_theme _
+  | Container_named _ ->
       []
 
 (* [@sm/main] aims a size query at the container named [main]. The name is the
    tail after the last [/]; the head is any other container-query spelling. *)
-let rec try_container_query s =
-  (* Match ["<prefix>[<len>]"] and build a modifier from the parsed length. *)
-  let bracketed prefix mk =
-    let plen = String.length prefix and slen = String.length s in
-    if
-      slen > plen + 2
-      && String.sub s 0 plen = prefix
-      && s.[plen] = '['
-      && s.[slen - 1] = ']'
-    then
-      let raw = String.sub s (plen + 1) (slen - plen - 2) in
-      match parse_container_length raw with
-      | Some len -> Some (mk raw len)
-      | None -> None
-    else None
-  in
-  (* Match ["<prefix><size>"] against the named size scale. *)
+(* A size the project's [@theme] declared as [--container-<name>], read the
+   way the built-in scale is; the scale's own names stay built in. *)
+let theme_container_size theme name =
+  match container_size_of_string name with
+  | Some _ -> None
+  | None ->
+      if
+        Parse.is_valid_theme_name name
+        && Option.is_some
+             (Option.bind
+                (Scheme.token theme ("container-" ^ name))
+                Css.parse_length)
+      then Some (Container_theme name)
+      else None
+
+(* Match ["<prefix>[<len>]"] and build a modifier from the parsed length. *)
+let bracketed_container s prefix mk =
+  let plen = String.length prefix and slen = String.length s in
+  if
+    slen > plen + 2
+    && String.sub s 0 plen = prefix
+    && s.[plen] = '['
+    && s.[slen - 1] = ']'
+  then
+    let raw = String.sub s (plen + 1) (slen - plen - 2) in
+    match parse_container_length raw with
+    | Some len -> Some (mk raw len)
+    | None -> None
+  else None
+
+let rec try_container_query ?(theme = Scheme.default) s =
+  let bracketed = bracketed_container s in
+  (* Match ["<prefix><size>"] against the named size scale, then against the
+     sizes the project declared. *)
   let sized prefix cmp =
     let plen = String.length prefix in
     if String.length s > plen && String.sub s 0 plen = prefix then
-      match
-        container_size_of_string (String.sub s plen (String.length s - plen))
-      with
+      let name = String.sub s plen (String.length s - plen) in
+      match container_size_of_string name with
       | Some q -> Some (Container (Container_size (cmp, q)))
-      | None -> None
+      | None ->
+          Option.map
+            (fun q -> Container (Container_size (cmp, q)))
+            (theme_container_size theme name)
     else None
   in
   if String.length s < 2 || s.[0] <> '@' then None
@@ -2175,10 +2230,14 @@ let rec try_container_query s =
               Container (Container_len_cmp (Max, raw, len))));
         (fun () -> sized "@min-" Min);
         (fun () -> sized "@max-" Max);
-        (fun () -> try_scoped_container_query s);
+        (fun () ->
+          Option.map
+            (fun q -> Container q)
+            (theme_container_size theme (String.sub s 1 (String.length s - 1))));
+        (fun () -> try_scoped_container_query ~theme s);
       ]
 
-and try_scoped_container_query s =
+and try_scoped_container_query ?(theme = Scheme.default) s =
   match String.rindex_opt s '/' with
   | None -> None
   | Some i -> (
@@ -2189,26 +2248,39 @@ and try_scoped_container_query s =
         match
           match List.assoc_opt head simple_modifiers with
           | Some _ as m -> m
-          | None -> try_container_query head
+          | None -> try_container_query ~theme head
         with
         | Some (Container q) -> Some (Container (Container_scoped (name, q)))
         | _ -> None)
 
-let container_query_of_token token =
+let container_query_of_token ?theme token =
   match List.assoc_opt token simple_modifiers with
   | Some (Container q) -> Some q
   | Some _ -> None
   | None -> (
-      match try_container_query token with
+      match try_container_query ?theme token with
       | Some (Container q) -> Some q
       | Some _ | None -> None)
+
+(* The [--container-*] scale a size query reads, held the way the breakpoints
+   are: a size the [@theme] block removed names nothing, under [@min-], [@max-]
+   and a [/name] tail alike. *)
+let rec container_size_is_defined theme = function
+  | Container_size (_, inner) | Container_scoped (_, inner) ->
+      container_size_is_defined theme inner
+  | ( Container_3xs | Container_2xs | Container_xs | Container_sm | Container_md
+    | Container_lg | Container_xl | Container_2xl | Container_3xl
+    | Container_4xl | Container_5xl | Container_6xl | Container_7xl
+    | Container_theme _ ) as q ->
+      not (Scheme.is_removed theme ("container-" ^ Style.container_size_name q))
+  | Container_named _ | Container_len _ | Container_len_cmp _ -> true
 
 (* Parse a modifier string into a typed Style.modifier *)
 let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
     [
       (fun () -> lookup_simple theme s);
-      (fun () -> try_container_query s);
+      (fun () -> try_container_query ~theme s);
       (fun () -> try_bracketed_modifier s);
       (fun () -> try_aria_shorthand s);
       (fun () -> try_has_shorthand s);
@@ -2231,9 +2303,12 @@ let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
          The readings above come first because several [not-] spellings need
          their own handling. *)
       (fun () -> try_not_of_modifier ~theme s);
+      (fun () -> try_in_variant ~theme s);
     ]
   in
-  List.find_map (fun f -> f ()) fns
+  match List.find_map (fun f -> f ()) fns with
+  | Some (Container q) when not (container_size_is_defined theme q) -> None
+  | m -> m
 
 (* [group-not-has-[...]] and [peer-not-...]: the inner is any variant, read on
    its own. The reading above only knows the simple state names and a bare
@@ -2247,11 +2322,7 @@ and try_group_peer_not_variant ~theme s =
         split_name (String.sub s plen (String.length s - plen))
       in
       match parse_modifier ~theme base with
-      (* A plain [not-hover] is fine - it negates the selector and keeps the
-         hover media gate. A group or peer negation has only the selector, so a
-         media-rendered inner leaves it with nothing to emit. *)
-      | Some m when is_not_compatible m && not (renders_as_media m) ->
-          Some (make m name)
+      | Some m when scoped_negation_holds m -> Some (make m name)
       | Some _ | None -> None
   in
   match try_prefix "group-not-" (fun i n -> Group_not (i, n)) with
@@ -2264,7 +2335,7 @@ and try_group_peer_not_variant ~theme s =
 and try_has_variant ~theme s =
   if String.length s > 4 && String.sub s 0 4 = "has-" then
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
-    | Some m when is_not_compatible m -> Some (Has_variant m)
+    | Some m when has_selector m -> Some (Has_variant m)
     | Some _ | None -> None
   else
     match try_scoped_has_variant ~theme "group-has-" s with
@@ -2284,16 +2355,32 @@ and try_scoped_has_variant ~theme prefix s =
     if base = "" || base.[0] = '[' || is_has_shorthand base then None
     else
       match parse_modifier ~theme base with
-      | Some m when is_not_compatible m -> Some (m, name)
+      | Some m when has_selector m -> Some (m, name)
       | Some _ | None -> None
   else None
 
+(* A [not-] over any variant, including another negation: [not-not-md] is [md]
+   again. A negation with two halves has no single negation, so [not-not-hover]
+   reads as nothing, which is what Tailwind compiles for it. *)
 and try_not_of_modifier ~theme s =
   if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
   else
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
+    | Some (Not inner) when involves_hover inner -> None
     | Some m when is_not_compatible m -> Some (Not m)
     | Some _ | None -> None
+
+(* [in-<variant>]: an ancestor the variant's selector matches. The readings
+   above know a bracket, a data attribute, a named group and the state names;
+   any other variant with a selector reads here, as [has-] does, and
+   [in-not-focus], [in-has-focus] and [in-group-hover] all read. *)
+and try_in_variant ~theme s =
+  if String.length s > 3 && String.sub s 0 3 = "in-" then
+    let rest = String.sub s 3 (String.length s - 3) in
+    match parse_modifier ~theme rest with
+    | Some m when has_selector m -> Some (In_state (m, rest))
+    | Some _ | None -> None
+  else None
 
 (* Apply a list of modifier strings to a base utility *)
 let apply ?(theme = Scheme.default) modifiers base_utility =
@@ -2784,6 +2871,10 @@ let variant_order_of_prefix ?theme prefix =
          that exact registration changes its body but retains its slot. *)
       if String.equal prefix "dark" then Slot.rank Slot.Dark
       else Slot.rank Slot.Custom
+  (* A breakpoint the project declared, [xs:] under [--breakpoint-xs], sorts
+     with the built-in ones; the table above knows the built-in names alone. *)
+  | Some theme when Scheme.has_breakpoint theme prefix ->
+      Slot.rank Slot.Breakpoint
   | Some _ | None -> (
       match slot_of_prefix prefix with Some slot -> Slot.rank slot | None -> 0)
 

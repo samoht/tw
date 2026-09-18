@@ -98,7 +98,7 @@ module Handler = struct
   let spacing_theme_decl value =
     match value with
     | Spacing _ ->
-        let decl, _ = Var.binding Theme.spacing_var Theme.spacing_base in
+        let decl = Var.set Theme.spacing_var Theme.spacing_base in
         [ decl ]
     | Percent _ | Arbitrary _ -> []
 
@@ -227,7 +227,7 @@ module Handler = struct
   let read v initial = snd (Var.binding v initial)
 
   (* Writing one. *)
-  let set v value = fst (Var.binding v value)
+  let set v value = Var.set v value
 
   (* The two stops a mask gradient runs between. *)
   let stops v : gradient_stop list =
@@ -960,11 +960,14 @@ module Handler = struct
     let len = String.length suffix in
     if len > 2 && suffix.[0] = '(' && suffix.[len - 1] = ')' then
       let inner = String.sub suffix 1 (len - 2) in
-      if String.length inner > 7 && String.sub inner 0 6 = "color:" then
+      if String.starts_with ~prefix:"color:" inner && String.length inner > 7
+      then
         (* (color:--var-name) → color ref *)
         let var_name = String.sub inner 6 (String.length inner - 6) in
         Some (`Color, var_name)
-      else if String.length inner > 9 && String.sub inner 0 7 = "length:" then
+      else if
+        String.starts_with ~prefix:"length:" inner && String.length inner > 9
+      then
         (* (length:--var-name) → position ref with length prefix *)
         let var_name = String.sub inner 7 (String.length inner - 7) in
         Some (`Length, var_name)

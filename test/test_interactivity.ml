@@ -1,11 +1,7 @@
 open Alcotest
 
-let check class_name =
-  match Tw.Interactivity.Handler.of_class Tw.Scheme.default class_name with
-  | Ok u ->
-      check string "interactivity class" class_name
-        (Tw.Interactivity.Handler.to_class u)
-  | Error (`Msg msg) -> fail msg
+let check =
+  Test_helpers.check_handler_roundtrip (module Tw.Interactivity.Handler)
 
 let test_select () = check "select-none"
 

@@ -1344,6 +1344,37 @@ let test_theme_tokens_stripped_at_every_depth () =
           Alcotest.(check int) (cls ^ " declares --spacing once") 1 occurrences)
     [ "p-4"; "starting:p-4"; "md:starting:p-4"; "hover:starting:p-4" ]
 
+(* [prefix(tw)] moves the theme's own keys - a registered default, a palette
+   colour, a token the project declared, a [--default-*] the base layer reads -
+   and nothing else. A [var(--brand)] the author wrote into an arbitrary value,
+   or into an inline token's value, is their own custom property: renaming it
+   pointed the sheet at [--tw-brand], which nothing sets. *)
+let test_theme_token_rename_keys () =
+  let theme =
+    Tw.Scheme.with_overrides ~inline:[ "color-brand" ]
+      { Tw.Scheme.default with prefix = Some "tw" }
+      [ ("color-brand", "var(--brand)"); ("shadow-card", "0 1px var(--c)") ]
+  in
+  let rename =
+    match Tw.theme_token_rename ~theme with
+    | Some rename -> rename
+    | None -> Alcotest.fail "a prefixed theme renames"
+  in
+  List.iter
+    (fun (name, expected) -> check string name expected (rename name))
+    [
+      ("spacing", "tw-spacing");
+      ("color-red-500", "tw-color-red-500");
+      ("default-font-family", "tw-default-font-family");
+      ("color-brand", "tw-color-brand");
+      ("shadow-card", "tw-shadow-card");
+      ("brand", "brand");
+      ("c", "c");
+      ("tw-shadow", "tw-shadow");
+    ];
+  check bool "no prefix, no rename" true
+    (Option.is_none (Tw.theme_token_rename ~theme:Tw.Scheme.default))
+
 let tests =
   [
     test_case "starting-style blocks merge" `Quick test_starting_style_merges;
@@ -1430,6 +1461,7 @@ let tests =
       test_property_default_rule_is_automatic;
     test_case "theme tokens stripped at every depth" `Quick
       test_theme_tokens_stripped_at_every_depth;
+    test_case "theme token rename keys" `Quick test_theme_token_rename_keys;
   ]
 
 let suite = ("build", tests)

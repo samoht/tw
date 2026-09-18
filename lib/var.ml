@@ -288,6 +288,7 @@ let property_rules : type a. (a, [< `Property_default ]) t -> Css.t =
 (* Create a binding: returns both declaration and a context-aware var
    reference *)
 let binding var ?fallback value = var.binding ?fallback value
+let set var value = fst (var.binding value)
 
 (* Reset a channel to the CSS-wide [initial] keyword ([--tw-x: initial]). Used
    by the [*-initial] / [via-none] utilities, which clear a channel var rather

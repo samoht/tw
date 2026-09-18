@@ -330,6 +330,40 @@ let test_named_text_size () =
   Test_helpers.check_declarations ~theme "text-huge/7"
     [ "font-size:var(--text-huge)"; "line-height:calc(var(--spacing)*7)" ]
 
+(* A project size may carry a line height, a letter spacing and a font weight
+   beside it, as [--text-huge--line-height] and its siblings, the way the
+   built-in scale carries [--text-lg--line-height]. Tailwind writes each through
+   its channel with the token as the fallback, so [leading-*] on the same
+   element still wins; a [/modifier] names the line height itself and then the
+   size and that line height are all it writes; and an inline token puts its
+   value in the fallback. The size stood alone, whatever the block declared
+   beside it. *)
+let test_named_text_size_sub_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides
+      ~inline:[ "text-tiny"; "text-tiny--line-height" ]
+      Tw.Scheme.default
+      [
+        ("text-huge", "4rem");
+        ("text-huge--line-height", "1");
+        ("text-huge--letter-spacing", "-0.02em");
+        ("text-huge--font-weight", "700");
+        ("text-tiny", "0.5rem");
+        ("text-tiny--line-height", "1.2");
+      ]
+  in
+  Test_helpers.check_declarations ~theme "text-huge"
+    [
+      "font-size:var(--text-huge)";
+      "line-height:var(--tw-leading,var(--text-huge--line-height))";
+      "letter-spacing:var(--tw-tracking,var(--text-huge--letter-spacing))";
+      "font-weight:var(--tw-font-weight,var(--text-huge--font-weight))";
+    ];
+  Test_helpers.check_declarations ~theme "text-huge/tight"
+    [ "font-size:var(--text-huge)"; "line-height:var(--leading-tight)" ];
+  Test_helpers.check_declarations ~theme "text-tiny"
+    [ "font-size:.5rem"; "line-height:var(--tw-leading,1.2)" ]
+
 (* [--text-shadow-*] is a namespace of its own and [--text-<name>--line-height]
    is a modifier on another token, so neither names a font size. Nor does a
    [--text-*] token whose value is not a length. *)
@@ -348,7 +382,10 @@ let test_text_size_namespace_boundaries () =
       match Tw.of_string ~theme cls with
       | Error _ -> ()
       | Ok u -> Alcotest.failf "%s parsed as a font size (%s)" cls (Tw.pp u))
-    [ "text-shadow-pop"; "text-huge--line-height"; "text-loud" ]
+    [ "text-huge--line-height"; "text-loud" ];
+  (* The shadow token is the text-shadow family's, and reads as one. *)
+  Test_helpers.check_declarations ~theme "text-shadow-pop"
+    [ "text-shadow:0 1px 0 var(--tw-text-shadow-color,teal)" ]
 
 (* The line-height modifier names a [--leading-*] token, and a project's own
    counts the same as a built-in one. *)
@@ -398,6 +435,33 @@ let test_named_font_family () =
     "a self-referential inline token keeps its declaration" true
     (Astring.String.is_infix ~affix:"--font-self:var(--font-self)"
        (css inline "font-self"))
+
+(* A family may carry [--font-<name>--font-feature-settings] and
+   [--font-variation-settings] beside it. Each is a token of its own that the
+   utility reads, or the value itself when the block is inline; the feature
+   settings were inlined whatever the block said, and the variation settings
+   were not read at all. *)
+let test_named_font_family_sub_tokens () =
+  let theme =
+    Tw.Scheme.with_overrides
+      ~inline:[ "font-hero"; "font-hero--font-feature-settings" ]
+      Tw.Scheme.default
+      [
+        ("font-display", "\"Satoshi\", sans-serif");
+        ("font-display--font-feature-settings", "\"ss01\"");
+        ("font-display--font-variation-settings", "\"opsz\" 32");
+        ("font-hero", "\"Hero\", serif");
+        ("font-hero--font-feature-settings", "\"liga\" 0");
+      ]
+  in
+  Test_helpers.check_declarations ~theme "font-display"
+    [
+      "font-family:var(--font-display)";
+      "font-feature-settings:var(--font-display--font-feature-settings)";
+      "font-variation-settings:var(--font-display--font-variation-settings)";
+    ];
+  Test_helpers.check_declarations ~theme "font-hero"
+    [ "font-family:Hero,serif"; "font-feature-settings:\"liga\" 0" ]
 
 (* text-[<value>] accepts values that CSS font-size accepts: lengths with a
    unit, percentages, font-size keywords (larger/smaller/xxx-large/...),
@@ -1326,6 +1390,10 @@ let tests =
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "named font family from the theme" `Quick test_named_font_family;
+    test_case "named font family sub-tokens" `Quick
+      test_named_font_family_sub_tokens;
+    test_case "named text size sub-tokens" `Quick
+      test_named_text_size_sub_tokens;
     test_case "named text size from the theme" `Quick test_named_text_size;
     test_case "text size namespace boundaries" `Quick
       test_text_size_namespace_boundaries;

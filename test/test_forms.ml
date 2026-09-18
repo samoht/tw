@@ -1,17 +1,8 @@
 open Alcotest
 module Css = Cascade.Css
 
-let check class_name =
-  match Tw.Forms.Handler.of_class Tw.Scheme.default class_name with
-  | Ok u -> check string "forms class" class_name (Tw.Forms.Handler.to_class u)
-  | Error (`Msg msg) -> fail msg
-
-let check_select class_name =
-  match Tw.Forms.Select.of_class Tw.Scheme.default class_name with
-  | Ok u ->
-      Alcotest.check string "forms class" class_name
-        (Tw.Forms.Select.to_class u)
-  | Error (`Msg msg) -> fail msg
+let check = Test_helpers.check_handler_roundtrip (module Tw.Forms.Handler)
+let check_select = Test_helpers.check_handler_roundtrip (module Tw.Forms.Select)
 
 let test_inputs () =
   check "form-input";

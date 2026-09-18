@@ -152,12 +152,11 @@ let theme_tokens body =
         let { Cascade.Component.name; value; _ } =
           decl.Cascade.Component.node
         in
-        if String.length name > 2 && String.sub name 0 2 = "--" then
-          Some
+        Option.map
+          (fun bare ->
             ( decl.Cascade.Component.loc.Cascade.Loc.start_pos,
-              ( String.sub name 2 (String.length name - 2),
-                Cascade.Parser.string_of_components value ) )
-        else None)
+              (bare, Cascade.Parser.string_of_components value) ))
+          (Tw.Parse.bare_name name))
   in
   List.stable_sort
     (fun (a, _) (b, _) -> Int.compare a b)
@@ -234,6 +233,34 @@ let builtin_variants =
    part. *)
 module Index = Cascade.Source_index
 
+(* Whether [css] spells [name] anywhere. *)
+let mentions name css = Re.execp (Re.compile (Re.str name)) css
+
+(* [css] copied with [step] rewriting it. [step index buf i] runs at each offset
+   nothing has been copied from yet: it writes to [buf] what stands for the
+   source at [i] and answers where to resume, or [None] to have the byte at [i]
+   copied. [names] is what the pass matches; the index finds a name only as the
+   source spells it, so a source spelling none of them is handed back before the
+   parse the index costs. *)
+let rewrite ~names css step =
+  if not (List.exists (fun name -> mentions name css) names) then css
+  else
+    let index = Index.v css in
+    let len = String.length css in
+    let buf = Buffer.create len in
+    let step = step index buf in
+    let rec go i =
+      if i >= len then ()
+      else
+        match step i with
+        | Some next -> go next
+        | None ->
+            Buffer.add_char buf css.[i];
+            go (i + 1)
+    in
+    go 0;
+    Buffer.contents buf
+
 (* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
    variables a utility used. The option is not CSS, so it is read off the
    import's own [theme()] call rather than from a parsed stylesheet. *)
@@ -266,22 +293,7 @@ let import_prefix css =
   | name :: _ -> Some name
   | [] -> None
 
-(* Split [s] on [sep] where no bracket is open, so a [,] or a space inside
-   [[...]], [(...)] or a nested [{...}] stays in its segment. *)
-let split_top_level sep s =
-  let len = String.length s in
-  let rec go depth start i acc =
-    if i >= len then List.rev (String.sub s start (len - start) :: acc)
-    else
-      match s.[i] with
-      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
-      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
-      | c when c = sep && depth = 0 ->
-          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
-      | _ -> go depth start (i + 1) acc
-  in
-  go 0 0 0 []
-
+let split_top_level = Tw.Parse.split_top_level
 let brace_bound = Re.seq [ Re.opt (Re.char '-'); Re.rep1 Re.digit ]
 
 let brace_range_re =
@@ -351,13 +363,18 @@ let rec expand_braces pattern =
                 alternatives)
             (expand_braces suffix))
 
-(* The text of a quoted argument. The bundle refuses an unquoted one. *)
-let quoted_contents body =
-  let body = String.trim body in
-  let n = String.length body in
-  if n >= 2 && (body.[0] = '"' || body.[0] = '\'') && body.[n - 1] = body.[0]
-  then Some (String.sub body 1 (n - 2))
+(* [s] without the matching quotes around it, when it has them. *)
+let strip_quotes s =
+  let n = String.length s in
+  if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
+    Some (String.sub s 1 (n - 2))
   else None
+
+(* [s] unquoted when it is quoted, else as it is. *)
+let unquote s = Option.value ~default:s (strip_quotes s)
+
+(* The text of a quoted argument. The bundle refuses an unquoted one. *)
+let quoted_contents body = strip_quotes (String.trim body)
 
 (* [@source inline("...")] is the safelist and [@source not inline("...")] the
    blocklist. The argument is read off the [inline()] call inside the statement,
@@ -411,8 +428,11 @@ let source_paths css =
          let prelude = String.trim source.prelude in
          let n = String.length prelude in
          let negated, argument =
-           if n > 3 && String.sub prelude 0 3 = "not" && blank prelude.[3] then
-             (true, String.sub prelude 3 (n - 3))
+           if
+             n > 3
+             && String.starts_with ~prefix:"not" prelude
+             && blank prelude.[3]
+           then (true, String.sub prelude 3 (n - 3))
            else (false, prelude)
          in
          match quoted_contents argument with
@@ -420,6 +440,88 @@ let source_paths css =
          | Some path when negated -> (included, excluded @ [ path ])
          | Some path -> (included @ [ path ], excluded))
        ([], [])
+
+(* The directives whose argument is a path the CLI resolves against the
+   stylesheet. [@source not "../x"] names one too; [@source inline("...")] names
+   candidates, not a path. *)
+let path_directives =
+  [ "@import"; "@source"; "@plugin"; "@config"; "@reference" ]
+
+let is_relative_path path =
+  String.starts_with ~prefix:"./" path || String.starts_with ~prefix:"../" path
+
+(* Where the quoted path of the directive at [at] opens and closes, when what
+   stands before the quote is blank or, for [@source], the [not] keyword. *)
+let quoted_path_span css ~name ~at ~next =
+  let len = String.length css in
+  let blank c = c = ' ' || c = '\t' || c = '\n' || c = '\r' in
+  let rec skip_blank i =
+    if i < next && blank css.[i] then skip_blank (i + 1) else i
+  in
+  let i = skip_blank (at + String.length name) in
+  let i =
+    if
+      String.equal name "@source"
+      && i + 3 < len
+      && String.sub css i 3 = "not"
+      && blank css.[i + 3]
+    then skip_blank (i + 3)
+    else i
+  in
+  if i < next && (css.[i] = '"' || css.[i] = '\'') then
+    match String.index_from_opt css (i + 1) css.[i] with
+    | Some close when close < next -> Some (i + 1, close)
+    | _ -> None
+  else None
+
+let rooted ~dir css =
+  let index = Index.v css in
+  let spans =
+    List.concat_map
+      (fun name ->
+        Index.at_statements index ~name
+        |> List.filter_map (fun (at, (statement : Index.statement)) ->
+            match quoted_path_span css ~name ~at ~next:statement.next with
+            | Some (start, stop) ->
+                let path = String.sub css start (stop - start) in
+                if is_relative_path path then Some (start, stop, path) else None
+            | None -> None))
+      path_directives
+    |> List.sort (fun (a, _, _) (b, _, _) -> Int.compare a b)
+  in
+  let buf = Buffer.create (String.length css) in
+  let last =
+    List.fold_left
+      (fun pos (start, stop, path) ->
+        Buffer.add_string buf (String.sub css pos (start - pos));
+        Buffer.add_string buf (Filename.concat dir path);
+        stop)
+      0 spans
+  in
+  Buffer.add_string buf (String.sub css last (String.length css - last));
+  Buffer.contents buf
+
+(* [@import "tailwindcss" source(none)] turns automatic source detection off,
+   and [source("../src")] moves where it starts. The option sits inside the
+   import statement, or inside [@tailwind utilities] for a sheet importing the
+   parts. *)
+let source_root css =
+  let index = Index.v css in
+  let sources = Index.calls index ~name:"source" in
+  let option (at, (statement : Index.statement)) =
+    List.find_map
+      (fun (i, (block : Index.block)) ->
+        if at < i && i < statement.next then
+          match String.trim block.body with
+          | "none" -> Some `None
+          | body -> Option.map (fun dir -> `Dir dir) (quoted_contents body)
+        else None)
+      sources
+  in
+  Index.at_statements index ~name:"@import"
+  @ Index.at_statements index ~name:"@tailwind"
+  |> List.find_map option
+  |> Option.value ~default:`Detect
 
 (* [@import "tailwindcss" important] marks every utility declaration
    [!important]. The option is a bare word in the import's prelude rather than a
@@ -445,13 +547,7 @@ let references_tailwind css =
    "class"] leaves the controls alone and styles only the [form-*] classes. *)
 let forms_base css =
   let index = Index.v css in
-  let unquote s =
-    let s = String.trim s in
-    let n = String.length s in
-    if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
-      String.sub s 1 (n - 2)
-    else s
-  in
+  let unquote s = unquote (String.trim s) in
   let names_forms prelude =
     String.equal (unquote prelude) "@tailwindcss/forms"
   in
@@ -495,92 +591,69 @@ let config_directives css =
    [drop_directives] takes the whole block out of the emitted CSS; lift actual
    keyframe at-rules to the top level first, where Tailwind emits them. *)
 let hoist_theme_keyframes css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let lifted = Buffer.create 0 in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_rule index ~name:"@theme" i with
-      | Some { brace; block = { next; _ }; _ } ->
-          Buffer.add_string buf (String.sub css i (brace + 1 - i));
-          go_theme (brace + 1) next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  and go_theme i stop =
-    if i >= stop then go i
-    else
-      match Index.at_rule index ~name:"@keyframes" i with
-      | Some { block = { next; _ }; _ } when next <= stop ->
-          Buffer.add_string lifted (String.sub css i (next - i));
-          go_theme next stop
-      | Some _ | None ->
-          Buffer.add_char buf css.[i];
-          go_theme (i + 1) stop
+  let css =
+    rewrite ~names:[ "@theme" ] css (fun index buf i ->
+        match Index.at_rule index ~name:"@theme" i with
+        | Some { brace; block = { next = stop; _ }; _ } ->
+            Buffer.add_string buf (String.sub css i (brace + 1 - i));
+            let rec go_theme i =
+              if i >= stop then ()
+              else
+                match Index.at_rule index ~name:"@keyframes" i with
+                | Some { block = { next; _ }; _ } when next <= stop ->
+                    Buffer.add_string lifted (String.sub css i (next - i));
+                    go_theme next
+                | Some _ | None ->
+                    Buffer.add_char buf css.[i];
+                    go_theme (i + 1)
+            in
+            go_theme (brace + 1);
+            Some stop
+        | None -> None)
   in
-  go 0;
-  Buffer.add_buffer buf lifted;
-  Buffer.contents buf
+  css ^ Buffer.contents lifted
 
 (* Tailwind extends [@import] with options CSS has no grammar for
    ([theme(static)], [source(none)], [prefix(tw)]). Strip actual option function
    tokens from actual import statements so quoted parentheses and comments do
    not alter their boundaries. *)
 let strip_tailwind_import_options css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let option_at i =
-    List.find_map
-      (fun name -> Index.call index ~name i)
-      [ "theme"; "source"; "prefix" ]
-  in
-  let rec copy_import i stop =
-    if i >= stop then ()
-    else
-      match option_at i with
-      | Some { next; _ } when next <= stop -> copy_import next stop
-      | Some _ | None ->
-          Buffer.add_char buf css.[i];
-          copy_import (i + 1) stop
-  in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "@import" ] css (fun index buf i ->
+      let option_at i =
+        List.find_map
+          (fun name -> Index.call index ~name i)
+          [ "theme"; "source"; "prefix" ]
+      in
+      let rec copy_import i stop =
+        if i >= stop then ()
+        else
+          match option_at i with
+          | Some { next; _ } when next <= stop -> copy_import next stop
+          | Some _ | None ->
+              Buffer.add_char buf css.[i];
+              copy_import (i + 1) stop
+      in
       match Index.at_statement index ~name:"@import" i with
       | Some { next; _ } ->
           copy_import i next;
-          go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+          Some next
+      | None -> None)
 
 (* Pull out the [@KEYWORD NAME { ... }] declarations, dropping them from the
    CSS: they declare something for the generator, and Tailwind does not emit
    them either. *)
 let take_named_defs keyword css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let defs = ref [] in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_rule index ~name:keyword i with
-      | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
-          defs := (prelude, body) :: !defs;
-          go next
-      | _ ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
+  let css =
+    rewrite ~names:[ keyword ] css (fun index _ i ->
+        match Index.at_rule index ~name:keyword i with
+        | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
+            defs := (prelude, body) :: !defs;
+            Some next
+        | _ -> None)
   in
-  go 0;
-  (Buffer.contents buf, !defs)
+  (css, !defs)
 
 let shorthand_variant prelude =
   let prelude = String.trim prelude in
@@ -607,33 +680,24 @@ let shorthand_variant prelude =
     Some (name, selector ^ " { @slot; }")
 
 let take_custom_variants css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let defs = ref [] in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_rule index ~name:"@custom-variant" i with
-      | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
-          defs := (prelude, body) :: !defs;
-          go next
-      | _ -> (
-          match Index.at_statement index ~name:"@custom-variant" i with
-          | Some { prelude; next } -> (
-              match shorthand_variant prelude with
-              | Some def ->
-                  defs := def :: !defs;
-                  go next
-              | None ->
-                  Buffer.add_char buf css.[i];
-                  go (i + 1))
-          | None ->
-              Buffer.add_char buf css.[i];
-              go (i + 1))
+  let css =
+    rewrite ~names:[ "@custom-variant" ] css (fun index _ i ->
+        match Index.at_rule index ~name:"@custom-variant" i with
+        | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
+            defs := (prelude, body) :: !defs;
+            Some next
+        | _ -> (
+            match Index.at_statement index ~name:"@custom-variant" i with
+            | Some { prelude; next } -> (
+                match shorthand_variant prelude with
+                | Some def ->
+                    defs := def :: !defs;
+                    Some next
+                | None -> None)
+            | None -> None))
   in
-  go 0;
-  (Buffer.contents buf, !defs)
+  (css, !defs)
 
 (* {2 Functional [@utility NAME-*] declarations}
 
@@ -686,35 +750,23 @@ let segment sep s =
 let is_digit c = c >= '0' && c <= '9'
 
 (* A [<number>] as a candidate spells one: an optional sign, digits with at most
-   one decimal point, and an optional exponent. *)
-let is_number text =
-  let n = String.length text in
-  let i = ref 0 in
-  if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
-  let digits () =
-    let from = !i in
-    while !i < n && is_digit text.[!i] do
-      incr i
-    done;
-    !i - from
-  in
-  let whole = digits () in
-  let fraction =
-    if !i < n && text.[!i] = '.' then (
-      incr i;
-      digits ())
-    else -1
-  in
-  let mantissa = if fraction < 0 then whole >= 1 else fraction >= 1 in
-  let exponent =
-    if !i < n && (text.[!i] = 'e' || text.[!i] = 'E') then begin
-      incr i;
-      if !i < n && (text.[!i] = '+' || text.[!i] = '-') then incr i;
-      digits () >= 1
-    end
-    else true
-  in
-  mantissa && exponent && !i = n
+   one decimal point and at least one after it, and an optional exponent. *)
+let number_re =
+  let sign = Re.opt (Re.set "+-") in
+  Re.compile
+    (Re.whole_string
+       (Re.seq
+          [
+            sign;
+            Re.alt
+              [
+                Re.seq [ Re.rep Re.digit; Re.char '.'; Re.rep1 Re.digit ];
+                Re.rep1 Re.digit;
+              ];
+            Re.opt (Re.seq [ Re.set "eE"; sign; Re.rep1 Re.digit ]);
+          ]))
+
+let is_number text = Re.execp number_re text
 
 let is_percentage text =
   let n = String.length text in
@@ -832,8 +884,8 @@ let is_length text =
   || List.exists
        (fun unit ->
          let n = String.length text and u = String.length unit in
-         n > u
-         && String.sub text (n - u) u = unit
+         String.ends_with ~suffix:unit text
+         && n > u
          && is_number (String.sub text 0 (n - u)))
        length_units
 
@@ -893,16 +945,9 @@ let is_named_value s =
 (* [color:var(--x)] carries the hint [color]. A [:] after anything but lower
    case letters and dashes is part of the value, not the end of a hint. *)
 let split_hint text =
-  let n = String.length text in
-  let rec go i =
-    if i >= n then (None, text)
-    else
-      match text.[i] with
-      | ':' -> (Some (String.sub text 0 i), String.sub text (i + 1) (n - i - 1))
-      | c when (c >= 'a' && c <= 'z') || c = '-' -> go (i + 1)
-      | _ -> (None, text)
-  in
-  go 0
+  match Tw.Parse.data_type_hint text with
+  | Some (hint, value) -> (Some hint, value)
+  | None -> (None, text)
 
 let parse_modifier raw =
   let n = String.length raw in
@@ -914,7 +959,7 @@ let parse_modifier raw =
     else Some (Bracketed { hint = None; text })
   else if n >= 2 && raw.[0] = '(' && raw.[n - 1] = ')' then
     let name = inner () in
-    if String.length name >= 2 && String.sub name 0 2 = "--" then
+    if String.starts_with ~prefix:"--" name then
       Some
         (Bracketed
            { hint = None; text = String.concat "" [ "var("; name; ")" ] })
@@ -951,7 +996,7 @@ let paren_shorthand base idx =
   let hint, name =
     match segment ':' inner with [ h; v ] -> (Some h, v) | _ -> (None, inner)
   in
-  if String.length name < 2 || String.sub name 0 2 <> "--" then None
+  if not (String.starts_with ~prefix:"--" name) then None
   else
     let reference = String.concat "" [ "var("; name; ")" ] in
     Some (Bracketed { hint; text = reference })
@@ -1077,8 +1122,7 @@ let normalize_value_arg arg =
   in
   let arg = collapse (wildcard_or_drop_space (unescape arg)) in
   if
-    String.length arg >= 2
-    && String.sub arg 0 2 = "--"
+    String.starts_with ~prefix:"--" arg
     && (not (String.contains arg '('))
     && not (Re.execp wildcard_re arg)
   then arg ^ "-*"
@@ -1112,7 +1156,7 @@ let split_wildcard arg = Re.split_delim wildcard_re arg
    sub-key of the entry, which is there only when the entry itself is. *)
 let theme_arg_css ~theme arg name =
   let bare s = String.sub s 2 (String.length s - 2) in
-  if String.length arg < 2 || String.sub arg 0 2 <> "--" then None
+  if not (String.starts_with ~prefix:"--" arg) then None
   else
     match split_wildcard arg with
     | [ namespace; "" ] ->
@@ -1165,7 +1209,7 @@ let resolve_arg ~theme ~fraction value arg =
   let quoted =
     n >= 2 && (arg.[0] = '\'' || arg.[0] = '"') && arg.[n - 1] = arg.[0]
   in
-  let theme_arg = n >= 2 && String.sub arg 0 2 = "--" in
+  let theme_arg = String.starts_with ~prefix:"--" arg in
   let bracketed = n >= 2 && arg.[0] = '[' && arg.[n - 1] = ']' in
   match value with
   | Bare text when quoted ->
@@ -1186,13 +1230,7 @@ let resolve_arg ~theme ~fraction value arg =
 
 (* [--default(4)] answers for a candidate that spelled no value at all. *)
 let default_arg arg =
-  let arg = String.trim arg in
-  let n = String.length arg in
-  let head = "--default(" in
-  let m = String.length head in
-  if n > m && String.sub arg 0 m = head && arg.[n - 1] = ')' then
-    Some (String.trim (String.sub arg m (n - m - 1)))
-  else None
+  Option.map String.trim (Tw.Parse.call_body "--default" (String.trim arg))
 
 let resolve_read ~theme ~value ~fraction args =
   match value with
@@ -1389,49 +1427,24 @@ let tailwind_directives =
    tw cannot expand -- or names something outside the stylesheet, so there is
    nothing to salvage from the text either. *)
 let drop_directives css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let directive_at i =
-    List.find_map
-      (fun name ->
-        match Index.at_rule index ~name i with
-        | Some { block = { next; _ }; _ } -> Some next
-        | None ->
-            Option.map
-              (fun ({ next; _ } : Index.statement) -> next)
-              (Index.at_statement index ~name i))
-      tailwind_directives
-  in
-  let rec go i =
-    if i >= len then ()
-    else
-      match directive_at i with
-      | Some next -> go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+  rewrite ~names:tailwind_directives css (fun index _ i ->
+      List.find_map
+        (fun name ->
+          match Index.at_rule index ~name i with
+          | Some { block = { next; _ }; _ } -> Some next
+          | None ->
+              Option.map
+                (fun ({ next; _ } : Index.statement) -> next)
+                (Index.at_statement index ~name i))
+        tailwind_directives)
 
 let fill_slots template body =
-  let index = Index.v template in
-  let len = String.length template in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "@slot" ] template (fun index buf i ->
       match Index.at_statement index ~name:"@slot" i with
       | Some { next; _ } ->
           Buffer.add_string buf body;
-          go next
-      | None ->
-          Buffer.add_char buf template.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+          Some next
+      | None -> None)
 
 (* Replace [@variant NAME { decls }] with the variant's body, substituting the
    declarations at each [@slot]. Nested [@variant]s expand outermost-first, so
@@ -1439,27 +1452,195 @@ let fill_slots template body =
 let rec expand_variants ~depth defs css =
   if depth > 8 then css
   else
-    let index = Index.v css in
-    let len = String.length css in
-    let buf = Buffer.create len in
     let changed = ref false in
-    let rec go i =
-      if i >= len then ()
-      else
-        match Index.at_rule index ~name:"@variant" i with
-        | Some { prelude; block = { body; next }; _ }
-          when List.mem_assoc prelude defs ->
-            let template = List.assoc prelude defs in
-            changed := true;
-            Buffer.add_string buf (fill_slots template body);
-            go next
-        | _ ->
-            Buffer.add_char buf css.[i];
-            go (i + 1)
+    let out =
+      rewrite ~names:[ "@variant" ] css (fun index buf i ->
+          match Index.at_rule index ~name:"@variant" i with
+          | Some { prelude; block = { body; next }; _ }
+            when List.mem_assoc prelude defs ->
+              let template = List.assoc prelude defs in
+              changed := true;
+              Buffer.add_string buf (fill_slots template body);
+              Some next
+          | _ -> None)
     in
-    go 0;
-    let out = Buffer.contents buf in
     if !changed then expand_variants ~depth:(depth + 1) defs out else out
+
+(* {2 [not-] over a declared variant}
+
+   Tailwind's [not-] negates what a variant's body builds, not the variant's
+   name, so a project that declares [dark] itself gets the negation of its own
+   body. Tailwind rewrites one node in place: sibling branches would have to be
+   nested into a single conjunction, which it does not build, so a body of more
+   than one refuses the candidate. Under that node the first leaf decides: the
+   style rule on the way to it goes under [:not()] with [&] read as [*], and the
+   condition takes a [not]. Tailwind also refuses a path through two rules or
+   two conditions, a pseudo-element, which [:not()] cannot hold, and an at-rule
+   other than [@media], [@supports] and [@container]. A compound [and]/[or]
+   condition is refused here as well: Tailwind puts a [not] in front of it that
+   makes the query invalid, so its rule never applies either. *)
+
+let body_rules body =
+  let items =
+    (Cascade.Parser.block_contents (Cascade.Reader.of_string body)).value
+  in
+  List.fold_right
+    (fun item (decls, rules) ->
+      match item with
+      | `Decls [] -> (decls, rules)
+      | `Decls _ -> (true, rules)
+      | `Rule (Cascade.Component.At { node = { name = "slot"; _ }; _ }) ->
+          (decls, rules)
+      | `Rule rule -> (decls, rule :: rules))
+    items (false, [])
+
+let rule_body = function
+  | Cascade.Component.Qualified { node = { block; _ }; _ } ->
+      Some (Cascade.Parser.string_of_components block.node.value)
+  | At { node = { block; _ }; _ } ->
+      Option.map
+        (fun (b : Cascade.Component.block Cascade.Component.node) ->
+          Cascade.Parser.string_of_components b.node.value)
+        block
+
+(* The path from [rule] down to the first node holding nothing but the slot. *)
+let rec first_leaf path rule =
+  let path = rule :: path in
+  match rule_body rule with
+  | None -> Some (List.rev path)
+  | Some body -> (
+      match body_rules body with
+      | false, [] -> Some (List.rev path)
+      | _, rules -> List.find_map (first_leaf path) rules)
+
+let negated_selector sel =
+  if Css.Selector.has_pseudo_element sel then None
+  else
+    let arms = Option.value ~default:[ sel ] (Css.Selector.as_list sel) in
+    (* A universal beside another simple selector matches nothing more, and the
+       CLI's minifier drops it there. *)
+    let implied = function Css.Selector.Universal None -> false | _ -> true in
+    let universal =
+      Css.Selector.map (function
+        | Css.Selector.Nesting -> Css.Selector.Universal None
+        | Css.Selector.Compound parts -> (
+            match List.filter implied parts with
+            | [] -> Css.Selector.Universal None
+            | [ part ] -> part
+            | parts -> Css.Selector.Compound parts)
+        | node -> node)
+    in
+    Some
+      (Css.Selector.Compound
+         [ Css.Selector.Nesting; Css.Selector.Not (List.map universal arms) ])
+
+let rec negated_media : Css.Media.t -> Css.Media.t option = function
+  | Cond (Not condition) -> Some (Cond condition)
+  | Cond (Feature _ as condition) -> Some (Cond (Not condition))
+  | Cond (And _ | Or _) | Type { prefix = Some Only; _ } -> None
+  | Type ({ prefix = Some Not; _ } as media) ->
+      Some (Type { media with prefix = None })
+  | Type ({ prefix = None; _ } as media) ->
+      Some (Type { media with prefix = Some Not })
+  | List [ media ] -> negated_media media
+  | List _ -> None
+
+let negated_supports : Css.Supports.t -> Css.Supports.t option = function
+  | Not condition -> Some condition
+  | And _ | Or _ -> None
+  | condition -> Some (Not condition)
+
+let rec negated_container : Css.Container.t -> Css.Container.t option = function
+  | Named (name, condition) ->
+      Option.map
+        (fun condition -> Css.Container.Named (name, condition))
+        (negated_container condition)
+  | Not condition -> Some condition
+  | And _ | Or _ -> None
+  | condition -> Some (Not condition)
+
+(* The negated condition as the header of a template block. *)
+let negated_at_rule name prelude =
+  let prelude = String.trim prelude in
+  let header keyword to_string negate of_string =
+    Option.map
+      (fun condition -> String.concat "" [ keyword; " "; to_string condition ])
+      (negate (of_string prelude))
+  in
+  match name with
+  | "media" ->
+      header "@media"
+        (Css.Media.to_string ~minify:false)
+        negated_media Css.Media.of_string_strict
+  | "supports" ->
+      header "@supports"
+        (Css.Supports.to_string ~minify:false)
+        negated_supports Css.Supports.of_string
+  | "container" ->
+      header "@container"
+        (Css.Container.to_string ~minify:false)
+        negated_container Css.Container.of_string
+  | _ -> None
+
+let all_some options =
+  List.fold_right
+    (fun option acc ->
+      match (option, acc) with Some x, Some xs -> Some (x :: xs) | _ -> None)
+    options (Some [])
+
+let negated_path path =
+  let selectors, conditions =
+    List.partition_map
+      (function
+        | Cascade.Component.Qualified { node = { prelude; _ }; _ } ->
+            Left (Cascade.Parser.string_of_components prelude)
+        | At { node = { name; prelude; _ }; _ } ->
+            Right (name, Cascade.Parser.string_of_components prelude))
+      path
+  in
+  match (selectors, conditions) with
+  | _ :: _ :: _, _ | _, _ :: _ :: _ -> None
+  | selectors, conditions -> (
+      let selectors =
+        all_some
+          (List.map
+             (fun s -> negated_selector (Css.Selector.of_string s))
+             selectors)
+      in
+      let conditions =
+        all_some (List.map (fun (name, p) -> negated_at_rule name p) conditions)
+      in
+      match (selectors, conditions) with
+      | Some selectors, Some headers ->
+          let slot header = header ^ " { @slot; }" in
+          Some
+            (String.concat " "
+               (List.map
+                  (fun s -> slot (Css.Selector.to_string ~minify:false s))
+                  selectors
+               @ List.map slot headers))
+      | _ -> None)
+
+let negated_variant ~defs template =
+  match body_rules (expand_variants ~depth:0 defs template) with
+  | false, [ node ] -> (
+      match Option.bind (first_leaf [] node) negated_path with
+      | negation -> negation
+      | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _ | Failure _)
+        ->
+          None)
+  | _ -> None
+
+let with_negated_variants defs =
+  List.fold_left
+    (fun (defs, refused) (name, template) ->
+      let negation = "not-" ^ name in
+      if List.mem_assoc negation defs then (defs, refused)
+      else
+        match negated_variant ~defs template with
+        | Some body -> (defs @ [ (negation, body) ], refused)
+        | None -> (defs, refused @ [ negation ]))
+    (defs, []) defs
 
 (* A project that declared [--spacing] in an [@theme inline] block has no
    variable to reference, so the step is multiplied out here instead, the way
@@ -1485,25 +1666,15 @@ let inline_spacing ~theme multiple =
 (* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
    so a parser rejects the declaration and it drops out of the output. *)
 let expand_spacing_fn ~theme css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "--spacing(" ] css (fun index buf i ->
       match Index.call index ~name:"--spacing" i with
       | Some { body; next } ->
           Buffer.add_string buf
             (match inline_spacing ~theme body with
             | Some value -> value
             | None -> String.concat "" [ "calc(var(--spacing) * "; body; ")" ]);
-          go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+          Some next
+      | None -> None)
 
 (* The value a theme token carries. The palette is not in [Scheme]'s table: a
    colour is catalogued, and [theme_color_decl] is what reads it back. Asking
@@ -1525,18 +1696,11 @@ let theme_token_value theme name =
    [authored_color_mix_fallbacks] then gives a legacy fallback and an
    [@supports] arm - the shape the reference emits. *)
 let expand_alpha_fn css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "--alpha(" ] css (fun index buf i ->
       match Index.call index ~name:"--alpha" i with
       | Some { body; next } -> (
           match String.index_opt body '/' with
-          | None ->
-              Buffer.add_char buf css.[i];
-              go (i + 1)
+          | None -> None
           | Some slash ->
               let colour = String.trim (String.sub body 0 slash) in
               let alpha =
@@ -1552,13 +1716,8 @@ let expand_alpha_fn css =
                      alpha;
                      ", transparent)";
                    ]);
-              go next)
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+              Some next)
+      | None -> None)
 
 (* [theme()] also takes the dotted path of a v3 config ([theme(fontSize.sm)]),
    which names the same token under its old namespace. *)
@@ -1581,12 +1740,6 @@ let v3_theme_namespaces =
   ]
 
 let v3_theme_token theme path =
-  let unquote s =
-    let n = String.length s in
-    if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
-      String.sub s 1 (n - 2)
-    else s
-  in
   match String.split_on_char '.' (unquote path) with
   | [] | [ _ ] -> None
   | ns :: rest -> (
@@ -1605,25 +1758,12 @@ let v3_theme_token theme path =
    appears in places a [var()] could not stand anyway, such as a media query
    condition. An unknown token is left alone rather than guessed at. *)
 let resolve_theme_fn ~theme css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let skip i =
-    Buffer.add_char buf css.[i];
-    i + 1
-  in
-  let rec go i =
-    if i >= len then ()
-    else
+  rewrite ~names:[ "theme(" ] css (fun index buf i ->
       match Index.call index ~name:"theme" i with
-      | None -> go (skip i)
+      | None -> None
       | Some { body; next } -> (
           let name = String.trim body in
-          let bare =
-            if String.length name > 2 && String.sub name 0 2 = "--" then
-              String.sub name 2 (String.length name - 2)
-            else name
-          in
+          let bare = Option.value ~default:name (Tw.Parse.bare_name name) in
           match
             match theme_token_value theme bare with
             | Some _ as v -> v
@@ -1631,11 +1771,8 @@ let resolve_theme_fn ~theme css =
           with
           | Some value ->
               Buffer.add_string buf value;
-              go next
-          | None -> go (skip i))
-  in
-  go 0;
-  Buffer.contents buf
+              Some next
+          | None -> None))
 
 (* Where an at-rule prelude runs, for the at-rules whose prelude can hold a
    [--theme()] call. A [var()] is not read there, so such a call gives the value
@@ -1676,44 +1813,33 @@ let dashed_theme_value ~theme ~in_prelude body =
         else first
       in
       let fallback = String.concat ", " (List.map String.trim fallback) in
-      if not (String.length token > 2 && String.sub token 0 2 = "--") then None
-      else
-        let bare = String.sub token 2 (String.length token - 2) in
-        match theme_token_value theme bare with
-        | Some value when inline || in_prelude -> Some value
-        | Some _ when fallback = "" ->
-            Some (String.concat "" [ "var("; token; ")" ])
-        | Some _ ->
-            Some (String.concat "" [ "var("; token; ", "; fallback; ")" ])
-        | None when fallback = "" -> None
-        | None -> Some fallback)
+      match Tw.Parse.bare_name token with
+      | None -> None
+      | Some bare -> (
+          match theme_token_value theme bare with
+          | Some value when inline || in_prelude -> Some value
+          | Some _ when fallback = "" ->
+              Some (String.concat "" [ "var("; token; ")" ])
+          | Some _ ->
+              Some (String.concat "" [ "var("; token; ", "; fallback; ")" ])
+          | None when fallback = "" -> None
+          | None -> Some fallback))
 
 let resolve_dashed_theme_fn ~theme css =
-  let index = Index.v css in
-  let preludes = at_rule_preludes index css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.call index ~name:"--theme" i with
-      | Some { body; next } -> (
-          let in_prelude =
-            List.exists (fun (start, stop) -> start < i && i < stop) preludes
-          in
-          match dashed_theme_value ~theme ~in_prelude body with
-          | Some value ->
-              Buffer.add_string buf value;
-              go next
-          | None ->
-              Buffer.add_char buf css.[i];
-              go (i + 1))
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
+  rewrite ~names:[ "--theme(" ] css (fun index buf ->
+      let preludes = at_rule_preludes index css in
+      fun i ->
+        match Index.call index ~name:"--theme" i with
+        | Some { body; next } -> (
+            let in_prelude =
+              List.exists (fun (start, stop) -> start < i && i < stop) preludes
+            in
+            match dashed_theme_value ~theme ~in_prelude body with
+            | Some value ->
+                Buffer.add_string buf value;
+                Some next
+            | None -> None)
+        | None -> None)
 
 (* [to_css] heads a utility's selector with the utility's own class, and a
    variant decorates it in place, as [.dark\:fill-gray-400:where(.dark, ...)].
@@ -1969,62 +2095,41 @@ let rec emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen = function
    not CSS, so the at-rule drops out and takes the whole rule with it once the
    rule is left empty. *)
 let expand_apply ~theme ~defs ?(udefs = []) css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
   let hoisted = Buffer.create 0 in
   let seen = Hashtbl.create 64 in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_statement index ~name:"@apply" i with
-      | Some { prelude; next } ->
-          (* A utility with no declared variant and no body of its own decorates
-             the applying rule's [&] directly. A run of those renders in one
-             call, so their declarations land in a single rule the way Tailwind
-             emits them, rather than one rule of the author's selector per
-             utility. *)
-          let names = apply_names prelude 0 (String.length prelude) in
-          emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen names;
-          go next
-      | None ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
+  let css =
+    rewrite ~names:[ "@apply" ] css (fun index buf i ->
+        match Index.at_statement index ~name:"@apply" i with
+        | Some { prelude; next } ->
+            (* A utility with no declared variant and no body of its own
+               decorates the applying rule's [&] directly. A run of those
+               renders in one call, so their declarations land in a single rule
+               the way Tailwind emits them, rather than one rule of the author's
+               selector per utility. *)
+            let names = apply_names prelude 0 (String.length prelude) in
+            emit_apply_names ~theme ~defs ~udefs ~buf ~hoisted ~seen names;
+            Some next
+        | None -> None)
   in
-  go 0;
   (* The hoisted blocks go last: their layer is ordered by the sheet's [@layer]
      statement, not by where they sit. *)
-  Buffer.add_buffer buf hoisted;
-  Buffer.contents buf
+  if Buffer.length hoisted = 0 then css else css ^ Buffer.contents hoisted
 
 (* The names an [@variant NAME {] header uses inside a body. *)
 let variant_names_in css =
-  let index = Index.v css in
-  let len = String.length css in
-  let rec go i acc =
-    if i >= len then List.rev acc
-    else
-      match Index.at_rule index ~name:"@variant" i with
-      | Some { prelude; brace; _ } when prelude <> "" ->
-          go (brace + 1) (prelude :: acc)
-      | _ -> go (i + 1) acc
-  in
-  go 0 []
-
-(* Replace the first occurrence of [needle] in [hay]. *)
-let replace_first ~needle ~by hay =
-  let n = String.length needle and h = String.length hay in
-  let rec at i =
-    if i + n > h then None
-    else if String.sub hay i n = needle then Some i
-    else at (i + 1)
-  in
-  match at 0 with
-  | None -> None
-  | Some i ->
-      Some
-        (String.concat ""
-           [ String.sub hay 0 i; by; String.sub hay (i + n) (h - i - n) ])
+  if not (mentions "@variant" css) then []
+  else
+    let index = Index.v css in
+    let len = String.length css in
+    let rec go i acc =
+      if i >= len then List.rev acc
+      else
+        match Index.at_rule index ~name:"@variant" i with
+        | Some { prelude; brace; _ } when prelude <> "" ->
+            go (brace + 1) (prelude :: acc)
+        | _ -> go (i + 1) acc
+    in
+    go 0 []
 
 (* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
    variants, but only as part of a whole utility, so derive the wrapper from
@@ -2032,17 +2137,47 @@ let replace_first ~needle ~by hay =
    that declaration was. This is what lets a project's [@utility] carry a
    built-in prefix, which the [@variant] machinery otherwise only has templates
    for when the project declared it. *)
+(* Replace every occurrence of [needle] in [hay]. *)
+let replace_all ~needle ~by hay =
+  Re.replace_string (Re.compile (Re.str needle)) ~by hay
+
+(* A rule that is the bare [&] alone, as a media variant wraps the probe in,
+   adds a nesting level the utility's own body cannot survive: its [@variant
+   before] and the [@supports] an opacity colour emits end up three deep and the
+   sheet no longer parses. That level goes, so the slot takes its place; a [&]
+   that ends a longer selector, [:where([data-stack]) &], is the rule's own and
+   stays. *)
+let drop_bare_amp_rules hay =
+  let needle = "&{float:none}" in
+  let n = String.length needle in
+  let buf = Buffer.create (String.length hay) in
+  let rec go i =
+    if i >= String.length hay then ()
+    else if
+      i + n <= String.length hay
+      && String.sub hay i n = needle
+      && (i = 0 || match hay.[i - 1] with '{' | '}' | ';' -> true | _ -> false)
+    then begin
+      Buffer.add_string buf "float:none";
+      go (i + n)
+    end
+    else begin
+      Buffer.add_char buf hay.[i];
+      go (i + 1)
+    end
+  in
+  go 0;
+  Buffer.contents buf
+
+(* The template a built-in variant stands for, derived from tw's own render of a
+   probe utility under it: every probe declaration becomes the slot, so a
+   variant of several rules, [marker:]'s three, slots each of them. *)
 let builtin_variant_template ~theme name =
   let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
   if body = "" then None
   else
-    (* A media variant wraps the probe in a bare [&], which would add a nesting
-       level the utility's own body cannot survive: its [@variant before] and
-       the [@supports] an opacity colour emits end up three deep and the sheet
-       no longer parses. Drop that level by putting the slot in its place. *)
-    match replace_first ~needle:"&{float:none}" ~by:"@slot;" body with
-    | Some t -> Some t
-    | None -> replace_first ~needle:"float:none" ~by:"@slot;" body
+    Some
+      (replace_all ~needle:"float:none" ~by:"@slot;" (drop_bare_amp_rules body))
 
 let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
   (* What an [@apply] pulls into the author's CSS is not a utility, so the
@@ -2745,12 +2880,24 @@ let wrapped_block cls variants body =
 (* A candidate the project's own declarations govern: it carries a declared
    variant, it is a declared utility, or it reads as one of a declared
    functional utility's candidates. *)
-let is_custom_routed ~defs ~udefs cls =
+(* The [!] a candidate carries, as a suffix or the v3 prefix, and the name
+   under it: Tailwind marks every declaration of the utility [!important]. *)
+let importance name =
+  let n = String.length name in
+  if n > 1 && name.[n - 1] = '!' then (true, String.sub name 0 (n - 1))
+  else if n > 1 && name.[0] = '!' then (true, String.sub name 1 (n - 1))
+  else (false, name)
+
+let is_custom_routed ~theme ~defs ~udefs cls =
   let variants, bare = split_declared_variants defs cls in
   let segs = variant_segments bare in
-  let name = List.nth segs (List.length segs - 1) in
+  let _, name = importance (List.nth segs (List.length segs - 1)) in
   variants <> [] || List.mem_assoc name udefs
-  || functional_candidates udefs name <> []
+  (* A functional declaration claims a candidate its value reads resolve for and
+     no other: Tailwind tries every utility registered for a root, so [tab-[13]]
+     under [@utility tab-* { tab-size: --value(integer) }] falls to the built-in
+     [tab-*], which takes the bracket. *)
+  || Option.is_some (functional_utility_body ~theme ~udefs name)
 
 (* Candidates the built-in generator cannot produce: a variant the project
    redefined via [@custom-variant] (e.g. a class-based [dark:]), which
@@ -2800,14 +2947,34 @@ let record_routed_order ~theme own_order cls name =
   | Ok base -> Hashtbl.replace own_order cls (Tw.Utility.order base)
   | Error _ -> ()
 
+(* Tailwind applies the variants left to right, each putting the selector so far
+   in its [&], so a declared variant sits where it was written among the
+   built-in ones: [hover:dark:] is [.x:hover:where(...)] and [dark:hover:] is
+   [.x:where(...):hover]. Every prefix becomes a [@variant] in the written order
+   while each built-in one has a template, and the block then wraps the bare
+   utility's declarations; what the sheet hoists for it, the [@property] a
+   [before:] registers for its content, still comes off the built-in prefixes. A
+   built-in prefix without a template stays in the utility, and the declared
+   ones wrap it. *)
+let routed_body ~theme ~ordered ~name ~bare =
+  if ordered then
+    let body, _ = nested_utilities ~theme [ name ] in
+    (body, snd (nested_utilities ~theme [ bare ]))
+  else nested_utilities ~theme [ bare ]
+
 let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
   let variants, bare = split_declared_variants defs cls in
   (* [bare] still carries the built-in prefixes; the utility itself is its last
      segment. *)
   let segments = variant_segments bare in
   let last = List.length segments - 1 in
-  let name = List.nth segments last in
+  let _, name = importance (List.nth segments last) in
   let builtin = List.filteri (fun index _ -> index < last) segments in
+  (* Every prefix of the candidate, declared and built-in, as written. *)
+  let prefixes =
+    let all = variant_segments cls in
+    List.filteri (fun index _ -> index < List.length all - 1) all
+  in
   (* Every body declared for the name, in the order they were written: Tailwind
      registers each [@utility] of a name and applies them all, so a second
      declaration adds to the first rather than replacing it. *)
@@ -2825,16 +2992,25 @@ let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
           (fun variant ->
             Option.is_some (routed_template ~theme derived variant))
           builtin
-      then Some (wrapped_block cls (variants @ builtin) body)
+      then Some (wrapped_block cls prefixes body)
       else None
   | None when variants = [] -> None
   | None ->
-      let body, top = nested_utilities ~theme [ bare ] in
+      let ordered =
+        List.for_all
+          (fun variant ->
+            List.mem_assoc variant defs
+            || Option.is_some (routed_template ~theme derived variant))
+          prefixes
+      in
+      (* A built-in utility reads its own [!]; the mark stays on the name. *)
+      let name = List.nth segments last in
+      let body, top = routed_body ~theme ~ordered ~name ~bare in
       add_once hoisted seen top;
       if body = "" then None
       else begin
         record_routed_order ~theme own_order cls name;
-        Some (wrapped_block cls variants body)
+        Some (wrapped_block cls (if ordered then prefixes else variants) body)
       end
 
 let collect_routed_templates ~theme derived udefs =
@@ -2868,9 +3044,7 @@ let group_routed_rules ~own_order rules =
       match routed_owner owner stmt with
       | None -> classless := stmt :: !classless
       | Some cls -> (
-          let prev =
-            Stdlib.Option.value ~default:[] (Hashtbl.find_opt group cls)
-          in
+          let prev = Option.value ~default:[] (Hashtbl.find_opt group cls) in
           Hashtbl.replace group cls (prev @ [ stmt ]);
           if (not (Hashtbl.mem own_order cls)) && not (Hashtbl.mem order_of cls)
           then
@@ -2884,8 +3058,7 @@ let routed_slot ~own_order ~order_of cls =
   match Hashtbl.find_opt own_order cls with
   | Some order -> order
   | None ->
-      Stdlib.Option.value ~default:(max_int, max_int)
-        (Hashtbl.find_opt order_of cls)
+      Option.value ~default:(max_int, max_int) (Hashtbl.find_opt order_of cls)
 
 (* Tailwind counts every declaration in a utility's AST, including ones in
    nested rules and at-rules. [Css.fold] follows every kind of nested block, so
@@ -2987,12 +3160,26 @@ let parse_routed_block css =
         (Css.statements parsed.Css.stylesheet
         |> List.concat_map flattened_statement)
 
+(* The [!] a candidate carries marks every declaration of the utility
+   [!important], as Tailwind marks them; a declared utility's body is author CSS
+   the parse above reads, so the mark goes on once the block is typed. *)
+let important_block cls stmts =
+  let segments = variant_segments cls in
+  let important, _ =
+    importance (List.nth segments (List.length segments - 1))
+  in
+  if not important then stmts
+  else
+    Css.statements
+      (Css.Stylesheet.map_declarations (List.map Css.important) (Css.v stmts))
+
 let parse_routed_blocks ~own_order ~hoisted blocks =
   let parsed =
     List.filter_map
       (fun (cls, block) ->
         Option.map
-          (List.map (fun stmt -> (Some cls, stmt)))
+          (fun stmts ->
+            List.map (fun stmt -> (Some cls, stmt)) (important_block cls stmts))
           (parse_routed_block block))
       blocks
   in

@@ -6,6 +6,7 @@
   tw_tools
   cascade
   cascade.diff
+  cascade.browser
   astring
   re
   test_helpers))
