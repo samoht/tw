@@ -787,6 +787,50 @@ let test_bracket_shadow_alpha_fn () =
       composition;
     ]
 
+(* Tailwind's colour-mix polyfill applies to a bracket shadow the way it applies
+   to any declaration: a layer whose colour is a [color-mix()] reading a custom
+   property or [currentcolor] is written with the mix's first colour behind the
+   family's channel in the open, and as written behind the colour-mix guard,
+   with the composition after both. A mix the author spelled out reads the same
+   as one an [--alpha()] expands to. tw wrote the mix alone. *)
+let test_bracket_shadow_mix_polyfill () =
+  let composition =
+    "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+     var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)"
+  in
+  let pair cls channel ~lengths ~colour ~mixed =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        channel ^ ": " ^ lengths ^ " var(" ^ channel ^ "-color, " ^ colour ^ ")";
+        channel ^ ": " ^ lengths ^ " var(" ^ channel ^ "-color, " ^ mixed ^ ")";
+        composition;
+      ]
+  in
+  let mix colour alpha =
+    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
+  in
+  pair "shadow-[0_0_0_1px_--alpha(red/var(--o))]" "--tw-shadow"
+    ~lengths:"0 0 0 1px" ~colour:"red" ~mixed:(mix "red" "var(--o)");
+  pair "shadow-[0_0_0_1px_--alpha(currentcolor/50%)]" "--tw-shadow"
+    ~lengths:"0 0 0 1px" ~colour:"currentcolor"
+    ~mixed:(mix "currentcolor" "50%");
+  pair "inset-shadow-[0_0_0_1px_--alpha(red/var(--o))]" "--tw-inset-shadow"
+    ~lengths:"inset 0 0 0 1px" ~colour:"red" ~mixed:(mix "red" "var(--o)");
+  pair "inset-shadow-[0_0_0_1px_color-mix(in_oklab,red_var(--o),transparent)]"
+    "--tw-inset-shadow" ~lengths:"inset 0 0 0 1px" ~colour:"red"
+    ~mixed:(mix "red" "var(--o)");
+  (* every layer keeps its place, and one that needs no polyfill is written as
+     it is on both sides *)
+  Test_helpers.check_declarations ~minify:false
+    "shadow-[0_0_0_1px_--alpha(red/var(--o)),0_0_2px_blue]"
+    [
+      "--tw-shadow: 0 0 0 1px var(--tw-shadow-color, red), 0 0 2px \
+       var(--tw-shadow-color, blue)";
+      "--tw-shadow: 0 0 0 1px var(--tw-shadow-color, " ^ mix "red" "var(--o)"
+      ^ "), 0 0 2px var(--tw-shadow-color, blue)";
+      composition;
+    ]
+
 (* A named [--opacity-*] token is read off the theme before the bracket, or the
    modifier stays glued to it: [shadow-[color:var(--c)]/half] was a shadow
    spelled [[color:var(--c)]/half], a class no markup carries, where Tailwind
@@ -1334,6 +1378,8 @@ let tests =
     test_case "ring bracket hex named opacity" `Quick
       test_ring_bracket_hex_named_opacity;
     test_case "bracket shadow --alpha()" `Quick test_bracket_shadow_alpha_fn;
+    test_case "bracket shadow colour-mix polyfill" `Quick
+      test_bracket_shadow_mix_polyfill;
     test_case "bracket shadow named opacity" `Quick test_bracket_named_opacity;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;

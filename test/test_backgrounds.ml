@@ -194,6 +194,30 @@ let test_bracket_gradient_alpha_fn () =
        #0000ff)";
     ]
 
+(* Tailwind's colour-mix polyfill applies to a bracket image the way it applies
+   to any declaration: a gradient whose stop is a [color-mix()] reading a custom
+   property or [currentcolor] is written with the mix's first colour in the open
+   and as written behind the colour-mix guard, hinted or not. tw wrote the mix
+   alone. *)
+let test_bracket_image_mix_polyfill () =
+  let pair cls ~open_ ~guarded =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "background-image: " ^ open_; "background-image: " ^ guarded ]
+  in
+  let mix colour alpha =
+    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
+  in
+  pair "bg-[linear-gradient(--alpha(red/var(--o)),blue)]"
+    ~open_:"linear-gradient(red, #0000ff)"
+    ~guarded:("linear-gradient(" ^ mix "red" "var(--o)" ^ ", #0000ff)");
+  (* [currentColor] is cascade's spelling of the keyword outside a mix *)
+  pair "bg-[image:linear-gradient(--alpha(currentcolor/50%),blue)]"
+    ~open_:"linear-gradient(currentColor, #0000ff)"
+    ~guarded:("linear-gradient(" ^ mix "currentcolor" "50%" ^ ", #0000ff)");
+  pair "bg-[linear-gradient(color-mix(in_oklab,red_var(--o),transparent),blue)]"
+    ~open_:"linear-gradient(red, #0000ff)"
+    ~guarded:("linear-gradient(" ^ mix "red" "var(--o)" ^ ", #0000ff)")
+
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [bg-position-] and [bg-size-] each write one longhand, so
    every hint lands there and the reader is handed what follows it; the hint
@@ -811,6 +835,8 @@ let tests =
     test_case "bg-position bracket keyword+length" `Quick
       test_bg_position_bracket_keyword_length;
     test_case "bracket gradient --alpha()" `Quick test_bracket_gradient_alpha_fn;
+    test_case "bracket image colour-mix polyfill" `Quick
+      test_bracket_image_mix_polyfill;
     test_case "bg-position and bg-size peel a data-type hint" `Quick
       test_bg_position_and_size_peel_a_hint;
     test_case "bracket position grammar" `Quick test_bracket_position_grammar;

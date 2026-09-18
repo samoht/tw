@@ -372,6 +372,36 @@ let test_var_shadow_takes_a_modifier () =
        var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
     ]
 
+(* Tailwind's colour-mix polyfill applies to a bracket text shadow the way it
+   applies to any declaration: a layer whose colour is a [color-mix()] reading a
+   custom property or [currentcolor] is written with the mix's first colour
+   behind the family's channel in the open, and as written behind the colour-mix
+   guard. tw wrote the mix alone. *)
+let test_bracket_shadow_mix_polyfill () =
+  let pair cls ~colour ~mixed =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "text-shadow: 0 0 1px var(--tw-text-shadow-color, " ^ colour ^ ")";
+        "text-shadow: 0 0 1px var(--tw-text-shadow-color, " ^ mixed ^ ")";
+      ]
+  in
+  let mix colour alpha =
+    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
+  in
+  pair "text-shadow-[0_0_1px_--alpha(red/var(--o))]" ~colour:"red"
+    ~mixed:(mix "red" "var(--o)");
+  pair "text-shadow-[0_0_1px_--alpha(currentcolor/50%)]" ~colour:"currentcolor"
+    ~mixed:(mix "currentcolor" "50%");
+  pair "text-shadow-[0_0_1px_color-mix(in_oklab,red_var(--o),transparent)]"
+    ~colour:"red" ~mixed:(mix "red" "var(--o)");
+  (* a mix a browser resolves on its own is written once *)
+  Test_helpers.check_declarations ~minify:false
+    "text-shadow-[0_0_1px_--alpha(red/50%)]"
+    [
+      "text-shadow: 0 0 1px var(--tw-text-shadow-color, " ^ mix "red" "50%"
+      ^ ")";
+    ]
+
 let tests =
   [
     Alcotest.test_case "colour hint takes a colour" `Quick
@@ -403,6 +433,8 @@ let tests =
         test_scoped_colour_token_opacity;
       Alcotest.test_case "colour opacity from a var" `Quick
         test_colour_opacity_var;
+      Alcotest.test_case "bracket shadow colour-mix polyfill" `Quick
+        test_bracket_shadow_mix_polyfill;
     ]
 
 let suite = ("text_shadow", tests)
