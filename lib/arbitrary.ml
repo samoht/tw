@@ -248,13 +248,15 @@ module Handler = struct
               match Parse.alpha_call raw_value with
               | Some (c, p) -> (
                   (* [--alpha()] writes the alpha as a percentage; the [/]
-                     modifier writes the bare number. *)
-                  let bare =
-                    if String.ends_with ~suffix:"%" p then
-                      String.sub p 0 (String.length p - 1)
-                    else p
+                     modifier writes the bare number, or the var() it reads. *)
+                  let alpha =
+                    if Parse.is_var p then Some (Color.Opacity_var p)
+                    else if String.ends_with ~suffix:"%" p then
+                      Color.opacity_of_string ~theme
+                        (String.sub p 0 (String.length p - 1))
+                    else Color.opacity_of_string ~theme p
                   in
-                  match Color.opacity_of_string ~theme bare with
+                  match alpha with
                   | Some alpha -> (c, Some { spelling = raw_value; alpha })
                   | None -> (raw_value, None))
               | None -> (raw_value, None)
@@ -290,9 +292,14 @@ module Handler = struct
                       (Color_opacity
                          { property; value; alpha_fn = fn_alpha; opacity })
                   else err_not_utility
-                else if Parse.holds_unresolved_call value then
+                else if
+                  Parse.holds_unresolved_call
+                    (Parse.decode_arbitrary_value value)
+                then
                   (* an [--alpha()] the reader above declined, or a [theme()],
-                     is a lookup that failed: Tailwind names no utility *)
+                     is a lookup that failed: Tailwind names no utility. The
+                     decoded text is what the lexer reads as a call: before it,
+                     [1px_--alpha(] is one dimension token. *)
                   err_not_utility
                 else
                   (* Plain [property:value]: any property whose value cascade

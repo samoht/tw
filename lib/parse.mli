@@ -131,8 +131,11 @@ val encode_underscores : string -> string
 val decode_arbitrary_value : string -> string
 (** [decode_arbitrary_value s] decodes Tailwind arbitrary-value syntax into a
     CSS value string suitable for Cascade readers. This converts underscores to
-    spaces and normalizes omitted whitespace around binary [+] and [-] operators
-    inside CSS math functions such as [calc()]. *)
+    spaces, writes the value of a [--spacing()] or [--alpha()] call in its place
+    wherever it stands outside a quoted string, and normalizes omitted
+    whitespace around binary [+] and [-] operators inside CSS math functions
+    such as [calc()]. An [--alpha()] call missing either half stays as written,
+    for {!holds_unresolved_call} to refuse. *)
 
 val url_token : string -> string option
 (** [url_token s] reads [s] as one whole CSS [url()] token and returns the URL

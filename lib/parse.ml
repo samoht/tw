@@ -440,6 +440,25 @@ let normalize_css_math_operators s =
    backslash escapes), so the same bytes inside a string literal - e.g. an
    arbitrary [content:'--spacing(1)'] - are left as literal text rather than
    expanded. *)
+(* Copies a quoted string from [i], the character after its opening [quote],
+   through its closing quote into [buf], backslash escapes included, and
+   answers the index after it. *)
+let copy_string s buf quote i =
+  let len = String.length s in
+  let rec at i =
+    if i >= len then i
+    else
+      match s.[i] with
+      | '\\' when i + 1 < len ->
+          Buffer.add_char buf s.[i];
+          Buffer.add_char buf s.[i + 1];
+          at (i + 2)
+      | c ->
+          Buffer.add_char buf c;
+          if c = quote then i + 1 else at (i + 1)
+  in
+  at i
+
 let expand_spacing_fn s =
   let len = String.length s in
   let buf = Buffer.create len in
@@ -458,7 +477,7 @@ let expand_spacing_fn s =
       match s.[i] with
       | ('\'' | '"') as quote ->
           Buffer.add_char buf quote;
-          in_string quote (i + 1)
+          go (copy_string s buf quote (i + 1))
       | _ ->
           if i + 10 <= len && String.sub s i 10 = "--spacing(" then (
             let stop, next = close_paren (i + 9) 0 in
@@ -473,26 +492,140 @@ let expand_spacing_fn s =
           else (
             Buffer.add_char buf s.[i];
             go (i + 1))
-  and in_string quote i =
+  in
+  go 0;
+  Buffer.contents buf
+
+let call_body name s =
+  let head = name ^ "(" in
+  let n = String.length s and m = String.length head in
+  if n > m && String.starts_with ~prefix:head s && s.[n - 1] = ')' then
+    Some (String.sub s m (n - m - 1))
+  else None
+
+let split_top_level sep s =
+  let len = String.length s in
+  let rec go depth start i acc =
+    if i >= len then List.rev (String.sub s start (len - start) :: acc)
+    else
+      match s.[i] with
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
+      | c when c = sep && depth = 0 ->
+          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | _ -> go depth start (i + 1) acc
+  in
+  go 0 0 0 []
+
+(* A bare number's alpha as the percentage Tailwind scales it to, done on the
+   text so that [0.2] is [20] rather than a float's idea of it: the decimal
+   point moves two places right. [None] when [s] is not a plain decimal. *)
+let alpha_percent_of_number s =
+  let sign, digits =
+    if String.starts_with ~prefix:"-" s || String.starts_with ~prefix:"+" s then
+      (String.sub s 0 1, String.sub s 1 (String.length s - 1))
+    else ("", s)
+  in
+  let all_digits = String.for_all (fun c -> c >= '0' && c <= '9') in
+  let int_part, frac =
+    match String.split_on_char '.' digits with
+    | [ i ] -> (i, "")
+    | [ i; f ] -> (i, f)
+    | _ -> ("", "x")
+  in
+  if (int_part = "" && frac = "") || not (all_digits int_part && all_digits frac)
+  then None
+  else
+    let frac = frac ^ "00" in
+    let whole = int_part ^ String.sub frac 0 2 in
+    let rest = String.sub frac 2 (String.length frac - 2) in
+    let rec drop_zeros s =
+      if String.ends_with ~suffix:"0" s then
+        drop_zeros (String.sub s 0 (String.length s - 1))
+      else s
+    in
+    let rec lead s =
+      if String.length s > 1 && s.[0] = '0' then
+        lead (String.sub s 1 (String.length s - 1))
+      else s
+    in
+    let rest = drop_zeros rest in
+    Some (sign ^ lead whole ^ if rest = "" then "" else "." ^ rest)
+
+(* The two halves of an [--alpha()] body, trimmed, with the alpha scaled the way
+   Tailwind scales a bare number. [None] when either half is empty, which
+   Tailwind refuses. *)
+let alpha_halves body =
+  match List.map String.trim (split_top_level '/' body) with
+  | colour :: alpha :: _ when colour <> "" && alpha <> "" ->
+      let alpha =
+        match alpha_percent_of_number alpha with
+        | Some percent -> percent ^ "%"
+        | None -> alpha
+      in
+      Some (colour, alpha)
+  | _ -> None
+
+let alpha_call s = Option.bind (call_body "--alpha" s) alpha_halves
+
+(* Tailwind's [--alpha(<color>/<alpha>)] wherever it stands in a value, as
+   [--spacing()] above: the [color-mix()] it denotes takes its place, a whole
+   alpha leaves the colour itself, and a call missing either half stays as
+   written for [holds_unresolved_call] to refuse. A call inside another's colour
+   expands first. The scan skips quoted strings the way [expand_spacing_fn]
+   does. *)
+let rec alpha_substitute body =
+  match alpha_halves (expand_alpha_fn body) with
+  | Some (colour, "100%") -> Some colour
+  | Some (colour, alpha) ->
+      Some
+        (String.concat ""
+           [ "color-mix(in oklab, "; colour; " "; alpha; ", transparent)" ])
+  | None -> None
+
+and expand_alpha_fn s =
+  let len = String.length s in
+  let buf = Buffer.create len in
+  let head = "--alpha(" in
+  let h = String.length head in
+  let rec close_paren i depth =
+    if i >= len then None
+    else
+      match s.[i] with
+      | '(' -> close_paren (i + 1) (depth + 1)
+      | ')' when depth = 1 -> Some i
+      | ')' -> close_paren (i + 1) (depth - 1)
+      | _ -> close_paren (i + 1) depth
+  in
+  let call_at i =
+    if i + h <= len && String.sub s i h = head then close_paren (i + h - 1) 0
+    else None
+  in
+  let rec go i =
     if i >= len then ()
     else
       match s.[i] with
-      | '\\' when i + 1 < len ->
-          Buffer.add_char buf s.[i];
-          Buffer.add_char buf s.[i + 1];
-          in_string quote (i + 2)
-      | c when c = quote ->
-          Buffer.add_char buf c;
-          go (i + 1)
-      | c ->
-          Buffer.add_char buf c;
-          in_string quote (i + 1)
+      | ('\'' | '"') as quote ->
+          Buffer.add_char buf quote;
+          go (copy_string s buf quote (i + 1))
+      | _ -> (
+          match call_at i with
+          | Some stop ->
+              let call = String.sub s i (stop + 1 - i) in
+              let body = String.sub s (i + h) (stop - i - h) in
+              Buffer.add_string buf
+                (Option.value (alpha_substitute body) ~default:call);
+              go (stop + 1)
+          | None ->
+              Buffer.add_char buf s.[i];
+              go (i + 1))
   in
   go 0;
   Buffer.contents buf
 
 let decode_arbitrary_value s =
-  s |> decode_underscores |> expand_spacing_fn |> normalize_css_math_operators
+  s |> decode_underscores |> expand_spacing_fn |> expand_alpha_fn
+  |> normalize_css_math_operators
 
 let arbitrary_length s = Cascade.Css.parse_length (decode_arbitrary_value s)
 
@@ -619,13 +752,6 @@ let is_var s = String.starts_with ~prefix:"var(" s && String.length s > 4
 (** Check if a bracket value contains a var() reference *)
 let is_bracket_var s =
   if is_bracket_value s then is_var (bracket_inner s) else false
-
-let call_body name s =
-  let head = name ^ "(" in
-  let n = String.length s and m = String.length head in
-  if n > m && String.starts_with ~prefix:head s && s.[n - 1] = ')' then
-    Some (String.sub s m (n - m - 1))
-  else None
 
 (** Check if a string looks like a CSS color function call (e.g., "rgba(...)",
     "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
@@ -761,7 +887,7 @@ type shadow_colour =
   | No_colour
 
 let shadow_layer s =
-  let parts = String.split_on_char ' ' (decode_underscores s) in
+  let parts = String.split_on_char ' ' (decode_arbitrary_value s) in
   let rec split acc = function
     | [] -> (List.rev acc, No_colour)
     | x :: _ when String.length x > 0 && x.[0] = '#' ->
@@ -785,66 +911,3 @@ let shadow_layer s =
     match colour with
     | Hex_token h when Option.is_none (Cascade.Css.hex_opt h) -> None
     | _ -> Some (lengths, colour)
-
-let split_top_level sep s =
-  let len = String.length s in
-  let rec go depth start i acc =
-    if i >= len then List.rev (String.sub s start (len - start) :: acc)
-    else
-      match s.[i] with
-      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
-      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
-      | c when c = sep && depth = 0 ->
-          go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
-      | _ -> go depth start (i + 1) acc
-  in
-  go 0 0 0 []
-
-(* A bare number's alpha as the percentage Tailwind scales it to, done on the
-   text so that [0.2] is [20] rather than a float's idea of it: the decimal
-   point moves two places right. [None] when [s] is not a plain decimal. *)
-let alpha_percent_of_number s =
-  let sign, digits =
-    if String.starts_with ~prefix:"-" s || String.starts_with ~prefix:"+" s then
-      (String.sub s 0 1, String.sub s 1 (String.length s - 1))
-    else ("", s)
-  in
-  let all_digits = String.for_all (fun c -> c >= '0' && c <= '9') in
-  let int_part, frac =
-    match String.split_on_char '.' digits with
-    | [ i ] -> (i, "")
-    | [ i; f ] -> (i, f)
-    | _ -> ("", "x")
-  in
-  if (int_part = "" && frac = "") || not (all_digits int_part && all_digits frac)
-  then None
-  else
-    let frac = frac ^ "00" in
-    let whole = int_part ^ String.sub frac 0 2 in
-    let rest = String.sub frac 2 (String.length frac - 2) in
-    let rec drop_zeros s =
-      if String.ends_with ~suffix:"0" s then
-        drop_zeros (String.sub s 0 (String.length s - 1))
-      else s
-    in
-    let rec lead s =
-      if String.length s > 1 && s.[0] = '0' then
-        lead (String.sub s 1 (String.length s - 1))
-      else s
-    in
-    let rest = drop_zeros rest in
-    Some (sign ^ lead whole ^ if rest = "" then "" else "." ^ rest)
-
-let alpha_call s =
-  match call_body "--alpha" s with
-  | None -> None
-  | Some body -> (
-      match List.map String.trim (split_top_level '/' body) with
-      | colour :: alpha :: _ when colour <> "" && alpha <> "" ->
-          let alpha =
-            match alpha_percent_of_number alpha with
-            | Some percent -> percent ^ "%"
-            | None -> alpha
-          in
-          Some (colour, alpha)
-      | _ -> None)

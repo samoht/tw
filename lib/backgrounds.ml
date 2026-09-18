@@ -778,7 +778,7 @@ module Handler = struct
      list. [None] means the bracket is not an image, which [of_class] rejects:
      [bg-[image:nope]] used to parse and then emit an empty rule. *)
   let parse_bracket_image v : Css.background_image option =
-    let css_str = Parse.decode_underscores v in
+    let css_str = Parse.decode_arbitrary_value v in
     match Css.parse_background_image css_str with
     | Some [ img ] -> Some (Css.minify_background_image img)
     | Some (_ :: _ as imgs) ->

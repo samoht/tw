@@ -203,6 +203,50 @@ module Handler = struct
     | Bg_blend_color
     | Bg_blend_luminosity
 
+  let of_shape = function
+    | Two_xs -> Shadow_2xs
+    | Xs -> Shadow_xs
+    | Sm -> Shadow_sm
+    | Default -> Shadow
+    | Md -> Shadow_md
+    | Lg -> Shadow_lg
+    | Xl -> Shadow_xl
+    | Two_xl -> Shadow_2xl
+    | Inner -> Shadow_inner
+
+  let of_inset_shape = function
+    | Ish_2xs -> Inset_shadow_2xs
+    | Ish_xs -> Inset_shadow_xs
+    | Ish_sm -> Inset_shadow_sm
+
+  (* A named [--opacity-*] token on a shadow size, not on a colour: Tailwind
+     reads no alpha off it and writes the size as if no modifier were given, so
+     the class keeps the modifier in its name and nothing else. *)
+  let without_named_size_alpha = function
+    | Shadow_shape_opacity (shape, Color.Opacity_named _) -> of_shape shape
+    | Shadow_theme_opacity (name, Color.Opacity_named _) -> Shadow_theme name
+    | Shadow_arbitrary_opacity (arb, Color.Opacity_named _) ->
+        Shadow_arbitrary arb
+    | Shadow_bracket_shadow_opacity (s, Color.Opacity_named _) ->
+        Shadow_bracket_shadow s
+    | Shadow_bracket_var_opacity (v, Color.Opacity_named _) ->
+        Shadow_bracket_var v
+    | Shadow_raw (inner, value, Color.Opacity_named _) ->
+        Shadow_raw (inner, value, Color.No_opacity)
+    | Inset_shadow_shape_opacity (shape, Color.Opacity_named _) ->
+        of_inset_shape shape
+    | Inset_shadow_theme_opacity (name, Color.Opacity_named _) ->
+        Inset_shadow_theme name
+    | Inset_shadow_arbitrary_opacity (arb, Color.Opacity_named _) ->
+        Inset_shadow_arbitrary arb
+    | Inset_shadow_bracket_shadow_opacity (s, Color.Opacity_named _) ->
+        Inset_shadow_bracket_shadow s
+    | Inset_shadow_bracket_var_opacity (v, Color.Opacity_named _) ->
+        Inset_shadow_bracket_var v
+    | Inset_shadow_raw (inner, value, Color.Opacity_named _) ->
+        Inset_shadow_raw (inner, value, Color.No_opacity)
+    | t -> t
+
   let name = "effects"
   let priority = function Ring_inset -> 40 | _ -> 27
 
@@ -701,10 +745,10 @@ module Handler = struct
   let is_shadow_bracket inner =
     Parse.is_var inner
     || parse_arbitrary_shadow inner <> None
-    || Parse.shadow (Parse.decode_underscores inner) <> None
+    || Parse.shadow (Parse.decode_arbitrary_value inner) <> None
 
   let shadow_arbitrary (arb : string) =
-    let normalized = Parse.decode_underscores arb in
+    let normalized = Parse.decode_arbitrary_value arb in
     (* The reading below takes one shadow, so anything with a comma - a layer
        list, or a colour function carrying one - goes to the value parser
        instead. *)
@@ -775,7 +819,7 @@ module Handler = struct
            colour keyword, a layer list and the [inset] keyword the reading
            above does not. Falling out to [shadow-none] lost the lengths and the
            modifier's own declaration along with the colour. *)
-        match Parse.shadow (Parse.decode_underscores arb) with
+        match Parse.shadow (Parse.decode_arbitrary_value arb) with
         | Some shadow ->
             arbitrary_shadow_alpha_style ~shadow_var ~color_var:shadow_color_var
               ~alpha_decl:(shadow_opacity_decl opacity)
@@ -1046,7 +1090,7 @@ module Handler = struct
            that accepted it keeps the shadow the class wrote; falling out to
            [inset-shadow-none] lost its lengths and spread along with the
            colour. *)
-        match Parse.shadow (Parse.decode_underscores arb) with
+        match Parse.shadow (Parse.decode_arbitrary_value arb) with
         | Some shadow ->
             inset_shadow_compose
               (wrap_shadow_colors ~color_var:inset_shadow_color_var
@@ -1090,7 +1134,7 @@ module Handler = struct
     | None -> (
         (* Read the bracket with the reader that accepted it, as
            [inset_shadow_arbitrary] does without a modifier. *)
-        match Parse.shadow (Parse.decode_underscores arb) with
+        match Parse.shadow (Parse.decode_arbitrary_value arb) with
         | Some shadow ->
             arbitrary_shadow_alpha_style ~shadow_var:inset_shadow_var
               ~color_var:inset_shadow_color_var
@@ -1584,259 +1628,261 @@ module Handler = struct
     let inset_ring_bracket_color_opacity =
       inset_ring_bracket_color_opacity ~theme
     in
-    function
-    | Shadow_none -> shadow_none
-    | Shadow_2xs -> shadow_2xs
-    | Shadow_xs -> shadow_xs
-    | Shadow_sm -> shadow_sm
-    | Shadow -> shadow
-    | Shadow_md -> shadow_md
-    | Shadow_lg -> shadow_lg
-    | Shadow_xl -> shadow_xl
-    | Shadow_2xl -> shadow_2xl
-    | Shadow_inner -> shadow_inner
-    | Shadow_arbitrary arb -> shadow_arbitrary arb
-    | Shadow_raw (_, value, opacity) -> shadow_raw value opacity
-    | Shadow_theme name -> shadow_theme theme name
-    | Shadow_theme_opacity (name, op) -> shadow_theme_opacity theme name op
-    | Inset_shadow_theme name -> inset_shadow_theme theme name
-    | Inset_shadow_theme_opacity (name, op) ->
-        inset_shadow_theme_opacity theme name op
-    | Shadow_arbitrary_opacity (arb, op) -> shadow_arbitrary_opacity arb op
-    | Shadow_shape_opacity (shape, op) -> shadow_shape_opacity_style shape op
-    | Shadow_color (c, s) -> Color.channel_color ~theme shadow_channel c s
-    | Shadow_color_opacity (c, s, op) ->
-        Color.channel_color_opacity ~theme shadow_channel c s op
-    | Shadow_current -> Color.channel_current shadow_channel
-    | Shadow_current_opacity op ->
-        Color.channel_current_opacity shadow_channel op
-    | Shadow_inherit -> Color.channel_inherit shadow_channel
-    | Shadow_transparent -> Color.channel_transparent shadow_channel
-    | Shadow_transparent_opacity op ->
-        Color.channel_transparent_opacity shadow_channel op
-    | Shadow_bracket_color (_orig, c) ->
-        Color.channel_bracket_color ~theme shadow_channel c
-    | Shadow_bracket_color_opacity (_orig, c, op) ->
-        Color.channel_bracket_color_opacity ~theme shadow_channel c op
-    | Shadow_bracket_color_var v -> Color.channel_bracket_var shadow_channel v
-    | Shadow_bracket_color_var_opacity (v, op) ->
-        Color.channel_bracket_var_opacity shadow_channel v op
-    | Shadow_bracket_shadow s ->
-        if Parse.is_var s then shadow_raw_var s else shadow_arbitrary s
-    | Shadow_bracket_shadow_opacity (s, opacity) ->
-        if Parse.is_var s then shadow_raw_var ~opacity s
-        else shadow_arbitrary_opacity s opacity
-    | Shadow_bracket_var v -> shadow_raw_var v
-    | Shadow_bracket_var_opacity (v, opacity) -> shadow_raw_var ~opacity v
-    | Inset_shadow_none -> inset_shadow_none
-    | Inset_shadow_2xs -> inset_shadow_shape_style ~theme Ish_2xs
-    | Inset_shadow_xs -> inset_shadow_shape_style ~theme Ish_xs
-    | Inset_shadow_sm -> inset_shadow_shape_style ~theme Ish_sm
-    | Inset_shadow -> inset_shadow_themed ~theme ()
-    | Inset_shadow_arbitrary arb -> inset_shadow_arbitrary arb
-    | Inset_shadow_raw (_, value, opacity) -> inset_shadow_raw value opacity
-    | Inset_shadow_arbitrary_opacity (arb, op) ->
-        inset_shadow_arbitrary_opacity arb op
-    | Inset_shadow_shape_opacity (shape, op) ->
-        inset_shadow_shape_opacity_style ~theme shape op
-    | Inset_shadow_color (c, s) ->
-        Color.channel_color ~theme inset_shadow_channel c s
-    | Inset_shadow_color_opacity (c, s, op) ->
-        Color.channel_color_opacity ~theme inset_shadow_channel c s op
-    | Inset_shadow_current -> Color.channel_current inset_shadow_channel
-    | Inset_shadow_current_opacity op ->
-        Color.channel_current_opacity inset_shadow_channel op
-    | Inset_shadow_inherit -> Color.channel_inherit inset_shadow_channel
-    | Inset_shadow_transparent -> Color.channel_transparent inset_shadow_channel
-    | Inset_shadow_transparent_opacity op ->
-        Color.channel_transparent_opacity inset_shadow_channel op
-    | Inset_shadow_bracket_color (_orig, c) ->
-        Color.channel_bracket_color ~theme inset_shadow_channel c
-    | Inset_shadow_bracket_color_opacity (_orig, c, op) ->
-        Color.channel_bracket_color_opacity ~theme inset_shadow_channel c op
-    | Inset_shadow_bracket_color_var v ->
-        Color.channel_bracket_var inset_shadow_channel v
-    | Inset_shadow_bracket_cvar_opacity (v, op) ->
-        Color.channel_bracket_var_opacity inset_shadow_channel v op
-    | Inset_shadow_bracket_shadow s ->
-        if Parse.is_var s then inset_shadow_raw_var s
-        else inset_shadow_arbitrary s
-    | Inset_shadow_bracket_shadow_opacity (s, opacity) ->
-        if Parse.is_var s then inset_shadow_raw_var ~opacity s
-        else inset_shadow_arbitrary_opacity s opacity
-    | Inset_shadow_bracket_var v -> inset_shadow_raw_var v
-    | Inset_shadow_bracket_var_opacity (v, opacity) ->
-        inset_shadow_raw_var ~opacity v
-    | Opacity n -> opacity n
-    | Opacity_decimal f ->
-        let value = f /. 100.0 in
-        style [ Css.opacity (Css.Opacity_number value) ]
-    | Opacity_arbitrary (_, `Num f) ->
-        style [ Css.opacity (Css.Opacity_number f) ]
-    | Opacity_arbitrary (_, `Raw v) -> (
-        match Parse.opaque_declaration "opacity" v with
-        | Some declaration -> style [ declaration ]
-        | None -> style [])
-    | Opacity_var v ->
-        let bare_name = Parse.extract_var_name v in
-        let var_ref : Css.opacity Css.var = Var.bracket bare_name in
-        style [ Css.opacity (Css.Var var_ref) ]
-    | Ring_none -> ring_none
-    | Ring_xs -> ring_xs
-    | Ring_sm -> ring_sm
-    | Ring_md -> ring_default ()
-    | Ring_lg -> ring_lg
-    | Ring_xl -> ring_xl
-    | Ring_width w -> ring_internal w
-    | Ring_inset -> ring_inset
-    | Ring_color (color, shade) -> ring_color color shade
-    | Ring_color_opacity (color, shade, opacity) ->
-        ring_color_with_opacity color shade opacity
-    | Ring_keyword_opacity (keyword, _, opacity) ->
-        ring_keyword_with_opacity ring_color_var keyword opacity
-    | Ring_transparent -> ring_transparent
-    | Ring_current -> ring_current
-    | Ring_current_opacity opacity -> ring_current_with_opacity opacity
-    | Ring_inherit -> ring_inherit
-    | Ring_bracket_color (_orig, c) -> ring_bracket_color c
-    | Ring_bracket_color_opacity (_orig, c, o) ->
-        ring_bracket_color_with_opacity c o
-    | Ring_bracket_color_var v -> ring_bracket_color_var v
-    | Ring_bracket_color_var_opacity (v, o) -> ring_bracket_cvar_opacity v o
-    | Ring_bracket_var v -> ring_bracket_var v
-    | Ring_bracket_var_opacity (v, o) -> ring_bracket_var_with_opacity v o
-    | Ring_raw (_, value, opacity) ->
-        raw_ring_color ring_color_var value opacity
-    | Ring_bracket_length inner -> ring_of_width (parse_bracket_width inner)
-    | Ring_offset_width n -> ring_offset_width n
-    | Ring_offset_bracket_length inner -> ring_offset_bracket_length inner
-    | Ring_offset_color (color, shade) -> ring_offset_color color shade
-    | Ring_offset_color_opacity (color, shade, opacity) ->
-        ring_offset_color_with_opacity color shade opacity
-    | Ring_offset_keyword_opacity (keyword, _, opacity) ->
-        ring_keyword_with_opacity ring_offset_color_var keyword opacity
-    | Ring_offset_transparent -> ring_offset_transparent
-    | Ring_offset_current -> ring_offset_current
-    | Ring_offset_current_opacity opacity ->
-        ring_offset_current_with_opacity opacity
-    | Ring_offset_inherit -> ring_offset_inherit
-    | Ring_offset_bracket_color (_orig, c) -> ring_offset_bracket_color c
-    | Ring_offset_bracket_color_opacity (_orig, c, o) ->
-        ring_offset_bracket_color_opacity c o
-    | Ring_offset_bracket_color_var v -> ring_offset_bracket_color_var v
-    | Ring_offset_bracket_cvar_opacity (v, o) ->
-        ring_offset_bracket_cvar_opacity v o
-    | Ring_offset_bracket_var v -> ring_offset_bracket_var v
-    | Ring_offset_bracket_var_opacity (v, o) ->
-        ring_offset_bracket_var_opacity v o
-    | Ring_offset_raw (_, value, opacity) ->
-        raw_ring_color ring_offset_color_var value opacity
-    | Inset_ring_color (color, shade) -> inset_ring_color color shade
-    | Inset_ring_color_opacity (color, shade, opacity) ->
-        inset_ring_color_with_opacity color shade opacity
-    | Inset_ring_keyword_opacity (keyword, _, opacity) ->
-        ring_keyword_with_opacity inset_ring_color_var keyword opacity
-    | Inset_ring_transparent -> inset_ring_transparent
-    | Inset_ring_current -> inset_ring_current
-    | Inset_ring_current_opacity opacity ->
-        inset_ring_current_with_opacity opacity
-    | Inset_ring_inherit -> inset_ring_inherit
-    | Inset_ring_bracket_color (_orig, c) -> inset_ring_bracket_color c
-    | Inset_ring_bracket_color_opacity (_orig, c, o) ->
-        inset_ring_bracket_color_opacity c o
-    | Inset_ring_bracket_color_var v -> inset_ring_bracket_color_var v
-    | Inset_ring_bracket_cvar_opacity (v, o) ->
-        inset_ring_bracket_cvar_opacity v o
-    | Inset_ring_bracket_var v -> inset_ring_bracket_var v
-    | Inset_ring_bracket_var_opacity (v, o) ->
-        inset_ring_bracket_var_opacity v o
-    | Inset_ring_raw (_, value, opacity) ->
-        raw_ring_color inset_ring_color_var value opacity
-    | Inset_ring_default -> inset_ring_default ()
-    | Inset_ring_width n -> inset_ring_internal n
-    | Inset_ring_bracket_length inner ->
-        let spread = parse_bracket_width inner in
-        let color : Css.color =
-          Var
-            (Var.bracket
-               ~fallback:(Fallback (Css.Current : Css.color))
-               "tw-inset-ring-color")
-        in
-        let shadow_value =
-          Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero
-            ~spread ~color ()
-        in
-        let d = Var.set inset_ring_shadow_var shadow_value in
-        let v_inset = Var.reference inset_shadow_var in
-        let v_inset_ring = Var.reference inset_ring_shadow_var in
-        let v_ring_offset = Var.reference ring_offset_shadow_var in
-        let v_ring = Var.reference ring_shadow_var in
-        let v_shadow = Var.reference shadow_var in
-        let box_shadow_vars : Css.shadow list =
-          [
-            Css.Var v_inset;
-            Css.Var v_inset_ring;
-            Css.Var v_ring_offset;
-            Css.Var v_ring;
-            Css.Var v_shadow;
-          ]
-        in
-        let property_rules =
-          [
-            Var.property_rule shadow_var;
-            Var.property_rule shadow_color_var;
-            Var.property_rule shadow_alpha_var;
-            Var.property_rule inset_shadow_var;
-            Var.property_rule inset_shadow_color_var;
-            Var.property_rule inset_shadow_alpha_var;
-            Var.property_rule ring_color_var;
-            Var.property_rule ring_shadow_var;
-            Var.property_rule inset_ring_color_var;
-            Var.property_rule inset_ring_shadow_var;
-            Var.property_rule ring_inset_var;
-            Var.property_rule ring_offset_width_var;
-            Var.property_rule ring_offset_color_var;
-            Var.property_rule ring_offset_shadow_var;
-          ]
-          |> List.filter_map Fun.id
-        in
-        style
-          ~property_rules:(Css.concat property_rules)
-          [ d; Css.box_shadows box_shadow_vars ]
-    | Mix_blend_normal -> mix_blend_normal
-    | Mix_blend_multiply -> mix_blend_multiply
-    | Mix_blend_screen -> mix_blend_screen
-    | Mix_blend_overlay -> mix_blend_overlay
-    | Mix_blend_darken -> mix_blend_darken
-    | Mix_blend_lighten -> mix_blend_lighten
-    | Mix_blend_color_dodge -> mix_blend_color_dodge
-    | Mix_blend_color_burn -> mix_blend_color_burn
-    | Mix_blend_hard_light -> mix_blend_hard_light
-    | Mix_blend_soft_light -> mix_blend_soft_light
-    | Mix_blend_difference -> mix_blend_difference
-    | Mix_blend_exclusion -> mix_blend_exclusion
-    | Mix_blend_hue -> mix_blend_hue
-    | Mix_blend_saturation -> mix_blend_saturation
-    | Mix_blend_color -> mix_blend_color
-    | Mix_blend_luminosity -> mix_blend_luminosity
-    | Mix_blend_plus_darker -> mix_blend_plus_darker
-    | Mix_blend_plus_lighter -> mix_blend_plus_lighter
-    | Bg_blend_normal -> bg_blend_normal
-    | Bg_blend_multiply -> bg_blend_multiply
-    | Bg_blend_screen -> bg_blend_screen
-    | Bg_blend_overlay -> bg_blend_overlay
-    | Bg_blend_darken -> bg_blend_darken
-    | Bg_blend_lighten -> bg_blend_lighten
-    | Bg_blend_color_dodge -> bg_blend_color_dodge
-    | Bg_blend_color_burn -> bg_blend_color_burn
-    | Bg_blend_hard_light -> bg_blend_hard_light
-    | Bg_blend_soft_light -> bg_blend_soft_light
-    | Bg_blend_difference -> bg_blend_difference
-    | Bg_blend_exclusion -> bg_blend_exclusion
-    | Bg_blend_hue -> bg_blend_hue
-    | Bg_blend_saturation -> bg_blend_saturation
-    | Bg_blend_color -> bg_blend_color
-    | Bg_blend_luminosity -> bg_blend_luminosity
+    fun t ->
+      match without_named_size_alpha t with
+      | Shadow_none -> shadow_none
+      | Shadow_2xs -> shadow_2xs
+      | Shadow_xs -> shadow_xs
+      | Shadow_sm -> shadow_sm
+      | Shadow -> shadow
+      | Shadow_md -> shadow_md
+      | Shadow_lg -> shadow_lg
+      | Shadow_xl -> shadow_xl
+      | Shadow_2xl -> shadow_2xl
+      | Shadow_inner -> shadow_inner
+      | Shadow_arbitrary arb -> shadow_arbitrary arb
+      | Shadow_raw (_, value, opacity) -> shadow_raw value opacity
+      | Shadow_theme name -> shadow_theme theme name
+      | Shadow_theme_opacity (name, op) -> shadow_theme_opacity theme name op
+      | Inset_shadow_theme name -> inset_shadow_theme theme name
+      | Inset_shadow_theme_opacity (name, op) ->
+          inset_shadow_theme_opacity theme name op
+      | Shadow_arbitrary_opacity (arb, op) -> shadow_arbitrary_opacity arb op
+      | Shadow_shape_opacity (shape, op) -> shadow_shape_opacity_style shape op
+      | Shadow_color (c, s) -> Color.channel_color ~theme shadow_channel c s
+      | Shadow_color_opacity (c, s, op) ->
+          Color.channel_color_opacity ~theme shadow_channel c s op
+      | Shadow_current -> Color.channel_current shadow_channel
+      | Shadow_current_opacity op ->
+          Color.channel_current_opacity shadow_channel op
+      | Shadow_inherit -> Color.channel_inherit shadow_channel
+      | Shadow_transparent -> Color.channel_transparent shadow_channel
+      | Shadow_transparent_opacity op ->
+          Color.channel_transparent_opacity shadow_channel op
+      | Shadow_bracket_color (_orig, c) ->
+          Color.channel_bracket_color ~theme shadow_channel c
+      | Shadow_bracket_color_opacity (_orig, c, op) ->
+          Color.channel_bracket_color_opacity ~theme shadow_channel c op
+      | Shadow_bracket_color_var v -> Color.channel_bracket_var shadow_channel v
+      | Shadow_bracket_color_var_opacity (v, op) ->
+          Color.channel_bracket_var_opacity shadow_channel v op
+      | Shadow_bracket_shadow s ->
+          if Parse.is_var s then shadow_raw_var s else shadow_arbitrary s
+      | Shadow_bracket_shadow_opacity (s, opacity) ->
+          if Parse.is_var s then shadow_raw_var ~opacity s
+          else shadow_arbitrary_opacity s opacity
+      | Shadow_bracket_var v -> shadow_raw_var v
+      | Shadow_bracket_var_opacity (v, opacity) -> shadow_raw_var ~opacity v
+      | Inset_shadow_none -> inset_shadow_none
+      | Inset_shadow_2xs -> inset_shadow_shape_style ~theme Ish_2xs
+      | Inset_shadow_xs -> inset_shadow_shape_style ~theme Ish_xs
+      | Inset_shadow_sm -> inset_shadow_shape_style ~theme Ish_sm
+      | Inset_shadow -> inset_shadow_themed ~theme ()
+      | Inset_shadow_arbitrary arb -> inset_shadow_arbitrary arb
+      | Inset_shadow_raw (_, value, opacity) -> inset_shadow_raw value opacity
+      | Inset_shadow_arbitrary_opacity (arb, op) ->
+          inset_shadow_arbitrary_opacity arb op
+      | Inset_shadow_shape_opacity (shape, op) ->
+          inset_shadow_shape_opacity_style ~theme shape op
+      | Inset_shadow_color (c, s) ->
+          Color.channel_color ~theme inset_shadow_channel c s
+      | Inset_shadow_color_opacity (c, s, op) ->
+          Color.channel_color_opacity ~theme inset_shadow_channel c s op
+      | Inset_shadow_current -> Color.channel_current inset_shadow_channel
+      | Inset_shadow_current_opacity op ->
+          Color.channel_current_opacity inset_shadow_channel op
+      | Inset_shadow_inherit -> Color.channel_inherit inset_shadow_channel
+      | Inset_shadow_transparent ->
+          Color.channel_transparent inset_shadow_channel
+      | Inset_shadow_transparent_opacity op ->
+          Color.channel_transparent_opacity inset_shadow_channel op
+      | Inset_shadow_bracket_color (_orig, c) ->
+          Color.channel_bracket_color ~theme inset_shadow_channel c
+      | Inset_shadow_bracket_color_opacity (_orig, c, op) ->
+          Color.channel_bracket_color_opacity ~theme inset_shadow_channel c op
+      | Inset_shadow_bracket_color_var v ->
+          Color.channel_bracket_var inset_shadow_channel v
+      | Inset_shadow_bracket_cvar_opacity (v, op) ->
+          Color.channel_bracket_var_opacity inset_shadow_channel v op
+      | Inset_shadow_bracket_shadow s ->
+          if Parse.is_var s then inset_shadow_raw_var s
+          else inset_shadow_arbitrary s
+      | Inset_shadow_bracket_shadow_opacity (s, opacity) ->
+          if Parse.is_var s then inset_shadow_raw_var ~opacity s
+          else inset_shadow_arbitrary_opacity s opacity
+      | Inset_shadow_bracket_var v -> inset_shadow_raw_var v
+      | Inset_shadow_bracket_var_opacity (v, opacity) ->
+          inset_shadow_raw_var ~opacity v
+      | Opacity n -> opacity n
+      | Opacity_decimal f ->
+          let value = f /. 100.0 in
+          style [ Css.opacity (Css.Opacity_number value) ]
+      | Opacity_arbitrary (_, `Num f) ->
+          style [ Css.opacity (Css.Opacity_number f) ]
+      | Opacity_arbitrary (_, `Raw v) -> (
+          match Parse.opaque_declaration "opacity" v with
+          | Some declaration -> style [ declaration ]
+          | None -> style [])
+      | Opacity_var v ->
+          let bare_name = Parse.extract_var_name v in
+          let var_ref : Css.opacity Css.var = Var.bracket bare_name in
+          style [ Css.opacity (Css.Var var_ref) ]
+      | Ring_none -> ring_none
+      | Ring_xs -> ring_xs
+      | Ring_sm -> ring_sm
+      | Ring_md -> ring_default ()
+      | Ring_lg -> ring_lg
+      | Ring_xl -> ring_xl
+      | Ring_width w -> ring_internal w
+      | Ring_inset -> ring_inset
+      | Ring_color (color, shade) -> ring_color color shade
+      | Ring_color_opacity (color, shade, opacity) ->
+          ring_color_with_opacity color shade opacity
+      | Ring_keyword_opacity (keyword, _, opacity) ->
+          ring_keyword_with_opacity ring_color_var keyword opacity
+      | Ring_transparent -> ring_transparent
+      | Ring_current -> ring_current
+      | Ring_current_opacity opacity -> ring_current_with_opacity opacity
+      | Ring_inherit -> ring_inherit
+      | Ring_bracket_color (_orig, c) -> ring_bracket_color c
+      | Ring_bracket_color_opacity (_orig, c, o) ->
+          ring_bracket_color_with_opacity c o
+      | Ring_bracket_color_var v -> ring_bracket_color_var v
+      | Ring_bracket_color_var_opacity (v, o) -> ring_bracket_cvar_opacity v o
+      | Ring_bracket_var v -> ring_bracket_var v
+      | Ring_bracket_var_opacity (v, o) -> ring_bracket_var_with_opacity v o
+      | Ring_raw (_, value, opacity) ->
+          raw_ring_color ring_color_var value opacity
+      | Ring_bracket_length inner -> ring_of_width (parse_bracket_width inner)
+      | Ring_offset_width n -> ring_offset_width n
+      | Ring_offset_bracket_length inner -> ring_offset_bracket_length inner
+      | Ring_offset_color (color, shade) -> ring_offset_color color shade
+      | Ring_offset_color_opacity (color, shade, opacity) ->
+          ring_offset_color_with_opacity color shade opacity
+      | Ring_offset_keyword_opacity (keyword, _, opacity) ->
+          ring_keyword_with_opacity ring_offset_color_var keyword opacity
+      | Ring_offset_transparent -> ring_offset_transparent
+      | Ring_offset_current -> ring_offset_current
+      | Ring_offset_current_opacity opacity ->
+          ring_offset_current_with_opacity opacity
+      | Ring_offset_inherit -> ring_offset_inherit
+      | Ring_offset_bracket_color (_orig, c) -> ring_offset_bracket_color c
+      | Ring_offset_bracket_color_opacity (_orig, c, o) ->
+          ring_offset_bracket_color_opacity c o
+      | Ring_offset_bracket_color_var v -> ring_offset_bracket_color_var v
+      | Ring_offset_bracket_cvar_opacity (v, o) ->
+          ring_offset_bracket_cvar_opacity v o
+      | Ring_offset_bracket_var v -> ring_offset_bracket_var v
+      | Ring_offset_bracket_var_opacity (v, o) ->
+          ring_offset_bracket_var_opacity v o
+      | Ring_offset_raw (_, value, opacity) ->
+          raw_ring_color ring_offset_color_var value opacity
+      | Inset_ring_color (color, shade) -> inset_ring_color color shade
+      | Inset_ring_color_opacity (color, shade, opacity) ->
+          inset_ring_color_with_opacity color shade opacity
+      | Inset_ring_keyword_opacity (keyword, _, opacity) ->
+          ring_keyword_with_opacity inset_ring_color_var keyword opacity
+      | Inset_ring_transparent -> inset_ring_transparent
+      | Inset_ring_current -> inset_ring_current
+      | Inset_ring_current_opacity opacity ->
+          inset_ring_current_with_opacity opacity
+      | Inset_ring_inherit -> inset_ring_inherit
+      | Inset_ring_bracket_color (_orig, c) -> inset_ring_bracket_color c
+      | Inset_ring_bracket_color_opacity (_orig, c, o) ->
+          inset_ring_bracket_color_opacity c o
+      | Inset_ring_bracket_color_var v -> inset_ring_bracket_color_var v
+      | Inset_ring_bracket_cvar_opacity (v, o) ->
+          inset_ring_bracket_cvar_opacity v o
+      | Inset_ring_bracket_var v -> inset_ring_bracket_var v
+      | Inset_ring_bracket_var_opacity (v, o) ->
+          inset_ring_bracket_var_opacity v o
+      | Inset_ring_raw (_, value, opacity) ->
+          raw_ring_color inset_ring_color_var value opacity
+      | Inset_ring_default -> inset_ring_default ()
+      | Inset_ring_width n -> inset_ring_internal n
+      | Inset_ring_bracket_length inner ->
+          let spread = parse_bracket_width inner in
+          let color : Css.color =
+            Var
+              (Var.bracket
+                 ~fallback:(Fallback (Css.Current : Css.color))
+                 "tw-inset-ring-color")
+          in
+          let shadow_value =
+            Css.shadow ~inset:true ~h_offset:Zero ~v_offset:Zero ~blur:Zero
+              ~spread ~color ()
+          in
+          let d = Var.set inset_ring_shadow_var shadow_value in
+          let v_inset = Var.reference inset_shadow_var in
+          let v_inset_ring = Var.reference inset_ring_shadow_var in
+          let v_ring_offset = Var.reference ring_offset_shadow_var in
+          let v_ring = Var.reference ring_shadow_var in
+          let v_shadow = Var.reference shadow_var in
+          let box_shadow_vars : Css.shadow list =
+            [
+              Css.Var v_inset;
+              Css.Var v_inset_ring;
+              Css.Var v_ring_offset;
+              Css.Var v_ring;
+              Css.Var v_shadow;
+            ]
+          in
+          let property_rules =
+            [
+              Var.property_rule shadow_var;
+              Var.property_rule shadow_color_var;
+              Var.property_rule shadow_alpha_var;
+              Var.property_rule inset_shadow_var;
+              Var.property_rule inset_shadow_color_var;
+              Var.property_rule inset_shadow_alpha_var;
+              Var.property_rule ring_color_var;
+              Var.property_rule ring_shadow_var;
+              Var.property_rule inset_ring_color_var;
+              Var.property_rule inset_ring_shadow_var;
+              Var.property_rule ring_inset_var;
+              Var.property_rule ring_offset_width_var;
+              Var.property_rule ring_offset_color_var;
+              Var.property_rule ring_offset_shadow_var;
+            ]
+            |> List.filter_map Fun.id
+          in
+          style
+            ~property_rules:(Css.concat property_rules)
+            [ d; Css.box_shadows box_shadow_vars ]
+      | Mix_blend_normal -> mix_blend_normal
+      | Mix_blend_multiply -> mix_blend_multiply
+      | Mix_blend_screen -> mix_blend_screen
+      | Mix_blend_overlay -> mix_blend_overlay
+      | Mix_blend_darken -> mix_blend_darken
+      | Mix_blend_lighten -> mix_blend_lighten
+      | Mix_blend_color_dodge -> mix_blend_color_dodge
+      | Mix_blend_color_burn -> mix_blend_color_burn
+      | Mix_blend_hard_light -> mix_blend_hard_light
+      | Mix_blend_soft_light -> mix_blend_soft_light
+      | Mix_blend_difference -> mix_blend_difference
+      | Mix_blend_exclusion -> mix_blend_exclusion
+      | Mix_blend_hue -> mix_blend_hue
+      | Mix_blend_saturation -> mix_blend_saturation
+      | Mix_blend_color -> mix_blend_color
+      | Mix_blend_luminosity -> mix_blend_luminosity
+      | Mix_blend_plus_darker -> mix_blend_plus_darker
+      | Mix_blend_plus_lighter -> mix_blend_plus_lighter
+      | Bg_blend_normal -> bg_blend_normal
+      | Bg_blend_multiply -> bg_blend_multiply
+      | Bg_blend_screen -> bg_blend_screen
+      | Bg_blend_overlay -> bg_blend_overlay
+      | Bg_blend_darken -> bg_blend_darken
+      | Bg_blend_lighten -> bg_blend_lighten
+      | Bg_blend_color_dodge -> bg_blend_color_dodge
+      | Bg_blend_color_burn -> bg_blend_color_burn
+      | Bg_blend_hard_light -> bg_blend_hard_light
+      | Bg_blend_soft_light -> bg_blend_soft_light
+      | Bg_blend_difference -> bg_blend_difference
+      | Bg_blend_exclusion -> bg_blend_exclusion
+      | Bg_blend_hue -> bg_blend_hue
+      | Bg_blend_saturation -> bg_blend_saturation
+      | Bg_blend_color -> bg_blend_color
+      | Bg_blend_luminosity -> bg_blend_luminosity
 
   let err_not_utility = Error (`Msg "Not an effects utility")
   let starts prefix s = String.starts_with ~prefix s
@@ -1914,8 +1960,8 @@ module Handler = struct
                 | Some value -> Ok (Inset_ring_raw (inner, value, opacity))
                 | None -> err_not_utility)))
 
-  let parse_shadow_bracket v =
-    let base_str, opacity = Color.parse_opacity_modifier v in
+  let parse_shadow_bracket ~theme v =
+    let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let inner = Parse.bracket_inner base_str in
     if starts "shadow:" inner then
       (* The hint says how to read the value written after it; only a var()
@@ -1956,7 +2002,7 @@ module Handler = struct
      the class is refused rather than drawn as the shadow the author did not
      get. *)
   let spells_inset inner =
-    match Parse.shadow (Parse.decode_underscores inner) with
+    match Parse.shadow (Parse.decode_arbitrary_value inner) with
     | Some (Css.Inset _ : Css.shadow) -> true
     | Some (Css.List layers : Css.shadow) ->
         List.exists
@@ -1964,8 +2010,8 @@ module Handler = struct
           layers
     | _ -> false
 
-  let parse_inset_shadow_bracket v =
-    let base_str, opacity = Color.parse_opacity_modifier v in
+  let parse_inset_shadow_bracket ~theme v =
+    let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let inner = Parse.bracket_inner base_str in
     if spells_inset inner then err_not_utility
     else if starts "shadow:" inner then
@@ -2049,7 +2095,7 @@ module Handler = struct
            && v.[0] = '['
            && Parse.is_bracket_value
                 (fst (Color.parse_opacity_modifier ~theme v)) ->
-        parse_shadow_bracket v
+        parse_shadow_bracket ~theme v
     | [ "shadow"; name ] when String.contains name '/' -> (
         let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
@@ -2109,7 +2155,7 @@ module Handler = struct
            && v.[0] = '['
            && Parse.is_bracket_value
                 (fst (Color.parse_opacity_modifier ~theme v)) ->
-        parse_inset_shadow_bracket v
+        parse_inset_shadow_bracket ~theme v
     | [ "inset"; "shadow"; name ] when String.contains name '/' -> (
         let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
@@ -2567,7 +2613,8 @@ module Handler = struct
     | Bg_blend_color -> "bg-blend-color"
     | Bg_blend_luminosity -> "bg-blend-luminosity"
 
-  let suborder = function
+  let suborder t =
+    match without_named_size_alpha t with
     | Opacity n -> n * 100
     | Opacity_decimal f -> int_of_float (f *. 100.0)
     | Opacity_arbitrary _ -> 20000

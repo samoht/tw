@@ -178,9 +178,13 @@ let bracket_named_opacity () =
       ]
   in
   mixed "fill-[var(--c)]/half" "fill" "var(--c)" "var(--c)";
-  mixed "fill-[#123456]/half" "fill" "#123456" "#123456";
   mixed "stroke-[var(--c)]/half" "stroke" "var(--c)" "var(--c)";
-  mixed "stroke-[#123456]/half" "stroke" "#123456" "#123456"
+  (* a hex takes the percentage the token resolves to in its fallback, in the
+     sRGB mix Tailwind writes before its minifier folds it to a hex *)
+  mixed "fill-[#123456]/half" "fill"
+    "color-mix(in srgb, #123456 50%, transparent)" "#123456";
+  mixed "stroke-[#123456]/half" "stroke"
+    "color-mix(in srgb, #123456 50%, transparent)" "#123456"
 
 let tests =
   [

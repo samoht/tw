@@ -2056,37 +2056,19 @@ module Handler = struct
       like [rgb(...)], [hsl(...)], etc., and named Tailwind colors (which are
       converted to their CSS representation via [to_css]). Returns [None] for
       non-color values. *)
-  let rec parse_bracket_color (inner : string) : Css.color option =
+  let parse_bracket_color (inner : string) : Css.color option =
     if Parse.is_var inner then
       (* A bare var() is a valid arbitrary color: border-[var(--x)] and its
          paren shorthand border-(--x). *)
       Some (Css.Var (Var.bracket (Parse.extract_var_name inner)))
     else
       match Parse.alpha_call inner with
-      | Some (color_str, pct_str) -> (
-          let pct =
-            if String.ends_with ~suffix:"%" pct_str then
-              float_of_string_opt
-                (String.sub pct_str 0 (String.length pct_str - 1))
-            else None
-          in
-          (* the inner colour is a raw CSS colour ([red] is the keyword, not the
-             red-500 palette entry); fall back to the palette only if CSS does
-             not know it. *)
-          let color =
-            let normalized = Parse.decode_underscores color_str in
-            match Css.parse_color normalized with
-            | Some c -> Some c
-            | None -> parse_bracket_color color_str
-          in
-          match (pct, color) with
-          (* at full opacity the mix is a no-op, and Tailwind writes the colour
-             itself *)
-          | Some 100., Some c -> Some c
-          | Some pct, Some c ->
-              Some
-                (Css.color_mix ~in_space:Oklab ~percent1:pct c Css.Transparent)
-          | _ -> None)
+      | Some _ ->
+          (* The call is the whole value: the [color-mix()] it expands to, read
+             as any colour is, with the colour itself at a whole alpha. The
+             inner colour is a raw CSS colour: [red] is the keyword, not the
+             red-500 palette entry. *)
+          Css.parse_color (Parse.decode_arbitrary_value inner)
       | None -> (
           (* A [#] prefix only names a colour when what follows is a hex
              spelling, so this reads the digits rather than raising on them
@@ -2779,6 +2761,29 @@ module Handler = struct
     | Some (Css.Lab | Css.Oklab | Css.Lch | Css.Oklch) -> Some Css.Srgb
     | space -> space
 
+  (* A percentage read from a custom property makes the mix dynamic the way a
+     colour read from one does: a theme token resolves to the percentage it
+     binds, anything else leaves the mix unresolved. The colour carried back is
+     only the resolution's marker; the percentage is the first half. *)
+  let resolve_percentage_theme_var theme (percent : Css.percentage option) =
+    let marker ~unresolved =
+      { color = Css.Transparent; has_dynamic_color = true; unresolved }
+    in
+    match percent with
+    | Some (Css.Var v) -> (
+        let name = Option.value ~default:v.name (Parse.bare_name v.name) in
+        let value = Option.map String.trim (Scheme.token theme name) in
+        match value with
+        | Some p
+          when String.ends_with ~suffix:"%" p
+               && Option.is_some
+                    (float_of_string_opt (String.sub p 0 (String.length p - 1)))
+          ->
+            let p = float_of_string (String.sub p 0 (String.length p - 1)) in
+            (Some (Css.Pct p : Css.percentage), marker ~unresolved:false)
+        | Some _ | None -> (percent, marker ~unresolved:true))
+    | percent -> (percent, static Css.Transparent)
+
   let rec resolve_color_theme_vars theme seen (color : Css.color) =
     match color with
     | Css.Var v -> (
@@ -2796,11 +2801,17 @@ module Handler = struct
     | Css.Mix { in_space; hue; color1; percent1; color2; percent2 } ->
         let first = resolve_color_theme_vars theme seen color1 in
         let second = resolve_color_theme_vars theme seen color2 in
+        let percent1, p1 = resolve_percentage_theme_var theme percent1 in
+        let percent2, p2 = resolve_percentage_theme_var theme percent2 in
         let has_dynamic_color =
           first.has_dynamic_color || second.has_dynamic_color
+          || p1.has_dynamic_color || p2.has_dynamic_color
         in
         if not has_dynamic_color then static color
-        else if first.unresolved || second.unresolved then
+        else if
+          first.unresolved || second.unresolved || p1.unresolved
+          || p2.unresolved
+        then
           (* A browser without [color-mix()] can still use the first operand.
              Keep [unresolved] set so an enclosing mix follows the same rule. *)
           { first with has_dynamic_color = true; unresolved = true }

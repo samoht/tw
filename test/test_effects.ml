@@ -742,21 +742,23 @@ let test_ring_colour_opacity_var () =
 
 (* A named [--opacity-*] token is read off the theme before a bracket is told
    apart from a colour name, or [ring-[#123456]/half] is a palette colour called
-   [[#123456]] and paints [var(--color-\[\#123456\])]. *)
+   [[#123456]] and paints [var(--color-\[\#123456\])]. The fallback carries the
+   percentage the token resolves to, in the sRGB mix Tailwind writes before its
+   minifier folds it to a hex. *)
 let test_ring_bracket_hex_named_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
   in
   Test_helpers.check_declarations ~theme ~minify:false "ring-[#123456]/half"
     [
-      "--tw-ring-color: #123456";
+      "--tw-ring-color: color-mix(in srgb, #123456 50%, transparent)";
       "--tw-ring-color: color-mix(in oklab, #123456 var(--opacity-half), \
        transparent)";
     ];
   Test_helpers.check_declarations ~theme ~minify:false
     "ring-offset-[#123456]/half"
     [
-      "--tw-ring-offset-color: #123456";
+      "--tw-ring-offset-color: color-mix(in srgb, #123456 50%, transparent)";
       "--tw-ring-offset-color: color-mix(in oklab, #123456 \
        var(--opacity-half), transparent)";
     ]
@@ -795,19 +797,20 @@ let test_bracket_named_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
   in
-  let mixed var cls fallback colour =
+  let mixed family cls fallback colour =
     Test_helpers.check_declarations ~theme ~minify:false cls
       [
-        var ^ ": " ^ fallback;
-        var ^ ": color-mix(in oklab, color-mix(in oklab, " ^ colour
-        ^ " var(--opacity-half), transparent) var(" ^ var
+        "--tw-" ^ family ^ "-color: " ^ fallback;
+        "--tw-" ^ family ^ "-color: color-mix(in oklab, color-mix(in oklab, "
+        ^ colour ^ " var(--opacity-half), transparent) var(--tw-" ^ family
         ^ "-alpha), transparent)";
       ]
   in
-  mixed "--tw-shadow-color" "shadow-[color:var(--c)]/half" "var(--c)" "var(--c)";
-  mixed "--tw-shadow-color" "shadow-[#123456]/half" "#123456" "#123456";
-  mixed "--tw-inset-shadow-color" "inset-shadow-[color:var(--c)]/half"
-    "var(--c)" "var(--c)";
+  mixed "shadow" "shadow-[color:var(--c)]/half" "var(--c)" "var(--c)";
+  mixed "shadow" "shadow-[#123456]/half"
+    "color-mix(in srgb, #123456 50%, transparent)" "#123456";
+  mixed "inset-shadow" "inset-shadow-[color:var(--c)]/half" "var(--c)"
+    "var(--c)";
   let composition =
     "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)"
