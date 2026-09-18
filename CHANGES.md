@@ -204,8 +204,11 @@
   negated as Tailwind writes it on every axis, `-translate-z-[4px]` giving
   `calc(4px * -1)` and `-translate-x-[calc(1rem+2px)]` the calc negated, where
   the z axis read the bracket as a variable name and any bracket that was not
-  a plain length became a `var()` of its own text (#160, #166, #172, #186,
-  #210, #646, #831, #861).
+  a plain length became a `var()` of its own text. A negated bracket scale,
+  skew and rotate go the same way on every axis, `-scale-[1.5]` giving
+  `calc(1.5 * -1)` and `-skew-x-[10deg]` `skewX(calc(10deg * -1))`; the
+  first two were unknown classes, and `-rotate-[.5turn]` wrote its angle
+  un-negated (#160, #166, #172, #186, #210, #646, #831, #861, #865).
 - Every inset side carries the whole scale, under either sign, `start-*`,
   `end-*` and the logical `inset-s-*`, `inset-e-*`, `inset-bs-*` and
   `inset-be-*` included: a spacing step, `px`, a fraction, an arbitrary length,
