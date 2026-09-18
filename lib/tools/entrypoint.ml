@@ -174,7 +174,7 @@ let theme_blocks css =
       Css.statements parse.Css.stylesheet
       |> List.filter_map theme_block
       |> List.map (fun (prelude, body) ->
-          (String.split_on_char ' ' (String.trim prelude), theme_tokens body))
+          (Tw.split_whitespace prelude, theme_tokens body))
 
 (* The names the blocks carrying the modifier [option] declare. *)
 let theme_tokens_with option blocks =
@@ -2035,11 +2035,7 @@ let add_once buf seen items =
     items
 
 let apply_names css start stop =
-  String.sub css start (stop - start)
-  |> String.split_on_char ' '
-  |> List.concat_map (String.split_on_char '\n')
-  |> List.map String.trim
-  |> List.filter (fun name -> name <> "")
+  Tw.split_whitespace (String.sub css start (stop - start))
 
 let emit_apply_name ~theme ~defs ~udefs ~buf ~hoisted ~seen name =
   let variants, bare = split_declared_variants defs name in
