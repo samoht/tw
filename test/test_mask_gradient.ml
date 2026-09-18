@@ -107,6 +107,20 @@ let test_arbitrary_stop_position () =
   has "mask-t-from-[50px]" "--tw-mask-top-from-position: 50px;";
   has "mask-t-from-[12.5%]" "--tw-mask-top-from-position: 12.5%;"
 
+(* A bracket stop is an arbitrary value, so its [_] is a space and the binary
+   operators of a math function take the spaces CSS needs around them: Tailwind
+   writes [calc(1px + 2px)] for [calc(1px+2px)], and a browser drops the
+   unspaced spelling. The value reached the sheet as the class wrote it. *)
+let test_arbitrary_stop_decodes () =
+  has "mask-linear-from-[calc(1px+2px)]"
+    "--tw-mask-linear-from-position: calc(1px + 2px);";
+  has "mask-linear-to-[calc(100%-10px)]"
+    "--tw-mask-linear-to-position: calc(100% - 10px);";
+  has "mask-radial-from-[calc(1px_+_2px)]"
+    "--tw-mask-radial-from-position: calc(1px + 2px);";
+  has "mask-linear-from-[10px_20px]"
+    "--tw-mask-linear-from-position: 10px 20px;"
+
 (* The angle variable takes degrees, so a radian or turn angle is converted;
    every other unit goes in as the author spelled it. *)
 let test_arbitrary_angle () =
@@ -135,6 +149,8 @@ let tests =
       Alcotest.test_case "arbitrary stop position" `Quick
         test_arbitrary_stop_position;
       Alcotest.test_case "arbitrary angle" `Quick test_arbitrary_angle;
+      Alcotest.test_case "arbitrary stop decodes" `Quick
+        test_arbitrary_stop_decodes;
     ]
 
 let suite = ("mask_gradient", tests)
