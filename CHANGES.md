@@ -405,6 +405,12 @@
   set `--tw-drop-shadow-color` where the bracket was read as a size, and a
   named opacity on a drop-shadow size, `drop-shadow-lg/half`, names no utility
   (#508, #517, #711, #875).
+- A gradient stop's modifier is read as Tailwind reads it. A length or
+  percentage stop is a position and takes none, so `from-[10px]/50` is refused
+  rather than mixed; a token-stream stop, a divide colour or a ring colour
+  under a modifier reads the custom property in the unguarded fallback and the
+  mix behind the guard, where tw folded it to `100%`, and a ring colour
+  registers no `@property` (#877).
 - An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
   gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
   case, where Tailwind writes back what the bracket held (#700).
