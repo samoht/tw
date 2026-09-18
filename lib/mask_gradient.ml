@@ -68,7 +68,7 @@ module Handler = struct
     | Var_ref of direction * position_end * string option * string
       (* (--x) or (<hint>:--x), the position read from a custom property: the
          hint as written and the name after the dashes *)
-    | Stop of direction * position_end * stop_color
+    | Stop of direction * position_end * stop_color * Color.opacity_modifier
     | Linear_angle of mask_angle
     | Conic_angle of mask_angle
     | Radial (* just mask-radial with no position *)
@@ -801,32 +801,87 @@ module Handler = struct
      Not a workaround for cascade's printer, which spells the keyword correctly
      and positionally - [currentColor] bare, [currentcolor] inside a
      function. *)
-  let colour_decl var (c : Css.color) =
+  let colour_decl_of (c : Css.color) var =
     match c with
     | Current ->
         custom_property ~layer:"utilities" (Var.css_name var) "currentcolor"
     | c -> set var c
 
   (* What a stop colour writes: the theme token a palette entry brings along, so
-     the sheet defines what it references, and the stop itself. A bracket the
-     colour reader has no colour for still reaches the sheet as written, since
-     the custom property takes any token stream. *)
+     the sheet defines what it references, the stop every browser reads in the
+     open, and, when the modifier's mix needs a guard, the mix that goes behind
+     it. A bracket the colour reader has no colour for still reaches the sheet
+     as written, since the custom property takes any token stream. *)
   type stop_colour = {
     tokens : Css.declaration list;
     plain : Css.color Var.channel -> Css.declaration;
+    mixed : (Css.color Var.channel -> Css.declaration) option;
   }
 
-  let stop_colour ~theme = function
-    | Palette (c, shade) ->
-        let decl, token = Color.Handler.color_binding ~theme c shade in
-        { tokens = [ decl ]; plain = (fun var -> set var (Var token)) }
-    | Keyword_color (c, _) ->
-        { tokens = []; plain = (fun var -> colour_decl var c) }
-    | Color_var name ->
-        { tokens = []; plain = (fun var -> set var (Var (Var.bracket name))) }
+  let plain_colour c = { tokens = []; plain = colour_decl_of c; mixed = None }
+
+  (* Tailwind writes the colour itself at 100%, and a mix for anything else. *)
+  let opaque (opacity : Color.opacity_modifier) =
+    match opacity with
+    | No_opacity -> true
+    | Opacity_named _ | Opacity_var _ -> false
+    | Opacity_percent _ | Opacity_arbitrary _ | Opacity_bracket_percent _ ->
+        Color.opacity_to_percent opacity >= 100.
+
+  (* A colour the modifier mixes, in the shape Tailwind writes it: the mix in
+     the open when every browser can read it, else the colour in the open and
+     the mix behind the guard. *)
+  let mixed_colour ~theme (c : Css.color) opacity =
+    match Color.bracket_color_opacity ~theme c opacity with
+    | Folded value -> plain_colour value
+    | Guarded { fallback; mixed } ->
+        {
+          tokens = [];
+          plain = colour_decl_of fallback;
+          mixed = Option.some (fun var -> set var mixed);
+        }
+
+  let colour_stop ~theme c (opacity : Color.opacity_modifier) =
+    match opacity with
+    | No_opacity -> plain_colour c
+    | _ -> mixed_colour ~theme c opacity
+
+  (* A palette entry at an opacity: the hex carrying the alpha in the open, the
+     mix of the token behind the guard. An alpha read from a custom property has
+     no percentage to fold, so the open value is the colour itself. *)
+  let palette_stop ~theme c shade (opacity : Color.opacity_modifier) =
+    let decl, token = Color.Handler.color_binding ~theme c shade in
+    let reference : Css.color = Var token in
+    if opaque opacity then
+      {
+        tokens = [ decl ];
+        plain = (fun var -> set var reference);
+        mixed = None;
+      }
+    else
+      let value = Color.to_css ~theme c shade in
+      let fallback =
+        match opacity with
+        | Opacity_named _ | Opacity_var _ -> value
+        | _ ->
+            let percent = Color.opacity_to_percent opacity in
+            Color.opacity_fallback ~theme ~percent c shade value
+      in
+      {
+        tokens = [ decl ];
+        plain = (fun var -> set var fallback);
+        mixed =
+          Option.some (fun var -> set var (Color.mix_alpha opacity reference));
+      }
+
+  let stop_colour ~theme colour opacity =
+    match colour with
+    | Palette (c, shade) -> palette_stop ~theme c shade opacity
+    | Keyword_color (c, _) -> colour_stop ~theme c opacity
+    | Color_var name -> colour_stop ~theme (Var (Var.bracket name)) opacity
     | Bracket_color inner -> (
         match bracket_colour inner with
-        | Some c -> { tokens = []; plain = (fun var -> colour_decl var c) }
+        | Some c -> colour_stop ~theme c opacity
         | None ->
             let text = bracket_value inner in
             {
@@ -834,13 +889,30 @@ module Handler = struct
               plain =
                 (fun var ->
                   custom_property ~layer:"utilities" (Var.css_name var) text);
+              mixed = None;
             })
 
-  let build_stop_style ~theme dir pos_end colour =
+  (* The sides a stop utility writes: both of an axis, else the one. *)
+  let sides = function
+    | X -> [ right_vars; left_vars ]
+    | Y -> [ top_vars; bottom_vars ]
+    | (Top | Right | Bottom | Left | Linear | Radial | Conic) as dir ->
+        [ vars_for dir ]
+
+  let build_stop_style ~theme dir pos_end colour opacity =
     let property_rules = property_rules_for_direction dir in
-    let { tokens; plain } = stop_colour ~theme colour in
+    let { tokens; plain; mixed } = stop_colour ~theme colour opacity in
     let stop v = plain (color_var v pos_end) in
-    style ~property_rules (tokens @ stop_decls dir stop @ composite_decls)
+    let props = tokens @ stop_decls dir stop @ composite_decls in
+    match mixed with
+    | None -> style ~property_rules props
+    | Some mixed ->
+        let guarded =
+          List.map (fun v -> mixed (color_var v pos_end)) (sides dir)
+        in
+        style ~property_rules
+          ~rules:(Some [ Color.color_mix_supports guarded ])
+          props
 
   let to_style theme =
     let build_directional_style dir pos_end value =
@@ -878,7 +950,8 @@ module Handler = struct
     | Radial_shape shape -> build_radial_shape_style shape
     | Radial_size size -> build_radial_size_style size
     | Var_ref (dir, pos_end, _, name) -> build_var_ref_style dir pos_end name
-    | Stop (dir, pos_end, colour) -> build_stop_style ~theme dir pos_end colour
+    | Stop (dir, pos_end, colour, opacity) ->
+        build_stop_style ~theme dir pos_end colour opacity
 
   (* Tailwind sorts a layer's rules by the properties they set, walking the
      fixed table its property-order list gives: mask-image, then a block per
@@ -922,9 +995,9 @@ module Handler = struct
     property_suborder (block + stop) + sides + if var then 0 else 1
 
   let suborder = function
-    | Stop (dir, pos_end, Color_var _) ->
+    | Stop (dir, pos_end, Color_var _, _) ->
         stop_suborder dir pos_end ~color:true ~var:true
-    | Stop (dir, pos_end, (Palette _ | Keyword_color _ | Bracket_color _)) ->
+    | Stop (dir, pos_end, (Palette _ | Keyword_color _ | Bracket_color _), _) ->
         stop_suborder dir pos_end ~color:true ~var:false
     | Var_ref (dir, pos_end, _, _) ->
         stop_suborder dir pos_end ~color:false ~var:true
@@ -1063,9 +1136,11 @@ module Handler = struct
   (* A bracket stop. An empty hint names no utility, and so does a value that is
      blank or would not stay inside its declaration. A colour the reader cannot
      read is written through, unless it holds a call Tailwind would have
-     resolved and refused. *)
-  let bracket_stop dir pos_end inner =
+     resolved and refused, or a modifier that has nothing to mix. A position
+     takes no modifier. *)
+  let bracket_stop dir pos_end opacity inner =
     let invalid = Error (`Msg ("Invalid mask stop: [" ^ inner ^ "]")) in
+    let modified = opacity <> Color.No_opacity in
     match Parse.value_after_hint inner with
     | None -> invalid
     | Some value -> (
@@ -1077,15 +1152,18 @@ module Handler = struct
           match bracket_kind hint value with
           | Colour_stop ->
               if
-                bracket_colour inner = None && Parse.holds_unresolved_call value
+                bracket_colour inner = None
+                && (modified || Parse.holds_unresolved_call value)
               then invalid
-              else Ok (Stop (dir, pos_end, Bracket_color inner))
+              else Ok (Stop (dir, pos_end, Bracket_color inner, opacity))
           | Percentage_stop -> (
               match percentage_number value with
-              | Some number when whole_percentage number ->
+              | Some number when whole_percentage number && not modified ->
                   Ok (Position (dir, pos_end, Arbitrary inner))
               | Some _ | None -> invalid)
-          | Position_stop -> Ok (Position (dir, pos_end, Arbitrary inner)))
+          | Position_stop ->
+              if modified then invalid
+              else Ok (Position (dir, pos_end, Arbitrary inner)))
 
   (* The (--x) shorthand. Tailwind splits a hint off at the first colon and
      takes what follows only when it names a custom property: the hint as
@@ -1109,42 +1187,48 @@ module Handler = struct
       else Option.some (hint, String.sub name 2 (String.length name - 2))
 
   (* A bare stop: Tailwind reads a colour first, [inherit], [transparent],
-     [current] or a palette entry, and a step or a percentage after. *)
-  let bare_stop ~theme dir pos_end rest =
+     [current] or a palette entry, and a step or a percentage after, which take
+     no modifier. *)
+  let bare_stop ~theme dir pos_end opacity base =
     let keyword c =
-      Option.some
-        (Stop (dir, pos_end, Keyword_color (c, String.concat "-" rest)))
+      Option.some (Stop (dir, pos_end, Keyword_color (c, base), opacity))
     in
-    match rest with
-    | [ "transparent" ] -> keyword Css.Transparent
-    | [ "current" ] -> keyword Css.Current
-    | [ "inherit" ] -> keyword Css.Inherit
+    match base with
+    | "transparent" -> keyword Css.Transparent
+    | "current" -> keyword Css.Current
+    | "inherit" -> keyword Css.Inherit
     | _ -> (
-        match Color.shade_of_strings ~theme rest with
-        | Ok (c, shade) -> Option.some (Stop (dir, pos_end, Palette (c, shade)))
+        match Color.shade_of_strings ~theme (String.split_on_char '-' base) with
+        | Ok (c, shade) ->
+            Option.some (Stop (dir, pos_end, Palette (c, shade), opacity))
+        | Error _ when opacity <> Color.No_opacity -> Option.none
         | Error _ ->
             Option.map
               (fun v -> Position (dir, pos_end, v))
-              (bare_position (String.concat "-" rest)))
+              (bare_position base))
 
   (* Parse directional from/to with support for values and paren refs *)
   let parse_directional ~theme dir pos_end rest =
-    let suffix = String.concat "-" rest in
+    let base, opacity =
+      Color.parse_opacity_modifier ~theme (String.concat "-" rest)
+    in
     let invalid =
       Error
         (`Msg
            ("Invalid mask-" ^ direction_short dir ^ "-"
           ^ position_end_name pos_end ^ " value"))
     in
-    match paren_var suffix with
-    | Some (Some "color", name) -> Ok (Stop (dir, pos_end, Color_var name))
+    match paren_var base with
+    | Some (Some "color", name) ->
+        Ok (Stop (dir, pos_end, Color_var name, opacity))
     | Some (Some "percentage", _) -> invalid
+    | Some _ when opacity <> Color.No_opacity -> invalid
     | Some (hint, name) -> Ok (Var_ref (dir, pos_end, hint, name))
     | None -> (
-        if Parse.is_bracket_value suffix then
-          bracket_stop dir pos_end (Parse.bracket_inner suffix)
+        if Parse.is_bracket_value base then
+          bracket_stop dir pos_end opacity (Parse.bracket_inner base)
         else
-          match bare_stop ~theme dir pos_end rest with
+          match bare_stop ~theme dir pos_end opacity base with
           | Some stop -> Ok stop
           | None -> invalid)
 
@@ -1303,9 +1387,10 @@ module Handler = struct
         let hint = match hint with Some h -> h ^ ":" | None -> "" in
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-("
         ^ hint ^ "--" ^ name ^ ")"
-    | Stop (dir, pos_end, colour) ->
+    | Stop (dir, pos_end, colour, opacity) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
         ^ stop_color_class colour
+        ^ Color.opacity_suffix opacity
     | Linear_angle (Int n) ->
         if n < 0 then "-mask-linear-" ^ string_of_int (-n)
         else "mask-linear-" ^ string_of_int n
