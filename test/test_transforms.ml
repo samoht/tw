@@ -551,6 +551,44 @@ let test_neg_skew_arbitrary () =
        (module Tw.Transforms.Handler))
     [ "-skew-[]"; "-skew-x-[]"; "-skew-y-[a;b]" ]
 
+(* A negative bracket rotate is the bracket negated the way Tailwind writes it,
+   [calc(<value> * -1)]: the bare form on the [rotate] longhand, an axis inside
+   its rotate function on the channel, beside the transform chain. An angle is
+   negated as an angle, whatever its unit, and every other value goes in as the
+   token stream it is. tw negated a degree by flipping its sign and left every
+   other unit as written, so -rotate-[.5turn] wrote .5turn, and refused a var(),
+   a calc(), a token stream and a hint as unknown classes. *)
+let test_neg_rotate_arbitrary () =
+  let chain =
+    "transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+     var(--tw-skew-x,) var(--tw-skew-y,)"
+  in
+  let has cls decls = Test_helpers.check_declarations ~minify:false cls decls in
+  has "-rotate-[45deg]" [ "rotate: calc(45deg * -1)" ];
+  has "-rotate-[.5turn]" [ "rotate: calc(.5turn * -1)" ];
+  has "-rotate-[var(--r)]" [ "rotate: calc(var(--r) * -1)" ];
+  has "-rotate-[calc(1deg+1deg)]" [ "rotate: calc(calc(1deg + 1deg) * -1)" ];
+  has "-rotate-[1_2_3_45deg]" [ "rotate: calc(1 2 3 45deg * -1)" ];
+  has "-rotate-[angle:45deg]" [ "rotate: calc(45deg * -1)" ];
+  has "-rotate-x-[45deg]" [ "--tw-rotate-x: rotateX(calc(45deg * -1))"; chain ];
+  has "-rotate-x-[var(--r)]"
+    [ "--tw-rotate-x: rotateX(calc(var(--r) * -1))"; chain ];
+  has "-rotate-y-[abc]" [ "--tw-rotate-y: rotateY(calc(abc * -1))"; chain ];
+  has "-rotate-z-[calc(1deg+1deg)]"
+    [ "--tw-rotate-z: rotateZ(calc(calc(1deg + 1deg) * -1))"; chain ];
+  has "-rotate-x-[angle:45deg]"
+    [ "--tw-rotate-x: rotateX(calc(45deg * -1))"; chain ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "-rotate-[0.5turn]"; "-rotate-x-[angle:45deg]"; "-rotate-[var(--r)]" ];
+  List.iter
+    (Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+       (module Tw.Transforms.Handler))
+    [ "-rotate-[]"; "-rotate-x-[]"; "-rotate-[a;b]" ]
+
 (* [origin-], [perspective-origin-] and [transform-] read their bracket through
    the arbitrary-value pipeline. Applying underscore decoding alone leaves
    [calc(1px+1px)] without the spaces CSS math wants and [--spacing(4)]
@@ -632,6 +670,7 @@ let tests =
       test_arbitrary_scale_axis_token_stream;
     test_case "negative arbitrary scale" `Quick test_neg_scale_arbitrary;
     test_case "negative arbitrary skew" `Quick test_neg_skew_arbitrary;
+    test_case "negative arbitrary rotate" `Quick test_neg_rotate_arbitrary;
     test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transform brackets peel a data-type hint" `Quick
       test_transform_brackets_peel_a_hint;
