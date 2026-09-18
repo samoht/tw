@@ -533,9 +533,16 @@ module Handler = struct
         let base_str, opacity = Color.parse_opacity_modifier ~theme v in
         let inner = Parse.bracket_inner base_str in
         (* Every colour spelling CSS knows, not only a [#] hex and a colour
-           function: a named colour and a keyword name a divide colour too. *)
-        match Color.parse_bracket_color inner with
-        | Some c -> (
+           function: a named colour and a keyword name a divide colour too, and
+           a [var()] is the colour it reads, under a [color:] hint or not. *)
+        let color_of_hint = function
+          | Color.Typed_var v | Color.Bare_var v ->
+              (Css.Var (Var.bracket (Parse.extract_var_name v)) : Css.color)
+          | Color.Plain_color c -> c
+        in
+        match Color.parse_bracket_hint inner with
+        | Some hint -> (
+            let c = color_of_hint hint in
             match opacity with
             | Color.No_opacity -> Ok (Bracket_color (inner, c))
             | _ -> Ok (Bracket_color_opacity (inner, c, opacity)))
