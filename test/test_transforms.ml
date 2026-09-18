@@ -478,6 +478,39 @@ let test_arbitrary_scale_axis_token_stream () =
   Test_helpers.check_declarations "scale-y-[0x4]"
     [ "--tw-scale-y:0x4"; "scale:var(--tw-scale-x)var(--tw-scale-y)" ]
 
+(* A negative bracket scale is the bracket negated the way Tailwind writes it: a
+   number is [calc(<n> * -1)] on the axis the class names, and every other value
+   is the same [calc()] around the token stream. The bare form writes [scale]
+   itself, as the positive one does, and an axis writes its channel and the
+   composition the positive form writes. tw refused every one of these as an
+   unknown class. *)
+let test_neg_scale_arbitrary () =
+  let xy = "scale: var(--tw-scale-x) var(--tw-scale-y)" in
+  let has cls decls = Test_helpers.check_declarations ~minify:false cls decls in
+  has "-scale-[1.5]" [ "scale: calc(1.5 * -1)" ];
+  has "-scale-[var(--s)]" [ "scale: calc(var(--s) * -1)" ];
+  has "-scale-[calc(1+1)]" [ "scale: calc(calc(1 + 1) * -1)" ];
+  has "-scale-x-[1.5]" [ "--tw-scale-x: calc(1.5 * -1)"; xy ];
+  has "-scale-y-[.5]" [ "--tw-scale-y: calc(.5 * -1)"; xy ];
+  has "-scale-z-[2]" [ "--tw-scale-z: calc(2 * -1)"; xy ^ " var(--tw-scale-z)" ];
+  has "-scale-x-[var(--s)]" [ "--tw-scale-x: calc(var(--s) * -1)"; xy ];
+  (* The hint chooses the longhand and stays in the class name, which is what
+     the markup carries. *)
+  has "-scale-x-[number:1.5]" [ "--tw-scale-x: calc(1.5 * -1)"; xy ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "-scale-[1.50]"; "-scale-x-[number:1.5]"; "-scale-y-[.5]" ];
+  (* A bracket naming no value, and the 3d spelling, which has no negative. *)
+  List.iter
+    (Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+       (module Tw.Transforms.Handler))
+    [
+      "-scale-[]"; "-scale-[a;b]"; "-scale-x-[]"; "-scale-z-[a;b]"; "-scale-3d";
+    ]
+
 (* [origin-], [perspective-origin-] and [transform-] read their bracket through
    the arbitrary-value pipeline. Applying underscore decoding alone leaves
    [calc(1px+1px)] without the spaces CSS math wants and [--spacing(4)]
@@ -557,6 +590,7 @@ let tests =
       test_arbitrary_transform_token_streams;
     test_case "arbitrary scale axis token stream" `Quick
       test_arbitrary_scale_axis_token_stream;
+    test_case "negative arbitrary scale" `Quick test_neg_scale_arbitrary;
     test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transform brackets peel a data-type hint" `Quick
       test_transform_brackets_peel_a_hint;
