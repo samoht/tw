@@ -665,11 +665,10 @@ module Handler = struct
     | [ "z"; "40" ] -> Ok Z_40
     | [ "z"; "50" ] -> Ok Z_50
     | [ "z"; "auto" ] -> Ok Z_auto
-    | [ "z"; n ] when String.length n > 0 && n.[0] = '[' ->
+    | [ "z"; n ] when String.starts_with ~prefix:"[" n ->
         (* Arbitrary value: z-[123] *)
-        let len = String.length n in
-        if len > 2 && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
+        if Parse.is_bracket_value n then
+          let inner = Parse.bracket_inner n in
           match arbitrary_z_index inner with
           | Some zi -> Ok (Z_arbitrary (inner, `Index zi))
           | None -> (
@@ -686,12 +685,8 @@ module Handler = struct
     | "" :: "z" :: rest when rest <> [] -> (
         (* Negative z-index: -z-10, -z-50, -z-[var(--value)], etc. *)
         let value = String.concat "-" rest in
-        if
-          String.length value > 2
-          && value.[0] = '['
-          && value.[String.length value - 1] = ']'
-        then
-          let inner = String.sub value 1 (String.length value - 2) in
+        if Parse.is_bracket_value value then
+          let inner = Parse.bracket_inner value in
           match arbitrary_z_index inner with
           | Some zi -> Ok (Neg_z_arbitrary (inner, zi))
           | None -> Error (`Msg ("Invalid negative z-index value: " ^ value))

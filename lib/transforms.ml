@@ -391,8 +391,8 @@ module Handler = struct
     prefix ^ name ^ string_of_int (abs n)
 
   let parse_bracket_length s : (Css.length, _) result =
-    if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
-      let inner = String.sub s 1 (String.length s - 2) in
+    if Parse.is_bracket_value s then (
+      let inner = Parse.bracket_inner s in
       let slen = String.length inner in
       (* Allow a leading minus so negative arbitrary values
          (translate-x-[-0.5px], translate-y-[-110%]) parse. *)
@@ -426,8 +426,8 @@ module Handler = struct
 
   (* The bracket names the class, so hand its text back beside the angle. *)
   let parse_bracket_angle s : (string * Css.angle, _) result =
-    if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']' then (
-      let inner = String.sub s 1 (String.length s - 2) in
+    if Parse.is_bracket_value s then (
+      let inner = Parse.bracket_inner s in
       let slen = String.length inner in
       let i = ref 0 in
       while
@@ -1740,10 +1740,7 @@ module Handler = struct
            | _ -> true -> (
         let value = String.concat "-" rest in
         match parse_bracket_length value with
-        | Ok len ->
-            Ok
-              (Translate_arbitrary
-                 (String.sub value 1 (String.length value - 2), len))
+        | Ok len -> Ok (Translate_arbitrary (Parse.bracket_inner value, len))
         | Error _ when not (Parse.is_bracket_value value) -> err_not_utility
         | Error _ -> (
             let raw = Parse.bracket_inner value in

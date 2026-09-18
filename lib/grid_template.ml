@@ -301,9 +301,8 @@ module Handler = struct
     | [ "grid"; "cols"; "none" ] -> Ok Grid_cols_none
     | [ "grid"; "cols"; "subgrid" ] -> Ok Grid_cols_subgrid
     | [ "grid"; "cols"; n ] -> (
-        let len = String.length n in
-        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
+        if Parse.is_bracket_value n then
+          let inner = Parse.bracket_inner n in
           match
             parse_arbitrary_grid_template
               Css.Properties.read_grid_template_tracks inner
@@ -317,9 +316,8 @@ module Handler = struct
     | [ "grid"; "rows"; "none" ] -> Ok Grid_rows_none
     | [ "grid"; "rows"; "subgrid" ] -> Ok Grid_rows_subgrid
     | [ "grid"; "rows"; n ] -> (
-        let len = String.length n in
-        if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
-          let inner = String.sub n 1 (len - 2) in
+        if Parse.is_bracket_value n then
+          let inner = Parse.bracket_inner n in
           match
             parse_arbitrary_grid_template
               Css.Properties.read_grid_template_tracks inner
@@ -343,9 +341,8 @@ module Handler = struct
         match Parse.decimal_float n with
         | Some f when f >= 0.0 -> Ok (Auto_cols_spacing f)
         | _ ->
-            let len = String.length n in
-            if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
-              let inner = String.sub n 1 (len - 2) in
+            if Parse.is_bracket_value n then
+              let inner = Parse.bracket_inner n in
               match
                 parse_arbitrary_grid_template
                   Css.Properties.read_grid_auto_tracks inner
@@ -361,9 +358,8 @@ module Handler = struct
         match Parse.decimal_float n with
         | Some f when f >= 0.0 -> Ok (Auto_rows_spacing f)
         | _ ->
-            let len = String.length n in
-            if len > 2 && n.[0] = '[' && n.[len - 1] = ']' then
-              let inner = String.sub n 1 (len - 2) in
+            if Parse.is_bracket_value n then
+              let inner = Parse.bracket_inner n in
               match
                 parse_arbitrary_grid_template
                   Css.Properties.read_grid_auto_tracks inner
