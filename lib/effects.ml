@@ -337,6 +337,38 @@ module Handler = struct
   let bracket_color_var_opacity_style ~theme var c opacity =
     Color.bracket_color_opacity_style ~theme ~property:(Var.set var) c opacity
 
+  (* A ring colour channel under a modifier: [fallback] set in the open for a
+     browser without [color-mix()], [color] mixed with the modifier's alpha
+     behind the guard, with [decls] beside it. *)
+  let channel_opacity ?merge_key ?(decls = []) var ~fallback opacity color =
+    let mixed = Var.set var (Color.mix_alpha opacity color) in
+    let supports_block = Color.color_mix_supports (decls @ [ mixed ]) in
+    Style.style ?merge_key ~rules:(Some [ supports_block ])
+      [ Var.set var fallback ]
+
+  (* A palette colour on a ring channel, read through the family's own
+     [--<prefix>-<colour>] token first. A token bound to a value no hex can
+     carry, a [var()], has nothing to fold the alpha into, so the fallback is
+     the colour at full opacity, as Tailwind writes it. *)
+  let palette_channel_opacity ?theme ~property_prefix var color shade opacity =
+    let cvar = Color.property_color_var ?theme ~property_prefix color shade in
+    let value =
+      Color.property_color_value ?theme ~property_prefix color shade
+    in
+    let decls, color_ref = Color.bound ?theme cvar value in
+    let fallback =
+      match Color.hex_alpha_color ?theme color shade opacity with
+      | Some hex_alpha -> Css.hex hex_alpha
+      | None -> value
+    in
+    channel_opacity ~decls var ~fallback opacity color_ref
+
+  let bracket_var_channel_opacity ~merge_key var v opacity =
+    let var_color : Css.color =
+      Css.Var (Var.bracket (Parse.extract_var_name v))
+    in
+    channel_opacity ~merge_key var ~fallback:var_color opacity var_color
+
   let box_shadow_composition v_shadow =
     let v_inset = Var.reference inset_shadow_var in
     let v_inset_ring = Var.reference inset_ring_shadow_var in
@@ -1247,30 +1279,8 @@ module Handler = struct
     style (decls @ [ d ])
 
   let ring_color_with_opacity ?theme color shade opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let cvar =
-      Color.property_color_var ?theme ~property_prefix:"ring-color" color shade
-    in
-    let color_value =
-      Color.property_color_value ?theme ~property_prefix:"ring-color" color
-        shade
-    in
-    let decls, value = Color.bound ?theme cvar color_value in
-    (* A token bound to a value no hex can carry, a [var()], has nothing to fold
-       the alpha into, so the fallback is the colour at full opacity, as
-       Tailwind writes it; the mix under [@supports] carries the alpha. *)
-    let fallback_color =
-      match Color.hex_alpha_color ?theme color shade opacity with
-      | Some hex_alpha -> Css.hex hex_alpha
-      | None -> value
-    in
-    let fallback = Var.set ring_color_var fallback_color in
-    let oklab_decl =
-      Var.set ring_color_var
-        (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
-    in
-    let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
-    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+    palette_channel_opacity ?theme ~property_prefix:"ring-color" ring_color_var
+      color shade opacity
 
   let ring_offset_width n =
     (* Sets --tw-ring-offset-width and --tw-ring-offset-shadow Format:
@@ -1339,31 +1349,8 @@ module Handler = struct
 
   (* Ring-offset color utilities *)
   let ring_offset_color_with_opacity ?theme color shade opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let cvar =
-      Color.property_color_var ?theme ~property_prefix:"ring-offset-color" color
-        shade
-    in
-    let color_value =
-      Color.property_color_value ?theme ~property_prefix:"ring-offset-color"
-        color shade
-    in
-    let decls, value = Color.bound ?theme cvar color_value in
-    (* A token bound to a value no hex can carry, a [var()], has nothing to fold
-       the alpha into, so the fallback is the colour at full opacity, as
-       Tailwind writes it; the mix under [@supports] carries the alpha. *)
-    let fallback_color =
-      match Color.hex_alpha_color ?theme color shade opacity with
-      | Some hex_alpha -> Css.hex hex_alpha
-      | None -> value
-    in
-    let fallback = Var.set ring_offset_color_var fallback_color in
-    let oklab_decl =
-      Var.set ring_offset_color_var
-        (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
-    in
-    let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
-    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+    palette_channel_opacity ?theme ~property_prefix:"ring-offset-color"
+      ring_offset_color_var color shade opacity
 
   let ring_offset_transparent =
     let d = Var.set ring_offset_color_var Css.Transparent in
@@ -1374,15 +1361,8 @@ module Handler = struct
     style [ d ]
 
   let ring_offset_current_with_opacity opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let fallback = Var.set ring_offset_color_var Css.Current in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let oklab_decl = Var.set ring_offset_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+    channel_opacity ring_offset_color_var ~fallback:Css.Current opacity
+      Css.Current
 
   let ring_offset_inherit =
     let d = Var.set ring_offset_color_var Css.Inherit in
@@ -1412,17 +1392,8 @@ module Handler = struct
     Style.style ~merge_key:("ring-offset-color:" ^ v) [ d ]
 
   let ring_offset_bracket_cvar_opacity v opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback = Var.set ring_offset_color_var var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Var.set ring_offset_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~merge_key:("ring-offset-color:" ^ v)
-      ~rules:(Some [ supports_block ]) [ fallback ]
+    bracket_var_channel_opacity ~merge_key:("ring-offset-color:" ^ v)
+      ring_offset_color_var v opacity
 
   let ring_offset_bracket_var v =
     let bare_name = Parse.extract_var_name v in
@@ -1430,17 +1401,8 @@ module Handler = struct
     Style.style ~merge_key:("ring-offset-" ^ v) [ d ]
 
   let ring_offset_bracket_var_opacity v opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback = Var.set ring_offset_color_var var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Var.set ring_offset_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~merge_key:("ring-offset-" ^ v) ~rules:(Some [ supports_block ])
-      [ fallback ]
+    bracket_var_channel_opacity ~merge_key:("ring-offset-" ^ v)
+      ring_offset_color_var v opacity
 
   (* Inset-ring utilities *)
   let inset_ring_color ?theme color shade =
@@ -1457,31 +1419,8 @@ module Handler = struct
     style (decls @ [ d ])
 
   let inset_ring_color_with_opacity ?theme color shade opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let cvar =
-      Color.property_color_var ?theme ~property_prefix:"inset-ring-color" color
-        shade
-    in
-    let color_value =
-      Color.property_color_value ?theme ~property_prefix:"inset-ring-color"
-        color shade
-    in
-    let decls, value = Color.bound ?theme cvar color_value in
-    (* A token bound to a value no hex can carry, a [var()], has nothing to fold
-       the alpha into, so the fallback is the colour at full opacity, as
-       Tailwind writes it; the mix under [@supports] carries the alpha. *)
-    let fallback_color =
-      match Color.hex_alpha_color ?theme color shade opacity with
-      | Some hex_alpha -> Css.hex hex_alpha
-      | None -> value
-    in
-    let fallback = Var.set inset_ring_color_var fallback_color in
-    let oklab_decl =
-      Var.set inset_ring_color_var
-        (Css.color_mix ~in_space:Oklab value Css.Transparent ~percent1:percent)
-    in
-    let supports_block = Color.color_mix_supports (decls @ [ oklab_decl ]) in
-    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+    palette_channel_opacity ?theme ~property_prefix:"inset-ring-color"
+      inset_ring_color_var color shade opacity
 
   let inset_ring_transparent =
     let d = Var.set inset_ring_color_var Css.Transparent in
@@ -1492,15 +1431,8 @@ module Handler = struct
     style [ d ]
 
   let inset_ring_current_with_opacity opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let fallback = Var.set inset_ring_color_var Css.Current in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let oklab_decl = Var.set inset_ring_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+    channel_opacity inset_ring_color_var ~fallback:Css.Current opacity
+      Css.Current
 
   let inset_ring_inherit =
     let d = Var.set inset_ring_color_var Css.Inherit in
@@ -1518,17 +1450,8 @@ module Handler = struct
     Style.style ~merge_key:("inset-ring-color:" ^ v) [ d ]
 
   let inset_ring_bracket_cvar_opacity v opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback = Var.set inset_ring_color_var var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Var.set inset_ring_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~merge_key:("inset-ring-color:" ^ v)
-      ~rules:(Some [ supports_block ]) [ fallback ]
+    bracket_var_channel_opacity ~merge_key:("inset-ring-color:" ^ v)
+      inset_ring_color_var v opacity
 
   let inset_ring_bracket_var v =
     let bare_name = Parse.extract_var_name v in
@@ -1536,17 +1459,8 @@ module Handler = struct
     Style.style ~merge_key:("inset-ring-" ^ v) [ d ]
 
   let inset_ring_bracket_var_opacity v opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback = Var.set inset_ring_color_var var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Var.set inset_ring_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~merge_key:("inset-ring-" ^ v) ~rules:(Some [ supports_block ])
-      [ fallback ]
+    bracket_var_channel_opacity ~merge_key:("inset-ring-" ^ v)
+      inset_ring_color_var v opacity
 
   (* Ring color utilities *)
   let ring_transparent =
@@ -1558,15 +1472,7 @@ module Handler = struct
     style [ d ]
 
   let ring_current_with_opacity opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let fallback = Var.set ring_color_var Css.Current in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let oklab_decl = Var.set ring_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~rules:(Some [ supports_block ]) [ fallback ]
+    channel_opacity ring_color_var ~fallback:Css.Current opacity Css.Current
 
   let ring_inherit =
     let d = Var.set ring_color_var Css.Inherit in
@@ -1591,17 +1497,8 @@ module Handler = struct
     Style.style ~merge_key:("ring-color:" ^ v) [ d ]
 
   let ring_bracket_cvar_opacity v opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback = Var.set ring_color_var var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Var.set ring_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~merge_key:("ring-color:" ^ v) ~rules:(Some [ supports_block ])
-      [ fallback ]
+    bracket_var_channel_opacity ~merge_key:("ring-color:" ^ v) ring_color_var v
+      opacity
 
   let ring_bracket_var v =
     let bare_name = Parse.extract_var_name v in
@@ -1609,17 +1506,8 @@ module Handler = struct
     Style.style ~merge_key:("ring-" ^ v) [ d ]
 
   let ring_bracket_var_with_opacity v opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let bare_name = Parse.extract_var_name v in
-    let var_color : Css.color = Css.Var (Var.bracket bare_name) in
-    let fallback = Var.set ring_color_var var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Var.set ring_color_var oklab_color in
-    let supports_block = Color.color_mix_supports [ oklab_decl ] in
-    Style.style ~merge_key:("ring-" ^ v) ~rules:(Some [ supports_block ])
-      [ fallback ]
+    bracket_var_channel_opacity ~merge_key:("ring-" ^ v) ring_color_var v
+      opacity
 
   let raw_ring_color var value opacity =
     style ~metadata:shadow_property_metadata
@@ -1953,8 +1841,8 @@ module Handler = struct
   let err_not_utility = Error (`Msg "Not an effects utility")
   let starts prefix s = String.starts_with ~prefix s
 
-  let parse_ring_bracket kind v =
-    let base_str, opacity = Color.parse_opacity_modifier v in
+  let parse_ring_bracket ~theme kind v =
+    let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let inner = Parse.bracket_inner base_str in
     match kind with
     | `Ring -> (
@@ -2159,7 +2047,8 @@ module Handler = struct
     | [ "shadow"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
         parse_shadow_bracket v
     | [ "shadow"; name ] when String.contains name '/' -> (
         let base, opacity = Color.parse_opacity_modifier ~theme name in
@@ -2218,7 +2107,8 @@ module Handler = struct
     | [ "inset"; "shadow"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
         parse_inset_shadow_bracket v
     | [ "inset"; "shadow"; name ] when String.contains name '/' -> (
         let base, opacity = Color.parse_opacity_modifier ~theme name in
@@ -2294,8 +2184,9 @@ module Handler = struct
     | [ "ring"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
-        parse_ring_bracket `Ring v
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
+        parse_ring_bracket ~theme `Ring v
     (* Shadeless theme colours (ring-black, ring-white, with optional /opacity);
        shaded colours like ring-red need an explicit shade and use the 3-part
        arm below. *)
@@ -2332,8 +2223,9 @@ module Handler = struct
     | [ "ring"; "offset"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
-        parse_ring_bracket `Ring_offset v
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
+        parse_ring_bracket ~theme `Ring_offset v
     (* A shadeless theme colour names the offset colour the way it names the
        ring (ring-offset-white, with an optional /opacity); a bare number is the
        width, below. *)
@@ -2385,8 +2277,9 @@ module Handler = struct
     | [ "inset"; "ring"; v ]
       when String.length v > 0
            && v.[0] = '['
-           && Parse.is_bracket_value (fst (Color.parse_opacity_modifier v)) ->
-        parse_ring_bracket `Inset_ring v
+           && Parse.is_bracket_value
+                (fst (Color.parse_opacity_modifier ~theme v)) ->
+        parse_ring_bracket ~theme `Inset_ring v
     (* Shadeless theme colours (inset-ring-black, with optional /opacity). *)
     | [ "inset"; "ring"; v ]
       when let base, _ = Color.parse_opacity_modifier ~theme v in
