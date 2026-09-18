@@ -298,6 +298,89 @@ let test_border_side_color_opacity () =
     "border-b-white/5 round-trips" "border-b-white/5"
     (Tw.pp (Result.get_ok (Tw.of_string "border-b-white/5")))
 
+(* A per-side border colour takes every modifier the all-sides one takes, on
+   [currentcolor] and on a bracket colour as on a palette colour, and reads
+   [inherit]. Tailwind writes the colour in the open and the mix behind the
+   [color-mix()] guard, or the mix alone where a browser can read it. Only the
+   palette and the [transparent]/[inherit] keywords took a modifier on a side:
+   [border-t-current/50], [border-t-[var(--c)]/(--o)], a hinted or bracket
+   colour under a modifier, and [border-t-inherit] were unknown classes, on
+   every side and axis. *)
+let test_border_side_keyword_and_bracket_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let guarded cls prop fallback mixed =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [ prop ^ ": " ^ fallback; prop ^ ": " ^ mixed ]
+  in
+  let folded cls prop value =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [ prop ^ ": " ^ value ]
+  in
+  guarded "border-t-current/50" "border-top-color" "currentColor"
+    "color-mix(in oklab, currentcolor 50%, transparent)";
+  guarded "border-x-current/(--o)" "border-inline-color" "currentColor"
+    "color-mix(in oklab, currentcolor var(--o), transparent)";
+  guarded "border-s-current/half" "border-inline-start-color" "currentColor"
+    "color-mix(in oklab, currentcolor var(--opacity-half), transparent)";
+  guarded "border-t-current/[50%]" "border-top-color" "currentColor"
+    "color-mix(in oklab, currentcolor 50%, transparent)";
+  guarded "border-t-[var(--c)]/(--o)" "border-top-color" "var(--c)"
+    "color-mix(in oklab, var(--c) var(--o), transparent)";
+  guarded "border-bs-[color:var(--c)]/50" "border-block-start-color" "var(--c)"
+    "color-mix(in oklab, var(--c) 50%, transparent)";
+  guarded "border-be-(--c)/50" "border-block-end-color" "var(--c)"
+    "color-mix(in oklab, var(--c) 50%, transparent)";
+  guarded "border-l-[var(--c)]/[0.5]" "border-left-color" "var(--c)"
+    "color-mix(in oklab, var(--c) 50%, transparent)";
+  guarded "border-y-[var(--c)]/half" "border-block-color" "var(--c)"
+    "color-mix(in oklab, var(--c) var(--opacity-half), transparent)";
+  guarded "border-t-[#123456]/(--o)" "border-top-color" "#123456"
+    "color-mix(in oklab, #123456 var(--o), transparent)";
+  guarded "border-e-[#123456]/half" "border-inline-end-color"
+    "color-mix(in srgb, #123456 50%, transparent)"
+    "color-mix(in oklab, #123456 var(--opacity-half), transparent)";
+  folded "border-t-[red]/50" "border-top-color"
+    "color-mix(in oklab, red 50%, transparent)";
+  folded "border-t-[color:red]/50" "border-top-color"
+    "color-mix(in oklab, red 50%, transparent)";
+  folded "border-r-[rgb(1_2_3)]/50" "border-right-color"
+    "color-mix(in oklab, #010203 50%, transparent)";
+  folded "border-t-inherit" "border-top-color" "inherit";
+  folded "border-y-inherit" "border-block-color" "inherit";
+  folded "border-inherit" "border-color" "inherit";
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string ~theme cls))))
+    [
+      "border-t-current/50";
+      "border-x-current/(--o)";
+      "border-s-current/half";
+      "border-t-[var(--c)]/(--o)";
+      "border-bs-[color:var(--c)]/50";
+      "border-be-(--c)/50";
+      "border-e-[#123456]/half";
+      "border-t-[red]/50";
+      "border-t-inherit";
+      "border-inherit";
+    ];
+  (* A bracket the colour reader declines takes no modifier, on a side as on the
+     all-sides utility: Tailwind mixes the raw token, which tw holds open rather
+     than settles. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "the raw token is mixed verbatim; tw refuses a modifier on a bracket \
+          no reader took, as border-[...] does")
+    (module Tw.Color.Handler)
+    "border-t-[notacolour]/50";
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Color.Handler))
+    [ "border-t-currentx"; "border-t-current/" ]
+
 (* An alpha can name a custom property to read the percentage from, written
    either as [/[var(--x)]] or as the [/(--x)] shorthand. The percentage is not
    known at build time, so it goes into the [color-mix] as a reference; before,
@@ -1506,6 +1589,9 @@ let tests =
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);
     ("Border side color opacity", `Quick, test_border_side_color_opacity);
+    ( "Border side keyword and bracket opacity",
+      `Quick,
+      test_border_side_keyword_and_bracket_opacity );
     ("Per-side border color order", `Slow, test_border_side_color_order);
     ( "Per-side border bracket color order",
       `Slow,
