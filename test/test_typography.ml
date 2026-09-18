@@ -1112,6 +1112,38 @@ let test_decoration_shadeless_opacity () =
   rejected "decoration-nosuchcolor/50";
   rejected "decoration-white/"
 
+(* A modifier reading a custom property mixes that property into the guarded
+   value, on [currentcolor] and on a bracket [var()] as on a palette colour.
+   Both arms folded the modifier to a percentage, which a var() has none of, so
+   the mix said [100%] and the modifier was dropped. *)
+let test_decoration_opacity_var () =
+  let mixed cls fallback colour =
+    check_declarations cls
+      (fallback
+      @ [
+          "-webkit-text-decoration-color:color-mix(in oklab," ^ colour
+          ^ " var(--o),transparent)";
+          "text-decoration-color:color-mix(in oklab," ^ colour
+          ^ " var(--o),transparent)";
+        ])
+  in
+  mixed "decoration-current/(--o)"
+    [ "text-decoration-color:currentColor" ]
+    "currentcolor";
+  mixed "decoration-current/[var(--o)]"
+    [ "text-decoration-color:currentColor" ]
+    "currentcolor";
+  mixed "decoration-[var(--c)]/(--o)"
+    [
+      "-webkit-text-decoration-color:var(--c)"; "text-decoration-color:var(--c)";
+    ]
+    "var(--c)";
+  mixed "decoration-[color:var(--c)]/(--o)"
+    [
+      "-webkit-text-decoration-color:var(--c)"; "text-decoration-color:var(--c)";
+    ]
+    "var(--c)"
+
 (* The pre-color-mix fallback has to carry the modifier's alpha, or a browser
    without [color-mix()] paints the decoration fully opaque. A palette colour
    folds the alpha into a hex; a project token, whose value the theme supplies,
@@ -1333,6 +1365,7 @@ let tests =
       test_decoration_bracket_unitless_is_color;
     test_case "decoration shadeless opacity" `Quick
       test_decoration_shadeless_opacity;
+    test_case "decoration opacity from a var" `Quick test_decoration_opacity_var;
     test_case "bracket list-style" `Quick test_bracket_list_style;
     test_case "list-style property bands" `Slow test_list_style_property_bands;
     test_case "invalid font family" `Quick test_invalid_font_family;
