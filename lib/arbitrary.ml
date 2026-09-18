@@ -18,12 +18,6 @@ let color_property_of_name = function
   | "stroke" -> Some (fun c -> Css.stroke (Css.Color c : Css.svg_paint))
   | _ -> None
 
-(* The two halves of a [--alpha()] call, trimmed. *)
-let alpha_fn_parts value =
-  Option.map
-    (fun (colour, alpha) -> (String.trim colour, String.trim alpha))
-    (Parse.alpha_call value)
-
 module Handler = struct
   open Style
 
@@ -268,7 +262,7 @@ module Handler = struct
             (* [--alpha(C/P)] is the [/opacity] form spelled as a function, so
                it resolves to the same fallback and [@supports] pair. *)
             let value, fn_alpha =
-              match alpha_fn_parts raw_value with
+              match Parse.alpha_call raw_value with
               | Some (c, p) -> (
                   (* [--alpha()] writes the alpha as a percentage; the [/]
                      modifier writes the bare number. *)
@@ -313,6 +307,10 @@ module Handler = struct
                       (Color_opacity
                          { property; value; alpha_fn = fn_alpha; opacity })
                   else err_not_utility
+                else if Parse.holds_unresolved_call value then
+                  (* an [--alpha()] the reader above declined, or a [theme()],
+                     is a lookup that failed: Tailwind names no utility *)
+                  err_not_utility
                 else
                   (* Plain [property:value]: any property whose value cascade
                      can parse becomes a typed declaration. *)

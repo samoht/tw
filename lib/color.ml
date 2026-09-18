@@ -2065,13 +2065,10 @@ module Handler = struct
       match Parse.alpha_call inner with
       | Some (color_str, pct_str) -> (
           let pct =
-            let t = String.trim pct_str in
-            let t =
-              if String.length t > 0 && t.[String.length t - 1] = '%' then
-                String.sub t 0 (String.length t - 1)
-              else t
-            in
-            float_of_string_opt t
+            if String.ends_with ~suffix:"%" pct_str then
+              float_of_string_opt
+                (String.sub pct_str 0 (String.length pct_str - 1))
+            else None
           in
           (* the inner colour is a raw CSS colour ([red] is the keyword, not the
              red-500 palette entry); fall back to the palette only if CSS does
@@ -2083,6 +2080,9 @@ module Handler = struct
             | None -> parse_bracket_color color_str
           in
           match (pct, color) with
+          (* at full opacity the mix is a no-op, and Tailwind writes the colour
+             itself *)
+          | Some 100., Some c -> Some c
           | Some pct, Some c ->
               Some
                 (Css.color_mix ~in_space:Oklab ~percent1:pct c Css.Transparent)

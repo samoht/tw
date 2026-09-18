@@ -203,6 +203,13 @@ val value_after_hint : string -> string option
     that falls through to a token stream gets the same peel from
     {!arbitrary_declaration_value}; calling both peels twice. *)
 
+val holds_unresolved_call : string -> bool
+(** [holds_unresolved_call s] is [true] when a [theme()], [--theme()] or
+    [--alpha()] function token stands in [s]. Such a call is resolved before a
+    family's reader sees the bracket, so one that survived is a lookup that
+    declined, and Tailwind names no utility for it. A name spelled inside a
+    string or a comment is no call. *)
+
 val arbitrary_declaration_value : string -> string option
 (** [arbitrary_declaration_value s] decodes the inside of a Tailwind bracket and
     returns its CSS declaration value: the text after any {!data_type_hint},
@@ -210,10 +217,7 @@ val arbitrary_declaration_value : string -> string option
     terminate or swallow the declaration are [None], as is a bracket whose hint
     is empty.
 
-    A [theme()] or [--theme()] call still standing in the text is also [None]:
-    such a call is resolved before a family's reader sees the bracket, so one
-    that survived is a lookup that declined, and Tailwind names no utility for
-    it. *)
+    A value that {!holds_unresolved_call} is also [None]. *)
 
 val wrap_declaration_value :
   before:string -> after:string -> string -> string option
@@ -250,10 +254,13 @@ val call_body : string -> string -> string option
     when [s] is not the call. *)
 
 val alpha_call : string -> (string * string) option
-(** [alpha_call s] reads Tailwind's [--alpha(<color>/<percentage>)]: the colour
-    and the alpha it is mixed with, as written. The separating slash is the last
-    one, so a colour carrying its own, as [oklch(1 0 0 / 50%)] does, still
-    reads. [None] when [s] is not the call or has no slash. *)
+(** [alpha_call s] reads Tailwind's [--alpha(<color>/<alpha>)]: the colour and
+    the alpha it is mixed with, each trimmed. The separating slash is the first
+    one outside any parentheses, so a colour carrying its own, as
+    [oklch(1 0 0 / 50%)] does, still reads. A bare number is the fraction
+    Tailwind scales to a percentage, so [0.2] reads as [20%] and [1] as [100%];
+    every other alpha is as written. [None] when [s] is not the call, has no
+    slash, or leaves either side empty, which Tailwind refuses. *)
 
 val is_css_color_fn : string -> bool
 (** [is_css_color_fn s] returns [true] if [s] looks like a CSS color function

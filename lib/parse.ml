@@ -570,12 +570,13 @@ let declaration_value_of s =
 
 (* Every family reaches its last resort with the bracket as the author wrote it,
    so refusing an empty hint here refuses it everywhere. *)
-(* A [theme()] or [--theme()] call is resolved before a family's reader sees
-   the bracket, so one still standing in the text is a lookup that declined.
-   Tailwind emits nothing for such a class, so it is not a token stream to
-   forward: [p-[--theme(spacing.4)]] is the v4 spelling over a v3 dot path,
-   which resolves to nothing and names no utility. *)
-let holds_unresolved_theme_call s =
+(* A [theme()], [--theme()] or [--alpha()] call is resolved before a family's
+   reader sees the bracket, so one still standing in the text is a lookup that
+   declined. Tailwind emits nothing for such a class, so it is not a token
+   stream to forward: [p-[--theme(spacing.4)]] is the v4 spelling over a v3
+   dot path, which resolves to nothing, and [text-[--alpha(red)]] is a call
+   missing its alpha, which Tailwind refuses to compile. *)
+let holds_unresolved_call s =
   (* Tokenise rather than search for text: a [<function-token>] is an ident
      immediately followed by [(], so the name is matched whole and a call
      spelled inside a string or a comment is not a call at all. *)
@@ -584,14 +585,14 @@ let holds_unresolved_theme_call s =
     let token = Cascade.Lexer.next lexer in
     match token.Cascade.Token.kind with
     | Eof -> false
-    | Function ("theme" | "--theme") -> true
+    | Function ("theme" | "--theme" | "--alpha") -> true
     | _ -> scan ()
   in
   scan ()
 
 let arbitrary_declaration_value s =
   match Option.bind (value_after_hint s) declaration_value_of with
-  | Some value when holds_unresolved_theme_call value -> None
+  | Some value when holds_unresolved_call value -> None
   | answer -> answer
 
 let wrap_declaration_value ~before ~after value =
@@ -625,17 +626,6 @@ let call_body name s =
   if n > m && String.starts_with ~prefix:head s && s.[n - 1] = ')' then
     Some (String.sub s m (n - m - 1))
   else None
-
-let alpha_call s =
-  match call_body "--alpha" s with
-  | None -> None
-  | Some body -> (
-      match String.rindex_opt body '/' with
-      | Some i ->
-          Some
-            ( String.sub body 0 i,
-              String.sub body (i + 1) (String.length body - i - 1) )
-      | None -> None)
 
 (** Check if a string looks like a CSS color function call (e.g., "rgba(...)",
     "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
@@ -809,3 +799,52 @@ let split_top_level sep s =
       | _ -> go depth start (i + 1) acc
   in
   go 0 0 0 []
+
+(* A bare number's alpha as the percentage Tailwind scales it to, done on the
+   text so that [0.2] is [20] rather than a float's idea of it: the decimal
+   point moves two places right. [None] when [s] is not a plain decimal. *)
+let alpha_percent_of_number s =
+  let sign, digits =
+    if String.starts_with ~prefix:"-" s || String.starts_with ~prefix:"+" s then
+      (String.sub s 0 1, String.sub s 1 (String.length s - 1))
+    else ("", s)
+  in
+  let all_digits = String.for_all (fun c -> c >= '0' && c <= '9') in
+  let int_part, frac =
+    match String.split_on_char '.' digits with
+    | [ i ] -> (i, "")
+    | [ i; f ] -> (i, f)
+    | _ -> ("", "x")
+  in
+  if (int_part = "" && frac = "") || not (all_digits int_part && all_digits frac)
+  then None
+  else
+    let frac = frac ^ "00" in
+    let whole = int_part ^ String.sub frac 0 2 in
+    let rest = String.sub frac 2 (String.length frac - 2) in
+    let rec drop_zeros s =
+      if String.ends_with ~suffix:"0" s then
+        drop_zeros (String.sub s 0 (String.length s - 1))
+      else s
+    in
+    let rec lead s =
+      if String.length s > 1 && s.[0] = '0' then
+        lead (String.sub s 1 (String.length s - 1))
+      else s
+    in
+    let rest = drop_zeros rest in
+    Some (sign ^ lead whole ^ if rest = "" then "" else "." ^ rest)
+
+let alpha_call s =
+  match call_body "--alpha" s with
+  | None -> None
+  | Some body -> (
+      match List.map String.trim (split_top_level '/' body) with
+      | colour :: alpha :: _ when colour <> "" && alpha <> "" ->
+          let alpha =
+            match alpha_percent_of_number alpha with
+            | Some percent -> percent ^ "%"
+            | None -> alpha
+          in
+          Some (colour, alpha)
+      | _ -> None)
