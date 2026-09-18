@@ -190,6 +190,10 @@
 
 ### Utilities
 
+- A palette name with no shade names no utility, as in Tailwind: `bg-red`,
+  `text-red`, `from-red`, `ring-red` and their kin compiled a `.bg-red-500`
+  rule nobody wrote. `black`, `white`, `current`, `transparent`, `inherit`
+  and a project's own `--color-red` token still resolve (#874).
 - A fraction resolves exactly, as Tailwind's `calc(1/3 * 100%)` does: `w-1/3`
   rendered 106.984px against 107px in a 321px container. The sizing, inset,
   flex and basis families share it (#828).
