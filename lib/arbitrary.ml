@@ -72,48 +72,23 @@ module Handler = struct
   let priority t =
     match slot t with Some (priority, _) -> priority | None -> unclaimed
 
-  (* [prop] set to the sRGB mix in the open and the oklab mix behind the
-     colour-mix guard, [mix] taking the space. *)
-  let guarded_mix prop (mix : Css.color_space -> Css.color) =
-    style
-      ~rules:(Some [ Color.color_mix_supports [ prop (mix Oklab) ] ])
-      [ prop (mix Srgb) ]
-
-  (* The percentage a named [--opacity-*] token resolves to at compile time: the
-     theme's value, a percentage or a fraction of one. A value that is neither,
-     a var() say, resolves to nothing. *)
-  let named_opacity_percent theme name =
-    match Scheme.theme_value (Some theme) ("opacity-" ^ name) with
-    | None -> None
-    | Some v ->
-        let v = String.trim v in
-        if String.ends_with ~suffix:"%" v then
-          float_of_string_opt (String.sub v 0 (String.length v - 1))
-        else Option.map (fun f -> f *. 100.) (float_of_string_opt v)
-
   (* Render a known colour-property declaration ([color], [background-color],
-     ...) with a parsed colour value and an /opacity modifier. *)
+     ...) with a parsed colour value and an /opacity modifier: the mix, and
+     before it what a browser without [color-mix()] reads when the mix needs
+     Tailwind's polyfill, which is when it reads a custom property or
+     [currentcolor]. A named token resolves to the theme's percentage, in an
+     sRGB mix, there. *)
   let color_opacity_render theme prop color opacity =
     match opacity with
-    | Color.Opacity_named name ->
-        (* The srgb fallback carries the percentage the token resolves to, as
-           Tailwind inlines it; a token it cannot resolve leaves the colour
-           whole. *)
-        let fallback =
-          match named_opacity_percent theme (Parse.extract_var_name name) with
-          | Some percent1 ->
-              Css.color_mix ~in_space:Srgb ~percent1 color Css.Transparent
-          | None -> color
-        in
-        let supports_block =
-          Color.color_mix_supports [ prop (Color.mix_alpha opacity color) ]
-        in
-        style ~rules:(Some [ supports_block ]) [ prop fallback ]
-    | Color.Opacity_percent _ | Color.Opacity_bracket_percent _
-    | Color.Opacity_arbitrary _ | Color.Opacity_var _ ->
-        guarded_mix prop (fun in_space ->
-            Color.mix_alpha ~in_space opacity color)
     | Color.No_opacity -> style [ prop color ]
+    | opacity -> (
+        let mixed = Color.mix_alpha opacity color in
+        match Color.pre_color_mix_fallback theme mixed with
+        | None -> style [ prop mixed ]
+        | Some in_the_open ->
+            style
+              ~rules:(Some [ Color.color_mix_supports [ prop mixed ] ])
+              [ prop in_the_open ])
 
   (* A var-valued colour with /opacity: oklab color-mix under @supports, with an
      srgb fallback. The fallback resolves the var against the theme when known
@@ -173,13 +148,28 @@ module Handler = struct
         (* [~layer:"utilities"] only affects a custom property; it keeps the
            declaration in the utilities layer (the build's theme/utilities
            filter drops layerless custom properties). *)
-        match
-          Css.parse_declaration ~layer:"utilities"
-            (declared_property property)
-            (Parse.decode_arbitrary_value value)
-        with
-        | Some decl -> style [ decl ]
-        | None -> style [])
+        let declaration =
+          Css.parse_declaration ~layer:"utilities" (declared_property property)
+        in
+        let decoded = Parse.decode_arbitrary_value value in
+        match declaration decoded with
+        | None -> style []
+        | Some decl -> (
+            (* A value holding a [color-mix()] that reads a custom property or
+               [currentcolor] takes Tailwind's polyfill pair: what a browser
+               without [color-mix()] reads in the open, the value as written
+               behind the guard. *)
+            match
+              Option.bind
+                (Parse.color_mix_fallback ~resolve:(Color.theme_token theme)
+                   decoded)
+                declaration
+            with
+            | None -> style [ decl ]
+            | Some in_the_open ->
+                style
+                  ~rules:(Some [ Color.color_mix_supports [ decl ] ])
+                  [ in_the_open ]))
     | Color_opacity { property; value; alpha_fn; opacity } -> (
         match color_emitter property with
         (* of_class only accepts renderable colour declarations; defensive. *)

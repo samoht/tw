@@ -773,13 +773,32 @@ module Handler = struct
   (* A bracket background-image: a gradient, a url(), or a comma-separated layer
      list. [None] means the bracket is not an image, which [of_class] rejects:
      [bg-[image:nope]] used to parse and then emit an empty rule. *)
-  let parse_bracket_image v : Css.background_image option =
-    let css_str = Parse.decode_arbitrary_value v in
+  let image_of_text css_str : Css.background_image option =
     match Css.parse_background_image css_str with
     | Some [ img ] -> Some (Css.minify_background_image img)
     | Some (_ :: _ as imgs) ->
         Some (Css.List (List.map Css.minify_background_image imgs))
     | Some [] | None -> None
+
+  let parse_bracket_image v = image_of_text (Parse.decode_arbitrary_value v)
+
+  (* A bracket image, with the pair Tailwind's polyfill writes when a stop reads
+     a custom property or [currentcolor] through a [color-mix()]: what a browser
+     without [color-mix()] reads in the open, the image as written behind the
+     guard. [v] is the bracket's text after any hint. *)
+  let bracket_image_style ~theme v img =
+    let decl i = Css.background_image i in
+    match
+      Option.bind
+        (Parse.color_mix_fallback ~resolve:(Color.theme_token theme)
+           (Parse.decode_arbitrary_value v))
+        image_of_text
+    with
+    | Stdlib.Option.None -> style [ decl img ]
+    | Stdlib.Option.Some in_the_open ->
+        style
+          ~rules:(Some [ Color.color_mix_supports [ decl img ] ])
+          [ decl in_the_open ]
 
   let gradient_supports_condition =
     Css.Supports.property "background-image" "linear-gradient(in lab, red, red)"
@@ -1564,7 +1583,7 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_image (_, img) -> style [ Css.background_image img ]
+    | Bg_bracket_image (v, img) -> bracket_image_style ~theme v img
     (* The whole [url()] is kept, so cascade reads the token rather than tw
        slicing the file name out of it: the quotes are the tokeniser's, and an
        escape in it stands for one character of the URL. [of_class] refuses a
@@ -1584,7 +1603,7 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_linear_gradient (_, img) -> style [ Css.background_image img ]
+    | Bg_bracket_linear_gradient (v, img) -> bracket_image_style ~theme v img
     | Bg_linear_to dir -> bg_linear_to' dir
     | Bg_linear_to_interp (dir, interp, css) ->
         bg_linear_to_interp' dir (interp_to_color_interpolation interp) css

@@ -735,7 +735,38 @@ module Handler = struct
     || parse_arbitrary_shadow inner <> None
     || Parse.shadow (Parse.decode_arbitrary_value inner) <> None
 
-  let shadow_arbitrary (arb : string) =
+  (* A bracket shadow holding a [color-mix()] Tailwind polyfills: the shadow
+     every browser reads and the shadow as written, or nothing when no layer's
+     colour reads a custom property or [currentcolor] through a mix. *)
+  let polyfilled_shadow ~theme normalized : (Css.shadow * Css.shadow) option =
+    match
+      Parse.color_mix_fallback ~resolve:(Color.theme_token theme) normalized
+    with
+    | None -> None
+    | Some in_the_open -> (
+        match (Parse.shadow in_the_open, Parse.shadow normalized) with
+        | Some in_the_open, Some as_written -> Some (in_the_open, as_written)
+        | _ -> None)
+
+  (* The pair on a family's channel: what a browser without [color-mix()] reads
+     in a rule of its own, the shadow as written behind the guard, and the
+     composition in the base rule, each layer's colour behind the family's
+     colour channel. *)
+  let shadow_polyfill_style ~shadow_var ~color_var ~composition
+      (in_the_open, as_written) =
+    let set sh = Var.set shadow_var (wrap_shadow_colors ~color_var sh) in
+    let self decls = Css.rule ~selector:(Css.Selector.class_ "_") decls in
+    style ~metadata:shadow_property_metadata
+      ~property_rules:shadow_property_rules
+      ~rules:
+        (Some
+           [
+             self [ set in_the_open ];
+             Color.color_mix_supports [ set as_written ];
+           ])
+      [ composition (Var.reference shadow_var) ]
+
+  let shadow_arbitrary ~theme (arb : string) =
     let normalized = Parse.decode_arbitrary_value arb in
     (* The reading below takes one shadow, so anything with a comma - a layer
        list, or a colour function carrying one - goes to the value parser
@@ -758,16 +789,21 @@ module Handler = struct
           ~property_rules:shadow_property_rules
           [ d_shadow; box_shadow_composition v_shadow ]
     | _ -> (
-        match Parse.shadow normalized with
-        | Some shadow ->
-            let shadow_value =
-              wrap_shadow_colors ~color_var:shadow_color_var shadow
-            in
-            let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
-            style ~metadata:shadow_property_metadata
-              ~property_rules:shadow_property_rules
-              [ d_shadow; box_shadow_composition v_shadow ]
-        | None -> shadow_none)
+        match polyfilled_shadow ~theme normalized with
+        | Some pair ->
+            shadow_polyfill_style ~shadow_var ~color_var:shadow_color_var
+              ~composition:box_shadow_composition pair
+        | None -> (
+            match Parse.shadow normalized with
+            | Some shadow ->
+                let shadow_value =
+                  wrap_shadow_colors ~color_var:shadow_color_var shadow
+                in
+                let d_shadow, v_shadow = Var.binding shadow_var shadow_value in
+                style ~metadata:shadow_property_metadata
+                  ~property_rules:shadow_property_rules
+                  [ d_shadow; box_shadow_composition v_shadow ]
+            | None -> shadow_none))
 
   let is_theme_shadow theme n =
     Scheme.theme_value (Some theme) ("shadow-" ^ n) <> None
@@ -1047,7 +1083,7 @@ module Handler = struct
     | Css.List shadows -> Css.List (List.map force_inset shadows)
     | other -> other
 
-  let inset_shadow_arbitrary (arb : string) =
+  let inset_shadow_arbitrary_layers (arb : string) =
     match parse_multi_shadow arb with
     | Some parsed_parts ->
         let shadow_values =
@@ -1084,6 +1120,17 @@ module Handler = struct
               (wrap_shadow_colors ~color_var:inset_shadow_color_var
                  (force_inset shadow))
         | None -> inset_shadow_none)
+
+  (* A layer whose colour needs Tailwind's polyfill takes the pair; the rest
+     read as layers, each with [inset] set. *)
+  let inset_shadow_arbitrary ~theme (arb : string) =
+    match polyfilled_shadow ~theme (Parse.decode_arbitrary_value arb) with
+    | Some (in_the_open, as_written) ->
+        shadow_polyfill_style ~shadow_var:inset_shadow_var
+          ~color_var:inset_shadow_color_var
+          ~composition:inset_box_shadow_composition
+          (force_inset in_the_open, force_inset as_written)
+    | None -> inset_shadow_arbitrary_layers arb
 
   let inset_shadow_shape_opacity_style ?theme shape opacity =
     let body = inset_shadow_data_for ?theme shape in
@@ -1642,7 +1689,7 @@ module Handler = struct
       | Shadow_xl -> shadow_xl
       | Shadow_2xl -> shadow_2xl
       | Shadow_inner -> shadow_inner
-      | Shadow_arbitrary arb -> shadow_arbitrary arb
+      | Shadow_arbitrary arb -> shadow_arbitrary ~theme arb
       | Shadow_raw (_, value, opacity) -> shadow_raw value opacity
       | Shadow_theme name -> shadow_theme theme name
       | Shadow_theme_opacity (name, op) -> shadow_theme_opacity theme name op
@@ -1669,7 +1716,7 @@ module Handler = struct
       | Shadow_bracket_color_var_opacity (v, op) ->
           Color.channel_bracket_var_opacity shadow_channel v op
       | Shadow_bracket_shadow s ->
-          if Parse.is_var s then shadow_raw_var s else shadow_arbitrary s
+          if Parse.is_var s then shadow_raw_var s else shadow_arbitrary ~theme s
       | Shadow_bracket_shadow_opacity (s, opacity) ->
           if Parse.is_var s then shadow_raw_var ~opacity s
           else shadow_arbitrary_opacity s opacity
@@ -1680,7 +1727,7 @@ module Handler = struct
       | Inset_shadow_xs -> inset_shadow_shape_style ~theme Ish_xs
       | Inset_shadow_sm -> inset_shadow_shape_style ~theme Ish_sm
       | Inset_shadow -> inset_shadow_themed ~theme ()
-      | Inset_shadow_arbitrary arb -> inset_shadow_arbitrary arb
+      | Inset_shadow_arbitrary arb -> inset_shadow_arbitrary ~theme arb
       | Inset_shadow_raw (_, value, opacity) -> inset_shadow_raw value opacity
       | Inset_shadow_arbitrary_opacity (arb, op) ->
           inset_shadow_arbitrary_opacity arb op
@@ -1708,7 +1755,7 @@ module Handler = struct
           Color.channel_bracket_var_opacity inset_shadow_channel v op
       | Inset_shadow_bracket_shadow s ->
           if Parse.is_var s then inset_shadow_raw_var s
-          else inset_shadow_arbitrary s
+          else inset_shadow_arbitrary ~theme s
       | Inset_shadow_bracket_shadow_opacity (s, opacity) ->
           if Parse.is_var s then inset_shadow_raw_var ~opacity s
           else inset_shadow_arbitrary_opacity s opacity
