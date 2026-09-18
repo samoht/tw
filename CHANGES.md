@@ -168,7 +168,10 @@
 - Compiling a project is fast: tailwindcss.com's class list takes 0.3 s of
   CPU, where `tailwindcss` takes 0.6 s (#843, #845, #846).
 - `tw --diff --html PAGE` also renders both stylesheets over `PAGE` in a
-  headless Chromium and lists every computed style they disagree on (#841).
+  headless Chromium, compares the pixels, and says when the render and the
+  structural diff disagree: an entry listed over a page that paints alike is
+  named an over-report of the differ, and a render that differs where nothing
+  was listed an under-report, each a cascade bug to file (#841, #873).
 - `tw --diff` exits 1 when the two sheets differ and 2 when it cannot read one
   of them, so a CI job can gate on it. It printed the differences and exited 0
   (#810).

@@ -246,21 +246,21 @@ let uncovered_refusal ~(opts : gen_opts) classes =
 (* The browser half of [--diff --html]: both sheets rendered over the document,
    reported after the canonical comparison. It runs whatever the canonical
    comparison said, so machinery the two sheets share cannot hide a difference
-   from it. *)
+   from it. [None] when no document was given. *)
 let browser_verdict ~(opts : gen_opts) ~classes ~tailwind ~tw =
   match opts.html with
-  | None -> 0
+  | None -> None
   | Some path -> (
       let html = Entrypoint.read_file path in
       match Tw_tools.Parity_compare.browser ~html ~classes ~tailwind ~tw with
       | Error reason ->
           Fmt.epr "Error: %s@." reason;
-          2
+          Some 2
       | Ok report ->
           print_string
             (Browser_compare.to_string ~first:"Tailwind" ~second:"tw" ~html:path
                report);
-          if report.differences = [] then 0 else 1)
+          Some (if Browser_compare.identical report then 0 else 1))
 
 (* The reference sheet the tailwindcss CLI writes for [classes]. *)
 let reference_css ~(opts : gen_opts) classes =
@@ -286,14 +286,34 @@ let comparison f =
 
 (* What both diff modes end in: tw's sheet against the reference, [report]
    printing the structural diff and answering its exit status, and the browser
-   verdict. The exit statuses rank by gravity, so the graver of the two wins. *)
+   verdict. Parity is what the browser renders, and the structural diff is
+   expected to say the same thing: when a document was rendered the two verdicts
+   are compared, and a disagreement is named for what it is - an entry the diff
+   lists over a page that paints alike is an over-report of the differ, a render
+   that differs where the diff lists nothing is an under-report - since either
+   is a bug to fix, in cascade, before the answer can be trusted. The exit
+   status is 0 only when both agree that the sheets are the same, 1 when either
+   differs, 2 when a render could not run. *)
 let verdict ~opts ~classes ~legacy_css ~our_css report =
   let diff =
     Tw_tools.Parity_compare.diff ~mode:opts.diff_mode legacy_css our_css
   in
   let code = report diff in
-  `Ok
-    (max code (browser_verdict ~opts ~classes ~tailwind:legacy_css ~tw:our_css))
+  match browser_verdict ~opts ~classes ~tailwind:legacy_css ~tw:our_css with
+  | None -> `Ok code
+  | Some 2 -> `Ok 2
+  | Some rendered ->
+      (match (code, rendered) with
+      | 1, 0 ->
+          print_endline
+            "The render paints the same: the entries above are over-reports of \
+             the structural diff, to cut down and file in cascade."
+      | 0, 1 ->
+          print_endline
+            "The render differs where the structural diff lists nothing: an \
+             under-report of the differ, to cut down and file in cascade."
+      | _ -> ());
+      `Ok (max code rendered)
 
 let diff_single_class class_str ~(opts : gen_opts) =
   let classes = Tw_tools.Source_scan.split_whitespace class_str in
