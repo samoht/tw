@@ -47,12 +47,8 @@ module Handler = struct
   (* [zoom-[var(--zoom)]] references a var; other bracket values parse as a
      number or percentage. *)
   let parse_arbitrary raw : Css.zoom option =
-    if
-      String.length raw > 2
-      && raw.[0] = '['
-      && raw.[String.length raw - 1] = ']'
-    then
-      let inner = String.sub raw 1 (String.length raw - 2) in
+    if Parse.is_bracket_value raw then
+      let inner = Parse.bracket_inner raw in
       if Parse.is_var inner then
         Some (Var (Var.bracket (Parse.extract_var_name inner)) : Css.zoom)
       else

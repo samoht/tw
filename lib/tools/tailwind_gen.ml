@@ -235,19 +235,12 @@ let tailwindcss_version cmd =
 
 let extract_version_number line =
   (* Extract version number from strings like "tailwindcss v4.0.0" or "4.0.0" *)
-  let parts = String.split_on_char ' ' (String.trim line) in
+  let digit c = c >= '0' && c <= '9' in
   let version_candidates =
     List.filter
       (fun s ->
-        let trimmed = String.trim s in
-        String.length trimmed > 0
-        && (Char.code trimmed.[0] >= Char.code '0'
-            && Char.code trimmed.[0] <= Char.code '9'
-           || String.length trimmed > 1
-              && trimmed.[0] = 'v'
-              && Char.code trimmed.[1] >= Char.code '0'
-              && Char.code trimmed.[1] <= Char.code '9'))
-      parts
+        digit s.[0] || (String.length s > 1 && s.[0] = 'v' && digit s.[1]))
+      (Tw.split_whitespace line)
   in
   match version_candidates with
   | [] -> None

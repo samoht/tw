@@ -684,6 +684,143 @@ let test_bracket_hex_opacity_var () =
        var(--x), transparent) var(--tw-inset-shadow-alpha), transparent)";
     ]
 
+(* A palette colour, [currentcolor] or a [color:var()] whose modifier reads a
+   custom property mixes that property into the guarded value, the way the
+   bracket hex above does. The shared channel builders folded every modifier to
+   a percentage, which a var() has none of, so the guarded mix said [100%] and
+   the modifier was dropped. The plain fallback keeps the colour whole: a var()
+   gives it no percentage to carry. *)
+let test_palette_colour_opacity_var () =
+  let mixed colour alpha =
+    "color-mix(in oklab, color-mix(in oklab, " ^ colour
+    ^ " var(--o), transparent) var(" ^ alpha ^ "), transparent)"
+  in
+  Test_helpers.check_declarations ~minify:false "shadow-red-500/(--o)"
+    [
+      "--tw-shadow-color: #fb2c36";
+      "--tw-shadow-color: " ^ mixed "var(--color-red-500)" "--tw-shadow-alpha";
+    ];
+  Test_helpers.check_declarations ~minify:false "inset-shadow-red-500/(--o)"
+    [
+      "--tw-inset-shadow-color: #fb2c36";
+      "--tw-inset-shadow-color: "
+      ^ mixed "var(--color-red-500)" "--tw-inset-shadow-alpha";
+    ];
+  Test_helpers.check_declarations ~minify:false "shadow-current/[var(--o)]"
+    [
+      "--tw-shadow-color: currentColor";
+      "--tw-shadow-color: " ^ mixed "currentcolor" "--tw-shadow-alpha";
+    ];
+  Test_helpers.check_declarations ~minify:false "shadow-[color:var(--c)]/(--o)"
+    [
+      "--tw-shadow-color: var(--c)";
+      "--tw-shadow-color: " ^ mixed "var(--c)" "--tw-shadow-alpha";
+    ]
+
+(* The ring, inset ring and ring offset colours take the same modifier the same
+   way: a palette colour, [currentcolor] or a bracket [var()] whose modifier
+   reads a custom property mixes that property into the guarded value. Each
+   family kept its own copies of the opacity arms, and every one folded the
+   modifier to a percentage, so the guarded mix said [100%]. *)
+let test_ring_colour_opacity_var () =
+  let mixed var cls fallback colour =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        var ^ ": " ^ fallback;
+        var ^ ": color-mix(in oklab, " ^ colour ^ " var(--o), transparent)";
+      ]
+  in
+  let family var prefix =
+    mixed var (prefix ^ "-red-500/(--o)") "#fb2c36" "var(--color-red-500)";
+    mixed var (prefix ^ "-current/[var(--o)]") "currentColor" "currentcolor";
+    mixed var (prefix ^ "-[var(--c)]/(--o)") "var(--c)" "var(--c)";
+    mixed var (prefix ^ "-[color:var(--c)]/[var(--o)]") "var(--c)" "var(--c)"
+  in
+  family "--tw-ring-color" "ring";
+  family "--tw-inset-ring-color" "inset-ring";
+  family "--tw-ring-offset-color" "ring-offset"
+
+(* A named [--opacity-*] token is read off the theme before a bracket is told
+   apart from a colour name, or [ring-[#123456]/half] is a palette colour called
+   [[#123456]] and paints [var(--color-\[\#123456\])]. The fallback carries the
+   percentage the token resolves to, in the sRGB mix Tailwind writes before its
+   minifier folds it to a hex. *)
+let test_ring_bracket_hex_named_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  Test_helpers.check_declarations ~theme ~minify:false "ring-[#123456]/half"
+    [
+      "--tw-ring-color: color-mix(in srgb, #123456 50%, transparent)";
+      "--tw-ring-color: color-mix(in oklab, #123456 var(--opacity-half), \
+       transparent)";
+    ];
+  Test_helpers.check_declarations ~theme ~minify:false
+    "ring-offset-[#123456]/half"
+    [
+      "--tw-ring-offset-color: color-mix(in srgb, #123456 50%, transparent)";
+      "--tw-ring-offset-color: color-mix(in oklab, #123456 \
+       var(--opacity-half), transparent)";
+    ]
+
+(* An [--alpha()] standing among a bracket shadow's lengths is the colour it
+   denotes, as it is anywhere in an arbitrary value: Tailwind writes the
+   [color-mix()] in its place and the shadow reads on. The bracket read the call
+   only as a whole value, so a shadow spelling one was refused. *)
+let test_bracket_shadow_alpha_fn () =
+  let composition =
+    "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+     var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)"
+  in
+  Test_helpers.check_declarations ~minify:false
+    "shadow-[0_0_0_1px_--alpha(red/50%)]"
+    [
+      "--tw-shadow: 0 0 0 1px var(--tw-shadow-color, color-mix(in oklab, red \
+       50%, transparent))";
+      composition;
+    ];
+  Test_helpers.check_declarations ~minify:false
+    "inset-shadow-[0_0_0_1px_--alpha(red/0.5)]"
+    [
+      "--tw-inset-shadow: inset 0 0 0 1px var(--tw-inset-shadow-color, \
+       color-mix(in oklab, red 50%, transparent))";
+      composition;
+    ]
+
+(* A named [--opacity-*] token is read off the theme before the bracket, or the
+   modifier stays glued to it: [shadow-[color:var(--c)]/half] was a shadow
+   spelled [[color:var(--c)]/half], a class no markup carries, where Tailwind
+   mixes [var(--opacity-half)] into the colour. A shadow size under the token is
+   the size alone: Tailwind reads no alpha off a named modifier there and writes
+   the shadow as if none were given. *)
+let test_bracket_named_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let mixed family cls fallback colour =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [
+        "--tw-" ^ family ^ "-color: " ^ fallback;
+        "--tw-" ^ family ^ "-color: color-mix(in oklab, color-mix(in oklab, "
+        ^ colour ^ " var(--opacity-half), transparent) var(--tw-" ^ family
+        ^ "-alpha), transparent)";
+      ]
+  in
+  mixed "shadow" "shadow-[color:var(--c)]/half" "var(--c)" "var(--c)";
+  mixed "shadow" "shadow-[#123456]/half"
+    "color-mix(in srgb, #123456 50%, transparent)" "#123456";
+  mixed "inset-shadow" "inset-shadow-[color:var(--c)]/half" "var(--c)"
+    "var(--c)";
+  let composition =
+    "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
+     var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow)"
+  in
+  Test_helpers.check_declarations ~theme ~minify:false "shadow-[var(--c)]/half"
+    [ "--tw-shadow: var(--c)"; composition ];
+  Test_helpers.check_declarations ~theme ~minify:false
+    "shadow-[0_0_1px_red]/half"
+    [ "--tw-shadow: 0 0 1px var(--tw-shadow-color, red)"; composition ]
+
 (* A bracket alpha modifier with no [%] sign (shadow-lg/[25]) tracks the
    modifier's own written text in --tw-shadow-alpha, the way Tailwind does,
    rather than scaling it into a percentage: the alpha the shadow paints with
@@ -1133,6 +1270,14 @@ let tests =
       test_bracket_colour_opacity_without_hex;
     test_case "bracket hex opacity from a var" `Quick
       test_bracket_hex_opacity_var;
+    test_case "palette colour opacity from a var" `Quick
+      test_palette_colour_opacity_var;
+    test_case "ring colour opacity from a var" `Quick
+      test_ring_colour_opacity_var;
+    test_case "ring bracket hex named opacity" `Quick
+      test_ring_bracket_hex_named_opacity;
+    test_case "bracket shadow --alpha()" `Quick test_bracket_shadow_alpha_fn;
+    test_case "bracket shadow named opacity" `Quick test_bracket_named_opacity;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "arbitrary shadow token stream" `Quick

@@ -222,9 +222,8 @@ module Handler = struct
        raw inner is kept verbatim for the class name; the value goes through the
        whole arbitrary decoder and the full length grammar so any unit or calc()
        is accepted. *)
-    let len = String.length s in
-    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
-      let inner = String.sub s 1 (len - 2) in
+    if Parse.is_bracket_value s then
+      let inner = Parse.bracket_inner s in
       (* A data-type hint chooses the longhand and says nothing about the value.
          Margin writes one longhand per side, so every hint lands here and the
          readers below are handed what follows it. *)
@@ -288,12 +287,12 @@ module Handler = struct
     let parts = Parse.split_class class_name in
     match parts with
     (* Handle arbitrary values: mx-[4px], mx-[var(--value)] *)
-    | [ prefix; arb ] when String.length arb > 0 && arb.[0] = '[' -> (
+    | [ prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value = Positive value }
         | _ -> Error (`Msg "Not a margin utility"))
     (* Handle negative arbitrary: -mx-[4px], -mx-[var(--value)] *)
-    | [ ""; prefix; arb ] when String.length arb > 0 && arb.[0] = '[' -> (
+    | [ ""; prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value = Negative value }
         | _ -> Error (`Msg "Not a margin utility"))

@@ -85,15 +85,11 @@ let custom_variant_apply template value =
    variants, returning the (token, resolved-selector) for a [Custom_variant]. *)
 let try_custom_variant (theme : Scheme.t) s =
   let resolve name (cv : Scheme.custom_variant) =
-    if s = name then
-      Option.map
-        (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
-        (List.assoc_opt "" cv.values)
+    let make v = Custom_variant (s, custom_variant_apply cv.template v) in
+    if s = name then Option.map make (List.assoc_opt "" cv.values)
     else
       let prefix = name ^ "-" in
-      if
-        String.length s > String.length prefix
-        && String.sub s 0 (String.length prefix) = prefix
+      if String.starts_with ~prefix s && String.length s > String.length prefix
       then
         let rest =
           String.sub s (String.length prefix)
@@ -107,9 +103,7 @@ let try_custom_variant (theme : Scheme.t) s =
           then Some (String.sub rest 1 (String.length rest - 2))
           else List.assoc_opt rest cv.values
         in
-        Option.map
-          (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
-          value
+        Option.map make value
       else None
   in
   List.find_map (fun (name, cv) -> resolve name cv) theme.custom_variants
@@ -130,7 +124,7 @@ let try_container_variant (theme : Scheme.t) s =
   match lookup s with
   | Some cond -> Some (Container_style (s, cond))
   | None ->
-      if String.length s > 4 && String.sub s 0 4 = "not-" then
+      if String.starts_with ~prefix:"not-" s && String.length s > 4 then
         let inner = String.sub s 4 (String.length s - 4) in
         Option.map
           (fun cond -> Container_style (s, negate_container cond))
@@ -968,25 +962,25 @@ let is_aria_shorthand = function
 
 (* Try parsing group-aria-*/peer-aria-* shorthand with optional /name *)
 let try_aria_shorthand s =
-  if String.length s > 11 && String.sub s 0 11 = "group-aria-" then
+  if String.starts_with ~prefix:"group-aria-" s && String.length s > 11 then
     let rest = String.sub s 11 (String.length s - 11) in
     let base, name = split_name rest in
     if is_aria_shorthand base then Some (Group_aria (base, name)) else None
-  else if String.length s > 10 && String.sub s 0 10 = "peer-aria-" then
+  else if String.starts_with ~prefix:"peer-aria-" s && String.length s > 10 then
     let rest = String.sub s 10 (String.length s - 10) in
     let base, name = split_name rest in
     if is_aria_shorthand base then Some (Peer_aria (base, name)) else None
   else None
 
 let try_has_shorthand s =
-  if String.length s > 4 && String.sub s 0 4 = "has-" then
+  if String.starts_with ~prefix:"has-" s && String.length s > 4 then
     let rest = String.sub s 4 (String.length s - 4) in
     if is_has_shorthand rest then Some (Has rest) else None
-  else if String.length s > 10 && String.sub s 0 10 = "group-has-" then
+  else if String.starts_with ~prefix:"group-has-" s && String.length s > 10 then
     let rest = String.sub s 10 (String.length s - 10) in
     let base, name = split_name rest in
     if is_has_shorthand base then Some (Group_has (base, name)) else None
-  else if String.length s > 9 && String.sub s 0 9 = "peer-has-" then
+  else if String.starts_with ~prefix:"peer-has-" s && String.length s > 9 then
     let rest = String.sub s 9 (String.length s - 9) in
     let base, name = split_name rest in
     if is_has_shorthand base then Some (Peer_has (base, name)) else None
@@ -1035,7 +1029,7 @@ let names_attribute expr =
    so it keeps its own class name. *)
 let try_bare_data s prefix make =
   let plen = String.length prefix in
-  if String.length s <= plen || String.sub s 0 plen <> prefix then None
+  if not (String.starts_with ~prefix s && String.length s > plen) then None
   else
     let base, name = split_name (String.sub s plen (String.length s - plen)) in
     if is_plain_ident base && names_attribute base then Some (make base name)
@@ -1219,8 +1213,8 @@ let is_valid_data_attr_expr expr =
 let bracket_media_condition inner =
   let n = String.length inner in
   if
-    n > 7
-    && String.sub inner 0 6 = "@media"
+    String.starts_with ~prefix:"@media" inner
+    && n > 7
     && (inner.[6] = '_' || inner.[6] = '(')
   then
     let cond =
@@ -1239,7 +1233,8 @@ let try_bracket_at_rule s =
     let inner = String.sub s 1 (String.length s - 2) in
     if
       inner = "@starting-style"
-      || (String.length inner > 9 && String.sub inner 0 9 = "@supports")
+      || String.starts_with ~prefix:"@supports" inner
+         && String.length inner > 9
       || Option.is_some (bracket_media_condition inner)
     then Some (At_rule inner)
     else None
@@ -1316,15 +1311,15 @@ let supports_property_test cond =
 let normalize_supports_condition condition_str =
   let cond = Parse.decode_underscores condition_str in
   if
-    String.length cond > 2
-    && cond.[0] = '-'
-    && cond.[1] = '-'
+    String.starts_with ~prefix:"--" cond
+    && String.length cond > 2
     && not (String.contains cond ':')
   then
     (* Bare custom property: --test tests against var(--tw), built directly
        rather than assembled as "(--test: var(--tw))" and re-parsed. *)
     Css.Supports.property cond "var(--tw)"
-  else if cond <> "" && cond.[0] = '(' && cond.[String.length cond - 1] = ')'
+  else if
+    String.starts_with ~prefix:"(" cond && String.ends_with ~suffix:")" cond
   then
     (* Already parenthesised, so it is the condition the author wrote; only the
        real grammar reader can make sense of arbitrary authored text. *)
@@ -1475,8 +1470,8 @@ let bracket_patterns s = bracket_named_patterns s @ bracket_value_patterns s
    "grid" *)
 let try_supports_shorthand s =
   if
-    String.length s > 9
-    && String.sub s 0 9 = "supports-"
+    String.starts_with ~prefix:"supports-" s
+    && String.length s > 9
     && (not (String.contains s '['))
     && not (String.contains s '/')
   then
@@ -1494,7 +1489,7 @@ let try_bracketed_modifier s =
 let try_numeric_nth s =
   let try_prefix prefix make =
     let plen = String.length prefix in
-    if String.length s > plen && String.sub s 0 plen = prefix then
+    if String.starts_with ~prefix s && String.length s > plen then
       let rest = String.sub s plen (String.length s - plen) in
       if Style.is_numeric rest then Some (make rest) else None
     else None
@@ -1719,39 +1714,34 @@ let lookup_simple theme s =
 (* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
 let try_custom_breakpoint breakpoints s =
   (* Direct name: e.g., "10xl" → Custom_responsive *)
-  match List.mem s breakpoints with
-  | true -> Some (Custom_responsive s)
-  | false ->
-      (* min-<name>: e.g., "min-10xl" → Min_custom *)
-      if String.length s > 4 && String.sub s 0 4 = "min-" then
-        let name = String.sub s 4 (String.length s - 4) in
-        if List.mem name breakpoints then Some (Min_custom name) else None
-      else if String.length s > 4 && String.sub s 0 4 = "max-" then
-        let name = String.sub s 4 (String.length s - 4) in
-        if List.mem name breakpoints then Some (Max_custom name) else None
-      else None
+  if List.mem s breakpoints then Some (Custom_responsive s)
+  else if String.starts_with ~prefix:"min-" s && String.length s > 4 then
+    (* min-<name>: e.g., "min-10xl" → Min_custom *)
+    let name = String.sub s 4 (String.length s - 4) in
+    if List.mem name breakpoints then Some (Min_custom name) else None
+  else if String.starts_with ~prefix:"max-" s && String.length s > 4 then
+    let name = String.sub s 4 (String.length s - 4) in
+    if List.mem name breakpoints then Some (Max_custom name) else None
+  else None
 
 (** Try not-* shorthand patterns that aren't in simple_modifiers or bracket
     patterns. These are modifiers like data-foo, has-checked, nth-2 that work as
     shorthands in the not-* context. *)
 let try_not_shorthand inner =
-  (* supports-X shorthand *)
-  if
-    String.length inner > 9
-    && String.sub inner 0 9 = "supports-"
-    && (not (String.contains inner '['))
-    && not (String.contains inner '/')
-  then
-    let prop = String.sub inner 9 (String.length inner - 9) in
-    Some (Not (Supports_property prop))
-    (* data-X shorthand — attribute presence check *)
-  else if String.length inner > 5 && String.sub inner 0 5 = "data-" then
-    let attr = String.sub inner 5 (String.length inner - 5) in
-    Some (Not (Data_custom (attr, ""))) (* nth-X shorthand — :nth-child(X) *)
-  else if String.length inner > 4 && String.sub inner 0 4 = "nth-" then
-    let expr = String.sub inner 4 (String.length inner - 4) in
-    Some (Not (Nth (Style.nth_expr expr)))
-  else None
+  match try_supports_shorthand inner with
+  | Some m -> Some (Not m)
+  | None ->
+      if String.starts_with ~prefix:"data-" inner && String.length inner > 5
+      then
+        (* data-X shorthand — attribute presence check *)
+        let attr = String.sub inner 5 (String.length inner - 5) in
+        Some (Not (Data_custom (attr, "")))
+      else if String.starts_with ~prefix:"nth-" inner && String.length inner > 4
+      then
+        (* nth-X shorthand — :nth-child(X) *)
+        let expr = String.sub inner 4 (String.length inner - 4) in
+        Some (Not (Nth (Style.nth_expr expr)))
+      else None
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
     starting style and children/descendants cannot be negated; a container query
@@ -1770,7 +1760,8 @@ let is_not_compatible = function
   (* A bracket [@supports] condition has its own [not-] reading too, which
      negates the condition; read as a plain variant it negated the class. *)
   | At_rule content
-    when String.length content > 9 && String.sub content 0 9 = "@supports" ->
+    when String.starts_with ~prefix:"@supports" content
+         && String.length content > 9 ->
       false
   | _ -> true
 
@@ -1784,7 +1775,8 @@ let rec at_rule_only = function
       true
   | At_rule content | Not_bracket content ->
       Option.is_some (bracket_media_condition content)
-      || (String.length content > 9 && String.sub content 0 9 = "@supports")
+      || String.starts_with ~prefix:"@supports" content
+         && String.length content > 9
   | Not m -> at_rule_only m
   | m -> renders_as_media m && not (involves_hover m)
 
@@ -1827,7 +1819,7 @@ let reads_as_selector content =
    text the condition grammar does not read. *)
 let bracket_supports_condition content =
   let n = String.length content in
-  if n > 9 && String.sub content 0 9 = "@supports" then
+  if String.starts_with ~prefix:"@supports" content && n > 9 then
     let cond =
       String.trim (Parse.decode_underscores (String.sub content 9 (n - 9)))
     in
@@ -1851,10 +1843,13 @@ let is_valid_not_bracket_content content =
     if first = '+' || first = '>' || first = '~' then false
     else if
       (* Reject media conditions with commas (complex media) *)
-      (String.length content > 6 && String.sub content 0 6 = "@media")
-      || (String.length content > 7 && String.sub content 0 7 = "@media_")
+      (String.starts_with ~prefix:"@media" content && String.length content > 6)
+      || String.starts_with ~prefix:"@media_" content
+         && String.length content > 7
     then not (String.contains content ',')
-    else if String.length content > 9 && String.sub content 0 9 = "@supports"
+    else if
+      String.starts_with ~prefix:"@supports" content
+      && String.length content > 9
     then Option.is_some (bracket_supports_condition content)
     else if first = ':' then true
     else reads_as_selector content
@@ -1862,28 +1857,23 @@ let is_valid_not_bracket_content content =
 (** Try parsing a not-[...] bracket pattern. Returns the Not_bracket modifier
     for pseudo-class or media bracket content. *)
 let try_not_bracket inner =
-  if inner <> "" && inner.[0] = '[' then
+  if String.starts_with ~prefix:"[" inner then
     let rest = String.sub inner 1 (String.length inner - 1) in
     match matching_bracket rest with
     | Some i when i = String.length rest - 1 ->
         let content = String.sub rest 0 i in
         if is_valid_not_bracket_content content then Some (Not_bracket content)
         else None
-    | Some i ->
-        (* There's content after the bracket — check for /name suffix *)
-        let remainder = String.sub rest (i + 1) (String.length rest - i - 1) in
-        if String.length remainder > 0 && remainder.[0] = '/' then
-          (* not-[:checked]/foo — named not-bracket variants are invalid *)
-          None
-        else None
-    | _ -> None
+    (* Content after the bracket, [not-[:checked]/foo] among it: a named
+       not-bracket variant is invalid, and so is any other tail. *)
+    | Some _ | None -> None
   else None
 
 (** Parse group-not-* or peer-not-* pattern. Splits the rest into inner modifier
     and optional /name suffix. *)
 let parse_group_peer_not_inner rest =
   (* Check for bracket content first: [...]/name or [...] *)
-  if rest <> "" && rest.[0] = '[' then
+  if String.starts_with ~prefix:"[" rest then
     let after_bracket = String.sub rest 1 (String.length rest - 1) in
     match matching_bracket after_bracket with
     | Some i ->
@@ -1892,8 +1882,10 @@ let parse_group_peer_not_inner rest =
           String.sub after_bracket (i + 1) (String.length after_bracket - i - 1)
         in
         let name =
-          if String.length remainder > 1 && remainder.[0] = '/' then
-            Some (String.sub remainder 1 (String.length remainder - 1))
+          if
+            String.starts_with ~prefix:"/" remainder
+            && String.length remainder > 1
+          then Some (String.sub remainder 1 (String.length remainder - 1))
           else None
         in
         Some (Not_bracket content, name)
@@ -1920,7 +1912,7 @@ let parse_group_peer_not_inner rest =
 let try_compound_named_group s =
   let try_match prefix make =
     let plen = String.length prefix in
-    if String.length s > plen && String.sub s 0 plen = prefix then
+    if String.starts_with ~prefix s && String.length s > plen then
       let rest = String.sub s plen (String.length s - plen) in
       let base, name_opt = split_name rest in
       match name_opt with
@@ -1947,18 +1939,18 @@ let try_compound_named_group s =
 
 (* Try in-* pattern: in-[selector] or in-data-attr *)
 let try_in_modifier s =
-  if not (String.length s > 3 && String.sub s 0 3 = "in-") then None
+  if not (String.starts_with ~prefix:"in-" s && String.length s > 3) then None
   else
     let rest = String.sub s 3 (String.length s - 3) in
-    if rest <> "" && rest.[0] = '[' then
+    if String.starts_with ~prefix:"[" rest then
       let after = String.sub rest 1 (String.length rest - 1) in
       match matching_bracket after with
       | Some i when i = String.length after - 1 ->
           Some (In_bracket (String.sub after 0 i))
       | _ -> None
     else if
-      String.length rest > 5
-      && String.sub rest 0 5 = "data-"
+      String.starts_with ~prefix:"data-" rest
+      && String.length rest > 5
       && not (String.contains rest '[')
     then Some (In_data (String.sub rest 5 (String.length rest - 5)))
     else
@@ -1970,8 +1962,8 @@ let try_in_modifier s =
 
 (* Try not-in-[...] pattern *)
 let try_not_in_modifier s =
-  if not (String.length s > 8 && String.sub s 0 7 = "not-in-" && s.[7] = '[')
-  then None
+  if not (String.starts_with ~prefix:"not-in-[" s && String.length s > 8) then
+    None
   else
     let rest = String.sub s 8 (String.length s - 8) in
     match matching_bracket rest with
@@ -1983,7 +1975,7 @@ let try_not_in_modifier s =
 let try_group_peer_not s =
   let try_prefix prefix make =
     let plen = String.length prefix in
-    if String.length s > plen && String.sub s 0 plen = prefix then
+    if String.starts_with ~prefix s && String.length s > plen then
       let rest = String.sub s plen (String.length s - plen) in
       match parse_group_peer_not_inner rest with
       | Some (inner, name) -> Some (make inner name)
@@ -1996,7 +1988,7 @@ let try_group_peer_not s =
 
 (* Try not-* prefix: wrap inner modifier in Not *)
 let try_not_modifier theme s =
-  if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
+  if not (String.starts_with ~prefix:"not-" s && String.length s > 4) then None
   else
     let inner = String.sub s 4 (String.length s - 4) in
     match List.assoc_opt inner simple_modifiers with
@@ -2020,14 +2012,14 @@ let try_not_modifier theme s =
 (* Try bare data-X or aria-X shorthand *)
 let try_bare_data_aria s =
   if
-    String.length s > 5
-    && String.sub s 0 5 = "data-"
+    String.starts_with ~prefix:"data-" s
+    && String.length s > 5
     && (not (String.contains s '['))
     && not (String.contains s '/')
   then Some (Data_custom (String.sub s 5 (String.length s - 5), ""))
   else if
-    String.length s > 5
-    && String.sub s 0 5 = "aria-"
+    String.starts_with ~prefix:"aria-" s
+    && String.length s > 5
     && (not (String.contains s '['))
     && not (String.contains s '/')
   then
@@ -2087,7 +2079,7 @@ let is_prose_element_name = function
 
 (* Try parsing prose-* element variant modifier *)
 let try_prose_element s =
-  if String.length s > 6 && String.sub s 0 6 = "prose-" then
+  if String.starts_with ~prefix:"prose-" s && String.length s > 6 then
     let name = String.sub s 6 (String.length s - 6) in
     if is_prose_element_name name then Some (Prose_element name) else None
   else None
@@ -2116,19 +2108,15 @@ let container_size_of_string = function
    lookup [theme(--x)] and [--theme(--x)]. *)
 let container_theme_token content =
   let s = String.trim content in
-  let s =
-    if String.length s > 2 && String.sub s 0 2 = "--" then
-      String.sub s 2 (String.length s - 2)
-    else s
-  in
-  let n = String.length s in
-  if n > 7 && String.sub s 0 6 = "theme(" && s.[n - 1] = ')' then
-    let inner = String.trim (String.sub s 6 (n - 7)) in
-    Some
-      (if String.length inner >= 2 && String.sub inner 0 2 = "--" then
-         String.sub inner 2 (String.length inner - 2)
-       else inner)
-  else None
+  let s = Option.value (Parse.bare_name s) ~default:s in
+  match Parse.call_body "theme" s with
+  | Some body when body <> "" ->
+      let inner = String.trim body in
+      Some
+        (if String.starts_with ~prefix:"--" inner then
+           String.sub inner 2 (String.length inner - 2)
+         else inner)
+  | Some _ | None -> None
 
 (* A container-query arbitrary value may reference a theme token, e.g.
    [@min-[theme(--breakpoint-lg)]]. [theme(--breakpoint-lg)] resolves to the
@@ -2188,10 +2176,9 @@ let theme_container_size theme name =
 let bracketed_container s prefix mk =
   let plen = String.length prefix and slen = String.length s in
   if
-    slen > plen + 2
-    && String.sub s 0 plen = prefix
-    && s.[plen] = '['
-    && s.[slen - 1] = ']'
+    String.starts_with ~prefix:(prefix ^ "[") s
+    && String.ends_with ~suffix:"]" s
+    && slen > plen + 2
   then
     let raw = String.sub s (plen + 1) (slen - plen - 2) in
     match parse_container_length raw with
@@ -2205,7 +2192,7 @@ let rec try_container_query ?(theme = Scheme.default) s =
      sizes the project declared. *)
   let sized prefix cmp =
     let plen = String.length prefix in
-    if String.length s > plen && String.sub s 0 plen = prefix then
+    if String.starts_with ~prefix s && String.length s > plen then
       let name = String.sub s plen (String.length s - plen) in
       match container_size_of_string name with
       | Some q -> Some (Container (Container_size (cmp, q)))
@@ -2316,7 +2303,7 @@ let rec parse_modifier ~(theme : Scheme.t) s : modifier option =
 and try_group_peer_not_variant ~theme s =
   let try_prefix prefix make =
     let plen = String.length prefix in
-    if String.length s <= plen || String.sub s 0 plen <> prefix then None
+    if not (String.starts_with ~prefix s && String.length s > plen) then None
     else
       let base, name =
         split_name (String.sub s plen (String.length s - plen))
@@ -2333,7 +2320,7 @@ and try_group_peer_not_variant ~theme s =
    goes inside [:has()]. The shorthand reading only knows the state names and a
    bracket, so [has-peer-checked] fell through. *)
 and try_has_variant ~theme s =
-  if String.length s > 4 && String.sub s 0 4 = "has-" then
+  if String.starts_with ~prefix:"has-" s && String.length s > 4 then
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some m when has_selector m -> Some (Has_variant m)
     | Some _ | None -> None
@@ -2350,7 +2337,7 @@ and try_has_variant ~theme s =
    bracket patterns give it. *)
 and try_scoped_has_variant ~theme prefix s =
   let n = String.length prefix in
-  if String.length s > n && String.sub s 0 n = prefix then
+  if String.starts_with ~prefix s && String.length s > n then
     let base, name = split_name (String.sub s n (String.length s - n)) in
     if base = "" || base.[0] = '[' || is_has_shorthand base then None
     else
@@ -2363,7 +2350,7 @@ and try_scoped_has_variant ~theme prefix s =
    again. A negation with two halves has no single negation, so [not-not-hover]
    reads as nothing, which is what Tailwind compiles for it. *)
 and try_not_of_modifier ~theme s =
-  if not (String.length s > 4 && String.sub s 0 4 = "not-") then None
+  if not (String.starts_with ~prefix:"not-" s && String.length s > 4) then None
   else
     match parse_modifier ~theme (String.sub s 4 (String.length s - 4)) with
     | Some (Not inner) when involves_hover inner -> None
@@ -2375,7 +2362,7 @@ and try_not_of_modifier ~theme s =
    any other variant with a selector reads here, as [has-] does, and
    [in-not-focus], [in-has-focus] and [in-group-hover] all read. *)
 and try_in_variant ~theme s =
-  if String.length s > 3 && String.sub s 0 3 = "in-" then
+  if String.starts_with ~prefix:"in-" s && String.length s > 3 then
     let rest = String.sub s 3 (String.length s - 3) in
     match parse_modifier ~theme rest with
     | Some m when has_selector m -> Some (In_state (m, rest))
@@ -2391,12 +2378,10 @@ let apply ?(theme = Scheme.default) modifiers base_utility =
   in
   (* Apply a single parsed modifier to an accumulated utility *)
   let apply_one acc modifier_str =
-    match acc with
-    | None -> None
-    | Some u -> (
-        match parse_modifier ~theme modifier_str with
-        | Some m -> Some (wrap m (to_list u))
-        | None -> None)
+    Option.bind acc (fun u ->
+        Option.map
+          (fun m -> wrap m (to_list u))
+          (parse_modifier ~theme modifier_str))
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
      (e.g., "dark" in "dark:hover:...") ends up as the outermost wrapper
@@ -2811,8 +2796,8 @@ let slot_of_prefix prefix : Slot.t option =
   | _ when starts_with "not-" -> Some Slot.Negation
   | _ when starts_with "prose-" ->
       Some (Slot.Prose (String.sub prefix 6 (String.length prefix - 6)))
-  | _ when prefix <> "" && prefix.[0] = '[' -> Some Slot.Arbitrary
-  | _ when prefix <> "" && prefix.[0] = '@' -> Some Slot.Container_query
+  | _ when starts_with "[" -> Some Slot.Arbitrary
+  | _ when starts_with "@" -> Some Slot.Container_query
   | _ -> None
 
 (* The slot a media condition sorts in. A rule can take its position from the

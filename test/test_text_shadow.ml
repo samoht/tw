@@ -210,6 +210,50 @@ let test_bracket_plain_colour () =
   arms "text-shadow-[red]/[var(--x)]" "red"
     "color-mix(in oklab,red var(--x),transparent)"
 
+(* A [--text-shadow-color-*] token the project declared names the colour a
+   palette class paints with, under a modifier as without one: Tailwind resolves
+   [text-shadow-red-500/50] against [--text-shadow-color] before [--color], the
+   way [shadow-red-500/50] reads [--box-shadow-color]. The opacity arm read the
+   plain [--color-red-500] and ignored the scoped token. *)
+let test_scoped_colour_token_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("text-shadow-color-red-500", "#abcdef") ]
+  in
+  Test_helpers.check_declarations ~theme ~minify:false "text-shadow-red-500/50"
+    [
+      "--tw-text-shadow-color: #abcdef80";
+      "--tw-text-shadow-color: color-mix(in oklab, color-mix(in oklab, \
+       var(--text-shadow-color-red-500) 50%, transparent) \
+       var(--tw-text-shadow-alpha), transparent)";
+    ]
+
+(* A modifier reading a custom property mixes that property into the guarded
+   value, whatever colour it modifies: a palette colour, [currentcolor] or a
+   bracket hex. The palette and current arms folded the modifier to [100%]; the
+   hex arm folded it into an oklab alpha of [1]. The plain fallback keeps the
+   colour whole, since a var() gives it no percentage to carry. *)
+let test_colour_opacity_var () =
+  let mixed colour =
+    "color-mix(in oklab, color-mix(in oklab, " ^ colour
+    ^ " var(--o), transparent) var(--tw-text-shadow-alpha), transparent)"
+  in
+  Test_helpers.check_declarations ~minify:false "text-shadow-red-500/(--o)"
+    [
+      "--tw-text-shadow-color: #fb2c36";
+      "--tw-text-shadow-color: " ^ mixed "var(--color-red-500)";
+    ];
+  Test_helpers.check_declarations ~minify:false "text-shadow-current/[var(--o)]"
+    [
+      "--tw-text-shadow-color: currentColor";
+      "--tw-text-shadow-color: " ^ mixed "currentcolor";
+    ];
+  Test_helpers.check_declarations ~minify:false "text-shadow-[#123456]/(--o)"
+    [
+      "--tw-text-shadow-color: #123456";
+      "--tw-text-shadow-color: " ^ mixed "#123456";
+    ]
+
 (* The [color:] hint says the payload is a colour, not that it names a variable.
    Every payload was read as a variable name, so [text-shadow-[color:red]]
    emitted [var(--red)] where Tailwind emits [red]. A [var()] payload still
@@ -355,6 +399,10 @@ let tests =
         test_arbitrary_named_colour;
       Alcotest.test_case "invalid bracket hex" `Quick test_invalid_bracket_hex;
       Alcotest.test_case "bracket plain colour" `Quick test_bracket_plain_colour;
+      Alcotest.test_case "scoped colour token opacity" `Quick
+        test_scoped_colour_token_opacity;
+      Alcotest.test_case "colour opacity from a var" `Quick
+        test_colour_opacity_var;
     ]
 
 let suite = ("text_shadow", tests)

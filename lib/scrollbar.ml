@@ -20,6 +20,7 @@ module Handler = struct
     | Bracket of string * Css.color * Color.opacity_modifier
     | Raw of string * string
     | Current
+    | Current_opacity of Color.opacity_modifier
     | Inherit
     | Transparent
 
@@ -53,6 +54,7 @@ module Handler = struct
     | Bracket (raw, _, op) -> raw ^ Color.opacity_suffix op
     | Raw (raw, _) -> raw
     | Current -> "current"
+    | Current_opacity op -> "current" ^ Color.opacity_suffix op
     | Inherit -> "inherit"
     | Transparent -> "transparent"
 
@@ -94,6 +96,9 @@ module Handler = struct
        against [--tailwind] on the emitted property, not the diff. *)
     | Transparent -> ([ Var.set set_var (Css.Transparent : Css.color) ], [])
     | Current -> ([ keyword "currentcolor" ], [])
+    | Current_opacity op ->
+        let mixed = Var.set set_var (Color.mix_alpha op Css.Current) in
+        ([ keyword "currentcolor" ], [ Color.color_mix_supports [ mixed ] ])
     | Inherit -> ([ Var.set set_var (Css.Inherit : Css.color) ], [])
     | Raw (_, value) -> ([ keyword value ], [])
     | Theme (color, shade, Color.No_opacity) ->
@@ -103,7 +108,6 @@ module Handler = struct
         let set_decl = Var.set set_var (Css.Var color_ref) in
         ([ color_decl; set_decl ], [])
     | Theme (color, shade, op) ->
-        let percent = Color.opacity_to_percent op in
         let fallback_hex =
           match Color.hex_alpha_color ?theme color shade op with
           | Some h -> h
@@ -113,11 +117,9 @@ module Handler = struct
         let color_decl, color_ref =
           Var.binding (Color.color_var color shade) (Color.to_css color shade)
         in
-        let oklab =
-          Css.color_mix ~in_space:Oklab (Css.Var color_ref) Css.Transparent
-            ~percent1:percent
+        let supports_decl =
+          Var.set set_var (Color.mix_alpha op (Css.Var color_ref))
         in
-        let supports_decl = Var.set set_var oklab in
         let supports = Color.color_mix_supports [ color_decl; supports_decl ] in
         ([ fallback ], [ supports ])
     | Bracket (_, css_color, Color.No_opacity) -> (
@@ -188,9 +190,9 @@ module Handler = struct
     | [ "inherit" ] -> Ok (mk Inherit)
     | [ "transparent" ] -> Ok (mk Transparent)
     | [ current_str ] when String.starts_with ~prefix:"current" current_str -> (
-        let _, op = Color.parse_opacity_modifier ?theme current_str in
-        match op with
-        | Color.No_opacity -> Ok (mk Current)
+        match Color.parse_opacity_modifier ?theme current_str with
+        | "current", Color.No_opacity -> Ok (mk Current)
+        | "current", op -> Ok (mk (Current_opacity op))
         | _ -> Error (`Msg "Not a scrollbar utility"))
     | [ v ]
       when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ?theme v))

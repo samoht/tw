@@ -200,8 +200,15 @@
   any shape, and a negated arbitrary inset accepts a parenthesised calc body,
   so `-left-6/5`, `-top-2.5`, `-left-[(var(--a)+var(--b))]` and `translate-2`
   work alongside the numeric steps, and `-translate-y-0.5` sorts in the
-  negative band of its axis with the integers (#160, #166, #172, #186, #210,
-  #646, #831).
+  negative band of its axis with the integers. A negated bracket translate is
+  negated as Tailwind writes it on every axis, `-translate-z-[4px]` giving
+  `calc(4px * -1)` and `-translate-x-[calc(1rem+2px)]` the calc negated, where
+  the z axis read the bracket as a variable name and any bracket that was not
+  a plain length became a `var()` of its own text. A negated bracket scale,
+  skew and rotate go the same way on every axis, `-scale-[1.5]` giving
+  `calc(1.5 * -1)` and `-skew-x-[10deg]` `skewX(calc(10deg * -1))`; the
+  first two were unknown classes, and `-rotate-[.5turn]` wrote its angle
+  un-negated (#160, #166, #172, #186, #210, #646, #831, #861, #865).
 - Every inset side carries the whole scale, under either sign, `start-*`,
   `end-*` and the logical `inset-s-*`, `inset-e-*`, `inset-bs-*` and
   `inset-be-*` included: a spacing step, `px`, a fraction, an arbitrary length,
@@ -218,9 +225,16 @@
   #183, #184, #218, #223).
 - Borders and masks cover their logical and arbitrary forms: axis and
   single-side widths and colours (`border-x-16`, `border-bs-red-500`), any
-  integer width or outline offset, a mask colour stop, a bracket mask image, and
-  a zero mask stop that keeps its unit (#148, #161, #162, #163, #165, #182,
-  #222, #265).
+  integer width or outline offset, a mask colour stop, a bracket mask image, a
+  zero mask stop that keeps its unit, and a bracket mask stop written as
+  Tailwind decodes it, `mask-linear-from-[calc(1px+2px)]` giving
+  `calc(1px + 2px)` where the undecoded text was a value browsers drop. A
+  mask stop reads as Tailwind classifies it: a bracket colour, an `--alpha()`
+  or a `color:` hint name the stop's colour and a length, a `--x` or a
+  `--spacing(4)` its position, a bare step counts in quarters, a percentage
+  is a whole number, and a colour stop takes an opacity modifier,
+  `mask-linear-from-red-500/50` mixing as every colour family does (#148,
+  #161, #162, #163, #165, #182, #222, #265, #860, #866).
 - `transition-behavior-normal` and `transition-behavior-allow-discrete` are
   refused, as Tailwind compiles nothing for them. They compiled to a rule for
   `transition-normal` and `transition-discrete`, which no markup written the
@@ -265,18 +279,24 @@
   sheet, so a length, angle, colour, shadow, ease, blur, tracking, line-height,
   stroke width, border-spacing or gradient stop takes every unit and math
   function CSS allows, and a compact `calc()`, a `var()` with its fallback, a
-  `theme()` in dot notation, a `--spacing()` call, a grid track and a list
-  style mean the same thing wherever they appear: `ml-[50%]`,
+  `theme()` in dot notation, a `--spacing()` call, an `--alpha()` call, a grid
+  track and a list style mean the same thing wherever they appear: `ml-[50%]`,
   `left-[calc(5%-2px)]`, `py-[calc(--spacing(2)+1px)]`, `list-[upper-roman]`,
   `gap-[calc(1px_+_1px)]`, `mx-[--spacing(4)]`, `flex-[calc(1+2)]`,
-  `z-[calc(1+2)]`, `delay-[calc(1s+2s)]` and
+  `z-[calc(1+2)]`, `delay-[calc(1s+2s)]`, `text-[--alpha(red/0.2)]` and
   `origin-[--spacing(4)_--spacing(2)]` all resolve, a bracket colour is read
   as CSS before the palette is consulted, and a value the target property
-  cannot take is still written through as Tailwind writes it (#168, #176,
-  #177, #187, #188, #189, #190, #191, #192, #205, #212, #217, #236, #241,
-  #262, #277, #278, #325, #371, #372, #373, #375, #376, #377, #378, #404,
-  #417, #418, #420, #465, #503, #504, #509, #522, #667, #683, #688, #689,
-  #690).
+  cannot take is still written through as Tailwind writes it. An `--alpha()`
+  expands anywhere in a value, as `--spacing()` does, its alpha a number,
+  a percentage or a `var()`: `shadow-[0_0_0_1px_--alpha(red/50%)]`,
+  `bg-[linear-gradient(--alpha(red/0.5),blue)]` and
+  `text-[--alpha(red/var(--o))]` resolve, a bare number scales as Tailwind
+  scales it, `0.2` being 20%, and a call missing either half names no
+  utility. A named opacity on a shadow's size, `shadow-lg/half`, sets no
+  alpha, since Tailwind reads none there (#168, #176, #177, #187, #188, #189,
+  #190, #191, #192, #205, #212, #217, #236, #241, #262, #277, #278, #325,
+  #371, #372, #373, #375, #376, #377, #378, #404, #417, #418, #420, #465,
+  #503, #504, #509, #522, #667, #683, #688, #689, #690, #863, #869).
 - A bracket only OCaml's number reader accepts is no longer folded to a
   different value. `tab-[0x4]` wrote `tab-size: 4`, `flex-[0x4]` wrote `flex: 4`
   under the class name `.flex-\[4\]`, `grid-cols-[0x4]` wrote `4px`,
@@ -349,14 +369,19 @@
 
 - An opacity modifier reaches every colour family. A ring, a ring offset, a
   per-side border, a shadow, a drop shadow, a decoration and a stroke all take
-  one, the alpha can itself be a variable (`bg-cyan-400/(--my-alpha-value)`),
-  and `transparent` and `inherit` take one everywhere. Shadeless names such as
-  `shadow-white`, `stroke-white`, `ring-offset-white` and `ring-offset-black`
-  work, a colour the project's `@theme` declares names a ring, a ring offset
-  and an inset ring as it names a shadow, `light-dark()` and an arbitrary
-  shadow colour resolve, and a drop shadow keeps both of its default layers
-  under an opacity (#169, #185, #201, #202, #209, #214, #225, #231, #244,
-  #254, #281, #308, #322, #323, #813, #847).
+  one, the alpha can itself be a variable or a named `--opacity-*` token in
+  every one of them, `currentcolor` and a bracket `var()` included
+  (`bg-cyan-400/(--my-alpha-value)`, `shadow-red-500/half`,
+  `decoration-current/(--o)`, `ring-[var(--c)]/half`,
+  `scrollbar-thumb-current/(--o)`), and `transparent` and `inherit` take one
+  everywhere. Shadeless names such as `shadow-white`, `stroke-white`,
+  `ring-offset-white` and `ring-offset-black` work, a colour the project's
+  `@theme` declares names a ring, a ring offset and an inset ring as it names
+  a shadow, a `--text-shadow-color-*` token names a text shadow's,
+  `light-dark()` and an arbitrary shadow colour resolve, and a drop shadow
+  keeps both of its default layers under an opacity (#169, #185, #201, #202,
+  #209, #214, #225, #231, #244, #254, #281, #308, #322, #323, #813, #847,
+  #859, #868).
 - An opacity modifier over a bracket colour paints the colour the class named,
   as a `color-mix()`, across all thirteen colour families.
   `text-[rebeccapurple]/50` and its siblings were unknown classes or rendered

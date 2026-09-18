@@ -243,6 +243,53 @@ let test_alpha_fn () =
        (Result.get_ok
           (Tw.of_string "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]")))
 
+(* A bare number in [--alpha()] is the fraction Tailwind scales to a percentage,
+   in an arbitrary property as in a colour utility; the reader took [0.2] for
+   [0.2%]. *)
+let test_alpha_fn_bare_number () =
+  Test_helpers.check_declarations ~minify:false "[color:--alpha(red/0.2)]"
+    [
+      "color: color-mix(in srgb, red 20%, transparent)";
+      "color: color-mix(in oklab, red 20%, transparent)";
+    ]
+
+(* An [--alpha()] whose alpha reads a custom property mixes that property, in an
+   arbitrary property as in a colour utility. The reader took only a percentage
+   alpha, so the class was refused. Both arms mix, the way the [/(--o)] modifier
+   writes them. *)
+let test_alpha_fn_var_alpha () =
+  check "[color:--alpha(red/var(--o))]";
+  Test_helpers.check_declarations ~minify:false "[color:--alpha(red/var(--o))]"
+    [
+      "color: color-mix(in srgb, red var(--o), transparent)";
+      "color: color-mix(in oklab, red var(--o), transparent)";
+    ];
+  Test_helpers.check_declarations ~minify:false
+    "[--x:--alpha(var(--c)/var(--o))]"
+    [
+      "--x: var(--c)";
+      "--x: color-mix(in oklab, var(--c) var(--o), transparent)";
+    ]
+
+(* Tailwind substitutes [--alpha()] wherever it stands in a value, as it does
+   [--spacing()]: a shadow or a gradient spelling one reads on with the
+   [color-mix()] in its place. The call was read only as the whole value, and
+   the guard that refuses a surviving call ran over the undecoded text, where
+   [1px_--alpha] is one token, so the call reached the sheet as written. *)
+let test_alpha_fn_inside_a_value () =
+  check "[box-shadow:0_0_0_1px_--alpha(red/50%)]";
+  Test_helpers.check_declarations ~minify:false
+    "[box-shadow:0_0_0_1px_--alpha(red/50%)]"
+    [ "box-shadow: 0 0 0 1px color-mix(in oklab, red 50%, transparent)" ];
+  Test_helpers.check_declarations ~minify:false
+    "[background-image:linear-gradient(--alpha(red/0.5),blue)]"
+    [
+      "background-image: linear-gradient(color-mix(in oklab, red 50%, \
+       transparent), blue)";
+    ];
+  (* a call missing its alpha is a lookup that failed, wherever it stands *)
+  rejected "[box-shadow:0_0_0_1px_--alpha(red)]"
+
 (* The [/] modifier applies to the colour the value denotes, so a value written
    with [--alpha()] mixes twice, and both spellings survive the round-trip. *)
 let test_alpha_fn_with_modifier () =
@@ -265,6 +312,51 @@ let test_var_opacity_spelling () =
     [
       "color: color-mix(in srgb, red var(--x), transparent)";
       "color: color-mix(in oklab, red var(--x), transparent)";
+    ]
+
+(* A modifier reading a custom property mixes that property into the guarded
+   value on a bracket [var()] colour as on a plain one. The var arm folded the
+   modifier to a percentage, which a var() has none of, so the mix said [100%]
+   and the modifier was dropped. The fallback keeps the var() bare, the shape
+   the CLI writes. *)
+let test_var_colour_opacity_var () =
+  let mixed cls property =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        property ^ ": var(--c)";
+        property ^ ": color-mix(in oklab, var(--c) var(--o), transparent)";
+      ]
+  in
+  mixed "[color:var(--c)]/(--o)" "color";
+  mixed "[color:var(--c)]/[var(--o)]" "color";
+  mixed "[background-color:var(--c)]/(--o)" "background-color";
+  mixed "[--x:var(--c)]/(--o)" "--x"
+
+(* A named [--opacity-*] token reads as [var(--opacity-half)] and nothing else,
+   in the guarded mix, and as the percentage the theme binds it to in the srgb
+   fallback. The token's value is a percentage, which the reader took for a
+   float and could not read, so the fallback said [100%] and the reference grew
+   a second fallback, [var(--half-opacity)], that Tailwind never writes. The var
+   arm folded the token to [100%] outright. *)
+let test_named_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let mixed cls property colour =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [
+        property ^ ": color-mix(in srgb, " ^ colour ^ " 50%, transparent)";
+        property ^ ": color-mix(in oklab, " ^ colour
+        ^ " var(--opacity-half), transparent)";
+      ]
+  in
+  mixed "[color:red]/half" "color" "red";
+  mixed "[background-color:#123456]/half" "background-color" "#123456";
+  mixed "[--my-color:red]/half" "--my-color" "red";
+  Test_helpers.check_declarations ~theme ~minify:false "[color:var(--c)]/half"
+    [
+      "color: var(--c)";
+      "color: color-mix(in oklab, var(--c) var(--opacity-half), transparent)";
     ]
 
 (* Colour values go through the CSS reader, so every named colour is a colour,
@@ -457,11 +549,17 @@ let tests =
     test_case "text after the closing bracket" `Quick test_trailing_text;
     test_case "quoted closing bracket" `Quick test_quoted_closing_bracket;
     test_case "url argument underscores" `Quick test_url_underscore;
+    test_case "--alpha() bare number alpha" `Quick test_alpha_fn_bare_number;
     test_case "--alpha() value with a /opacity modifier" `Quick
       test_alpha_fn_with_modifier;
+    test_case "--alpha() with a var alpha" `Quick test_alpha_fn_var_alpha;
+    test_case "--alpha() inside a value" `Quick test_alpha_fn_inside_a_value;
     test_case "var-valued opacity modifier spelling" `Quick
       test_var_opacity_spelling;
     test_case "named colour value" `Quick test_named_colour_value;
+    test_case "var-valued colour opacity from a var" `Quick
+      test_var_colour_opacity_var;
+    test_case "named opacity token" `Quick test_named_opacity;
     test_case "property value calc operators" `Quick
       test_property_calc_operators;
     test_case "property value --spacing()" `Quick test_property_spacing_fn;

@@ -59,10 +59,18 @@ let reads_descendants cls =
       || String.equal segment "*" || String.equal segment "**")
     (Tw_tools.Entrypoint.variant_segments cls)
 
+(* The children a descendant-reading variant needs, each holding the marker the
+   rendering check gives every element, so their boxes paint too. *)
 let children =
-  "<p>x <code>x</code> <strong>x</strong> <a href=\"#\">x</a></p><svg \
-   width=\"1\" height=\"1\"></svg><ul><li>x</li></ul><pre>x</pre><img \
-   alt=\"\">"
+  String.concat ""
+    [
+      "<p>";
+      Test_helpers.box_marker;
+      " <code>x</code> <strong>x</strong> <a href=\"#\">x</a></p><svg \
+       width=\"1\" height=\"1\"></svg><ul><li>";
+      Test_helpers.box_marker;
+      "</li></ul><pre>x</pre><img alt=\"\">";
+    ]
 
 let slice first count l =
   List.filteri (fun i _ -> i >= first && i < first + count) l
@@ -99,7 +107,8 @@ let () =
              "\"><div class=\"";
              Test_helpers.escape_attribute cls;
              "\">";
-             (if reads_descendants cls then children else "x");
+             (if reads_descendants cls then children
+              else Test_helpers.box_marker);
              "</div></div>";
            ]))
     shard;

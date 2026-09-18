@@ -404,9 +404,8 @@ module Handler = struct
     | Space_y_reverse -> "space-y-reverse"
 
   let parse_gap_arbitrary s : gap_value option =
-    let len = String.length s in
-    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
-      let inner = String.sub s 1 (len - 2) in
+    if Parse.is_bracket_value s then
+      let inner = Parse.bracket_inner s in
       (* A data-type hint chooses the longhand and says nothing about the value.
          Gap writes one longhand per axis, so every hint lands here and the
          readers below are handed what follows it. *)
@@ -431,8 +430,7 @@ module Handler = struct
      [--spacing-form]. *)
   let parse_gap_value ?theme value =
     if Parse.is_bare_var value then Some (Bare_var value)
-    else if String.length value > 0 && value.[0] = '[' then
-      parse_gap_arbitrary value
+    else if String.starts_with ~prefix:"[" value then parse_gap_arbitrary value
     else
       match Spacing.parse_value_string ?theme ~allow_auto:false value with
       | Some (#Style.spacing as s) -> Some (Standard s)

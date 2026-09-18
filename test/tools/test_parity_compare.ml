@@ -2,7 +2,9 @@
 
 open Alcotest
 
-let page = "<!doctype html><div class=\"p-4 hover:underline\"></div>"
+(* The element holds text, so the padding it takes moves pixels: an empty
+   element paints nothing for the raster to compare. *)
+let page = "<!doctype html><div class=\"p-4 hover:underline\">x</div>"
 
 let test_uncovered_names_what_the_page_lacks () =
   check (list string) "the class the page does not carry" [ "m-2" ]
@@ -22,7 +24,8 @@ let test_browser_refuses_an_uncovered_class () =
   | Ok _ -> fail "an uncovered class was compared"
 
 (* The two sheets reach the browser as the two sides: a declaration changed on
-   tw's is reported on the property it writes. *)
+   tw's renders differently, and the difference is reported on the property it
+   writes. *)
 let test_browser_reports_a_changed_declaration () =
   match (Browser.node_binary (), Browser.chrome_binary ()) with
   | (None, _ | _, None) when Sys.getenv_opt "TW_BROWSER_TESTS" = Some "1" ->
@@ -35,6 +38,8 @@ let test_browser_reports_a_changed_declaration () =
       with
       | Error reason -> fail reason
       | Ok report ->
+          check bool "the render differs" false
+            (Browser_compare.identical report);
           check bool "padding-top differs" true
             (List.exists
                (fun (d : Browser_compare.difference) ->

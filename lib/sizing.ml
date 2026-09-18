@@ -768,16 +768,15 @@ module Handler = struct
 
   (* A [/] inside a bracket belongs to the value ([w-[calc(2px/2)]]), not to a
      fraction. *)
-  let is_bracket v = String.length v > 0 && v.[0] = '['
+  let is_bracket v = String.starts_with ~prefix:"[" v
 
   let parse_arbitrary s : (string * Css.length) option =
     (* Parse bracket values: [4px], [1rem], [calc(100vh-4rem)], etc. Uses
        Css.parse_length for full CSS length parsing including calc(). Returns
        (raw_inner, parsed_length) where raw_inner is used for the CSS class name
        selector (preserving original formatting). *)
-    let len = String.length s in
-    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
-      let inner = String.sub s 1 (len - 2) in
+    if Parse.is_bracket_value s then
+      let inner = Parse.bracket_inner s in
       (* A data-type hint chooses the longhand and says nothing about the value.
          A sizing family writes one longhand, so every hint lands here and the
          length reader is handed what follows it; [inner] keeps the hint because
@@ -785,11 +784,7 @@ module Handler = struct
       match Parse.value_after_hint inner with
       | None -> None
       | Some value ->
-          let css_value =
-            Parse.normalize_css_math_operators
-              (Parse.decode_arbitrary_value value)
-          in
-          Option.map (fun l -> (inner, l)) (Css.parse_length css_value)
+          Option.map (fun l -> (inner, l)) (Parse.arbitrary_length value)
     else None
 
   (* A spacing step, and a ratio part, is a non-negative multiple of 0.25
@@ -906,12 +901,7 @@ module Handler = struct
     | Aspect_square -> "aspect-square"
     | Aspect_video -> "aspect-video"
     | Aspect_theme name -> "aspect-" ^ name
-    | Aspect_ratio (w, h) ->
-        let num f =
-          if Float.is_integer f then string_of_int (int_of_float f)
-          else string_of_float f
-        in
-        "aspect-" ^ num w ^ "/" ^ num h
+    | Aspect_ratio (w, h) -> "aspect-" ^ class_float w ^ "/" ^ class_float h
     | Aspect_arbitrary (raw, _) -> "aspect-[" ^ raw ^ "]"
 
   let examples =

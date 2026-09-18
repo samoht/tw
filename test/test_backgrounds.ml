@@ -175,6 +175,25 @@ let test_bracket_length_keywords () =
   Test_helpers.check_declarations ~minify:false "bg-[length:contain]"
     [ "background-size: contain" ]
 
+(* Tailwind substitutes [--alpha()] and [--spacing()] wherever they stand in an
+   arbitrary value, so a gradient spelling one is the image with the
+   [color-mix()] in its place. The image reader decoded underscores alone, so
+   the gradient was no image and fell to the colour, which wrote the gradient
+   into [background-color]. *)
+let test_bracket_gradient_alpha_fn () =
+  Test_helpers.check_declarations ~minify:false
+    "bg-[linear-gradient(--alpha(red/50%),blue)]"
+    [
+      "background-image: linear-gradient(color-mix(in oklab, red 50%, \
+       transparent), #0000ff)";
+    ];
+  Test_helpers.check_declarations ~minify:false
+    "bg-[linear-gradient(to_right,--spacing(4),blue)]"
+    [
+      "background-image: linear-gradient(to right, calc(var(--spacing) * 4), \
+       #0000ff)";
+    ]
+
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [bg-position-] and [bg-size-] each write one longhand, so
    every hint lands there and the reader is handed what follows it; the hint
@@ -713,6 +732,7 @@ let tests =
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bg-position bracket keyword+length" `Quick
       test_bg_position_bracket_keyword_length;
+    test_case "bracket gradient --alpha()" `Quick test_bracket_gradient_alpha_fn;
     test_case "bg-position and bg-size peel a data-type hint" `Quick
       test_bg_position_and_size_peel_a_hint;
     test_case "bracket position grammar" `Quick test_bracket_position_grammar;

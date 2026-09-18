@@ -68,6 +68,18 @@ let test_drop_shadow_color () =
        transparent)";
       "--tw-drop-shadow: var(--tw-drop-shadow-size)";
     ];
+  (* A modifier reading a custom property mixes that property into the guarded
+     value; the palette arm folded it to a percentage, which a var() has none
+     of, so the inner mix said [100%]. The fallback has no percentage to fold
+     into a hex either, so it is the colour as the bare utility writes it. *)
+  Test_helpers.check_declarations ~minify:false "drop-shadow-red-500/(--o)"
+    [
+      "--tw-drop-shadow-color: oklch(63.7% .237 25.331)";
+      "--tw-drop-shadow-color: color-mix(in oklab, color-mix(in oklab, \
+       var(--color-red-500) var(--o), transparent) \
+       var(--tw-drop-shadow-alpha), transparent)";
+      "--tw-drop-shadow: var(--tw-drop-shadow-size)";
+    ];
   (* The whole list here, which is the one whose fallback this file pins: the
      unguarded arm is a plain hex, because a browser without color-mix reads it
      and cannot read a mix of its own. The enhancement arm and the size

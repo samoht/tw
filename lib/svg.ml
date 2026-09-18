@@ -116,13 +116,10 @@ module Handler = struct
 
   (* Bracket var with opacity: var fallback + @supports color-mix *)
   let bracket_var_opacity_style ~property ~merge_key v opacity =
-    let percent = Color.opacity_to_percent opacity in
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_decl = property (Css.Color var_color : Css.svg_paint) in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
+    let oklab_color = Color.mix_alpha opacity var_color in
     let oklab_decl = property (Css.Color oklab_color : Css.svg_paint) in
     let supports_block = Color.color_mix_supports [ oklab_decl ] in
     Style.style ~merge_key ~rules:(Some [ supports_block ]) [ fallback_decl ]
@@ -313,8 +310,8 @@ module Handler = struct
 
   (* Parse bracket value for fill/stroke: determine if it's a color or typed
      var. Returns the variant constructor for the appropriate type. *)
-  let parse_bracket_fill v =
-    let base_str, opacity = Color.parse_opacity_modifier v in
+  let parse_bracket_fill ~theme v =
+    let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let base_inner = Parse.bracket_inner base_str in
     match Color.parse_bracket_hint base_inner with
     | Some (Color.Typed_var var_part) -> (
@@ -336,8 +333,8 @@ module Handler = struct
         | Color.No_opacity, Some raw -> Ok (Fill_bracket_raw (base_inner, raw))
         | _ -> err_not_utility)
 
-  let parse_bracket_stroke_color v =
-    let base_str, opacity = Color.parse_opacity_modifier v in
+  let parse_bracket_stroke_color ~theme v =
+    let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let base_inner = Parse.bracket_inner base_str in
     match Color.parse_bracket_hint base_inner with
     | Some (Color.Typed_var var_part) -> (
@@ -421,7 +418,7 @@ module Handler = struct
            && v.[0] = '['
            && Parse.is_bracket_value
                 (fst (Color.parse_opacity_modifier ~theme v)) ->
-        parse_bracket_fill v
+        parse_bracket_fill ~theme v
     | "fill" :: color_parts when List.exists has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -456,13 +453,13 @@ module Handler = struct
           starts "color:" base_inner || starts "var(" base_inner
           || starts "#" base_inner
           || Option.is_some (Color.parse_bracket_color base_inner)
-        then parse_bracket_stroke_color v
+        then parse_bracket_stroke_color ~theme v
         else
           (* The width owns the numbers and lengths; what it refuses falls to
              the colour, which is this family's last resort. *)
           match parse_bracket_stroke_width base_inner with
           | Ok _ as w -> w
-          | Error _ -> parse_bracket_stroke_color v)
+          | Error _ -> parse_bracket_stroke_color ~theme v)
     | [ "stroke"; "0" ] -> Ok Stroke_0
     | [ "stroke"; "1" ] -> Ok Stroke_1
     | [ "stroke"; "2" ] -> Ok Stroke_2

@@ -37,13 +37,25 @@ module Handler = struct
     | Named of string  (** a project [--text-shadow-<name>] token *)
     | Named_opacity of string * Color.opacity_modifier
 
+  (* A named [--opacity-*] token on a shadow size, not on a colour: Tailwind
+     reads no alpha off it and writes the size as if no modifier were given, so
+     the class keeps the modifier in its name and nothing else. *)
+  let without_named_size_alpha = function
+    | Shape_opacity (shape, Color.Opacity_named _) -> Shape shape
+    | Named_opacity (name, Color.Opacity_named _) -> Named name
+    | Arbitrary_opacity (arb, Color.Opacity_named _) -> Arbitrary arb
+    | Bracket_shadow_opacity (s, Color.Opacity_named _) -> Bracket_shadow s
+    | Bracket_var_opacity (v, Color.Opacity_named _) -> Bracket_var v
+    | t -> t
+
   let name = "text_shadow"
 
   (* An opacity-bearing shadow writes the alpha channel before text-shadow, so
      Tailwind places it after user-select and before backface visibility. The
      ordinary shape and colour utilities remain in the later text-shadow
      band. *)
-  let priority = function
+  let priority t =
+    match without_named_size_alpha t with
     | Shape_opacity _ | Arbitrary_opacity _ | Named_opacity _
     | Bracket_var_opacity _ | Bracket_shadow_opacity _ ->
         38
@@ -98,7 +110,7 @@ module Handler = struct
     match scan_verbatim_colour s with
     | Some _ as shadow -> shadow
     | Stdlib.Option.None -> (
-        let normalized = Parse.decode_underscores s in
+        let normalized = Parse.decode_arbitrary_value s in
         match Parse.shadow normalized with
         (* CSS text-shadow has no spread, so a body carrying one is not one. *)
         | Some
@@ -303,45 +315,6 @@ module Handler = struct
       property_rules = text_shadow_property_rules;
     }
 
-  (* Unlike {!Color.channel_color_opacity}, the palette token is the plain
-     [--color-*] one and no property-scoped [--text-shadow-color-*] token is
-     looked up, which is what this family has always emitted. *)
-  let set_color_opacity ?theme c shade opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let hex = Color.palette_hex ?theme c shade in
-    let decls, color =
-      Color.bound ?theme (Color.color_var c shade) (Css.hex hex)
-    in
-    Color.channel_style ~decls channel
-      ~fallback:(Css.hex (Color.hex_with_alpha hex percent))
-      (Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent)
-
-  let set_bracket_hex hex =
-    let color = Color.authored_hex hex in
-    Color.channel_style channel ~fallback:color color
-
-  let set_bracket_hex_opacity hex opacity =
-    let percent = Color.opacity_to_percent opacity in
-    Color.channel_style channel
-      ~fallback:(Css.hex (Color.hex_with_alpha hex percent))
-      (Color.hex_to_oklab_alpha hex (percent /. 100.0))
-
-  (* A bracket colour spelled any way but a [#] hex, under an opacity: one with
-     an sRGB hex takes it. A modifier reading a custom property has no
-     percentage a plain fallback can hold, so the fallback keeps the colour as
-     written. *)
-  let set_bracket_color_opacity ~theme (c : Css.color) opacity =
-    let c = Option.value ~default:c (Color.css_color_to_hex c) in
-    let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
-    let fallback =
-      match Color.pre_color_mix_fallback theme guarded with
-      | Some fallback -> fallback
-      | None ->
-          if Option.is_some (Color.opacity_var_bare_of opacity) then c
-          else Color.mix_alpha ~in_space:Srgb opacity c
-    in
-    Color.channel_style channel ~fallback guarded
-
   (* ============ Arbitrary shadow styles ============ *)
 
   let make_text_shadow_var var_expr : Css.text_shadow =
@@ -371,7 +344,8 @@ module Handler = struct
 
   (* ============ Style dispatch ============ *)
 
-  let to_style theme = function
+  let to_style theme t =
+    match without_named_size_alpha t with
     | None ->
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
@@ -383,18 +357,21 @@ module Handler = struct
     | Named_opacity (name, opacity) -> named_opacity_style ~theme name opacity
     | Color (c, shade) -> Color.channel_color ~theme channel c shade
     | Color_opacity (c, shade, opacity) ->
-        set_color_opacity ~theme c shade opacity
+        Color.channel_color_opacity ~theme channel c shade opacity
     | Current -> Color.channel_current channel
     | Current_opacity opacity -> Color.channel_current_opacity channel opacity
     | Inherit -> Color.channel_inherit channel
     | Transparent -> Color.channel_transparent channel
     | Transparent_opacity opacity ->
         Color.channel_transparent_opacity channel opacity
-    | Bracket_hex hex -> set_bracket_hex hex
-    | Bracket_hex_opacity (hex, opacity) -> set_bracket_hex_opacity hex opacity
+    | Bracket_hex hex ->
+        Color.channel_bracket_color ~theme channel (Color.authored_hex hex)
+    | Bracket_hex_opacity (hex, opacity) ->
+        Color.channel_bracket_color_opacity ~theme channel
+          (Color.authored_hex hex) opacity
     | Bracket_color (_orig, c) -> Color.channel_bracket_color ~theme channel c
     | Bracket_color_opacity (_orig, c, opacity) ->
-        set_bracket_color_opacity ~theme c opacity
+        Color.channel_bracket_color_opacity ~theme channel c opacity
     | Bracket_color_var var_expr -> Color.channel_bracket_var channel var_expr
     | Bracket_cvar_opacity (var_expr, opacity) ->
         Color.channel_bracket_var_opacity channel var_expr opacity
@@ -478,7 +455,7 @@ module Handler = struct
     (* A sized text shadow inlines its token's value, so one the [@theme] block
        removed is refused here rather than read through a [var()]. *)
     | [ "text"; "shadow"; size_str ]
-      when match fst (Color.parse_opacity_modifier size_str) with
+      when match fst (Color.parse_opacity_modifier ~theme size_str) with
            | ("2xs" | "xs" | "sm" | "md" | "lg") as size ->
                Scheme.is_removed theme ("text-shadow-" ^ size)
            | _ -> false ->
@@ -659,7 +636,8 @@ module Handler = struct
   (* Utilities that set --tw-text-shadow-alpha AND text-shadow come before all
      other utilities. Within that group, relative color @supports (lab) come
      first, then color-mix @supports, then no-@supports. *)
-  let suborder = function
+  let suborder t =
+    match without_named_size_alpha t with
     | Arbitrary_opacity (arb, _) -> (
         match parse_arbitrary_shadow arb with
         | Some (_, _, _, Parse.Var_token _) -> 6 (* @supports lab *)

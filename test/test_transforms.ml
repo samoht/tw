@@ -37,6 +37,19 @@ let test_translate_px_and_neg_arbitrary () =
   Test_helpers.check_declarations ~minify:false "translate-x-[-0.5px]"
     [ "--tw-translate-x: -.5px"; composed ]
 
+(* The z axis negates a bracket the way the x and y axes do: a length is negated
+   as a length and only a var() is read as one. The z arm read every bracket as
+   a variable name, so -translate-z-[4px] wrote var(--4px). *)
+let test_neg_translate_z_arbitrary () =
+  let composed =
+    "translate: var(--tw-translate-x) var(--tw-translate-y) \
+     var(--tw-translate-z)"
+  in
+  Test_helpers.check_declarations ~minify:false "-translate-z-[4px]"
+    [ "--tw-translate-z: calc(4px * -1)"; composed ];
+  Test_helpers.check_declarations ~minify:false "-translate-z-[var(--d)]"
+    [ "--tw-translate-z: calc(var(--d) * -1)"; composed ]
+
 (* The near/midrange/distant perspective keywords reference their theme token,
    like the dramatic/normal ones already did. *)
 let test_perspective_keywords () =
@@ -465,6 +478,117 @@ let test_arbitrary_scale_axis_token_stream () =
   Test_helpers.check_declarations "scale-y-[0x4]"
     [ "--tw-scale-y:0x4"; "scale:var(--tw-scale-x)var(--tw-scale-y)" ]
 
+(* A negative bracket scale is the bracket negated the way Tailwind writes it: a
+   number is [calc(<n> * -1)] on the axis the class names, and every other value
+   is the same [calc()] around the token stream. The bare form writes [scale]
+   itself, as the positive one does, and an axis writes its channel and the
+   composition the positive form writes. tw refused every one of these as an
+   unknown class. *)
+let test_neg_scale_arbitrary () =
+  let xy = "scale: var(--tw-scale-x) var(--tw-scale-y)" in
+  let has cls decls = Test_helpers.check_declarations ~minify:false cls decls in
+  has "-scale-[1.5]" [ "scale: calc(1.5 * -1)" ];
+  has "-scale-[var(--s)]" [ "scale: calc(var(--s) * -1)" ];
+  has "-scale-[calc(1+1)]" [ "scale: calc(calc(1 + 1) * -1)" ];
+  has "-scale-x-[1.5]" [ "--tw-scale-x: calc(1.5 * -1)"; xy ];
+  has "-scale-y-[.5]" [ "--tw-scale-y: calc(.5 * -1)"; xy ];
+  has "-scale-z-[2]" [ "--tw-scale-z: calc(2 * -1)"; xy ^ " var(--tw-scale-z)" ];
+  has "-scale-x-[var(--s)]" [ "--tw-scale-x: calc(var(--s) * -1)"; xy ];
+  (* The hint chooses the longhand and stays in the class name, which is what
+     the markup carries. *)
+  has "-scale-x-[number:1.5]" [ "--tw-scale-x: calc(1.5 * -1)"; xy ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "-scale-[1.50]"; "-scale-x-[number:1.5]"; "-scale-y-[.5]" ];
+  (* A bracket naming no value, and the 3d spelling, which has no negative. *)
+  List.iter
+    (Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+       (module Tw.Transforms.Handler))
+    [
+      "-scale-[]"; "-scale-[a;b]"; "-scale-x-[]"; "-scale-z-[a;b]"; "-scale-3d";
+    ]
+
+(* A negative bracket skew writes its channel as the skew function around the
+   bracket negated, [skewX(calc(<value> * -1))], beside the transform chain the
+   positive form writes; the bare form writes both channels. An angle is negated
+   as an angle and every other value goes in as the token stream it is. tw
+   refused every one of these as an unknown class. *)
+let test_neg_skew_arbitrary () =
+  let chain =
+    "transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+     var(--tw-skew-x,) var(--tw-skew-y,)"
+  in
+  let has cls decls = Test_helpers.check_declarations ~minify:false cls decls in
+  has "-skew-x-[10deg]" [ "--tw-skew-x: skewX(calc(10deg * -1))"; chain ];
+  has "-skew-y-[var(--a)]" [ "--tw-skew-y: skewY(calc(var(--a) * -1))"; chain ];
+  has "-skew-x-[calc(1deg+1deg)]"
+    [ "--tw-skew-x: skewX(calc(calc(1deg + 1deg) * -1))"; chain ];
+  has "-skew-[10deg]"
+    [
+      "--tw-skew-x: skewX(calc(10deg * -1))";
+      "--tw-skew-y: skewY(calc(10deg * -1))";
+      chain;
+    ];
+  has "-skew-[abc]"
+    [
+      "--tw-skew-x: skewX(calc(abc * -1))";
+      "--tw-skew-y: skewY(calc(abc * -1))";
+      chain;
+    ];
+  (* The hint chooses the longhand and stays in the class name. *)
+  has "-skew-x-[angle:10deg]" [ "--tw-skew-x: skewX(calc(10deg * -1))"; chain ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "-skew-x-[angle:10deg]"; "-skew-[1.50deg]"; "-skew-y-[var(--a)]" ];
+  List.iter
+    (Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+       (module Tw.Transforms.Handler))
+    [ "-skew-[]"; "-skew-x-[]"; "-skew-y-[a;b]" ]
+
+(* A negative bracket rotate is the bracket negated the way Tailwind writes it,
+   [calc(<value> * -1)]: the bare form on the [rotate] longhand, an axis inside
+   its rotate function on the channel, beside the transform chain. An angle is
+   negated as an angle, whatever its unit, and every other value goes in as the
+   token stream it is. tw negated a degree by flipping its sign and left every
+   other unit as written, so -rotate-[.5turn] wrote .5turn, and refused a var(),
+   a calc(), a token stream and a hint as unknown classes. *)
+let test_neg_rotate_arbitrary () =
+  let chain =
+    "transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+     var(--tw-skew-x,) var(--tw-skew-y,)"
+  in
+  let has cls decls = Test_helpers.check_declarations ~minify:false cls decls in
+  has "-rotate-[45deg]" [ "rotate: calc(45deg * -1)" ];
+  has "-rotate-[.5turn]" [ "rotate: calc(.5turn * -1)" ];
+  has "-rotate-[var(--r)]" [ "rotate: calc(var(--r) * -1)" ];
+  has "-rotate-[calc(1deg+1deg)]" [ "rotate: calc(calc(1deg + 1deg) * -1)" ];
+  has "-rotate-[1_2_3_45deg]" [ "rotate: calc(1 2 3 45deg * -1)" ];
+  has "-rotate-[angle:45deg]" [ "rotate: calc(45deg * -1)" ];
+  has "-rotate-x-[45deg]" [ "--tw-rotate-x: rotateX(calc(45deg * -1))"; chain ];
+  has "-rotate-x-[var(--r)]"
+    [ "--tw-rotate-x: rotateX(calc(var(--r) * -1))"; chain ];
+  has "-rotate-y-[abc]" [ "--tw-rotate-y: rotateY(calc(abc * -1))"; chain ];
+  has "-rotate-z-[calc(1deg+1deg)]"
+    [ "--tw-rotate-z: rotateZ(calc(calc(1deg + 1deg) * -1))"; chain ];
+  has "-rotate-x-[angle:45deg]"
+    [ "--tw-rotate-x: rotateX(calc(45deg * -1))"; chain ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "-rotate-[0.5turn]"; "-rotate-x-[angle:45deg]"; "-rotate-[var(--r)]" ];
+  List.iter
+    (Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+       (module Tw.Transforms.Handler))
+    [ "-rotate-[]"; "-rotate-x-[]"; "-rotate-[a;b]" ]
+
 (* [origin-], [perspective-origin-] and [transform-] read their bracket through
    the arbitrary-value pipeline. Applying underscore decoding alone leaves
    [calc(1px+1px)] without the spaces CSS math wants and [--spacing(4)]
@@ -529,6 +653,8 @@ let tests =
       test_negative_step_translate_order;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
+    test_case "negative arbitrary translate-z" `Quick
+      test_neg_translate_z_arbitrary;
     test_case "any translate fraction" `Quick test_any_translate_fraction;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "typed constructors" `Quick test_typed;
@@ -542,6 +668,9 @@ let tests =
       test_arbitrary_transform_token_streams;
     test_case "arbitrary scale axis token stream" `Quick
       test_arbitrary_scale_axis_token_stream;
+    test_case "negative arbitrary scale" `Quick test_neg_scale_arbitrary;
+    test_case "negative arbitrary skew" `Quick test_neg_skew_arbitrary;
+    test_case "negative arbitrary rotate" `Quick test_neg_rotate_arbitrary;
     test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transform brackets peel a data-type hint" `Quick
       test_transform_brackets_peel_a_hint;

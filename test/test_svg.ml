@@ -144,6 +144,48 @@ let bracket_data_type_hint_reads_the_value () =
     "stroke-[length:notawidth] round-trips" "stroke-[length:notawidth]"
     (Tw.pp (Result.get_ok (Tw.of_string "stroke-[length:notawidth]")))
 
+(* A modifier reading a custom property mixes that property into the guarded
+   value on a bracket [var()] as on a palette colour. The bracket-var arms
+   folded the modifier to a percentage, which a var() has none of, so the mix
+   said [100%] and the modifier was dropped. *)
+let bracket_var_opacity_var () =
+  let mixed cls property =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        property ^ ": var(--c)";
+        property ^ ": color-mix(in oklab, var(--c) var(--o), transparent)";
+      ]
+  in
+  mixed "fill-[var(--c)]/(--o)" "fill";
+  mixed "fill-[color:var(--c)]/[var(--o)]" "fill";
+  mixed "stroke-[var(--c)]/(--o)" "stroke";
+  mixed "stroke-[color:var(--c)]/[var(--o)]" "stroke"
+
+(* A named [--opacity-*] token is read off the theme before the bracket is read,
+   or the modifier stays glued to the bracket: [fill-[var(--c)]/half] painted
+   the text [[var(--c)]/half] and [fill-[#123456]/half] a declaration no reader
+   takes, where Tailwind mixes [var(--opacity-half)] into both. *)
+let bracket_named_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let mixed cls property fallback colour =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [
+        property ^ ": " ^ fallback;
+        property ^ ": color-mix(in oklab, " ^ colour
+        ^ " var(--opacity-half), transparent)";
+      ]
+  in
+  mixed "fill-[var(--c)]/half" "fill" "var(--c)" "var(--c)";
+  mixed "stroke-[var(--c)]/half" "stroke" "var(--c)" "var(--c)";
+  (* a hex takes the percentage the token resolves to in its fallback, in the
+     sRGB mix Tailwind writes before its minifier folds it to a hex *)
+  mixed "fill-[#123456]/half" "fill"
+    "color-mix(in srgb, #123456 50%, transparent)" "#123456";
+  mixed "stroke-[#123456]/half" "stroke"
+    "color-mix(in srgb, #123456 50%, transparent)" "#123456"
+
 let tests =
   [
     test_case "bracket data-type hint reads the value" `Quick
@@ -158,6 +200,8 @@ let tests =
       stroke_arbitrary_width_invalid;
     test_case "stroke width rejects OCaml literals" `Quick
       stroke_width_rejects_ocaml_literals;
+    test_case "bracket var opacity from a var" `Quick bracket_var_opacity_var;
+    test_case "bracket named opacity" `Quick bracket_named_opacity;
   ]
 
 let suite = ("svg", tests)

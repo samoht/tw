@@ -146,9 +146,8 @@ module Handler = struct
     side_offset + value_order value
 
   let parse_arbitrary s : padding_value option =
-    let len = String.length s in
-    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
-      let inner = String.sub s 1 (len - 2) in
+    if Parse.is_bracket_value s then
+      let inner = Parse.bracket_inner s in
       (* A data-type hint chooses the longhand and says nothing about the value.
          Padding writes one longhand per side, so every hint lands here and the
          readers below are handed what follows it; [inner] keeps the hint
@@ -188,7 +187,7 @@ module Handler = struct
     let parts = Parse.split_class class_name in
     match parts with
     (* Handle arbitrary values: p-[4px], px-[var(--value)] *)
-    | [ prefix; arb ] when String.length arb > 0 && arb.[0] = '[' -> (
+    | [ prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (padding_axis_of_prefix prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value }
         | _ -> Error (`Msg "Not a padding utility"))

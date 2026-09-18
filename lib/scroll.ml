@@ -58,9 +58,8 @@ module Handler = struct
     (* Parse [4px] or [1rem] or [var(--value)] etc. Only a var() reference is a
        variable name: anything else that is not a length is not a utility, and
        reading it as one emitted [scroll-margin: var(--2vh)]. *)
-    let len = String.length s in
-    if len > 2 && s.[0] = '[' && s.[len - 1] = ']' then
-      let inner = String.sub s 1 (len - 2) in
+    if Parse.is_bracket_value s then
+      let inner = Parse.bracket_inner s in
       (* A data-type hint chooses the longhand and says nothing about the value.
          A scroll family writes one longhand per side, so every hint lands here
          and the readers below are handed what follows it. *)

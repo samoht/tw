@@ -926,7 +926,50 @@ let test_text_bracket_functions () =
   (* an alpha bracket names a colour, so it is a text colour rather than a
      size *)
   check_declarations "text-[--alpha(red/20%)]"
-    [ "color:color-mix(in oklab,red 20%,transparent)" ]
+    [ "color:color-mix(in oklab,red 20%,transparent)" ];
+  (* a bare number is the fraction Tailwind scales to a percentage, and a whole
+     one is the colour itself; the bracket read [0.2] as [0.2%] *)
+  check_declarations "text-[--alpha(red/0.2)]"
+    [ "color:color-mix(in oklab,red 20%,transparent)" ];
+  check_declarations "text-[--alpha(red/1)]" [ "color:red" ];
+  (* a call missing either half is what Tailwind refuses to compile, where the
+     bracket wrote the call out as the colour *)
+  let rejected cls =
+    Alcotest.(check bool)
+      (cls ^ " is refused") true
+      (Result.is_error (Tw.of_string cls))
+  in
+  rejected "text-[--alpha(red/)]";
+  rejected "text-[--alpha(red)]"
+
+(* An [--alpha()] whose alpha reads a custom property is the colour mixed with
+   that property, and a mix a browser without [color-mix()] cannot read has the
+   colour itself in the open, whether the mix was spelled with [--alpha()] or by
+   hand: Tailwind writes the first colour where a var() in the mix resolves to
+   nothing. The bracket reader took only a percentage alpha, so the class was
+   refused, and a hand-written mix with a var() alpha wrote the mix alone with
+   no fallback beside it. *)
+let test_text_bracket_alpha_var () =
+  let mixed cls =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "color: red"; "color: color-mix(in oklab, red var(--o), transparent)" ]
+  in
+  mixed "text-[--alpha(red/var(--o))]";
+  mixed "text-[color-mix(in_oklab,red_var(--o),transparent)]";
+  Test_helpers.check_declarations ~minify:false
+    "text-[--alpha(var(--c)/var(--o))]"
+    [
+      "color: var(--c)";
+      "color: color-mix(in oklab, var(--c) var(--o), transparent)";
+    ];
+  (* the modifier written after the bracket mixes the mix again *)
+  Test_helpers.check_declarations ~minify:false
+    "text-[--alpha(red/var(--o))]/50"
+    [
+      "color: red";
+      "color: color-mix(in oklab, color-mix(in oklab, red var(--o), \
+       transparent) 50%, transparent)";
+    ]
 
 (* A bracket list-style value is read with the CSS parser rather than a
    hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be
@@ -1111,6 +1154,38 @@ let test_decoration_shadeless_opacity () =
   rejected "decoration-2/50";
   rejected "decoration-nosuchcolor/50";
   rejected "decoration-white/"
+
+(* A modifier reading a custom property mixes that property into the guarded
+   value, on [currentcolor] and on a bracket [var()] as on a palette colour.
+   Both arms folded the modifier to a percentage, which a var() has none of, so
+   the mix said [100%] and the modifier was dropped. *)
+let test_decoration_opacity_var () =
+  let mixed cls fallback colour =
+    check_declarations cls
+      (fallback
+      @ [
+          "-webkit-text-decoration-color:color-mix(in oklab," ^ colour
+          ^ " var(--o),transparent)";
+          "text-decoration-color:color-mix(in oklab," ^ colour
+          ^ " var(--o),transparent)";
+        ])
+  in
+  mixed "decoration-current/(--o)"
+    [ "text-decoration-color:currentColor" ]
+    "currentcolor";
+  mixed "decoration-current/[var(--o)]"
+    [ "text-decoration-color:currentColor" ]
+    "currentcolor";
+  mixed "decoration-[var(--c)]/(--o)"
+    [
+      "-webkit-text-decoration-color:var(--c)"; "text-decoration-color:var(--c)";
+    ]
+    "var(--c)";
+  mixed "decoration-[color:var(--c)]/(--o)"
+    [
+      "-webkit-text-decoration-color:var(--c)"; "text-decoration-color:var(--c)";
+    ]
+    "var(--c)"
 
 (* The pre-color-mix fallback has to carry the modifier's alpha, or a browser
    without [color-mix()] paints the decoration fully opaque. A palette colour
@@ -1333,6 +1408,7 @@ let tests =
       test_decoration_bracket_unitless_is_color;
     test_case "decoration shadeless opacity" `Quick
       test_decoration_shadeless_opacity;
+    test_case "decoration opacity from a var" `Quick test_decoration_opacity_var;
     test_case "bracket list-style" `Quick test_bracket_list_style;
     test_case "list-style property bands" `Slow test_list_style_property_bands;
     test_case "invalid font family" `Quick test_invalid_font_family;
@@ -1389,6 +1465,8 @@ let tests =
       test_arbitrary_tracking_token_stream;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
+    test_case "text-[--alpha()] with a var alpha" `Quick
+      test_text_bracket_alpha_var;
     test_case "named font family from the theme" `Quick test_named_font_family;
     test_case "named font family sub-tokens" `Quick
       test_named_font_family_sub_tokens;

@@ -1342,6 +1342,56 @@ let test_inline_colour_token_folds_in_every_family () =
       ("bg-accent/50", "color-mix(in oklab,var(--accent) 50%,transparent)");
     ]
 
+(* A modifier reading a custom property mixes that property into the guarded
+   value, on [currentcolor] and on a bracket [var()] as on a palette colour, in
+   every family [Color.Handler] owns. The current-colour and bracket-var arms
+   folded the modifier to a percentage, which a var() has none of, so the mix
+   said [100%] and the modifier was dropped. The plain fallback keeps the colour
+   whole: a var() gives it no percentage to carry. *)
+let test_current_and_var_opacity_var () =
+  let mixed cls property fallback colour =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        property ^ ": " ^ fallback;
+        property ^ ": color-mix(in oklab, " ^ colour ^ " var(--o), transparent)";
+      ]
+  in
+  List.iter
+    (fun (cls, property) -> mixed cls property "currentColor" "currentcolor")
+    [
+      ("text-current/(--o)", "color");
+      ("text-current/[var(--o)]", "color");
+      ("border-current/(--o)", "border-color");
+      ("outline-current/(--o)", "outline-color");
+      ("caret-current/(--o)", "caret-color");
+      ("accent-current/(--o)", "accent-color");
+      ("placeholder-current/(--o)", "color");
+    ];
+  List.iter
+    (fun (cls, property) -> mixed cls property "var(--c)" "var(--c)")
+    [
+      ("text-[var(--c)]/(--o)", "color");
+      ("text-[color:var(--c)]/[var(--o)]", "color");
+      ("outline-[var(--c)]/(--o)", "outline-color");
+      ("outline-[color:var(--c)]/[var(--o)]", "outline-color");
+    ]
+
+(* A named [--opacity-*] token reads as [var(--opacity-half)] and nothing else,
+   the way every other family spells it. The background current-colour arm gave
+   the reference a second fallback, [var(--half-opacity)], that Tailwind never
+   writes: it tried to fold the token's value into the reference, and a
+   percentage is not the float it expected. *)
+let test_bg_current_named_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  Test_helpers.check_declarations ~theme ~minify:false "bg-current/half"
+    [
+      "background-color: currentColor";
+      "background-color: color-mix(in oklab, currentcolor var(--opacity-half), \
+       transparent)";
+    ]
+
 (* The modifier's [/] is the last one outside a bracket, as Tailwind reads a
    candidate, so the [/] a bracket value spells stays inside it:
    [shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50] was an unknown class, the first [/]
@@ -1362,6 +1412,10 @@ let test_modifier_slash_outside_bracket () =
 
 let tests =
   [
+    ( "Current and var colour opacity from a var",
+      `Quick,
+      test_current_and_var_opacity_var );
+    ("Background current named opacity", `Quick, test_bg_current_named_opacity);
     ( "Modifier slash outside a bracket",
       `Quick,
       test_modifier_slash_outside_bracket );
