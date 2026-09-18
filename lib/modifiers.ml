@@ -2576,124 +2576,6 @@ module Slot = struct
     | Arbitrary -> 100000
 end
 
-(* The slot a modifier constructor sorts in. Exhaustive on purpose: a new
-   variant has to be given a position here rather than falling into a catch-all
-   that would drop it in the middle of the table. *)
-let rec slot_of_modifier : modifier -> Slot.t = function
-  (* Every group-/peer- spelling sorts where its wrapper does, whatever state it
-     carries. *)
-  | Group_hover | Group_focus | Group_active | Group_visited | Group_disabled
-  | Group_checked | Group_empty | Group_required | Group_valid | Group_invalid
-  | Group_indeterminate | Group_default | Group_open | Group_target
-  | Group_optional | Group_read_only | Group_read_write | Group_inert
-  | Group_user_valid | Group_user_invalid | Group_placeholder_shown
-  | Group_autofill | Group_in_range | Group_out_of_range | Group_focus_within
-  | Group_focus_visible | Group_enabled | Group_first | Group_last | Group_only
-  | Group_odd | Group_even | Group_first_of_type | Group_last_of_type
-  | Group_only_of_type | Group_hocus | Group_has _ | Group_has_variant _
-  | Group_arbitrary _ | Group_not _ | Group_data _ | Group_aria _
-  | Named_group _ | Not_named_group _ | Group_peer_named _ ->
-      Slot.Group
-  | Peer_hover | Peer_focus | Peer_checked | Peer_active | Peer_visited
-  | Peer_disabled | Peer_empty | Peer_required | Peer_valid | Peer_invalid
-  | Peer_indeterminate | Peer_default | Peer_open | Peer_target | Peer_optional
-  | Peer_read_only | Peer_read_write | Peer_inert | Peer_user_valid
-  | Peer_user_invalid | Peer_placeholder_shown | Peer_autofill | Peer_in_range
-  | Peer_out_of_range | Peer_focus_within | Peer_focus_visible | Peer_enabled
-  | Peer_first | Peer_last | Peer_only | Peer_odd | Peer_even
-  | Peer_first_of_type | Peer_last_of_type | Peer_only_of_type | Peer_hocus
-  | Peer_has _ | Peer_has_variant _ | Peer_arbitrary _ | Peer_not _
-  | Peer_data _ | Peer_aria _ | Named_peer _ ->
-      Slot.Peer
-  | Children -> Slot.Child
-  | Descendants -> Slot.Descendant
-  | Pseudo_first_letter -> Slot.Pseudo_first_letter
-  | Pseudo_first_line -> Slot.Pseudo_first_line
-  | Pseudo_marker -> Slot.Pseudo_marker
-  | Pseudo_selection -> Slot.Pseudo_selection
-  | Pseudo_file -> Slot.Pseudo_file
-  | Pseudo_placeholder -> Slot.Pseudo_placeholder
-  | Pseudo_backdrop -> Slot.Pseudo_backdrop
-  | Pseudo_details_content -> Slot.Pseudo_details_content
-  | Pseudo_before -> Slot.Pseudo_before
-  | Pseudo_after -> Slot.Pseudo_after
-  | First -> Slot.First
-  | Last -> Slot.Last
-  | Only -> Slot.Only
-  | Odd -> Slot.Odd
-  | Even -> Slot.Even
-  | First_of_type -> Slot.First_of_type
-  | Last_of_type -> Slot.Last_of_type
-  | Only_of_type -> Slot.Only_of_type
-  | Visited -> Slot.Visited
-  | Target -> Slot.Target
-  | Open -> Slot.Open
-  | Default -> Slot.Default
-  | Checked -> Slot.Checked
-  | Indeterminate -> Slot.Indeterminate
-  | Placeholder_shown -> Slot.Placeholder_shown
-  | Autofill -> Slot.Autofill
-  | Optional -> Slot.Optional
-  | Required -> Slot.Required
-  | Valid -> Slot.Valid
-  | Invalid -> Slot.Invalid
-  | User_valid -> Slot.User_valid
-  | User_invalid -> Slot.User_invalid
-  | In_range -> Slot.In_range
-  | Out_of_range -> Slot.Out_of_range
-  | Read_only -> Slot.Read_only
-  | Read_write -> Slot.Read_write
-  | Empty -> Slot.Empty
-  | Focus_within -> Slot.Focus_within
-  | Hover -> Slot.Hover
-  | Focus -> Slot.Focus
-  | Focus_visible -> Slot.Focus_visible
-  | Active -> Slot.Active
-  | Enabled -> Slot.Enabled
-  | Disabled -> Slot.Disabled
-  | Inert -> Slot.Inert
-  | In_bracket _ | In_data _ | In_state _ | In_named_group _ -> Slot.Ancestor
-  | Has _ | Has_variant _ | Has_named_group _ -> Slot.Has
-  | Aria_checked | Aria_expanded | Aria_selected | Aria_disabled ->
-      Slot.Aria_named
-  | Aria_bracket _ -> Slot.Aria_arbitrary
-  | Data_state _ | Data_variant _ | Data_active | Data_inactive | Data_custom _
-    ->
-      Slot.Data_named
-  | Data_bracket _ -> Slot.Data_arbitrary
-  | Nth _ -> Slot.Nth
-  | Nth_last _ -> Slot.Nth_last
-  | Nth_of_type _ -> Slot.Nth_of_type
-  | Nth_last_of_type _ -> Slot.Nth_last_of_type
-  | Hocus | Device_hocus -> Slot.Hocus
-  | Supports_property _ | Supports_condition _ -> Slot.Supports
-  | Motion_safe -> Slot.Motion_safe
-  | Motion_reduce -> Slot.Motion_reduce
-  | Contrast_more -> Slot.Contrast_more
-  | Contrast_less -> Slot.Contrast_less
-  | Pointer_none | Pointer_coarse | Pointer_fine -> Slot.Pointer
-  | Any_pointer_none | Any_pointer_coarse | Any_pointer_fine -> Slot.Any_pointer
-  | Responsive _ | Min_responsive _ | Max_responsive _ | Min_arbitrary _
-  | Max_arbitrary _ | Min_arbitrary_length _ | Max_arbitrary_length _
-  | Custom_responsive _ | Min_custom _ | Max_custom _ ->
-      Slot.Breakpoint
-  | Portrait -> Slot.Portrait
-  | Landscape -> Slot.Landscape
-  | Ltr -> Slot.Ltr
-  | Rtl -> Slot.Rtl
-  | Dark -> Slot.Dark
-  | Print -> Slot.Print
-  | Forced_colors -> Slot.Forced_colors
-  | Noscript -> Slot.Noscript
-  | Inverted_colors -> Slot.Inverted_colors
-  | Starting -> Slot.Starting
-  | Custom_variant _ -> Slot.Custom
-  | Prose_element element -> Slot.Prose element
-  | Not_bracket _ | Arbitrary_selector _ | At_rule _ -> Slot.Arbitrary
-  | Container _ | Container_style _ -> Slot.Container_query
-  (* A negation sorts where the variant it negates sorts. *)
-  | Not inner -> slot_of_modifier inner
-
 (* The slot a class-name token sorts in, or [None] when the token names no
    variant this table knows. The token is one modifier of a class name, the part
    between two ":" (["hover"], ["group-has-checked"], ["@min-[64rem]"]). *)
@@ -2874,8 +2756,6 @@ let rec variant_inner_order_path ?theme token =
    compound variant. *)
 let variant_inner_order token =
   match variant_inner_order_path token with order :: _ -> order | [] -> 0
-
-let not_variant_order m = Slot.rank (slot_of_modifier m)
 
 let variant_order_of_media_cond cond =
   match slot_of_media_cond cond with Some slot -> Slot.rank slot | None -> 0

@@ -582,6 +582,10 @@
   different utility, with nothing to say so (#809).
 - `Var.needs_property_rule` answers `false` for a variable carrying metadata tw
   did not create, where it failed an assertion (#707).
+- `Modifiers.not_variant_order` and `Modifiers.prose_element_inner_selector`
+  are gone: nothing read the first, and the second was the module's own
+  helper. A caller of either uses `Modifiers.variant_order_of_prefix` and
+  `Modifiers.to_selector` (#871).
 
 ### Packaging
 
