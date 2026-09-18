@@ -55,18 +55,20 @@ module Handler = struct
     | Arb_neg of string
   (* -mask-linear-[3rad] → calc(171.887deg * -1) *)
 
-  type var_ref_kind = Plain_var | Length_var
+  (* The colour a stop names, as the class spelled it. *)
+  type stop_color =
+    | Palette of Color.color * int (* red-500 *)
+    | Keyword_color of Css.color * string (* transparent, current, inherit *)
+    | Bracket_color of string
+      (* [#fff], [red], [color:var(--c)]: the bracket's inner text as written *)
+    | Color_var of string (* (color:--x): the name after the dashes *)
 
   type t =
     | Position of direction * position_end * value
-    | Var_ref of direction * position_end * var_ref_kind * string
-      (* (--var) or (length:--var) → sets position to var(--var) *)
-    | Color_ref of direction * position_end * string
-      (* (color:--var) → sets color to var(--var) *)
-    | Stop_color of direction * position_end * Color.color * int
-      (* a palette entry as the stop colour *)
-    | Stop_keyword of direction * position_end * Css.color * string
-      (* transparent / current as the stop colour *)
+    | Var_ref of direction * position_end * string option * string
+      (* (--x) or (<hint>:--x), the position read from a custom property: the
+         hint as written and the name after the dashes *)
+    | Stop of direction * position_end * stop_color
     | Linear_angle of mask_angle
     | Conic_angle of mask_angle
     | Radial (* just mask-radial with no position *)
@@ -471,6 +473,13 @@ module Handler = struct
     | Ok lp -> Some lp
     | Error _ -> None
 
+  (* The value a bracket carries: the text after any data-type hint, where [_]
+     is a space and a math function takes the spaces around its operators. The
+     hint chose the longhand and says nothing about the value. *)
+  let bracket_value inner =
+    Parse.decode_arbitrary_value
+      (Option.value (Parse.value_after_hint inner) ~default:inner)
+
   let position_decl ?theme v pos_end value =
     let var = position_var v pos_end in
     match value with
@@ -483,10 +492,9 @@ module Handler = struct
         set var (Length len)
     | Percent p -> set var (Pct p)
     | Arbitrary raw -> (
-        (* An arbitrary value: [_] is a space and a math function takes the
-           spaces around its operators, whether or not what comes out is a
-           length-percentage. *)
-        let value = Parse.decode_arbitrary_value raw in
+        (* Whether or not what comes out is a length-percentage, it reaches the
+           sheet: the position is a token stream. *)
+        let value = bracket_value raw in
         match arbitrary_length_percentage value with
         | Some lp -> set var lp
         | None -> custom_property ~layer:"utilities" (Var.css_name var) value)
@@ -741,10 +749,6 @@ module Handler = struct
     in
     style ~property_rules:conic_property_rules (decls @ composite_decls)
 
-  (* [(--x)] keeps the leading dashes the class was written with; the reference
-     takes the bare name. *)
-  let bare_var_name name = Option.value ~default:name (Parse.bare_name name)
-
   (* A stop utility restates the gradient it belongs to, then writes its own end
      of it. *)
   let stop_decls dir stop =
@@ -772,50 +776,71 @@ module Handler = struct
     mask_image_decls @ linear_decl @ dir_decls
 
   (* Build the style for parenthesized var reference setting position *)
-  let build_var_ref_style dir pos_end var_name =
+  let build_var_ref_style dir pos_end name =
     let property_rules = property_rules_for_direction dir in
     let merge_key =
       "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
       ^ "-var-position"
     in
-    let position : length_percentage =
-      Var (Var.bracket (bare_var_name var_name))
-    in
+    let position : length_percentage = Var (Var.bracket name) in
     let stop v = set (position_var v pos_end) position in
     style ~merge_key ~property_rules (stop_decls dir stop @ composite_decls)
 
-  (* The stop colour: [var(--color-black)] for a palette entry, the keyword
-     itself for [transparent] / [current]. *)
-  let build_color_value_style dir pos_end value =
+  (* The colour a bracket stop names, read the way every colour family reads a
+     bracket: a var() is the reference it makes, the rest goes through the
+     colour reader. [None] is text the reader has no colour for. *)
+  let bracket_colour inner : Css.color option =
+    let value = Option.value (Parse.value_after_hint inner) ~default:inner in
+    if Parse.is_var value then
+      Option.some (Color.bracket_var_color (Parse.decode_arbitrary_value value))
+    else Color.parse_bracket_color value
+
+  (* The [current] keyword goes in as text because this custom property is a
+     token stream: a typed [Current] folds through it to a hex, where Tailwind
+     writes [currentcolor] for a gradient stop to resolve against the element.
+     Not a workaround for cascade's printer, which spells the keyword correctly
+     and positionally - [currentColor] bare, [currentcolor] inside a
+     function. *)
+  let colour_decl var (c : Css.color) =
+    match c with
+    | Current ->
+        custom_property ~layer:"utilities" (Var.css_name var) "currentcolor"
+    | c -> set var c
+
+  (* What a stop colour writes: the theme token a palette entry brings along, so
+     the sheet defines what it references, and the stop itself. A bracket the
+     colour reader has no colour for still reaches the sheet as written, since
+     the custom property takes any token stream. *)
+  type stop_colour = {
+    tokens : Css.declaration list;
+    plain : Css.color Var.channel -> Css.declaration;
+  }
+
+  let stop_colour ~theme = function
+    | Palette (c, shade) ->
+        let decl, token = Color.Handler.color_binding ~theme c shade in
+        { tokens = [ decl ]; plain = (fun var -> set var (Var token)) }
+    | Keyword_color (c, _) ->
+        { tokens = []; plain = (fun var -> colour_decl var c) }
+    | Color_var name ->
+        { tokens = []; plain = (fun var -> set var (Var (Var.bracket name))) }
+    | Bracket_color inner -> (
+        match bracket_colour inner with
+        | Some c -> { tokens = []; plain = (fun var -> colour_decl var c) }
+        | None ->
+            let text = bracket_value inner in
+            {
+              tokens = [];
+              plain =
+                (fun var ->
+                  custom_property ~layer:"utilities" (Var.css_name var) text);
+            })
+
+  let build_stop_style ~theme dir pos_end colour =
     let property_rules = property_rules_for_direction dir in
-    let stop v = set (color_var v pos_end) value in
-    style ~property_rules (stop_decls dir stop @ composite_decls)
-
-  (* The keyword goes in as text because this custom property is a token stream:
-     a typed [Current] folds through it to a hex, where Tailwind writes
-     [currentcolor] for a gradient stop to resolve against the element. Not a
-     workaround for cascade's printer, which spells the keyword correctly and
-     positionally - [currentColor] bare, [currentcolor] inside a function. *)
-  let build_current_color_style dir pos_end =
-    let property_rules = property_rules_for_direction dir in
-    let stop v =
-      custom_property ~layer:"utilities"
-        (Var.css_name (color_var v pos_end))
-        "currentcolor"
-    in
-    style ~property_rules (stop_decls dir stop @ composite_decls)
-
-  (* A named stop colour points at its palette token, and carries the token's
-     own theme declaration along so the sheet defines what it references. *)
-  let build_stop_color_style ?theme dir pos_end c shade =
-    let decl, token = Color.Handler.color_binding ?theme c shade in
-    match build_color_value_style dir pos_end (Var token : Css.color) with
-    | Style.Style st -> Style.Style { st with props = decl :: st.props }
-    | other -> other
-
-  let build_color_ref_style dir pos_end var_name =
-    build_color_value_style dir pos_end
-      (Var (Var.bracket (bare_var_name var_name)) : Css.color)
+    let { tokens; plain } = stop_colour ~theme colour in
+    let stop v = plain (color_var v pos_end) in
+    style ~property_rules (tokens @ stop_decls dir stop @ composite_decls)
 
   let to_style theme =
     let build_directional_style dir pos_end value =
@@ -852,16 +877,8 @@ module Handler = struct
     | Radial_at pos -> build_radial_at_style pos
     | Radial_shape shape -> build_radial_shape_style shape
     | Radial_size size -> build_radial_size_style size
-    | Var_ref (dir, pos_end, _, var_name) ->
-        build_var_ref_style dir pos_end var_name
-    | Color_ref (dir, pos_end, var_name) ->
-        build_color_ref_style dir pos_end var_name
-    | Stop_color (dir, pos_end, c, shade) ->
-        build_stop_color_style ~theme dir pos_end c shade
-    | Stop_keyword (dir, pos_end, Current, _) ->
-        build_current_color_style dir pos_end
-    | Stop_keyword (dir, pos_end, value, _) ->
-        build_color_value_style dir pos_end value
+    | Var_ref (dir, pos_end, _, name) -> build_var_ref_style dir pos_end name
+    | Stop (dir, pos_end, colour) -> build_stop_style ~theme dir pos_end colour
 
   (* Tailwind sorts a layer's rules by the properties they set, walking the
      fixed table its property-order list gives: mask-image, then a block per
@@ -905,10 +922,10 @@ module Handler = struct
     property_suborder (block + stop) + sides + if var then 0 else 1
 
   let suborder = function
-    | Stop_keyword (dir, pos_end, _, _) | Stop_color (dir, pos_end, _, _) ->
-        stop_suborder dir pos_end ~color:true ~var:false
-    | Color_ref (dir, pos_end, _) ->
+    | Stop (dir, pos_end, Color_var _) ->
         stop_suborder dir pos_end ~color:true ~var:true
+    | Stop (dir, pos_end, (Palette _ | Keyword_color _ | Bracket_color _)) ->
+        stop_suborder dir pos_end ~color:true ~var:false
     | Var_ref (dir, pos_end, _, _) ->
         stop_suborder dir pos_end ~color:false ~var:true
     | Position (dir, pos_end, _) ->
@@ -972,86 +989,164 @@ module Handler = struct
           | Ok n -> Option.some (Spacing n)
           | Error _ -> Option.none)
 
-  (* Parse a value from the class suffix *)
-  let parse_value suffix =
-    if String.starts_with ~prefix:"[" suffix then
-      (* Arbitrary value - reject negative values, and any text that would not
-         stay inside the declaration it is written into. *)
-      if Parse.is_bracket_value suffix then
-        let inner = Parse.bracket_inner suffix in
-        let value = Option.value (Parse.value_after_hint inner) ~default:"" in
-        if String.starts_with ~prefix:"-" inner then Option.none
-        else if not (Parse.is_declaration_value inner) then Option.none
-        else
-          match percentage_number value with
-          | Some number when is_css_number number ->
-              if whole_percentage number then Option.some (Arbitrary inner)
-              else Option.none
-          | Some _ | None -> Option.some (Arbitrary inner)
-      else Option.none
-    else bare_position suffix
+  (* Tailwind's own test for a math function: one of its names followed by a
+     paren anywhere in the value. *)
+  let math_functions =
+    [
+      "calc";
+      "min";
+      "max";
+      "clamp";
+      "mod";
+      "rem";
+      "sin";
+      "cos";
+      "tan";
+      "asin";
+      "acos";
+      "atan";
+      "atan2";
+      "pow";
+      "sqrt";
+      "hypot";
+      "log";
+      "exp";
+      "round";
+    ]
 
-  (* Parse a parenthesized var reference like "(--var)", "(length:--var)",
-     "(color:--var)". Returns `Some (is_color, var_name)` or None. *)
-  let parse_paren_var suffix =
-    let len = String.length suffix in
-    if
-      String.starts_with ~prefix:"(" suffix
-      && String.ends_with ~suffix:")" suffix
-      && len > 2
-    then
-      let inner = String.sub suffix 1 (len - 2) in
-      if String.starts_with ~prefix:"color:" inner && String.length inner > 7
-      then
-        (* (color:--var-name) → color ref *)
-        let var_name = String.sub inner 6 (String.length inner - 6) in
-        Some (`Color, var_name)
-      else if
-        String.starts_with ~prefix:"length:" inner && String.length inner > 9
-      then
-        (* (length:--var-name) → position ref with length prefix *)
-        let var_name = String.sub inner 7 (String.length inner - 7) in
-        Some (`Length, var_name)
-      else if Option.is_some (Parse.bare_name inner) then
-        (* (--var-name) → position ref *)
-        Some (`Position, inner)
-      else None
-    else None
+  let contains ~sub s =
+    let n = String.length s and m = String.length sub in
+    let rec from i = i + m <= n && (String.sub s i m = sub || from (i + 1)) in
+    from 0
+
+  let has_math_call value =
+    String.contains value '('
+    && List.exists (fun f -> contains ~sub:(f ^ "(") value) math_functions
+
+  (* The colour keywords Tailwind knows: the named colours, [transparent],
+     [currentcolor] and the system colours, in any case. [inherit] is not
+     one. *)
+  let is_colour_keyword value =
+    match
+      Css.Values.read_color_keyword_of_string (String.lowercase_ascii value)
+    with
+    | Some (Named _ | Transparent | Current | System _) -> true
+    | Some _ | None -> false
+
+  let is_colour_token value =
+    (value <> "" && value.[0] = '#')
+    || Parse.is_css_color_fn value
+    || String.starts_with ~prefix:"--alpha(" value
+    || is_colour_keyword value
+
+  (* Which longhand a bracket stop lands in. The hint decides when the author
+     wrote one; otherwise Tailwind infers: a var() or a math function it does
+     not read, a percentage is one, a hex, a colour function or a colour keyword
+     is the colour, and anything else is the position. *)
+  type bracket_kind = Colour_stop | Percentage_stop | Position_stop
+
+  let infer_kind value =
+    if Parse.is_var value || has_math_call value then Position_stop
+    else
+      match percentage_number value with
+      | Some number when is_css_number number -> Percentage_stop
+      | Some _ | None ->
+          if is_colour_token value then Colour_stop else Position_stop
+
+  let bracket_kind hint value =
+    match hint with
+    | Some "color" -> Colour_stop
+    | Some "percentage" -> Percentage_stop
+    | Some _ -> Position_stop
+    | None -> infer_kind value
+
+  (* A bracket stop. An empty hint names no utility, and so does a value that is
+     blank or would not stay inside its declaration. A colour the reader cannot
+     read is written through, unless it holds a call Tailwind would have
+     resolved and refused. *)
+  let bracket_stop dir pos_end inner =
+    let invalid = Error (`Msg ("Invalid mask stop: [" ^ inner ^ "]")) in
+    match Parse.value_after_hint inner with
+    | None -> invalid
+    | Some value -> (
+        let hint = Option.map fst (Parse.data_type_hint inner) in
+        let value = Parse.decode_arbitrary_value value in
+        if String.trim value = "" || not (Parse.is_declaration_value value) then
+          invalid
+        else
+          match bracket_kind hint value with
+          | Colour_stop ->
+              if
+                bracket_colour inner = None && Parse.holds_unresolved_call value
+              then invalid
+              else Ok (Stop (dir, pos_end, Bracket_color inner))
+          | Percentage_stop -> (
+              match percentage_number value with
+              | Some number when whole_percentage number ->
+                  Ok (Position (dir, pos_end, Arbitrary inner))
+              | Some _ | None -> invalid)
+          | Position_stop -> Ok (Position (dir, pos_end, Arbitrary inner)))
+
+  (* The (--x) shorthand. Tailwind splits a hint off at the first colon and
+     takes what follows only when it names a custom property: the hint as
+     written, and the name after the dashes, which the degenerate (--) leaves
+     empty. *)
+  let paren_var suffix =
+    let n = String.length suffix in
+    if n < 2 || suffix.[0] <> '(' || suffix.[n - 1] <> ')' then Option.none
+    else
+      let inner = String.sub suffix 1 (n - 2) in
+      let hint, name =
+        match Parse.data_type_hint inner with
+        | Some (hint, name) -> (Option.some hint, name)
+        | None -> (Option.none, inner)
+      in
+      if
+        hint = Some ""
+        || (not (String.starts_with ~prefix:"--" name))
+        || not (Parse.is_declaration_value name)
+      then Option.none
+      else Option.some (hint, String.sub name 2 (String.length name - 2))
+
+  (* A bare stop: Tailwind reads a colour first, [inherit], [transparent],
+     [current] or a palette entry, and a step or a percentage after. *)
+  let bare_stop ~theme dir pos_end rest =
+    let keyword c =
+      Option.some
+        (Stop (dir, pos_end, Keyword_color (c, String.concat "-" rest)))
+    in
+    match rest with
+    | [ "transparent" ] -> keyword Css.Transparent
+    | [ "current" ] -> keyword Css.Current
+    | [ "inherit" ] -> keyword Css.Inherit
+    | _ -> (
+        match Color.shade_of_strings ~theme rest with
+        | Ok (c, shade) -> Option.some (Stop (dir, pos_end, Palette (c, shade)))
+        | Error _ ->
+            Option.map
+              (fun v -> Position (dir, pos_end, v))
+              (bare_position (String.concat "-" rest)))
 
   (* Parse directional from/to with support for values and paren refs *)
   let parse_directional ~theme dir pos_end rest =
     let suffix = String.concat "-" rest in
-    match parse_paren_var suffix with
-    | Some (`Color, var_name) -> Ok (Color_ref (dir, pos_end, var_name))
-    | Some (`Length, var_name) ->
-        Ok (Var_ref (dir, pos_end, Length_var, var_name))
-    | Some (`Position, var_name) ->
-        Ok (Var_ref (dir, pos_end, Plain_var, var_name))
+    let invalid =
+      Error
+        (`Msg
+           ("Invalid mask-" ^ direction_short dir ^ "-"
+          ^ position_end_name pos_end ^ " value"))
+    in
+    match paren_var suffix with
+    | Some (Some "color", name) -> Ok (Stop (dir, pos_end, Color_var name))
+    | Some (Some "percentage", _) -> invalid
+    | Some (hint, name) -> Ok (Var_ref (dir, pos_end, hint, name))
     | None -> (
-        match parse_value suffix with
-        | Some value -> Ok (Position (dir, pos_end, value))
-        | None -> (
-            (* A stop is either a position or a colour, and the two share the
-               syntax slot, so a colour name is the last thing tried. *)
-            let keyword k =
-              Some (Stop_keyword (dir, pos_end, k, String.concat "-" rest))
-            in
-            let stop =
-              match rest with
-              | [ "transparent" ] -> keyword Css.Transparent
-              | [ "current" ] -> keyword Css.current_color
-              | _ -> (
-                  match Color.shade_of_strings ~theme rest with
-                  | Ok (c, shade) -> Some (Stop_color (dir, pos_end, c, shade))
-                  | Error _ -> None)
-            in
-            match stop with
-            | Some stop -> Ok stop
-            | None ->
-                Error
-                  (`Msg
-                     ("Invalid mask-" ^ direction_short dir ^ "-"
-                    ^ position_end_name pos_end ^ " value"))))
+        if Parse.is_bracket_value suffix then
+          bracket_stop dir pos_end (Parse.bracket_inner suffix)
+        else
+          match bare_stop ~theme dir pos_end rest with
+          | Some stop -> Ok stop
+          | None -> invalid)
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -1192,26 +1287,25 @@ module Handler = struct
         else pp_float p ^ "%"
     | Arbitrary v -> "[" ^ v ^ "]"
 
+  let stop_color_class = function
+    | Palette (c, shade) ->
+        Color.color_to_string c
+        ^ if Color.is_shadeless c then "" else "-" ^ string_of_int shade
+    | Keyword_color (_, name) -> name
+    | Bracket_color inner -> "[" ^ inner ^ "]"
+    | Color_var name -> "(color:--" ^ name ^ ")"
+
   let to_class = function
     | Position (dir, pos_end, value) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
         ^ format_value value
-    | Var_ref (dir, pos_end, Plain_var, var_name) ->
+    | Var_ref (dir, pos_end, hint, name) ->
+        let hint = match hint with Some h -> h ^ ":" | None -> "" in
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-("
-        ^ var_name ^ ")"
-    | Var_ref (dir, pos_end, Length_var, var_name) ->
-        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
-        ^ "-(length:" ^ var_name ^ ")"
-    | Stop_keyword (dir, pos_end, _, name) ->
+        ^ hint ^ "--" ^ name ^ ")"
+    | Stop (dir, pos_end, colour) ->
         "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
-        ^ name
-    | Stop_color (dir, pos_end, c, shade) ->
-        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end ^ "-"
-        ^ Color.color_to_string c
-        ^ if Color.is_shadeless c then "" else "-" ^ string_of_int shade
-    | Color_ref (dir, pos_end, var_name) ->
-        "mask-" ^ direction_short dir ^ "-" ^ position_end_name pos_end
-        ^ "-(color:" ^ var_name ^ ")"
+        ^ stop_color_class colour
     | Linear_angle (Int n) ->
         if n < 0 then "-mask-linear-" ^ string_of_int (-n)
         else "mask-linear-" ^ string_of_int n
