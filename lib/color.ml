@@ -1797,11 +1797,14 @@ module Handler = struct
       | Named of color * int
       | Named_opacity of color * int * opacity_modifier
       | Bracket of string * Css.color
+      | Bracket_opacity of string * Css.color * opacity_modifier
       | Raw of string * string
         (* border-t-[notacolour]: the colour is this family's last resort, so a
            bracket no reader took reaches the side's own longhand verbatim. *)
       | Transparent
       | Current
+      | Current_opacity of opacity_modifier
+      | Inherit
   end
 
   (** Local color utility type *)
@@ -1831,6 +1834,7 @@ module Handler = struct
     | Border_transparent
     | Border_current
     | Border_current_opacity of opacity_modifier
+    | Border_inherit
     | Border_bracket_color of string * Css.color
     | Border_bracket_raw of string * string
       (* border-[notacolour]: the colour is this family's last resort, so a
@@ -2023,8 +2027,9 @@ module Handler = struct
      [Css.user_select] [Text] constructors. *)
   let priority = function
     | Border_opacity _ | Border _ | Border_transparent | Border_current
-    | Border_current_opacity _ | Border_bracket_color _ | Border_bracket_raw _
-    | Border_side_color _ | Border_bracket_color_opacity _ ->
+    | Border_current_opacity _ | Border_inherit | Border_bracket_color _
+    | Border_bracket_raw _ | Border_side_color _
+    | Border_bracket_color_opacity _ ->
         19
     | Text_opacity _ | Text _ | Text_transparent | Text_current
     | Text_current_opacity _ | Text_inherit | Text_bracket_color _
@@ -2142,6 +2147,49 @@ module Handler = struct
       | Some c -> Some (Plain_color c)
       | None -> None
 
+  (* A per-side border bracket: a colour or a hinted var, under a modifier or
+     not, and a bracket no reader took is the side's last resort at full opacity
+     only, as it is for the all-sides utility. *)
+  let parse_border_side_bracket ~theme v =
+    let not_mine = [ "length"; "line-width" ] in
+    let base, opacity = parse_opacity_modifier ~theme v in
+    let inner = Parse.bracket_inner base in
+    match (bracket_color_after_hint ~not_mine inner, opacity) with
+    | Some css_color, No_opacity -> Ok (Side_color.Bracket (inner, css_color))
+    | Some css_color, opacity ->
+        Ok (Side_color.Bracket_opacity (inner, css_color, opacity))
+    | None, No_opacity -> (
+        match last_resort ~not_mine inner with
+        | Some raw -> Ok (Side_color.Raw (inner, raw))
+        | None -> Error (`Msg ("Invalid border side bracket: " ^ v)))
+    | None, _ -> Error (`Msg ("Invalid border side bracket: " ^ v))
+
+  (* The colour a border-{side}-* class names, read the way the all-sides border
+     colour reads its own: the keywords take a modifier as a palette colour
+     does. *)
+  let parse_border_side_color ~theme = function
+    | [ "transparent" ] -> Ok Side_color.Transparent
+    | [ "inherit" ] -> Ok Side_color.Inherit
+    | [ current_str ] when String.starts_with ~prefix:"current" current_str -> (
+        match parse_opacity_modifier ~theme current_str with
+        | "current", No_opacity -> Ok Side_color.Current
+        | "current", opacity -> Ok (Side_color.Current_opacity opacity)
+        | _ -> Error (`Msg ("Invalid border side colour: " ^ current_str)))
+    | [ v ]
+      when String.length v > 0
+           && v.[0] = '['
+           && Parse.is_bracket_value (fst (parse_opacity_modifier ~theme v)) ->
+        parse_border_side_bracket ~theme v
+    | color_parts when List.exists has_opacity color_parts ->
+        Result.map
+          (fun (color, shade, opacity) ->
+            Side_color.Named_opacity (color, shade, opacity))
+          (shade_and_opacity_of_strings ~theme color_parts)
+    | color_parts ->
+        Result.map
+          (fun (color, shade) -> Side_color.Named (color, shade))
+          (shade_of_strings ~theme color_parts)
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -2194,6 +2242,7 @@ module Handler = struct
         | Ok (color, shade) -> Ok (Text (color, shade))
         | Error e -> Error e)
     | [ "border"; "transparent" ] -> Ok Border_transparent
+    | [ "border"; "inherit" ] -> Ok Border_inherit
     | [ "border"; current_str ]
       when String.starts_with ~prefix:"current" current_str -> (
         let base, opacity = parse_opacity_modifier ~theme current_str in
@@ -2232,7 +2281,7 @@ module Handler = struct
            &&
            match side with
            | "t" | "r" | "b" | "l" | "x" | "y" | "s" | "e" | "bs" | "be" -> true
-           | _ -> false -> (
+           | _ -> false ->
         let bs =
           match side with
           | "t" -> Side.Top
@@ -2246,40 +2295,9 @@ module Handler = struct
           | "be" -> Side.Block_end
           | _ -> Side.Left
         in
-        match rest with
-        | [ "transparent" ] ->
-            Ok (Border_side_color (bs, Side_color.Transparent))
-        | [ "current" ] -> Ok (Border_side_color (bs, Side_color.Current))
-        | [ v ]
-          when String.length v > 0 && v.[0] = '[' && Parse.is_bracket_value v
-          -> (
-            let inner = Parse.bracket_inner v in
-            match
-              bracket_color_after_hint ~not_mine:[ "length"; "line-width" ]
-                inner
-            with
-            | Some css_color ->
-                Ok
-                  (Border_side_color (bs, Side_color.Bracket (inner, css_color)))
-            | None -> (
-                match
-                  last_resort ~not_mine:[ "length"; "line-width" ] inner
-                with
-                | Some raw ->
-                    Ok (Border_side_color (bs, Side_color.Raw (inner, raw)))
-                | None -> Error (`Msg ("Invalid border side bracket: " ^ v))))
-        | color_parts when List.exists has_opacity color_parts -> (
-            match shade_and_opacity_of_strings ~theme color_parts with
-            | Ok (color, shade, opacity) ->
-                Ok
-                  (Border_side_color
-                     (bs, Side_color.Named_opacity (color, shade, opacity)))
-            | Error e -> Error e)
-        | color_parts -> (
-            match shade_of_strings ~theme color_parts with
-            | Ok (color, shade) ->
-                Ok (Border_side_color (bs, Side_color.Named (color, shade)))
-            | Error e -> Error e))
+        Result.map
+          (fun value -> Border_side_color (bs, value))
+          (parse_border_side_color ~theme rest)
     | "border" :: color_parts when List.exists has_opacity color_parts -> (
         match shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
@@ -2491,6 +2509,7 @@ module Handler = struct
 
   let border_transparent = style [ Css.border_color (Css.hex "#0000") ]
   let border_current = style [ Css.border_color Current ]
+  let border_inherit = style [ Css.border_color Inherit ]
 
   (* Per-side border colour emission. *)
   (* The longhand each side names, for a value no typed setter can hold. *)
@@ -2972,29 +2991,6 @@ module Handler = struct
   let border_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.border_color c shade opacity
 
-  let border_side_color_style theme side value =
-    let sides = setters_of_side side in
-    let apply c = style (List.map (fun set -> set c) sides) in
-    match value with
-    | Side_color.Named (color, shade) ->
-        if is_custom_color color then apply (to_css color shade)
-        else
-          let color_var = color_var color shade in
-          let color_value = get_color_value ~theme color shade in
-          let decls, color = bound ~theme color_var color_value in
-          style (decls @ List.map (fun set -> set color) sides)
-    | Side_color.Named_opacity (color, shade, opacity) ->
-        colors_with_opacity_style ~theme ~properties:sides color shade opacity
-    | Side_color.Bracket (_, css_color) ->
-        bracket_colors_style ~theme ~properties:sides css_color
-    | Side_color.Raw (_, value) ->
-        style
-          (List.filter_map
-             (fun property -> Parse.opaque_declaration property value)
-             (properties_of_side side))
-    | Side_color.Transparent -> apply (Css.hex "#0000")
-    | Side_color.Current -> apply Css.Current
-
   (** Accent color with opacity *)
   let accent_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.accent_color
@@ -3059,13 +3055,55 @@ module Handler = struct
           Guarded { fallback = base; mixed }
       | None -> Folded mixed
 
-  let bracket_color_opacity_style ?(theme = Scheme.default) ?merge_key ~property
-      css_color opacity =
+  (* The same modifier on a bracket colour set on several properties at once,
+     which a per-side border colour needs. *)
+  let bracket_colors_opacity_style ?(theme = Scheme.default) ?merge_key
+      ~properties css_color opacity =
+    let declarations c = List.map (fun property -> property c) properties in
     match bracket_color_opacity ~theme css_color opacity with
-    | Folded value -> style ?merge_key [ property value ]
+    | Folded value -> style ?merge_key (declarations value)
     | Guarded { fallback; mixed } ->
-        let supports_block = color_mix_supports [ property mixed ] in
-        style ?merge_key ~rules:(Some [ supports_block ]) [ property fallback ]
+        let supports_block = color_mix_supports (declarations mixed) in
+        style ?merge_key ~rules:(Some [ supports_block ])
+          (declarations fallback)
+
+  let bracket_color_opacity_style ?theme ?merge_key ~property css_color opacity
+      =
+    bracket_colors_opacity_style ?theme ?merge_key ~properties:[ property ]
+      css_color opacity
+
+  let border_side_color_style theme side value =
+    let sides = setters_of_side side in
+    let apply c = style (List.map (fun set -> set c) sides) in
+    match value with
+    | Side_color.Named (color, shade) ->
+        if is_custom_color color then apply (to_css color shade)
+        else
+          let color_var = color_var color shade in
+          let color_value = get_color_value ~theme color shade in
+          let decls, color = bound ~theme color_var color_value in
+          style (decls @ List.map (fun set -> set color) sides)
+    | Side_color.Named_opacity (color, shade, opacity) ->
+        colors_with_opacity_style ~theme ~properties:sides color shade opacity
+    | Side_color.Bracket (_, css_color) ->
+        bracket_colors_style ~theme ~properties:sides css_color
+    | Side_color.Bracket_opacity (_, css_color, opacity) ->
+        bracket_colors_opacity_style ~theme ~properties:sides css_color opacity
+    | Side_color.Raw (_, value) ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property value)
+             (properties_of_side side))
+    | Side_color.Transparent -> apply (Css.hex "#0000")
+    | Side_color.Current -> apply Css.Current
+    | Side_color.Current_opacity opacity ->
+        let current : Css.color = Css.Current in
+        let mixed = mix_alpha opacity current in
+        style
+          ~rules:
+            (Some [ color_mix_supports (List.map (fun set -> set mixed) sides) ])
+          (List.map (fun set -> set current) sides)
+    | Side_color.Inherit -> apply Css.Inherit
 
   let outline_bracket_color_opacity_style ~theme inner css_color opacity =
     let merge_key =
@@ -3175,6 +3213,7 @@ module Handler = struct
     | Border_current -> border_current
     | Border_current_opacity opacity ->
         current_color_with_opacity ~property:Css.border_color opacity
+    | Border_inherit -> border_inherit
     | Border_bracket_color (_orig, css_color) ->
         bracket_color_style ~theme ~merge_key:"border-"
           ~property:Css.border_color css_color
@@ -3298,6 +3337,7 @@ module Handler = struct
     | Border_transparent -> 1500
     | Border_current -> 1500
     | Border_current_opacity _ -> 1500
+    | Border_inherit -> 1500
     | Border_bracket_color _ | Border_bracket_raw _ -> 1500
     | Border_bracket_color_opacity _ -> 1500
     (* Per-side border colours sort after the all-sides ones, and side-major:
@@ -3428,6 +3468,7 @@ module Handler = struct
     | Border_current -> "border-current"
     | Border_current_opacity opacity ->
         "border-current" ^ opacity_suffix opacity
+    | Border_inherit -> "border-inherit"
     | Border_bracket_color (v, _) | Border_bracket_raw (v, _) ->
         "border-[" ^ v ^ "]"
     | Border_side_color (side, value) ->
@@ -3455,8 +3496,13 @@ module Handler = struct
               ^ opacity_suffix opacity
           | Side_color.Bracket (orig, _) | Side_color.Raw (orig, _) ->
               "[" ^ orig ^ "]"
+          | Side_color.Bracket_opacity (orig, _, opacity) ->
+              "[" ^ orig ^ "]" ^ opacity_suffix opacity
           | Side_color.Transparent -> "transparent"
           | Side_color.Current -> "current"
+          | Side_color.Current_opacity opacity ->
+              "current" ^ opacity_suffix opacity
+          | Side_color.Inherit -> "inherit"
         in
         "border-" ^ s ^ "-" ^ v
     | Border_bracket_color_opacity (v, _, opacity) ->
@@ -4121,6 +4167,7 @@ let text_current = utility Text_current
 let text_inherit = utility Text_inherit
 let border_transparent = utility Border_transparent
 let border_current = utility Border_current
+let border_inherit = utility Border_inherit
 
 let outline_color ?opacity ?(shade = 500) color =
   check_shade ~utility:"outline_color" color shade;

@@ -326,6 +326,9 @@ val border_transparent : t
 val border_current : t
 (** [border_current] uses [currentColor] for border color. *)
 
+val border_inherit : t
+(** [border_inherit] inherits the border color. *)
+
 val outline_color : ?opacity:int -> ?shade:int -> color -> t
 (** [outline_color color] sets the outline color. [shade] defaults to 500 and
     [opacity] sets the alpha modifier (0-100). *)
