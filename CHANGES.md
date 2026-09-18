@@ -287,11 +287,16 @@
   `origin-[--spacing(4)_--spacing(2)]` all resolve, a bracket colour is read
   as CSS before the palette is consulted, and a value the target property
   cannot take is still written through as Tailwind writes it. An `--alpha()`
-  scales a bare number as Tailwind does, `0.2` being 20%, and one missing
-  either half names no utility (#168, #176, #177, #187, #188, #189, #190,
-  #191, #192, #205, #212, #217, #236, #241, #262, #277, #278, #325, #371,
-  #372, #373, #375, #376, #377, #378, #404, #417, #418, #420, #465, #503,
-  #504, #509, #522, #667, #683, #688, #689, #690, #863).
+  expands anywhere in a value, as `--spacing()` does, its alpha a number,
+  a percentage or a `var()`: `shadow-[0_0_0_1px_--alpha(red/50%)]`,
+  `bg-[linear-gradient(--alpha(red/0.5),blue)]` and
+  `text-[--alpha(red/var(--o))]` resolve, a bare number scales as Tailwind
+  scales it, `0.2` being 20%, and a call missing either half names no
+  utility. A named opacity on a shadow's size, `shadow-lg/half`, sets no
+  alpha, since Tailwind reads none there (#168, #176, #177, #187, #188, #189,
+  #190, #191, #192, #205, #212, #217, #236, #241, #262, #277, #278, #325,
+  #371, #372, #373, #375, #376, #377, #378, #404, #417, #418, #420, #465,
+  #503, #504, #509, #522, #667, #683, #688, #689, #690, #863, #869).
 - A bracket only OCaml's number reader accepts is no longer folded to a
   different value. `tab-[0x4]` wrote `tab-size: 4`, `flex-[0x4]` wrote `flex: 4`
   under the class name `.flex-\[4\]`, `grid-cols-[0x4]` wrote `4px`,
