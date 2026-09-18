@@ -86,6 +86,35 @@ let test_transparent_keeps_its_keyword () =
     "the utility keeps the transparent keyword" true
     (Astring.String.is_infix ~affix:"--tw-scrollbar-thumb:transparent" css)
 
+(* A modifier reading a custom property mixes that property into the guarded
+   value, on a palette colour and on [currentcolor]. The palette arm folded the
+   modifier to a percentage, which a var() has none of, so the mix said [100%];
+   the current-colour arm refused any modifier at all, where Tailwind mixes the
+   keyword the way the other colour families do. *)
+let test_colour_opacity_var () =
+  let mixed cls var fallback colour =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        var ^ ": " ^ fallback;
+        var ^ ": color-mix(in oklab, " ^ colour ^ " var(--o), transparent)";
+        "scrollbar-color: var(--tw-scrollbar-thumb) var(--tw-scrollbar-track)";
+      ]
+  in
+  mixed "scrollbar-thumb-red-500/(--o)" "--tw-scrollbar-thumb" "#fb2c36"
+    "var(--color-red-500)";
+  mixed "scrollbar-track-red-500/[var(--o)]" "--tw-scrollbar-track" "#fb2c36"
+    "var(--color-red-500)";
+  mixed "scrollbar-thumb-current/(--o)" "--tw-scrollbar-thumb" "currentcolor"
+    "currentcolor";
+  mixed "scrollbar-track-current/[var(--o)]" "--tw-scrollbar-track"
+    "currentcolor" "currentcolor";
+  Test_helpers.check_declarations ~minify:false "scrollbar-thumb-current/50"
+    [
+      "--tw-scrollbar-thumb: currentcolor";
+      "--tw-scrollbar-thumb: color-mix(in oklab, currentcolor 50%, transparent)";
+      "scrollbar-color: var(--tw-scrollbar-thumb) var(--tw-scrollbar-track)";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -93,6 +122,8 @@ let tests =
         test_declares_what_it_references;
       Alcotest.test_case "transparent keeps its keyword" `Quick
         test_transparent_keeps_its_keyword;
+      Alcotest.test_case "colour opacity from a var" `Quick
+        test_colour_opacity_var;
     ]
 
 let suite = ("scrollbar", tests)
