@@ -133,12 +133,16 @@ let test_render_page_escapes_classes () =
     (Test_helpers.render_page ~inner:"<b>x</b>" [ "content-[\"<x>\"]" ])
 
 (* The browser oracle has to see what it is there for. Each case renders one
-   sheet against a copy with a single thing changed, and the change has to come
-   back as a difference on the property it touches; an identical pair has to
-   come back with none. *)
+   sheet against a copy with a single thing changed: the change has to come back
+   as a render that differs, explained by a difference on the property it
+   touches, and an identical pair has to come back as the same picture. *)
+let report name ~elements ~tailwind ~tw =
+  Test_helpers.rendering_report ~test_name:name ~elements ~tailwind ~tw ()
+
 let rendered name ~elements ~tailwind ~tw =
-  (Test_helpers.rendering_report ~test_name:name ~elements ~tailwind ~tw ())
-    .differences
+  let r = report name ~elements ~tailwind ~tw in
+  Alcotest.(check bool) "the render differs" false (Browser_compare.identical r);
+  r.differences
 
 let reports ?(pseudo = "") ?state property differences =
   List.exists
@@ -150,11 +154,20 @@ let reports ?(pseudo = "") ?state property differences =
 
 let test_oracle_passes_identical_sheets () =
   let sheet = ".p-4{padding:1rem}" in
-  Alcotest.(check int)
-    "no difference" 0
-    (List.length
-       (rendered "oracle identical" ~elements:[ "p-4" ] ~tailwind:sheet
-          ~tw:sheet))
+  Alcotest.(check bool)
+    "the same picture" true
+    (Browser_compare.identical
+       (report "oracle identical" ~elements:[ "p-4" ] ~tailwind:sheet ~tw:sheet))
+
+(* Two spellings the browser paints alike are one render, whatever a script
+   reads back: the raster is the verdict and nothing normalises it. *)
+let test_oracle_passes_a_respelled_sheet () =
+  Alcotest.(check bool)
+    "a keyword position and its length are the same picture" true
+    (Browser_compare.identical
+       (report "oracle respelled" ~elements:[ "bg-top-left" ]
+          ~tailwind:".bg-top-left{background-position:left top}"
+          ~tw:".bg-top-left{background-position:0 0}"))
 
 let test_oracle_reports_a_changed_declaration () =
   Alcotest.(check bool)
@@ -427,6 +440,8 @@ let tests =
       test_render_page_escapes_classes;
     Alcotest.test_case "oracle: identical sheets" `Slow
       test_oracle_passes_identical_sheets;
+    Alcotest.test_case "oracle: respelled sheet" `Slow
+      test_oracle_passes_a_respelled_sheet;
     Alcotest.test_case "oracle: changed declaration" `Slow
       test_oracle_reports_a_changed_declaration;
     Alcotest.test_case "oracle: generated content" `Slow

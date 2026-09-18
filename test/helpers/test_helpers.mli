@@ -288,10 +288,16 @@ val escape_attribute : string -> string
 (** [escape_attribute s] is [s] as the text of a double-quoted HTML attribute,
     so a class carrying a quote or an angle bracket stays one value. *)
 
+val box_marker : string
+(** [box_marker] is what an element under test holds by default: a run of text
+    and a bar as wide as the content box in the element's own colour, so a
+    property painting the box reaches the raster the oracle judges. An empty
+    element paints nothing. *)
+
 val render_page : ?inner:string -> string list -> string
 (** [render_page ?inner elements] is the HTML document the browser comparison
     renders: one [div] per entry of [elements], carrying that entry as its class
-    attribute and [inner] as its content. *)
+    attribute and [inner], {!box_marker} by default, as its content. *)
 
 val rendering_report :
   ?inner:string ->
@@ -303,27 +309,27 @@ val rendering_report :
   Browser_compare.t
 (** [rendering_report ?inner ~test_name ~elements ~tailwind ~tw ()] renders
     {!render_page} under [tailwind] and under [tw] with cascade's
-    {!Browser_compare.run}, and is every computed-style value the two disagree
-    on. The sheets are loaded as written. Every element and its pseudo-elements
-    are sampled at every viewport width a media condition in either sheet names,
-    and under every interaction state either sheet names, applied to every
-    element at once. Skips when node or a headless Chromium is absent and fails
-    there under [TW_BROWSER_TESTS=1]; [TW_BROWSER_TESTS=0] opts out. With both
-    present, a run that samples nothing fails. The page and the two sheets are
-    kept under [tmp/browser/]. *)
+    {!Browser_compare.run}, and is its report: the captures that differ, and the
+    computed values the elements under them disagree on. The sheets are loaded
+    as written. The page is captured at every viewport width a media condition
+    in either sheet names, and under every interaction state either sheet names,
+    applied to every element at once. Skips when node or a headless Chromium is
+    absent and fails there under [TW_BROWSER_TESTS=1]; [TW_BROWSER_TESTS=0] opts
+    out. With both present, a run that renders nothing fails. The page and the
+    two sheets are kept under [tmp/browser/]. *)
 
 val check_rendering_matches :
   ?forms:bool -> ?inner:string -> test_name:string -> Tw.t list -> unit
-(** [check_rendering_matches ?forms ?inner ~test_name utilities] fails on any
-    computed style that differs between Tailwind's sheet for [utilities] and
-    tw's, as {!rendering_report} measures it, including a value that paints the
-    same. Each class gets an element of its own, plus one per
+(** [check_rendering_matches ?forms ?inner ~test_name utilities] fails when
+    Tailwind's sheet for [utilities] and tw's render differently, as
+    {!rendering_report} measures it: the verdict is {!Browser_compare.identical}
+    over the captures. Each class gets an element of its own, plus one per
     {!interacting_pairs} pair, which is where an ordering difference shows.
 
-    [inner] is markup put inside every element built, and every descendant of it
-    is compared too. Without it the elements are bare, so a rule that only
-    matches a child - which is most of what [@tailwindcss/typography] emits -
-    has nothing to match and the comparison passes without reading it. *)
+    [inner] is markup put inside every element built, {!box_marker} by default.
+    A rule that only matches a child - which is most of what
+    [@tailwindcss/typography] emits - needs [inner] to supply that child, or it
+    matches nothing and the comparison passes without rendering it. *)
 
 (** {1 CSS Test Helpers} *)
 

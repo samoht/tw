@@ -504,7 +504,17 @@ let escape_attribute s =
     s;
   Buffer.contents buf
 
-let render_page ?(inner = "") elements =
+(* What every element under test holds, so that a property painting the box
+   reaches the raster the oracle judges: a run of text for the typographic
+   properties, and a bar as wide as the content box, in the element's own
+   colour, for the widths, the paddings, the display type and the colour. An
+   empty element paints nothing, and a class that changes none of what its box
+   paints - a cursor, a transition's timing - is not a rendering and is not
+   measured. *)
+let box_marker =
+  "Ab<span style=\"display:block;height:3px;background:currentcolor\"></span>"
+
+let render_page ?(inner = box_marker) elements =
   String.concat ""
     ([ "<!doctype html><html><head><meta charset=\"utf-8\"></head><body>" ]
     @ List.mapi
@@ -551,12 +561,10 @@ let check_rendering_matches ?(forms = false) ?inner ~test_name utilities =
       ~tailwind:(tailwind_css ~forms classnames)
       ~tw:(our_css utilities) ()
   in
-  match report.differences with
-  | [] -> ()
-  | _ :: _ ->
-      Alcotest.failf "%s\n%s" test_name
-        (Browser_compare.to_string ~first:"tailwind.css" ~second:"tw.css"
-           ~html:"page.html" report)
+  if not (Browser_compare.identical report) then
+    Alcotest.failf "%s\n%s" test_name
+      (Browser_compare.to_string ~first:"tailwind.css" ~second:"tw.css"
+         ~html:"page.html" report)
 
 let check_ordering_matches ?forms ~test_name utilities =
   let diff = ordering_diff ?forms utilities in
