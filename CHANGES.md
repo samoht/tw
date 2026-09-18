@@ -396,9 +396,13 @@
   elsewhere the mix resolved to that colour's `oklab()` channels rather than
   staying a mix, going out with no unguarded fallback where the alpha read a
   custom property, so a browser without `color-mix()` painted nothing.
-  `decoration-`, `divide-` and `stroke-` accept the modifier at all now, and a
+  `decoration-`, `divide-` and `stroke-` accept the modifier at all now, a
   colour the browser resolves at use time keeps the `@supports` fallback
-  Tailwind writes (#508, #517, #711).
+  Tailwind writes, and a drop shadow's bracket names its colour as Tailwind
+  reads it: `drop-shadow-[#123456]/50` and `drop-shadow-[color:var(--c)]/(--o)`
+  set `--tw-drop-shadow-color` where the bracket was read as a size, and a
+  named opacity on a drop-shadow size, `drop-shadow-lg/half`, names no utility
+  (#508, #517, #711, #875).
 - An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
   gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
   case, where Tailwind writes back what the bracket held (#700).
