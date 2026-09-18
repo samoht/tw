@@ -190,6 +190,66 @@ let test_degenerate_var_shorthand () =
   check "mask-linear-from-(--)";
   check "mask-linear-from-(color:--c)"
 
+(* A stop colour takes an opacity modifier, which Tailwind mixes in as every
+   colour utility does: a palette entry writes what a browser without
+   color-mix() reads in the open and the mix behind the guard, a bracket colour
+   mixes in place, a var() and currentcolor keep their own value in the open,
+   and 100% is the colour itself. A position takes no modifier. tw refused every
+   modifier on a stop.
+
+   In the open, Tailwind writes the palette entry's sRGB mix and tw the hex it
+   resolves to, the way every colour family here does; the two render alike. *)
+let test_opacity_modifiers () =
+  has "mask-linear-from-red-500/50" "--tw-mask-linear-from-color: #fb2c3680;";
+  has "mask-linear-from-red-500/50"
+    "@supports (color: color-mix(in lab, red, red))";
+  has "mask-linear-from-red-500/50"
+    "--tw-mask-linear-from-color: color-mix(in oklab, var(--color-red-500) \
+     50%, transparent);";
+  has "mask-linear-from-red-500/50" "--color-red-500:";
+  has "mask-linear-from-red-500/100"
+    "--tw-mask-linear-from-color: var(--color-red-500);";
+  has "mask-linear-from-red-500/[0.5]"
+    "--tw-mask-linear-from-color: color-mix(in oklab, var(--color-red-500) \
+     50%, transparent);";
+  has "mask-linear-from-red-500/[var(--o)]"
+    "--tw-mask-linear-from-color: oklch(63.7% .237 25.331);";
+  has "mask-linear-from-red-500/[var(--o)]"
+    "--tw-mask-linear-from-color: color-mix(in oklab, var(--color-red-500) \
+     var(--o), transparent);";
+  has "mask-linear-from-[#fff]/50"
+    "--tw-mask-linear-from-color: color-mix(in oklab, #fff 50%, transparent);";
+  has "mask-linear-from-[color:var(--c)]/50"
+    "--tw-mask-linear-from-color: var(--c);";
+  has "mask-linear-from-[color:var(--c)]/50"
+    "--tw-mask-linear-from-color: color-mix(in oklab, var(--c) 50%, \
+     transparent);";
+  has "mask-linear-from-(color:--c)/50"
+    "--tw-mask-linear-from-color: color-mix(in oklab, var(--c) 50%, \
+     transparent);";
+  has "mask-linear-from-current/50" "--tw-mask-linear-from-color: currentcolor;";
+  has "mask-linear-from-current/50"
+    "--tw-mask-linear-from-color: color-mix(in oklab, currentcolor 50%, \
+     transparent);";
+  has "mask-linear-from-transparent/50"
+    "--tw-mask-linear-from-color: color-mix(in oklab, transparent 50%, \
+     transparent);";
+  has "mask-x-from-red-500/50" "--tw-mask-right-from-color: #fb2c3680;";
+  has "mask-x-from-red-500/50"
+    "--tw-mask-left-from-color: color-mix(in oklab, var(--color-red-500) 50%, \
+     transparent);";
+  check "mask-linear-from-red-500/50";
+  check "mask-linear-from-red-500/[0.5]";
+  check "mask-linear-from-[#fff]/50";
+  check "mask-linear-from-(color:--c)/50";
+  check "mask-linear-from-current/50";
+  check "mask-x-from-red-500/50";
+  invalid "mask-linear-from-10%/50";
+  invalid "mask-linear-from-[10px]/50";
+  invalid "mask-linear-from-(--x)/50";
+  invalid "mask-linear-from-2/50";
+  invalid "mask-l-from-[25%]/foo"
+
 (* A bracket stop is an arbitrary value, so its [_] is a space and the binary
    operators of a math function take the spaces CSS needs around them: Tailwind
    writes [calc(1px + 2px)] for [calc(1px+2px)], and a browser drops the
@@ -239,6 +299,7 @@ let tests =
         test_bracket_position_spellings;
       Alcotest.test_case "degenerate var shorthand" `Quick
         test_degenerate_var_shorthand;
+      Alcotest.test_case "opacity modifiers" `Quick test_opacity_modifiers;
       Alcotest.test_case "arbitrary angle" `Quick test_arbitrary_angle;
       Alcotest.test_case "arbitrary stop decodes" `Quick
         test_arbitrary_stop_decodes;
