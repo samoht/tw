@@ -228,8 +228,13 @@
   integer width or outline offset, a mask colour stop, a bracket mask image, a
   zero mask stop that keeps its unit, and a bracket mask stop written as
   Tailwind decodes it, `mask-linear-from-[calc(1px+2px)]` giving
-  `calc(1px + 2px)` where the undecoded text was a value browsers drop (#148,
-  #161, #162, #163, #165, #182, #222, #265, #860).
+  `calc(1px + 2px)` where the undecoded text was a value browsers drop. A
+  mask stop reads as Tailwind classifies it: a bracket colour, an `--alpha()`
+  or a `color:` hint name the stop's colour and a length, a `--x` or a
+  `--spacing(4)` its position, a bare step counts in quarters, a percentage
+  is a whole number, and a colour stop takes an opacity modifier,
+  `mask-linear-from-red-500/50` mixing as every colour family does (#148,
+  #161, #162, #163, #165, #182, #222, #265, #860, #866).
 - `transition-behavior-normal` and `transition-behavior-allow-discrete` are
   refused, as Tailwind compiles nothing for them. They compiled to a rule for
   `transition-normal` and `transition-discrete`, which no markup written the
