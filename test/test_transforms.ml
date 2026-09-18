@@ -511,6 +511,46 @@ let test_neg_scale_arbitrary () =
       "-scale-[]"; "-scale-[a;b]"; "-scale-x-[]"; "-scale-z-[a;b]"; "-scale-3d";
     ]
 
+(* A negative bracket skew writes its channel as the skew function around the
+   bracket negated, [skewX(calc(<value> * -1))], beside the transform chain the
+   positive form writes; the bare form writes both channels. An angle is negated
+   as an angle and every other value goes in as the token stream it is. tw
+   refused every one of these as an unknown class. *)
+let test_neg_skew_arbitrary () =
+  let chain =
+    "transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+     var(--tw-skew-x,) var(--tw-skew-y,)"
+  in
+  let has cls decls = Test_helpers.check_declarations ~minify:false cls decls in
+  has "-skew-x-[10deg]" [ "--tw-skew-x: skewX(calc(10deg * -1))"; chain ];
+  has "-skew-y-[var(--a)]" [ "--tw-skew-y: skewY(calc(var(--a) * -1))"; chain ];
+  has "-skew-x-[calc(1deg+1deg)]"
+    [ "--tw-skew-x: skewX(calc(calc(1deg + 1deg) * -1))"; chain ];
+  has "-skew-[10deg]"
+    [
+      "--tw-skew-x: skewX(calc(10deg * -1))";
+      "--tw-skew-y: skewY(calc(10deg * -1))";
+      chain;
+    ];
+  has "-skew-[abc]"
+    [
+      "--tw-skew-x: skewX(calc(abc * -1))";
+      "--tw-skew-y: skewY(calc(abc * -1))";
+      chain;
+    ];
+  (* The hint chooses the longhand and stays in the class name. *)
+  has "-skew-x-[angle:10deg]" [ "--tw-skew-x: skewX(calc(10deg * -1))"; chain ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "-skew-x-[angle:10deg]"; "-skew-[1.50deg]"; "-skew-y-[var(--a)]" ];
+  List.iter
+    (Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+       (module Tw.Transforms.Handler))
+    [ "-skew-[]"; "-skew-x-[]"; "-skew-y-[a;b]" ]
+
 (* [origin-], [perspective-origin-] and [transform-] read their bracket through
    the arbitrary-value pipeline. Applying underscore decoding alone leaves
    [calc(1px+1px)] without the spaces CSS math wants and [--spacing(4)]
@@ -591,6 +631,7 @@ let tests =
     test_case "arbitrary scale axis token stream" `Quick
       test_arbitrary_scale_axis_token_stream;
     test_case "negative arbitrary scale" `Quick test_neg_scale_arbitrary;
+    test_case "negative arbitrary skew" `Quick test_neg_skew_arbitrary;
     test_case "project perspective token" `Quick test_project_perspective_token;
     test_case "transform brackets peel a data-type hint" `Quick
       test_transform_brackets_peel_a_hint;
