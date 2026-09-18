@@ -105,7 +105,9 @@ module Handler = struct
      stroke and before padding - Tailwind's own order. *)
   let priority _ = 21
 
-  (* Helper to create webkit + standard declarations for mask properties *)
+  (* The composite and mode utilities write their [-webkit-] longhand twice:
+     that is what Tailwind's minified sheet carries for them, and the site
+     comparison reads the two sheets byte for byte. *)
 
   let mask_none =
     style [ Css.webkit_mask_image Css.None; Css.mask_image Css.None ]
