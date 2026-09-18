@@ -453,6 +453,13 @@ module Handler = struct
             | _ -> Error (`Msg ("Invalid angle unit: " ^ unit_s))))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
+  (* A bracket a negative translate takes: one holding a value, which every
+     spelling of one becomes [calc(<value> * -1)]. *)
+  let neg_bracket value =
+    Parse.is_bracket_value value
+    && Option.is_some
+         (Parse.arbitrary_declaration_value (Parse.bracket_inner value))
+
   (* The bracket beside its reading: a plain decimal is the number it spells,
      and anything else goes to the custom property as written. A spelling only
      OCaml's number reader takes ([0x4]) is not a number under another name. *)
@@ -583,29 +590,41 @@ module Handler = struct
     let axis_decl = Var.set tw_translate_y_var len in
     style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
-  (* Negated arbitrary length from a bracket inner: a var() becomes
-     calc(var(--x) * -1); a plain length (110%, 10px) is parsed and negated the
-     same way, matching Tailwind's calc(<value> * -1). *)
-  let neg_arbitrary_len s : Css.length =
-    let as_var () : Css.length =
-      Calc (Calc.mul (Calc.var (Parse.extract_var_name s)) (Calc.float (-1.)))
+  (* The bracket [s] negated on [var], the way Tailwind writes it: a length,
+     with any data-type hint taken off, is negated as a length, and every other
+     value goes into [calc(<value> * -1)] as the token stream it is. [None] is a
+     bracket that names no value, which the reader refused. *)
+  let neg_arbitrary_decl var s =
+    let neg (l : Css.length) : Css.length =
+      Calc (Calc.mul (Calc.length l) (Calc.float (-1.)))
     in
-    if Parse.is_var s then as_var ()
-    else
-      match Css.parse_length s with
-      | Some l ->
-          (Calc (Calc.mul (Calc.length l) (Calc.float (-1.))) : Css.length)
-      | None -> as_var ()
+    match Option.bind (Parse.value_after_hint s) Parse.arbitrary_length with
+    | Some l -> Some (Var.set var (neg l))
+    | None ->
+        Option.bind (Parse.arbitrary_declaration_value s) (fun v ->
+            Option.map
+              (Css.custom_property ~layer:"utilities" (Var.css_name var))
+              (Parse.wrap_declaration_value ~before:"calc(" ~after:" * -1)" v))
+
+  (* A negative bracket translate on [vars], the axes it sets. *)
+  let neg_translate_arbitrary_on vars s =
+    match List.map (fun var -> neg_arbitrary_decl var s) vars with
+    | decls when List.for_all Option.is_some decls ->
+        let decls = List.filter_map Fun.id decls in
+        let refs =
+          if List.memq tw_translate_z_var vars then translate_xyz_refs
+          else translate_xy_refs
+        in
+        style ~property_rules:translate_props
+          ~metadata:(List.map Var.metadata vars)
+          (decls @ [ refs ])
+    | _ -> style []
 
   let neg_translate_x_arbitrary_style s =
-    let neg_len = neg_arbitrary_len s in
-    let axis_decl = Var.set tw_translate_x_var neg_len in
-    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
+    neg_translate_arbitrary_on [ tw_translate_x_var ] s
 
   let neg_translate_y_arbitrary_style s =
-    let neg_len = neg_arbitrary_len s in
-    let axis_decl = Var.set tw_translate_y_var neg_len in
-    style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
+    neg_translate_arbitrary_on [ tw_translate_y_var ] s
 
   let neg_translate_x_full =
     let axis_decl = Var.set tw_translate_x_var (Pct (-100.0)) in
@@ -831,14 +850,7 @@ module Handler = struct
     style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
   let neg_translate_arbitrary_style s =
-    let neg_len = neg_arbitrary_len s in
-    let dx = Var.set tw_translate_x_var neg_len in
-    let dy = Var.set tw_translate_y_var neg_len in
-    let props =
-      collect_property_rules
-        [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
-    in
-    style ~property_rules:props (dx :: dy :: [ translate_xy_refs ])
+    neg_translate_arbitrary_on [ tw_translate_x_var; tw_translate_y_var ] s
 
   let neg_translate_full =
     let dx = Var.set tw_translate_x_var (Pct (-100.0)) in
@@ -987,12 +999,7 @@ module Handler = struct
           ]
 
   let neg_translate_z_arbitrary_style s =
-    let bare_name = Parse.extract_var_name s in
-    let neg_len : Css.length =
-      Calc (Calc.mul (Calc.var bare_name) (Calc.float (-1.)))
-    in
-    let axis_decl = Var.set tw_translate_z_var neg_len in
-    style ~property_rules:translate_props (axis_decl :: [ translate_xyz_refs ])
+    neg_translate_arbitrary_on [ tw_translate_z_var ] s
 
   let neg_translate_z_px =
     let axis_decl = Var.set tw_translate_z_var (Px (-1.0)) in
@@ -1745,7 +1752,7 @@ module Handler = struct
             | None -> err_not_utility))
     (* Negative translate utilities: -translate-x-N, -translate-y-N,
        -translate-z-N Split by '-' gives [""; "translate"; axis; n] *)
-    | [ ""; "translate"; value ] when Parse.is_bracket_value value ->
+    | [ ""; "translate"; value ] when neg_bracket value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_arbitrary inner)
     | [ ""; "translate"; "full" ] -> Ok Neg_translate_full
@@ -1755,7 +1762,7 @@ module Handler = struct
         | Some (num, denom) -> Ok (Neg_translate_fraction (num, denom))
         | None -> err_not_utility)
     | [ ""; "translate"; n ] -> Parse.int_any n >|= fun n -> Neg_translate n
-    | [ ""; "translate"; "x"; value ] when Parse.is_bracket_value value ->
+    | [ ""; "translate"; "x"; value ] when neg_bracket value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_x_arbitrary inner)
     | [ ""; "translate"; "x"; "full" ] -> Ok Neg_translate_x_full
@@ -1768,7 +1775,7 @@ module Handler = struct
         Ok (Translate_x_step (-.Option.get (parse_spacing_step n)))
     | [ ""; "translate"; "x"; n ] ->
         Parse.int_pos ~name:"translate-x" n >|= fun n -> Translate_x (-n)
-    | [ ""; "translate"; "y"; value ] when Parse.is_bracket_value value ->
+    | [ ""; "translate"; "y"; value ] when neg_bracket value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_y_arbitrary inner)
     | [ ""; "translate"; "y"; "full" ] -> Ok Neg_translate_y_full
@@ -1781,7 +1788,7 @@ module Handler = struct
         Ok (Translate_y_step (-.Option.get (parse_spacing_step n)))
     | [ ""; "translate"; "y"; n ] ->
         Parse.int_pos ~name:"translate-y" n >|= fun n -> Translate_y (-n)
-    | [ ""; "translate"; "z"; value ] when Parse.is_bracket_value value ->
+    | [ ""; "translate"; "z"; value ] when neg_bracket value ->
         let inner = Parse.bracket_inner value in
         Ok (Neg_translate_z_arbitrary inner)
     | [ ""; "translate"; "z"; "px" ] -> Ok Neg_translate_z_px
