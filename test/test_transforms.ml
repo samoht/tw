@@ -37,6 +37,19 @@ let test_translate_px_and_neg_arbitrary () =
   Test_helpers.check_declarations ~minify:false "translate-x-[-0.5px]"
     [ "--tw-translate-x: -.5px"; composed ]
 
+(* The z axis negates a bracket the way the x and y axes do: a length is negated
+   as a length and only a var() is read as one. The z arm read every bracket as
+   a variable name, so -translate-z-[4px] wrote var(--4px). *)
+let test_neg_translate_z_arbitrary () =
+  let composed =
+    "translate: var(--tw-translate-x) var(--tw-translate-y) \
+     var(--tw-translate-z)"
+  in
+  Test_helpers.check_declarations ~minify:false "-translate-z-[4px]"
+    [ "--tw-translate-z: calc(4px * -1)"; composed ];
+  Test_helpers.check_declarations ~minify:false "-translate-z-[var(--d)]"
+    [ "--tw-translate-z: calc(var(--d) * -1)"; composed ]
+
 (* The near/midrange/distant perspective keywords reference their theme token,
    like the dramatic/normal ones already did. *)
 let test_perspective_keywords () =
@@ -529,6 +542,8 @@ let tests =
       test_negative_step_translate_order;
     test_case "translate-px and negative arbitrary" `Quick
       test_translate_px_and_neg_arbitrary;
+    test_case "negative arbitrary translate-z" `Quick
+      test_neg_translate_z_arbitrary;
     test_case "any translate fraction" `Quick test_any_translate_fraction;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "typed constructors" `Quick test_typed;
