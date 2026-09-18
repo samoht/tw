@@ -23,7 +23,7 @@ let string_of_breakpoint = function
    leading '.' from the rendered class selector. *)
 let escape_class_name name =
   let rendered = Css.Selector.to_string (Css.Selector.class_ name) in
-  if String.length rendered > 0 && rendered.[0] = '.' then
+  if String.starts_with ~prefix:"." rendered then
     String.sub rendered 1 (String.length rendered - 1)
   else rendered
 
@@ -55,12 +55,8 @@ module Rules_selector = struct
   let extract_modified_class_name modified_base_selector base_class =
     let derived cls =
       String.equal cls base_class
-      || String.length cls > String.length base_class + 1
-         && String.equal
-              (String.sub cls
-                 (String.length cls - String.length base_class - 1)
-                 (String.length base_class + 1))
-              (":" ^ base_class)
+      || String.ends_with ~suffix:(":" ^ base_class) cls
+         && String.length cls > String.length base_class + 1
     in
     let rec find sel =
       match sel with
@@ -1069,7 +1065,7 @@ let parse_bracket_pseudo content =
    transformed string is read as a selector so combinators and compounds
    flatten, rather than escaped as one class name. *)
 let not_bracket_selector content =
-  if content <> "" && content.[0] = ':' then
+  if String.starts_with ~prefix:":" content then
     Css.Selector.Not [ parse_bracket_pseudo content ]
   else
     let sel_str = Parse.decode_underscores content in
@@ -1341,14 +1337,14 @@ let parse_bracket_media content =
   (* Strip @media prefix *)
   let rest =
     String.trim
-      (if String.length s > 7 && String.sub s 0 7 = "@media " then
+      (if String.starts_with ~prefix:"@media " s && String.length s > 7 then
          String.sub s 7 (String.length s - 7)
-       else if String.length s > 6 && String.sub s 0 6 = "@media" then
+       else if String.starts_with ~prefix:"@media" s && String.length s > 6 then
          String.sub s 6 (String.length s - 6)
        else s)
   in
   (* Check for "not" prefix (double negation → positive) *)
-  if String.length rest > 4 && String.sub rest 0 4 = "not " then
+  if String.starts_with ~prefix:"not " rest && String.length rest > 4 then
     let inner = String.trim (String.sub rest 4 (String.length rest - 4)) in
     (* Double negation: return the positive condition *)
     (* The reader takes the condition however it is spelled, so there is no
@@ -1363,7 +1359,7 @@ let parse_bracket_media content =
 (** Parse in-[...] bracket content into an ancestor selector. Class selectors
     (starting with .) are used directly; others are wrapped in :is(). *)
 let in_bracket_ancestor content =
-  if content <> "" && content.[0] = '.' then
+  if String.starts_with ~prefix:"." content then
     (* Class selector: .group → Class "group" inside :where() *)
     let cls = String.sub content 1 (String.length content - 1) in
     Css.Selector.Class cls
@@ -1429,8 +1425,9 @@ let handle_not_in_data attr base_class props =
 let handle_not_bracket content base_class props =
   let modified_class = "not-[" ^ content ^ "]:" ^ base_class in
   if
-    (String.length content > 6 && String.sub content 0 6 = "@media")
-    || (String.length content > 7 && String.sub content 0 7 = "@media_")
+    (String.starts_with ~prefix:"@media" content && String.length content > 6)
+    || String.starts_with ~prefix:"@media_" content
+       && String.length content > 7
   then
     (* Media bracket pattern: not-[@media...] → negated media query *)
     let condition = parse_bracket_media content in
@@ -1438,7 +1435,9 @@ let handle_not_bracket content base_class props =
       media_query ~condition ~selector:(Css.Selector.Class modified_class)
         ~props ~base_class:modified_class ();
     ]
-  else if String.length content > 9 && String.sub content 0 9 = "@supports" then
+  else if
+    String.starts_with ~prefix:"@supports" content && String.length content > 9
+  then
     (* Supports bracket: not-[@supports(display:grid)] → @supports not
        (display:grid), and a doubly negated condition → the condition itself. *)
     let rule condition =
@@ -2830,9 +2829,7 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
 let prefix_anchors p selector =
   let anchored name =
     let is_anchor kind =
-      name = kind
-      || String.length name > String.length kind
-         && String.sub name 0 (String.length kind + 1) = kind ^ "/"
+      name = kind || String.starts_with ~prefix:(kind ^ "/") name
     in
     is_anchor "group" || is_anchor "peer"
   in
