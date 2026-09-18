@@ -993,29 +993,30 @@ module Handler = struct
   let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
     let scheme = Scheme.or_default theme in
-    let percent = Color.opacity_to_percent opacity in
+    let value =
+      match Scheme.hex_color scheme color_name with
+      | Option.Some hex -> Css.hex hex
+      | Option.None -> Color.to_css ?theme c shade
+    in
     (* The fallback is what a browser without color-mix reads, so it has to be a
        plain hex. [Scheme.hex_color] only holds the hexes a project declared, so
-       resolve the palette colour when it has none. *)
+       resolve the palette colour when it has none. A modifier reading a custom
+       property has no percentage to fold in, so the fallback is the colour as
+       the bare utility writes it. *)
     let fallback_color =
-      let hex =
-        match Scheme.hex_color scheme color_name with
-        | Option.Some hex -> hex
-        | Option.None ->
-            Color.rgb_to_hex (Color.oklch_to_rgb (Color.to_oklch c shade))
-      in
-      Css.hex (Color.hex_with_alpha hex percent)
+      if Option.is_some (Color.opacity_var_bare_of opacity) then value
+      else
+        let hex =
+          match Scheme.hex_color scheme color_name with
+          | Option.Some hex -> hex
+          | Option.None ->
+              Color.rgb_to_hex (Color.oklch_to_rgb (Color.to_oklch c shade))
+        in
+        Css.hex (Color.hex_with_alpha hex (Color.opacity_to_percent opacity))
     in
-    let decls, color =
-      Color.bound ?theme (Color.color_var c shade)
-        (match Scheme.hex_color scheme color_name with
-        | Option.Some hex -> Css.hex hex
-        | Option.None -> Color.to_css ?theme c shade)
-    in
+    let decls, color = Color.bound ?theme (Color.color_var c shade) value in
     let supports_decl =
-      let inner =
-        Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent
-      in
+      let inner = Color.mix_alpha opacity color in
       bind_drop_shadow_color
         (Css.color_mix_var_percent ~in_space:Oklab
            ~var_name:"tw-drop-shadow-alpha" inner Css.Transparent)
