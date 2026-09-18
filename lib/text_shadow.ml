@@ -303,45 +303,6 @@ module Handler = struct
       property_rules = text_shadow_property_rules;
     }
 
-  (* Unlike {!Color.channel_color_opacity}, the palette token is the plain
-     [--color-*] one and no property-scoped [--text-shadow-color-*] token is
-     looked up, which is what this family has always emitted. *)
-  let set_color_opacity ?theme c shade opacity =
-    let percent = Color.opacity_to_percent opacity in
-    let hex = Color.palette_hex ?theme c shade in
-    let decls, color =
-      Color.bound ?theme (Color.color_var c shade) (Css.hex hex)
-    in
-    Color.channel_style ~decls channel
-      ~fallback:(Css.hex (Color.hex_with_alpha hex percent))
-      (Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent)
-
-  let set_bracket_hex hex =
-    let color = Color.authored_hex hex in
-    Color.channel_style channel ~fallback:color color
-
-  let set_bracket_hex_opacity hex opacity =
-    let percent = Color.opacity_to_percent opacity in
-    Color.channel_style channel
-      ~fallback:(Css.hex (Color.hex_with_alpha hex percent))
-      (Color.hex_to_oklab_alpha hex (percent /. 100.0))
-
-  (* A bracket colour spelled any way but a [#] hex, under an opacity: one with
-     an sRGB hex takes it. A modifier reading a custom property has no
-     percentage a plain fallback can hold, so the fallback keeps the colour as
-     written. *)
-  let set_bracket_color_opacity ~theme (c : Css.color) opacity =
-    let c = Option.value ~default:c (Color.css_color_to_hex c) in
-    let guarded = Color.mix_alpha ~in_space:Oklab opacity c in
-    let fallback =
-      match Color.pre_color_mix_fallback theme guarded with
-      | Some fallback -> fallback
-      | None ->
-          if Option.is_some (Color.opacity_var_bare_of opacity) then c
-          else Color.mix_alpha ~in_space:Srgb opacity c
-    in
-    Color.channel_style channel ~fallback guarded
-
   (* ============ Arbitrary shadow styles ============ *)
 
   let make_text_shadow_var var_expr : Css.text_shadow =
@@ -383,18 +344,21 @@ module Handler = struct
     | Named_opacity (name, opacity) -> named_opacity_style ~theme name opacity
     | Color (c, shade) -> Color.channel_color ~theme channel c shade
     | Color_opacity (c, shade, opacity) ->
-        set_color_opacity ~theme c shade opacity
+        Color.channel_color_opacity ~theme channel c shade opacity
     | Current -> Color.channel_current channel
     | Current_opacity opacity -> Color.channel_current_opacity channel opacity
     | Inherit -> Color.channel_inherit channel
     | Transparent -> Color.channel_transparent channel
     | Transparent_opacity opacity ->
         Color.channel_transparent_opacity channel opacity
-    | Bracket_hex hex -> set_bracket_hex hex
-    | Bracket_hex_opacity (hex, opacity) -> set_bracket_hex_opacity hex opacity
+    | Bracket_hex hex ->
+        Color.channel_bracket_color ~theme channel (Color.authored_hex hex)
+    | Bracket_hex_opacity (hex, opacity) ->
+        Color.channel_bracket_color_opacity ~theme channel
+          (Color.authored_hex hex) opacity
     | Bracket_color (_orig, c) -> Color.channel_bracket_color ~theme channel c
     | Bracket_color_opacity (_orig, c, opacity) ->
-        set_bracket_color_opacity ~theme c opacity
+        Color.channel_bracket_color_opacity ~theme channel c opacity
     | Bracket_color_var var_expr -> Color.channel_bracket_var channel var_expr
     | Bracket_cvar_opacity (var_expr, opacity) ->
         Color.channel_bracket_var_opacity channel var_expr opacity

@@ -4058,25 +4058,28 @@ let channel_color ?theme ch c shade =
   in
   channel_style ~decls ch ~fallback:value color
 
+(* A modifier reading a custom property has no percentage for the plain fallback
+   to carry, so the hex stays whole and the property mixes into the guarded
+   value instead. *)
 let channel_color_opacity ?theme ch c shade opacity =
   let property_prefix = ch.property_prefix in
-  let percent = opacity_to_percent opacity in
   let hex = palette_hex ?theme ~property_prefix c shade in
   let decls, color =
     bound ?theme
       (property_color_var ?theme ~property_prefix c shade)
       (Css.hex hex)
   in
-  channel_style ~decls ch
-    ~fallback:(Css.hex (hex_with_alpha hex percent))
-    (Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent)
+  let fallback =
+    if Option.is_some (opacity_var_bare_of opacity) then Css.hex hex
+    else Css.hex (hex_with_alpha hex (opacity_to_percent opacity))
+  in
+  channel_style ~decls ch ~fallback (mix_alpha ~in_space:Oklab opacity color)
 
 let channel_current ch = channel_style ch ~fallback:Css.Current Css.Current
 
 let channel_current_opacity ch opacity =
-  let percent = opacity_to_percent opacity in
   channel_style ch ~fallback:Css.Current
-    (Css.color_mix ~in_space:Oklab Css.Current Css.Transparent ~percent1:percent)
+    (mix_alpha ~in_space:Oklab opacity Css.Current)
 
 let channel_transparent ch =
   channel_style ch ~fallback:Css.Transparent Css.Transparent
@@ -4145,10 +4148,8 @@ let channel_bracket_var ch v =
   channel_style ch ~fallback:color color
 
 let channel_bracket_var_opacity ch v opacity =
-  let percent = opacity_to_percent opacity in
   let color = bracket_var_ref v in
-  channel_style ch ~fallback:color
-    (Css.color_mix ~in_space:Oklab color Css.Transparent ~percent1:percent)
+  channel_style ch ~fallback:color (mix_alpha ~in_space:Oklab opacity color)
 
 (** Public API *)
 let utility = Utility_factory.v
