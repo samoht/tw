@@ -684,6 +684,39 @@ let test_bracket_hex_opacity_var () =
        var(--x), transparent) var(--tw-inset-shadow-alpha), transparent)";
     ]
 
+(* A palette colour, [currentcolor] or a [color:var()] whose modifier reads a
+   custom property mixes that property into the guarded value, the way the
+   bracket hex above does. The shared channel builders folded every modifier to
+   a percentage, which a var() has none of, so the guarded mix said [100%] and
+   the modifier was dropped. The plain fallback keeps the colour whole: a var()
+   gives it no percentage to carry. *)
+let test_palette_colour_opacity_var () =
+  let mixed colour alpha =
+    "color-mix(in oklab, color-mix(in oklab, " ^ colour
+    ^ " var(--o), transparent) var(" ^ alpha ^ "), transparent)"
+  in
+  Test_helpers.check_declarations ~minify:false "shadow-red-500/(--o)"
+    [
+      "--tw-shadow-color: #fb2c36";
+      "--tw-shadow-color: " ^ mixed "var(--color-red-500)" "--tw-shadow-alpha";
+    ];
+  Test_helpers.check_declarations ~minify:false "inset-shadow-red-500/(--o)"
+    [
+      "--tw-inset-shadow-color: #fb2c36";
+      "--tw-inset-shadow-color: "
+      ^ mixed "var(--color-red-500)" "--tw-inset-shadow-alpha";
+    ];
+  Test_helpers.check_declarations ~minify:false "shadow-current/[var(--o)]"
+    [
+      "--tw-shadow-color: currentColor";
+      "--tw-shadow-color: " ^ mixed "currentcolor" "--tw-shadow-alpha";
+    ];
+  Test_helpers.check_declarations ~minify:false "shadow-[color:var(--c)]/(--o)"
+    [
+      "--tw-shadow-color: var(--c)";
+      "--tw-shadow-color: " ^ mixed "var(--c)" "--tw-shadow-alpha";
+    ]
+
 (* A bracket alpha modifier with no [%] sign (shadow-lg/[25]) tracks the
    modifier's own written text in --tw-shadow-alpha, the way Tailwind does,
    rather than scaling it into a percentage: the alpha the shadow paints with
@@ -1133,6 +1166,8 @@ let tests =
       test_bracket_colour_opacity_without_hex;
     test_case "bracket hex opacity from a var" `Quick
       test_bracket_hex_opacity_var;
+    test_case "palette colour opacity from a var" `Quick
+      test_palette_colour_opacity_var;
     test_case "shadow bracket alpha tracking" `Quick
       test_shadow_bracket_alpha_tracking;
     test_case "arbitrary shadow token stream" `Quick
