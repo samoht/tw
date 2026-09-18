@@ -200,8 +200,12 @@
   any shape, and a negated arbitrary inset accepts a parenthesised calc body,
   so `-left-6/5`, `-top-2.5`, `-left-[(var(--a)+var(--b))]` and `translate-2`
   work alongside the numeric steps, and `-translate-y-0.5` sorts in the
-  negative band of its axis with the integers (#160, #166, #172, #186, #210,
-  #646, #831).
+  negative band of its axis with the integers. A negated bracket translate is
+  negated as Tailwind writes it on every axis, `-translate-z-[4px]` giving
+  `calc(4px * -1)` and `-translate-x-[calc(1rem+2px)]` the calc negated, where
+  the z axis read the bracket as a variable name and any bracket that was not
+  a plain length became a `var()` of its own text (#160, #166, #172, #186,
+  #210, #646, #831, #861).
 - Every inset side carries the whole scale, under either sign, `start-*`,
   `end-*` and the logical `inset-s-*`, `inset-e-*`, `inset-bs-*` and
   `inset-be-*` included: a spacing step, `px`, a fraction, an arbitrary length,
