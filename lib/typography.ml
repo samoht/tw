@@ -2940,12 +2940,8 @@ module Typography_late = struct
       [ webkit_text_decoration_color Inherit; text_decoration_color Inherit ]
 
   let decoration_current_with_opacity opacity =
-    let percent = Color.opacity_to_percent opacity in
     let fallback_decl = text_decoration_color Current in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
+    let oklab_color = Color.mix_alpha opacity Css.Current in
     let webkit_decl = webkit_text_decoration_color oklab_color in
     let oklab_decl = text_decoration_color oklab_color in
     let supports_block = Color.color_mix_supports [ webkit_decl; oklab_decl ] in
@@ -2992,13 +2988,10 @@ module Typography_late = struct
 
   let decoration_bracket_var_with_opacity v opacity =
     let bare_name = Parse.extract_var_name v in
-    let percent = Color.opacity_to_percent opacity in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_webkit = webkit_text_decoration_color var_color in
     let fallback_decl = text_decoration_color var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
+    let oklab_color = Color.mix_alpha opacity var_color in
     let webkit_decl = webkit_text_decoration_color oklab_color in
     let oklab_decl = text_decoration_color oklab_color in
     let supports_block = Color.color_mix_supports [ webkit_decl; oklab_decl ] in
