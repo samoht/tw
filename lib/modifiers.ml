@@ -1864,14 +1864,9 @@ let try_not_bracket inner =
         let content = String.sub rest 0 i in
         if is_valid_not_bracket_content content then Some (Not_bracket content)
         else None
-    | Some i ->
-        (* There's content after the bracket — check for /name suffix *)
-        let remainder = String.sub rest (i + 1) (String.length rest - i - 1) in
-        if String.length remainder > 0 && remainder.[0] = '/' then
-          (* not-[:checked]/foo — named not-bracket variants are invalid *)
-          None
-        else None
-    | _ -> None
+    (* Content after the bracket, [not-[:checked]/foo] among it: a named
+       not-bracket variant is invalid, and so is any other tail. *)
+    | Some _ | None -> None
   else None
 
 (** Parse group-not-* or peer-not-* pattern. Splits the rest into inner modifier

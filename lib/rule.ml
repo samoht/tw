@@ -626,11 +626,6 @@ let route_data_modifier modifier base_class selector props =
       handle_data_modifier k v selector props base_class
   | _ -> regular ~selector ~props ~base_class ()
 
-(* Known data shorthand names *)
-let _is_data_shorthand_name = function
-  | "disabled" | "active" | "inactive" -> true
-  | _ -> false
-
 (* Route data bracket variants to appropriate handler *)
 let route_data_bracket_modifier modifier ~selector base_class props =
   let kind, raw_str, name_opt =
