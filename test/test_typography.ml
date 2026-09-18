@@ -942,6 +942,35 @@ let test_text_bracket_functions () =
   rejected "text-[--alpha(red/)]";
   rejected "text-[--alpha(red)]"
 
+(* An [--alpha()] whose alpha reads a custom property is the colour mixed with
+   that property, and a mix a browser without [color-mix()] cannot read has the
+   colour itself in the open, whether the mix was spelled with [--alpha()] or by
+   hand: Tailwind writes the first colour where a var() in the mix resolves to
+   nothing. The bracket reader took only a percentage alpha, so the class was
+   refused, and a hand-written mix with a var() alpha wrote the mix alone with
+   no fallback beside it. *)
+let test_text_bracket_alpha_var () =
+  let mixed cls =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "color: red"; "color: color-mix(in oklab, red var(--o), transparent)" ]
+  in
+  mixed "text-[--alpha(red/var(--o))]";
+  mixed "text-[color-mix(in_oklab,red_var(--o),transparent)]";
+  Test_helpers.check_declarations ~minify:false
+    "text-[--alpha(var(--c)/var(--o))]"
+    [
+      "color: var(--c)";
+      "color: color-mix(in oklab, var(--c) var(--o), transparent)";
+    ];
+  (* the modifier written after the bracket mixes the mix again *)
+  Test_helpers.check_declarations ~minify:false
+    "text-[--alpha(red/var(--o))]/50"
+    [
+      "color: red";
+      "color: color-mix(in oklab, color-mix(in oklab, red var(--o), \
+       transparent) 50%, transparent)";
+    ]
+
 (* A bracket list-style value is read with the CSS parser rather than a
    hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be
    unknown classes. A name the keyword table does not know is a
@@ -1436,6 +1465,8 @@ let tests =
       test_arbitrary_tracking_token_stream;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
+    test_case "text-[--alpha()] with a var alpha" `Quick
+      test_text_bracket_alpha_var;
     test_case "named font family from the theme" `Quick test_named_font_family;
     test_case "named font family sub-tokens" `Quick
       test_named_font_family_sub_tokens;

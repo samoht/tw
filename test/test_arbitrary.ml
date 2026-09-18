@@ -253,6 +253,43 @@ let test_alpha_fn_bare_number () =
       "color: color-mix(in oklab, red 20%, transparent)";
     ]
 
+(* An [--alpha()] whose alpha reads a custom property mixes that property, in an
+   arbitrary property as in a colour utility. The reader took only a percentage
+   alpha, so the class was refused. Both arms mix, the way the [/(--o)] modifier
+   writes them. *)
+let test_alpha_fn_var_alpha () =
+  check "[color:--alpha(red/var(--o))]";
+  Test_helpers.check_declarations ~minify:false "[color:--alpha(red/var(--o))]"
+    [
+      "color: color-mix(in srgb, red var(--o), transparent)";
+      "color: color-mix(in oklab, red var(--o), transparent)";
+    ];
+  Test_helpers.check_declarations ~minify:false
+    "[--x:--alpha(var(--c)/var(--o))]"
+    [
+      "--x: var(--c)";
+      "--x: color-mix(in oklab, var(--c) var(--o), transparent)";
+    ]
+
+(* Tailwind substitutes [--alpha()] wherever it stands in a value, as it does
+   [--spacing()]: a shadow or a gradient spelling one reads on with the
+   [color-mix()] in its place. The call was read only as the whole value, and
+   the guard that refuses a surviving call ran over the undecoded text, where
+   [1px_--alpha] is one token, so the call reached the sheet as written. *)
+let test_alpha_fn_inside_a_value () =
+  check "[box-shadow:0_0_0_1px_--alpha(red/50%)]";
+  Test_helpers.check_declarations ~minify:false
+    "[box-shadow:0_0_0_1px_--alpha(red/50%)]"
+    [ "box-shadow: 0 0 0 1px color-mix(in oklab, red 50%, transparent)" ];
+  Test_helpers.check_declarations ~minify:false
+    "[background-image:linear-gradient(--alpha(red/0.5),blue)]"
+    [
+      "background-image: linear-gradient(color-mix(in oklab, red 50%, \
+       transparent), blue)";
+    ];
+  (* a call missing its alpha is a lookup that failed, wherever it stands *)
+  rejected "[box-shadow:0_0_0_1px_--alpha(red)]"
+
 (* The [/] modifier applies to the colour the value denotes, so a value written
    with [--alpha()] mixes twice, and both spellings survive the round-trip. *)
 let test_alpha_fn_with_modifier () =
@@ -515,6 +552,8 @@ let tests =
     test_case "--alpha() bare number alpha" `Quick test_alpha_fn_bare_number;
     test_case "--alpha() value with a /opacity modifier" `Quick
       test_alpha_fn_with_modifier;
+    test_case "--alpha() with a var alpha" `Quick test_alpha_fn_var_alpha;
+    test_case "--alpha() inside a value" `Quick test_alpha_fn_inside_a_value;
     test_case "var-valued opacity modifier spelling" `Quick
       test_var_opacity_spelling;
     test_case "named colour value" `Quick test_named_colour_value;
