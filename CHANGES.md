@@ -380,15 +380,17 @@
   every one of them, `currentcolor` and a bracket `var()` included
   (`bg-cyan-400/(--my-alpha-value)`, `shadow-red-500/half`,
   `decoration-current/(--o)`, `ring-[var(--c)]/half`,
-  `scrollbar-thumb-current/(--o)`), and `transparent` and `inherit` take one
-  everywhere. Shadeless names such as `shadow-white`, `stroke-white`,
+  `scrollbar-thumb-current/(--o)`, `border-t-current/50`,
+  `border-bs-[color:var(--c)]/50`), `transparent` and `inherit` take one
+  everywhere, and `border-inherit` and `border-t-inherit` compile. Shadeless
+  names such as `shadow-white`, `stroke-white`,
   `ring-offset-white` and `ring-offset-black` work, a colour the project's
   `@theme` declares names a ring, a ring offset and an inset ring as it names
   a shadow, a `--text-shadow-color-*` token names a text shadow's,
   `light-dark()` and an arbitrary shadow colour resolve, and a drop shadow
   keeps both of its default layers under an opacity (#169, #185, #201, #202,
   #209, #214, #225, #231, #244, #254, #281, #308, #322, #323, #813, #847,
-  #859, #868).
+  #859, #868, #876).
 - An opacity modifier over a bracket colour paints the colour the class named,
   as a `color-mix()`, across all thirteen colour families.
   `text-[rebeccapurple]/50` and its siblings were unknown classes or rendered
