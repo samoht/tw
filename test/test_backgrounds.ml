@@ -697,8 +697,86 @@ let test_percentage_hint_names_a_position () =
   check_declarations "bg-[position:notaposition]"
     [ "background-position:notaposition" ]
 
+(* A stop written as a length or a percentage sets the stop's position, and a
+   position takes no modifier: Tailwind names no utility for [from-[10px]/50],
+   hinted or not, and for the var() a hint types as one. tw read the bracket as
+   a colour once a modifier followed it and mixed the length. *)
+let test_gradient_position_refuses_modifier () =
+  let invalid =
+    Test_helpers.check_invalid_input (module Tw.Backgrounds.Handler)
+  in
+  invalid "from-[10px]/50";
+  invalid "from-[length:10px]/50";
+  invalid "via-[10px]/50";
+  invalid "to-[length:10px]/50";
+  invalid "from-[10%]/50";
+  invalid "from-[percentage:10%]/50";
+  invalid "from-[length:var(--x)]/50";
+  invalid "from-[calc(1px+2px)]/50";
+  invalid "via-[percentage:var(--x)]/(--o)";
+  invalid "to-[10px]/[0.5]"
+
+(* A token-stream stop takes a modifier the way a colour does. A percentage
+   folds into the mix. A modifier read from a custom property is the pair
+   Tailwind's polyfill writes: the bare value in the open, for a browser with no
+   [color-mix()], and the mix behind the colour-mix guard, reading the property
+   the class named. A named token reads the theme's percentage into an sRGB mix
+   in the open and the token itself behind the guard. tw folded every modifier
+   it could not read to [100%] and wrote nothing beside it. *)
+let test_gradient_raw_stop_modifier () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let pair cls channel ~open_ ~mixed rest =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      ([ channel ^ ": " ^ open_; channel ^ ": " ^ mixed ] @ rest)
+  in
+  let mix colour alpha =
+    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
+  in
+  let from_stops = [ stops ] in
+  let via_rest =
+    [ via_stops; "--tw-gradient-stops: var(--tw-gradient-via-stops)" ]
+  in
+  pair "from-[foo(1)]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  pair "from-[foo(1)]/[var(--o)]" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  pair "from-[color:foo(1)]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  pair "via-[foo(1)]/(--o)" "--tw-gradient-via" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") via_rest;
+  pair "to-[foo(1)]/(--o)" "--tw-gradient-to" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  (* The open form is the mix's first colour, the one token after its comma, so
+     a value of several tokens keeps only its first there. *)
+  pair "from-[foo(1)_bar]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1) bar" "var(--o)")
+    from_stops;
+  pair "from-[foo(1)]/half" "--tw-gradient-from"
+    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
+    ~mixed:(mix "foo(1)" "var(--opacity-half)")
+    from_stops;
+  pair "via-[foo(1)]/half" "--tw-gradient-via"
+    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
+    ~mixed:(mix "foo(1)" "var(--opacity-half)")
+    via_rest;
+  pair "to-[foo(1)]/half" "--tw-gradient-to"
+    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
+    ~mixed:(mix "foo(1)" "var(--opacity-half)")
+    from_stops;
+  (* A percentage needs no guard: the mix holds nothing a browser resolves. *)
+  Test_helpers.check_declarations ~minify:false "from-[foo(1)]/50"
+    (("--tw-gradient-from: " ^ mix "foo(1)" "50%") :: from_stops);
+  Test_helpers.check_declarations ~minify:false "to-[foo(1)]/[0.5]"
+    (("--tw-gradient-to: " ^ mix "foo(1)" "50%") :: from_stops)
+
 let tests =
   [
+    test_case "gradient position refuses a modifier" `Quick
+      test_gradient_position_refuses_modifier;
+    test_case "gradient token-stream stop under a modifier" `Quick
+      test_gradient_raw_stop_modifier;
     test_case "percentage hint names a position" `Quick
       test_percentage_hint_names_a_position;
     test_case "bracket data-type hint reads the value" `Quick
