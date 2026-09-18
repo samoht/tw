@@ -49,6 +49,9 @@ module Handler = struct
     | Skew_y_arbitrary of string * [ `Angle of Css.angle | `Raw of string ]
     | Skew of int
     | Skew_arbitrary of string * [ `Angle of Css.angle | `Raw of string ]
+    | Neg_skew_arbitrary of string
+    | Neg_skew_x_arbitrary of string
+    | Neg_skew_y_arbitrary of string
     | Translate_x_fraction of int * int
     | Translate_y_fraction of int * int
     | (* Combined translate utilities *)
@@ -430,33 +433,37 @@ module Handler = struct
             | _ -> Error (`Msg ("Invalid length unit: " ^ unit_s))))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
+  (* The angle a bracket spells: a signed decimal under one of the four angle
+     units. *)
+  let angle_of_inner inner : Css.angle option =
+    let slen = String.length inner in
+    let i = ref 0 in
+    while
+      !i < slen
+      && ((inner.[!i] >= '0' && inner.[!i] <= '9')
+         || inner.[!i] = '.'
+         || inner.[!i] = '-')
+    do
+      incr i
+    done;
+    if !i = 0 || !i = slen then None
+    else
+      let num_s = String.sub inner 0 !i in
+      let unit_s = String.sub inner !i (slen - !i) in
+      match (Float.of_string_opt num_s, unit_s) with
+      | Some n, "deg" -> Some (Deg n)
+      | Some n, "rad" -> Some (Rad n)
+      | Some n, "turn" -> Some (Turn n)
+      | Some n, "grad" -> Some (Grad n)
+      | _ -> None
+
   (* The bracket names the class, so hand its text back beside the angle. *)
   let parse_bracket_angle s : (string * Css.angle, _) result =
-    if Parse.is_bracket_value s then (
+    if Parse.is_bracket_value s then
       let inner = Parse.bracket_inner s in
-      let slen = String.length inner in
-      let i = ref 0 in
-      while
-        !i < slen
-        && ((inner.[!i] >= '0' && inner.[!i] <= '9')
-           || inner.[!i] = '.'
-           || inner.[!i] = '-')
-      do
-        incr i
-      done;
-      if !i = 0 || !i = slen then Error (`Msg ("Invalid angle value: " ^ inner))
-      else
-        let num_s = String.sub inner 0 !i in
-        let unit_s = String.sub inner !i (slen - !i) in
-        match Float.of_string_opt num_s with
-        | Option.None -> Error (`Msg ("Invalid angle value: " ^ inner))
-        | Option.Some n -> (
-            match unit_s with
-            | "deg" -> Ok (inner, (Css.Deg n : Css.angle))
-            | "rad" -> Ok (inner, Rad n)
-            | "turn" -> Ok (inner, Turn n)
-            | "grad" -> Ok (inner, Grad n)
-            | _ -> Error (`Msg ("Invalid angle unit: " ^ unit_s))))
+      match angle_of_inner inner with
+      | Some a -> Ok (inner, a)
+      | None -> Error (`Msg ("Invalid angle value: " ^ inner))
     else Error (`Msg ("Not a bracket value: " ^ s))
 
   (* A bracket a negative translate takes: one holding a value, which every
@@ -602,22 +609,24 @@ module Handler = struct
   (* The bracket [s] negated the way Tailwind writes a negative candidate: the
      value [read] takes, with any data-type hint taken off, comes back [`Typed]
      for the family to negate as its type, and every other value comes back
-     [`Raw], the token stream [calc(<value> * -1)]. [None] is a bracket that
-     names no value, which the reader refused. *)
-  let neg_bracket_value read s =
+     [`Raw], the token stream [calc(<value> * -1)] between [before] and [after],
+     which is the function call a channel holds. [None] is a bracket that names
+     no value, which the reader refused. *)
+  let neg_bracket_value ?(before = "") ?(after = "") read s =
     match Option.bind (Parse.value_after_hint s) read with
     | Some v -> Some (`Typed v)
     | None ->
         Option.bind (Parse.arbitrary_declaration_value s) (fun v ->
             Option.map
               (fun raw -> `Raw raw)
-              (Parse.wrap_declaration_value ~before:"calc(" ~after:" * -1)" v))
+              (Parse.wrap_declaration_value ~before:(before ^ "calc(")
+                 ~after:(" * -1)" ^ after) v))
 
   (* [var] set to the bracket [s] negated: a value [read] takes goes through
      [neg], the family's own negation, and a token stream is written as it
      is. *)
-  let neg_channel_decl read neg var s =
-    match neg_bracket_value read s with
+  let neg_channel_decl ?before ?after read neg var s =
+    match neg_bracket_value ?before ?after read s with
     | Some (`Typed v) -> Some (Var.set var (neg v))
     | Some (`Raw v) ->
         Some (Css.custom_property ~layer:"utilities" (Var.css_name var) v)
@@ -628,6 +637,9 @@ module Handler = struct
 
   let neg_number f : Css.number_percentage =
     Calc (Calc.mul (Calc.float f) (Calc.float (-1.)))
+
+  let neg_angle (a : Css.angle) : Css.angle =
+    Calc (Calc.mul (Val a) (Calc.float (-1.)))
 
   (* A translate channel: a length is negated as a length. *)
   let neg_arbitrary_decl var s =
@@ -763,6 +775,46 @@ module Handler = struct
   let skew_y deg = transform_with_var tw_skew_y_var (Skew_y (make_angle deg))
   let skew_x_arbitrary angle = transform_with_var tw_skew_x_var (Skew_x angle)
   let skew_y_arbitrary angle = transform_with_var tw_skew_y_var (Skew_y angle)
+
+  (* The transform every rotate and skew channel utility writes, reading the
+     five channels with an empty fallback each. *)
+  let rotate_skew_chain =
+    let rotate_x_ref = Var.reference_with_empty_fallback tw_rotate_x_var in
+    let rotate_y_ref = Var.reference_with_empty_fallback tw_rotate_y_var in
+    let rotate_z_ref = Var.reference_with_empty_fallback tw_rotate_z_var in
+    let skew_x_ref = Var.reference_with_empty_fallback tw_skew_x_var in
+    let skew_y_ref = Var.reference_with_empty_fallback tw_skew_y_var in
+    transforms
+      [
+        Var rotate_x_ref;
+        Var rotate_y_ref;
+        Var rotate_z_ref;
+        Var skew_x_ref;
+        Var skew_y_ref;
+      ]
+
+  (* A negative bracket on [axes], each a rotate or skew channel with the
+     function it holds and the transform that function is: the channel takes the
+     function around the bracket negated, an angle as an angle and a token
+     stream as [calc(<value> * -1)], beside the chain. *)
+  let neg_chain_arbitrary_on axes s =
+    let decl (var, fn, transform) =
+      neg_channel_decl ~before:(fn ^ "(") ~after:")" angle_of_inner
+        (fun a -> transform (neg_angle a))
+        var s
+    in
+    match List.map decl axes with
+    | decls when List.for_all Option.is_some decls ->
+        style ~property_rules:rotate_skew_props
+          ~metadata:(List.map (fun (var, _, _) -> Var.metadata var) axes)
+          (List.filter_map Fun.id decls @ [ rotate_skew_chain ])
+    | _ -> style []
+
+  let skew_x_axis = (tw_skew_x_var, "skewX", fun a : Css.transform -> Skew_x a)
+  let skew_y_axis = (tw_skew_y_var, "skewY", fun a : Css.transform -> Skew_y a)
+  let neg_skew_x_arbitrary = neg_chain_arbitrary_on [ skew_x_axis ]
+  let neg_skew_y_arbitrary = neg_chain_arbitrary_on [ skew_y_axis ]
+  let neg_skew_arbitrary = neg_chain_arbitrary_on [ skew_x_axis; skew_y_axis ]
 
   let raw_skew_style axes value =
     let raw var fn =
@@ -1494,6 +1546,9 @@ module Handler = struct
     | Skew n -> transform_with_both_skew n
     | Skew_arbitrary (_, `Angle a) -> transform_with_both_skew_angle a
     | Skew_arbitrary (_, `Raw value) -> raw_skew_style `Both value
+    | Neg_skew_arbitrary s -> neg_skew_arbitrary s
+    | Neg_skew_x_arbitrary s -> neg_skew_x_arbitrary s
+    | Neg_skew_y_arbitrary s -> neg_skew_y_arbitrary s
     | Rotate_x n -> rotate_x n
     | Rotate_x_arbitrary (_, a) -> rotate_x_arbitrary a
     | Rotate_x_bare_var name -> rotate_x_bare_var name
@@ -1630,10 +1685,13 @@ module Handler = struct
         1101
     (* Combined skew precedes skew-x, then skew-y. *)
     | Skew n when n < 0 -> 1200
+    | Neg_skew_arbitrary _ -> 1200
     | Skew _ | Skew_arbitrary _ -> 1201
     | Skew_x n when n < 0 -> 1210
+    | Neg_skew_x_arbitrary _ -> 1210
     | Skew_x _ | Skew_x_arbitrary _ -> 1211
     | Skew_y n when n < 0 -> 1300
+    | Neg_skew_y_arbitrary _ -> 1300
     | Skew_y _ | Skew_y_arbitrary _ -> 1301
     (* Perspective depths are one candidate band; Tailwind orders their class
        spellings rather than their semantic distance. *)
@@ -2036,11 +2094,17 @@ module Handler = struct
         Ok (Neg_scale_z_arbitrary (Parse.bracket_inner value))
     | [ ""; "scale"; "z"; n ] ->
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z (-n)
-    (* Negative skew: -skew-N, -skew-x-N, -skew-y-N *)
+    (* Negative skew: -skew-N, -skew-x-N, -skew-y-N, -skew-x-[10deg] *)
+    | [ ""; "skew"; "x"; value ] when neg_bracket value ->
+        Ok (Neg_skew_x_arbitrary (Parse.bracket_inner value))
     | [ ""; "skew"; "x"; n ] ->
         Parse.int_pos ~name:"skew-x" n >|= fun n -> Skew_x (-n)
+    | [ ""; "skew"; "y"; value ] when neg_bracket value ->
+        Ok (Neg_skew_y_arbitrary (Parse.bracket_inner value))
     | [ ""; "skew"; "y"; n ] ->
         Parse.int_pos ~name:"skew-y" n >|= fun n -> Skew_y (-n)
+    | [ ""; "skew"; value ] when neg_bracket value ->
+        Ok (Neg_skew_arbitrary (Parse.bracket_inner value))
     | [ ""; "skew"; n ] -> Parse.int_pos ~name:"skew" n >|= fun n -> Skew (-n)
     | [ "perspective"; "none" ] -> Ok Perspective_none
     | [ "perspective"; "dramatic" ] -> Ok Perspective_dramatic
@@ -2231,6 +2295,9 @@ module Handler = struct
     | Skew_y_arbitrary (raw, _) -> "skew-y-" ^ "[" ^ raw ^ "]"
     | Skew n -> neg_class "skew-" n
     | Skew_arbitrary (raw, _) -> "skew-" ^ "[" ^ raw ^ "]"
+    | Neg_skew_arbitrary s -> "-skew-[" ^ s ^ "]"
+    | Neg_skew_x_arbitrary s -> "-skew-x-[" ^ s ^ "]"
+    | Neg_skew_y_arbitrary s -> "-skew-y-[" ^ s ^ "]"
     | Rotate_x n -> neg_class "rotate-x-" n
     | Rotate_x_arbitrary (raw, _) | Rotate_x_raw (raw, _) ->
         "rotate-x-[" ^ raw ^ "]"
