@@ -532,6 +532,80 @@ let render_page ?(inner = box_marker) elements =
         elements
     @ [ "</body></html>" ])
 
+(* ===== A page for a class list ===== *)
+
+(* The [/name] a [group-*] or [peer-*] variant scopes to, from any segment of a
+   class that starts with [prefix]. *)
+let scope_names prefix classes =
+  let names = Hashtbl.create 16 in
+  List.iter
+    (fun cls ->
+      List.iter
+        (fun segment ->
+          if String.starts_with ~prefix segment then
+            match String.rindex_opt segment '/' with
+            | Some i when i + 1 < String.length segment ->
+                let name =
+                  String.sub segment (i + 1) (String.length segment - i - 1)
+                in
+                if not (String.contains name ']') then
+                  Hashtbl.replace names name ()
+            | _ -> ())
+        (Tw_tools.Entrypoint.variant_segments cls))
+    classes;
+  Hashtbl.fold (fun name () acc -> name :: acc) names [] |> List.sort compare
+
+let scoped base names =
+  String.concat " " (base :: List.map (fun n -> base ^ "/" ^ n) names)
+
+let reads_descendants cls =
+  List.exists
+    (fun segment ->
+      String.starts_with ~prefix:"has-" segment
+      || String.starts_with ~prefix:"group-has-" segment
+      || String.starts_with ~prefix:"peer-has-" segment
+      || String.equal segment "*" || String.equal segment "**")
+    (Tw_tools.Entrypoint.variant_segments cls)
+
+(* The children a descendant-reading variant needs, each holding the marker
+   every element gets, so their boxes paint too. *)
+let descendant_children =
+  String.concat ""
+    [
+      "<p>";
+      box_marker;
+      " <code>x</code> <strong>x</strong> <a href=\"#\">x</a></p><svg \
+       width=\"1\" height=\"1\"></svg><ul><li>";
+      box_marker;
+      "</li></ul><pre>x</pre><img alt=\"\">";
+    ]
+
+let classes_page ?scope classes =
+  let scope = Option.value scope ~default:classes in
+  let group = scoped "group" (scope_names "group-" scope) in
+  let peer = scoped "peer" (scope_names "peer-" scope) in
+  let buf = Buffer.create (1 lsl 16) in
+  Buffer.add_string buf
+    "<!doctype html><html><head><meta charset=\"utf-8\"></head><body>";
+  List.iter
+    (fun cls ->
+      Buffer.add_string buf
+        (String.concat ""
+           [
+             "<div class=\"";
+             escape_attribute group;
+             "\"><input type=\"checkbox\" class=\"";
+             escape_attribute peer;
+             "\"><div class=\"";
+             escape_attribute cls;
+             "\">";
+             (if reads_descendants cls then descendant_children else box_marker);
+             "</div></div>";
+           ]))
+    classes;
+  Buffer.add_string buf "</body></html>\n";
+  Buffer.contents buf
+
 let rendering_report ?inner ~test_name ~elements ~tailwind ~tw () =
   if Sys.getenv_opt "TW_BROWSER_TESTS" = Some "0" then Alcotest.skip ();
   (match (Browser.node_binary (), Browser.chrome_binary ()) with
