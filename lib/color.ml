@@ -3934,25 +3934,6 @@ let bg_with_opacity ?theme c shade opacity =
             (decls @ [ fallback_decl ])
       | None -> bg_opacity_via_property ?theme c shade opacity)
 
-(** Determine the appropriate fallback for an opacity theme variable. If the
-    theme defines a concrete value (e.g., "0.5"), use [Fallback (Num f)]. If the
-    theme defines a var reference (e.g., "var(--custom-opacity)"), use
-    [Var_fallback] with the inner var name. Otherwise fall back to the
-    conventional [name-opacity] pattern. *)
-let opacity_fallback_for_theme_value ?theme var_name bare :
-    Css.percentage Css.fallback =
-  match Scheme.theme_value theme var_name with
-  | Some value
-    when String.starts_with ~prefix:"var(" value && String.length value > 4 ->
-      (* Theme value is a var reference like "var(--custom-opacity)" *)
-      let inner = String.sub value 4 (String.length value - 5) in
-      Css.Var_fallback (Option.value ~default:inner (Parse.bare_name inner))
-  | Some value -> (
-      match float_of_string_opt (String.trim value) with
-      | Some f -> Css.Fallback (Css.Num f)
-      | None -> Css.Var_fallback (bare ^ "-opacity"))
-  | None -> Css.Var_fallback (bare ^ "-opacity")
-
 (** Background currentColor with opacity *)
 let bg_current_with_opacity opacity =
   let fallback_decl = Css.background_color Css.Current in

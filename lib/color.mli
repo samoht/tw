@@ -292,12 +292,6 @@ val color_mix_supports : Css.declaration list -> Css.statement
     {!color_mix_supports_condition}: the [\@supports] block a colour utility
     puts its [color-mix()] value in, with the fallback left in the open. *)
 
-val opacity_fallback_for_theme_value :
-  ?theme:Scheme.t -> string -> string -> Css.percentage Css.fallback
-(** [opacity_fallback_for_theme_value ?theme var_name bare] determines the
-    appropriate fallback for an opacity theme variable, reading token overrides
-    from [theme] when given. *)
-
 (** {1 Tailwind Colors} *)
 
 (** Predefined Tailwind v4 color values *)

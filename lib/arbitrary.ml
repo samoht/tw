@@ -79,50 +79,40 @@ module Handler = struct
       ~rules:(Some [ Color.color_mix_supports [ prop (mix Oklab) ] ])
       [ prop (mix Srgb) ]
 
+  (* The percentage a named [--opacity-*] token resolves to at compile time: the
+     theme's value, a percentage or a fraction of one. A value that is neither,
+     a var() say, resolves to nothing. *)
+  let named_opacity_percent theme name =
+    match Scheme.theme_value (Some theme) ("opacity-" ^ name) with
+    | None -> None
+    | Some v ->
+        let v = String.trim v in
+        if String.ends_with ~suffix:"%" v then
+          float_of_string_opt (String.sub v 0 (String.length v - 1))
+        else Option.map (fun f -> f *. 100.) (float_of_string_opt v)
+
   (* Render a known colour-property declaration ([color], [background-color],
      ...) with a parsed colour value and an /opacity modifier. *)
   let color_opacity_render theme prop color opacity =
-    let at_percent p in_space =
-      Css.color_mix ~in_space ~percent1:p color Css.Transparent
-    in
     match opacity with
     | Color.Opacity_named name ->
-        let bare = Parse.extract_var_name name in
-        let var_name = "opacity-" ^ bare in
+        (* The srgb fallback carries the percentage the token resolves to, as
+           Tailwind inlines it; a token it cannot resolve leaves the colour
+           whole. *)
         let fallback =
-          Color.opacity_fallback_for_theme_value ~theme var_name bare
+          match named_opacity_percent theme (Parse.extract_var_name name) with
+          | Some percent1 ->
+              Css.color_mix ~in_space:Srgb ~percent1 color Css.Transparent
+          | None -> color
         in
-        (* srgb fallback: resolve the theme value to get the actual
-           percentage *)
-        let srgb_percent =
-          match Scheme.theme_value (Some theme) var_name with
-          | Some v -> (
-              match float_of_string_opt (String.trim v) with
-              | Some f -> f *. 100.0
-              | None -> 100.0)
-          | None -> 100.0
+        let supports_block =
+          Color.color_mix_supports [ prop (Color.mix_alpha opacity color) ]
         in
-        let srgb_fallback =
-          Css.color_mix ~in_space:Srgb ~percent1:srgb_percent color
-            Css.Transparent
-        in
-        let fallback_decl = prop srgb_fallback in
-        let oklab_color =
-          Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
-            color Css.Transparent
-        in
-        let oklab_decl = prop oklab_color in
-        let supports_block = Color.color_mix_supports [ oklab_decl ] in
-        style ~rules:(Some [ supports_block ]) [ fallback_decl ]
-    | Color.Opacity_percent { value = p; _ }
-    | Color.Opacity_bracket_percent { value = p; _ } ->
-        guarded_mix prop (at_percent p)
-    | Color.Opacity_arbitrary f ->
-        guarded_mix prop (at_percent (f.value *. 100.0))
-    | Color.Opacity_var var_str ->
-        let var_name = Color.opacity_var_bare var_str in
+        style ~rules:(Some [ supports_block ]) [ prop fallback ]
+    | Color.Opacity_percent _ | Color.Opacity_bracket_percent _
+    | Color.Opacity_arbitrary _ | Color.Opacity_var _ ->
         guarded_mix prop (fun in_space ->
-            Css.color_mix_var_percent ~in_space ~var_name color Css.Transparent)
+            Color.mix_alpha ~in_space opacity color)
     | Color.No_opacity -> style [ prop color ]
 
   (* A var-valued colour with /opacity: oklab color-mix under @supports, with an
@@ -142,29 +132,22 @@ module Handler = struct
           shade opacity
     | None ->
         let var_ref : Css.color Css.var = Var.bracket bare in
-        let percent = Color.opacity_to_percent opacity in
-        let oklab_decl =
-          emit
-            (Css.color_mix ~in_space:Oklab (Css.Var var_ref) Css.Transparent
-               ~percent1:percent)
-        in
+        let oklab_decl = emit (Color.mix_alpha opacity (Css.Var var_ref)) in
         (* The srgb fallback inlines the resolved theme colour when known
            (matching Tailwind), else keeps the raw var. Emitting the referenced
            [--token] into @layer theme needs the registering theme-var mechanism
            (see [Color.color_var]); arbitrary references via [Var.bracket] don't
            trigger it, so theme-var-referencing values still differ in the theme
-           layer (the same gap as [backgrounds.ml]'s
-           bg-[color:var(--token)]). *)
+           layer (the same gap as [backgrounds.ml]'s bg-[color:var(--token)]). A
+           modifier reading a custom property has no percentage to fold in, so
+           the fallback keeps the var() bare. *)
         let fallback =
           match Scheme.theme_value (Some theme) bare with
-          | Some v -> (
+          | Some v when Option.is_none (Color.opacity_var_bare_of opacity) -> (
               match Css.parse_color (String.trim v) with
-              | Some c ->
-                  emit
-                    (Css.color_mix ~in_space:Srgb c Css.Transparent
-                       ~percent1:percent)
+              | Some c -> emit (Color.mix_alpha ~in_space:Srgb opacity c)
               | None -> emit (Css.Var var_ref : Css.color))
-          | None -> emit (Css.Var var_ref : Css.color)
+          | Some _ | None -> emit (Css.Var var_ref : Css.color)
         in
         let supports = Color.color_mix_supports [ oklab_decl ] in
         style ~rules:(Some [ supports ]) [ fallback ]
