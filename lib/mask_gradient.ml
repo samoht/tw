@@ -483,9 +483,13 @@ module Handler = struct
         set var (Length len)
     | Percent p -> set var (Pct p)
     | Arbitrary raw -> (
-        match arbitrary_length_percentage raw with
+        (* An arbitrary value: [_] is a space and a math function takes the
+           spaces around its operators, whether or not what comes out is a
+           length-percentage. *)
+        let value = Parse.decode_arbitrary_value raw in
+        match arbitrary_length_percentage value with
         | Some lp -> set var lp
-        | None -> custom_property ~layer:"utilities" (Var.css_name var) raw)
+        | None -> custom_property ~layer:"utilities" (Var.css_name var) value)
 
   (* Build the style for a directional mask position *)
   let build_directional_style ?theme dir pos_end value =
