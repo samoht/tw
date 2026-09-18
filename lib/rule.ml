@@ -157,8 +157,6 @@ module Rules_selector = struct
     transform ~enclose:false ~descendant:false selector
 end
 
-let resolve_scheme = function Some s -> s | None -> Scheme.default
-
 let breakpoint_rem = function
   | `Sm -> 40.
   | `Md -> 48.
@@ -212,23 +210,26 @@ let negate_media = function
     available, otherwise the default rem value. *)
 let breakpoint_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint_length (resolve_scheme theme) name with
+  match Scheme.breakpoint_length (Scheme.or_default theme) name with
   | Some length -> Css.media_min_width_length length
   | None -> media_min_width_rem (breakpoint_rem bp)
 
 (** Get the negated media condition for max-* breakpoints. *)
 let breakpoint_not_condition ?theme bp =
   let name = string_of_breakpoint bp in
-  match Scheme.breakpoint_length (resolve_scheme theme) name with
+  match Scheme.breakpoint_length (Scheme.or_default theme) name with
   | Some length -> Css.media_not_min_width_length length
   | None -> media_not_min_width_rem (breakpoint_rem bp)
 
 (* The length a project breakpoint names; the reader only admits names the theme
    declares. *)
 let custom_breakpoint_length ?theme name =
-  match Scheme.breakpoint_length (resolve_scheme theme) name with
+  match Scheme.breakpoint_length (Scheme.or_default theme) name with
   | Some length -> length
   | None -> failwith ("unknown custom breakpoint: " ^ name)
+
+let responsive_breakpoint_prefix prefix breakpoint =
+  prefix ^ "-" ^ string_of_breakpoint breakpoint
 
 (** Get the media condition and class prefix for a responsive modifier. *)
 let responsive_modifier_condition ?theme = function
@@ -236,24 +237,10 @@ let responsive_modifier_condition ?theme = function
       let prefix = string_of_breakpoint bp in
       (breakpoint_condition ?theme bp, prefix)
   | Style.Min_responsive bp ->
-      let prefix =
-        match bp with
-        | `Sm -> "min-sm"
-        | `Md -> "min-md"
-        | `Lg -> "min-lg"
-        | `Xl -> "min-xl"
-        | `Xl_2 -> "min-2xl"
-      in
+      let prefix = responsive_breakpoint_prefix "min" bp in
       (breakpoint_condition ?theme bp, prefix)
   | Style.Max_responsive bp ->
-      let prefix =
-        match bp with
-        | `Sm -> "max-sm"
-        | `Md -> "max-md"
-        | `Lg -> "max-lg"
-        | `Xl -> "max-xl"
-        | `Xl_2 -> "max-2xl"
-      in
+      let prefix = responsive_breakpoint_prefix "max" bp in
       (breakpoint_not_condition ?theme bp, prefix)
   | Style.Min_arbitrary w -> (media_min_width_px w.px, "min-[" ^ w.text ^ "]")
   | Style.Max_arbitrary w ->
@@ -323,17 +310,6 @@ let responsive_rule ?theme ?inner_has_hover breakpoint base_class selector props
     (breakpoint_condition ?theme breakpoint)
     base_class selector props
 
-let responsive_breakpoint_prefix prefix breakpoint =
-  let suffix =
-    match breakpoint with
-    | `Sm -> "sm"
-    | `Md -> "md"
-    | `Lg -> "lg"
-    | `Xl -> "xl"
-    | `Xl_2 -> "2xl"
-  in
-  prefix ^ "-" ^ suffix
-
 let min_responsive_rule ?theme ?inner_has_hover breakpoint base_class selector
     props =
   media_rule_with_prefix ?inner_has_hover
@@ -379,14 +355,9 @@ let max_arbitrary_length_rule ?inner_has_hover (l : Style.arbitrary_length)
     (Css.media_not_min_width_length l.len)
     l base_class selector props
 
-let custom_breakpoint ?theme name =
-  match Scheme.breakpoint_length (resolve_scheme theme) name with
-  | Some length -> length
-  | None -> failwith ("unknown custom breakpoint: " ^ name)
-
 let custom_media_rule ?theme ?inner_has_hover prefix condition_of_length name
     base_class selector props =
-  let length = custom_breakpoint ?theme name in
+  let length = custom_breakpoint_length ?theme name in
   media_rule_with_prefix ?inner_has_hover (prefix name)
     (condition_of_length length)
     base_class selector props
@@ -494,16 +465,30 @@ let has_inner_selector raw =
   if Style.is_has_shorthand raw then sel
   else wrap_has_bracket_selector ~has_nesting sel
 
+(* The [/name] a named group or peer variant carries in its class name. *)
+let named_modifier_suffix = function None -> "" | Some n -> "/" ^ n
+
+(* The relative selector a group/peer variant scopes to: the marker class,
+   [.group] or [.group/name], with [extra] compounded onto it, then the
+   combinator and a universal, as [:where(.group):hover *]. *)
+let named_rel ~marker ~combinator ~name_opt extra =
+  let marker_class =
+    Css.Selector.Class (marker ^ named_modifier_suffix name_opt)
+  in
+  Css.Selector.combine
+    (Css.Selector.compound (Css.Selector.where [ marker_class ] :: extra))
+    combinator Css.Selector.universal
+
+(* The relative selector a [group-not-]/[peer-not-] variant contributes:
+   [:where(.group):not(<conditions>) *]. *)
+let named_not_rel ~marker ~combinator ~name_opt conditions =
+  named_rel ~marker ~combinator ~name_opt [ Css.Selector.Not conditions ]
+
 (* The relative selector a group/peer has-variant scopes to:
    [:where(.group):has(<inner>) *]. *)
 let has_anchor_rel ~anchor ~combinator ?name inner =
-  let open Css.Selector in
-  let anchor_class =
-    match name with Some n -> anchor ^ "/" ^ n | None -> anchor
-  in
-  combine
-    (compound [ where [ Class anchor_class ]; has [ inner ] ])
-    combinator universal
+  named_rel ~marker:anchor ~combinator ~name_opt:name
+    [ Css.Selector.has [ inner ] ]
 
 (* Rebuild [selector] around the [modified] selector a route builds for the bare
    class, so an inner variant's own work survives: [aria-selected:hover:X] keeps
@@ -539,7 +524,7 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~selector
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
         ~has_hover props
   | `Group_has ->
-      let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
+      let name_suffix = named_modifier_suffix name in
       let class_name =
         "group-has-" ^ has_part selector_str ^ name_suffix ^ ":" ^ base_class
       in
@@ -551,7 +536,7 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~selector
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
         ~has_hover props
   | `Peer_has ->
-      let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
+      let name_suffix = named_modifier_suffix name in
       let class_name =
         "peer-has-" ^ has_part selector_str ^ name_suffix ^ ":" ^ base_class
       in
@@ -679,41 +664,25 @@ let route_data_bracket_modifier modifier ~selector base_class props =
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
         props
   | `Group_data ->
-      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let name_suffix = named_modifier_suffix name_opt in
       let class_name =
         "group-data-" ^ class_part ^ name_suffix ^ ":" ^ base_class
       in
-      let group_class =
-        match name_opt with Some n -> "group/" ^ n | None -> "group"
-      in
       let rel =
-        combine
-          (compound
-             [
-               where [ Class group_class ];
-               attribute ?flag:attr_flag attr_name attr_match;
-             ])
-          Descendant universal
+        named_rel ~marker:"group" ~combinator:Descendant ~name_opt
+          [ attribute ?flag:attr_flag attr_name attr_match ]
       in
       let modified = compound [ Class class_name; is_ [ rel ] ] in
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
         props
   | `Peer_data ->
-      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let name_suffix = named_modifier_suffix name_opt in
       let class_name =
         "peer-data-" ^ class_part ^ name_suffix ^ ":" ^ base_class
       in
-      let peer_class =
-        match name_opt with Some n -> "peer/" ^ n | None -> "peer"
-      in
       let rel =
-        combine
-          (compound
-             [
-               where [ Class peer_class ];
-               attribute ?flag:attr_flag attr_name attr_match;
-             ])
-          Subsequent_sibling universal
+        named_rel ~marker:"peer" ~combinator:Subsequent_sibling ~name_opt
+          [ attribute ?flag:attr_flag attr_name attr_match ]
       in
       let modified = compound [ Class class_name; is_ [ rel ] ] in
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
@@ -795,35 +764,25 @@ let route_aria_modifier modifier ~selector base_class props =
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
         props
   | `Group_aria ->
-      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let name_suffix = named_modifier_suffix name_opt in
       let class_name =
         "group-aria-" ^ class_part ^ name_suffix ^ ":" ^ base_class
       in
-      let group_class =
-        match name_opt with Some n -> "group/" ^ n | None -> "group"
-      in
       let rel =
-        combine
-          (compound
-             [ where [ Class group_class ]; attribute aria_attr aria_match ])
-          Descendant universal
+        named_rel ~marker:"group" ~combinator:Descendant ~name_opt
+          [ attribute aria_attr aria_match ]
       in
       let modified = compound [ Class class_name; is_ [ rel ] ] in
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
         props
   | `Peer_aria ->
-      let name_suffix = match name_opt with Some n -> "/" ^ n | None -> "" in
+      let name_suffix = named_modifier_suffix name_opt in
       let class_name =
         "peer-aria-" ^ class_part ^ name_suffix ^ ":" ^ base_class
       in
-      let peer_class =
-        match name_opt with Some n -> "peer/" ^ n | None -> "peer"
-      in
       let rel =
-        combine
-          (compound
-             [ where [ Class peer_class ]; attribute aria_attr aria_match ])
-          Subsequent_sibling universal
+        named_rel ~marker:"peer" ~combinator:Subsequent_sibling ~name_opt
+          [ attribute aria_attr aria_match ]
       in
       let modified = compound [ Class class_name; is_ [ rel ] ] in
       route_regular ~selector ~base_class ~modified_class:class_name ~modified
@@ -1028,24 +987,6 @@ let pseudo_selector_of_modifier = function
   | _ -> Css.Selector.Focus
 (* fallback *)
 
-(* The relative selector a [group-not-]/[peer-not-] variant contributes:
-   [:where(.group):not(<conditions>) *]. *)
-
-(** Extract the pseudo-class selector(s) from a modifier for use in :not().
-    Returns a list of selectors that go inside :not(sel1, sel2, ...). *)
-let named_rel ~marker ~combinator ~name_opt extra =
-  let marker_class =
-    match name_opt with
-    | Option.None -> Css.Selector.Class marker
-    | Option.Some n -> Css.Selector.Class (marker ^ "/" ^ n)
-  in
-  Css.Selector.combine
-    (Css.Selector.compound (Css.Selector.where [ marker_class ] :: extra))
-    combinator Css.Selector.universal
-
-let named_not_rel ~marker ~combinator ~name_opt conditions =
-  named_rel ~marker ~combinator ~name_opt [ Css.Selector.Not conditions ]
-
 (** Parse a bracket pseudo-class string into a CSS selector. *)
 let parse_bracket_pseudo content =
   match Css.Selector.of_string content with
@@ -1107,6 +1048,8 @@ let rec scoped_conditions ~marker ~combinator ~name_opt ~negated m base_class =
   let extra = if negated then [ Css.Selector.Not inner ] else inner in
   [ Css.Selector.is_ [ named_rel ~marker ~combinator ~name_opt extra ] ]
 
+(** Extract the pseudo-class selector(s) from a modifier for use in :not().
+    Returns a list of selectors that go inside :not(sel1, sel2, ...). *)
 and extract_not_conditions inner_modifier base_class =
   match inner_modifier with
   | Style.Hocus | Style.Device_hocus ->
@@ -1128,10 +1071,10 @@ and extract_not_conditions inner_modifier base_class =
         base_class
   | Style.Named_group (m, name) ->
       scoped_conditions ~marker:"group" ~combinator:Css.Selector.Descendant
-        ~name_opt:(Option.Some name) ~negated:false m base_class
+        ~name_opt:(Some name) ~negated:false m base_class
   | Style.Named_peer (m, name) ->
       scoped_conditions ~marker:"peer"
-        ~combinator:Css.Selector.Subsequent_sibling ~name_opt:(Option.Some name)
+        ~combinator:Css.Selector.Subsequent_sibling ~name_opt:(Some name)
         ~negated:false m base_class
   (* [in-hover] is an ancestor relation, and negating it negates the relation,
      [:where(:hover)] followed by a universal. Reading it through [to_selector]
@@ -1463,8 +1406,6 @@ let not_modifier_inner_string = function
   | Style.Not_bracket content -> "[" ^ content ^ "]"
   | m -> Modifiers.pp_modifier m
 
-let named_modifier_suffix = function None -> "" | Some n -> "/" ^ n
-
 let is_media_inner_modifier = function
   | Style.Hover | Style.Device_hocus -> true
   | inner -> Option.is_some (media_condition_of_modifier inner)
@@ -1512,10 +1453,8 @@ let handle_peer_not_modifier inner name_opt base_class props =
 
 (** Build the group-STATE selector rel: :where(.group/name):STATE descendant *)
 let named_group_rel name pseudo =
-  let open Css.Selector in
-  combine
-    (compound [ where [ Class ("group/" ^ name) ]; pseudo ])
-    Descendant universal
+  named_rel ~marker:"group" ~combinator:Css.Selector.Descendant
+    ~name_opt:(Some name) [ pseudo ]
 
 (* [group-X/name] / [peer-X/name]: a state variant scoped to a named anchor. The
    anchor's own [hover] must still gate on the pointer, so the rule carries
@@ -1527,13 +1466,8 @@ let named_anchor_rule ~anchor ~combinator inner name base_class props =
       [ anchor; "-"; Modifiers.pp_modifier inner; "/"; name; ":"; base_class ]
   in
   let rel =
-    combine
-      (compound
-         [
-           where [ Class (anchor ^ "/" ^ name) ];
-           pseudo_selector_of_modifier inner;
-         ])
-      combinator universal
+    named_rel ~marker:anchor ~combinator ~name_opt:(Some name)
+      [ pseudo_selector_of_modifier inner ]
   in
   let sel = compound [ Class modified_class; is_ [ rel ] ] in
   [
@@ -1751,7 +1685,7 @@ let modified_selector_rule modifier base_class selector props =
    selector goes inside the [:has()] its anchor carries. *)
 let route_scoped_has_variant ~anchor ~combinator inner name ~selector base_class
     props =
-  let name_suffix = match name with Some n -> "/" ^ n | None -> "" in
+  let name_suffix = named_modifier_suffix name in
   let modified_class =
     anchor ^ "-has-"
     ^ Modifiers.pp_modifier inner

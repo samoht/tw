@@ -85,10 +85,8 @@ let custom_variant_apply template value =
    variants, returning the (token, resolved-selector) for a [Custom_variant]. *)
 let try_custom_variant (theme : Scheme.t) s =
   let resolve name (cv : Scheme.custom_variant) =
-    if s = name then
-      Option.map
-        (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
-        (List.assoc_opt "" cv.values)
+    let make v = Custom_variant (s, custom_variant_apply cv.template v) in
+    if s = name then Option.map make (List.assoc_opt "" cv.values)
     else
       let prefix = name ^ "-" in
       if String.starts_with ~prefix s && String.length s > String.length prefix
@@ -105,9 +103,7 @@ let try_custom_variant (theme : Scheme.t) s =
           then Some (String.sub rest 1 (String.length rest - 2))
           else List.assoc_opt rest cv.values
         in
-        Option.map
-          (fun v -> Custom_variant (s, custom_variant_apply cv.template v))
-          value
+        Option.map make value
       else None
   in
   List.find_map (fun (name, cv) -> resolve name cv) theme.custom_variants
@@ -1734,25 +1730,20 @@ let try_custom_breakpoint breakpoints s =
     patterns. These are modifiers like data-foo, has-checked, nth-2 that work as
     shorthands in the not-* context. *)
 let try_not_shorthand inner =
-  (* supports-X shorthand *)
-  if
-    String.starts_with ~prefix:"supports-" inner
-    && String.length inner > 9
-    && (not (String.contains inner '['))
-    && not (String.contains inner '/')
-  then
-    let prop = String.sub inner 9 (String.length inner - 9) in
-    Some (Not (Supports_property prop))
-    (* data-X shorthand — attribute presence check *)
-  else if String.starts_with ~prefix:"data-" inner && String.length inner > 5
-  then
-    let attr = String.sub inner 5 (String.length inner - 5) in
-    Some (Not (Data_custom (attr, ""))) (* nth-X shorthand — :nth-child(X) *)
-  else if String.starts_with ~prefix:"nth-" inner && String.length inner > 4
-  then
-    let expr = String.sub inner 4 (String.length inner - 4) in
-    Some (Not (Nth (Style.nth_expr expr)))
-  else None
+  match try_supports_shorthand inner with
+  | Some m -> Some (Not m)
+  | None ->
+      if String.starts_with ~prefix:"data-" inner && String.length inner > 5
+      then
+        (* data-X shorthand — attribute presence check *)
+        let attr = String.sub inner 5 (String.length inner - 5) in
+        Some (Not (Data_custom (attr, "")))
+      else if String.starts_with ~prefix:"nth-" inner && String.length inner > 4
+      then
+        (* nth-X shorthand — :nth-child(X) *)
+        let expr = String.sub inner 4 (String.length inner - 4) in
+        Some (Not (Nth (Style.nth_expr expr)))
+      else None
 
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
     starting style and children/descendants cannot be negated; a container query
@@ -2124,19 +2115,15 @@ let container_size_of_string = function
    lookup [theme(--x)] and [--theme(--x)]. *)
 let container_theme_token content =
   let s = String.trim content in
-  let s =
-    if String.starts_with ~prefix:"--" s && String.length s > 2 then
-      String.sub s 2 (String.length s - 2)
-    else s
-  in
-  let n = String.length s in
-  if n > 7 && String.sub s 0 6 = "theme(" && s.[n - 1] = ')' then
-    let inner = String.trim (String.sub s 6 (n - 7)) in
-    Some
-      (if String.length inner >= 2 && String.sub inner 0 2 = "--" then
-         String.sub inner 2 (String.length inner - 2)
-       else inner)
-  else None
+  let s = Option.value (Parse.bare_name s) ~default:s in
+  match Parse.call_body "theme" s with
+  | Some body when body <> "" ->
+      let inner = String.trim body in
+      Some
+        (if String.starts_with ~prefix:"--" inner then
+           String.sub inner 2 (String.length inner - 2)
+         else inner)
+  | Some _ | None -> None
 
 (* A container-query arbitrary value may reference a theme token, e.g.
    [@min-[theme(--breakpoint-lg)]]. [theme(--breakpoint-lg)] resolves to the
