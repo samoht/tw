@@ -4,10 +4,11 @@ tw aims to render every page the way Tailwind CSS v4.3.3 renders it. The
 contract has two halves:
 
 - **Parity is rendering parity.** Over the same document, tw's sheet and the
-  sheet the Tailwind CLI compiles give every element and pseudo-element the
-  same computed style, at every viewport and in every interaction state
-  measured. Two values that paint the same count as equal: a colour is
-  compared as the pixel it paints, and a length to within 0.05px. The
+  sheet the Tailwind CLI compiles paint the same pixels, at every viewport
+  and in every interaction state measured. The raster is the verdict and
+  nothing normalises it: what a script reads back through `getComputedStyle`
+  is not part of the contract, so two spellings the browser paints alike are
+  one render, and a spelling that moves a pixel is a difference. The
   reference is the compiled sheet, before lightningcss minifies it, so a
   difference is tw against Tailwind and not cascade's printer against another
   minifier. Whether either side is minified does not matter.
@@ -22,8 +23,9 @@ nothing; the site's placeholder classes below are the standing example.
 
 Two instruments measure the contract. The browser gives the verdict, through
 `cascade diff --browser --html PAGE`, which renders two sheets over a
-document and reports every computed value they disagree on, with whether the
-two paint the same. The canonical diff, `cascade diff --diff=canonical`, needs
+document, compares the captures pixel for pixel, and where one differs lists
+the computed values the elements under the differing pixels disagree on, so
+the report names a property. The canonical diff, `cascade diff --diff=canonical`, needs
 no browser and no document, so it reads every rule of both sheets, where a
 render sees only the rules its document exercises. It stands in for the
 browser wherever there is no document, and every entry it lists is a
@@ -31,16 +33,16 @@ candidate for the browser to judge.
 
 A disagreement is fixed where it lives:
 
-- A difference that paints differently is a tw fix.
+- A render that differs is a tw fix.
 - An entry the canonical diff lists, where the browser paints both sheets the
   same over a document that exercises it, is a cascade over-report. It is
   fixed in cascade with a standalone reproducer.
 - A rendering difference the canonical diff does not list is a cascade
   under-report, fixed the same way. It is the worse of the two, because every
   gate that reads the canonical diff passed over it.
-- A difference in computed values that paints the same, a sub-pixel length or
-  a same-pixel colour, is not chased as an exact tw fix; it belongs in
-  cascade's default precision.
+- A property that paints nothing on the page rendered, a cursor or a
+  transition's timing, is outside what the render measures; the canonical
+  diff is what reads it.
 
 Tailwind's minified sheet is not diffed against its own unminified one.
 
@@ -52,17 +54,19 @@ against tailwindcss.com runs by hand.
 All four run under `dune runtest`.
 
 **Rendering, `check_rendering_matches`.** Nine suites render their classes in
-headless Chromium under tw's sheet and Tailwind's, and compare every computed
-property. Each class gets an element of its own. A pair that writes a common
-property, or whose order cascade cannot prove neutral, gets one more element
-carrying both, because an ordering difference shows only there. The page is
-rendered by cascade's `Browser_compare`, the runner behind `cascade diff
---browser`, so the check and the manual verdict below are one oracle: every
-element and its pseudo-elements are sampled at every viewport width a media
-condition in either sheet names, and under every interaction state either sheet
-names, applied to every element at once. The sheets load as written, so no
-cascade printer stands between them and the browser, and every computed value
-that differs fails, a value that paints the same included. It skips without
+headless Chromium under tw's sheet and Tailwind's, and compare the pixels.
+Each class gets an element of its own, holding `Test_helpers.box_marker`: a
+run of text and a bar as wide as the content box in the element's own colour,
+so a property painting the box reaches the raster, where an empty element
+paints nothing. A pair that writes a common property, or whose order cascade
+cannot prove neutral, gets one more element carrying both, because an
+ordering difference shows only there. The page is rendered by cascade's
+`Browser_compare`, the runner behind `cascade diff --browser`, so the check
+and the manual verdict below are one oracle: the page is captured at every
+viewport width a media condition in either sheet names, and under every
+interaction state either sheet names, applied to every element at once. The
+sheets load as written, so no cascade printer stands between them and the
+browser, and `Browser_compare.identical` is the verdict. It skips without
 node and a headless Chromium, and `TW_BROWSER_TESTS=1`, which CI sets, turns
 the skip into a failure. The page and both sheets of each run stay under
 `tmp/browser/`.
@@ -128,7 +132,8 @@ the same inputs, is.
 
 The second also renders the 50 classes from index 0, in the order of
 `classlist.txt`, and prints the browser's report after the canonical one.
-`site_page.exe` puts each class on an element of its own, inside a wrapper
+`site_page.exe` puts each class on an element of its own, holding the box
+marker the rendering check uses, inside a wrapper
 carrying every `group` name the list uses and after a sibling carrying every
 `peer` name, with children for a class whose variants read descendants, so
 `group-*`, `peer-*`, `has-*`, `in-*` and `*:` have the markup they read. A
@@ -137,10 +142,9 @@ variant testing an attribute or a class on an ancestor (`group-data-[checked]:`,
 and no element carries two classes: the order a pair would expose is the order
 gate's. Both sheets are pruned to the page with `cascade prune` before the
 render, since a rule no element matches cannot change what the page computes.
-Unpruned, every width and state the whole sheet names is sampled on every
-element, and a 50-class shard did not finish in ten minutes on 2026-09-16;
-pruned, it took 218 seconds on a machine at load 100 to 200. The list is 97
-shards of that size, so the render runs by hand and not in CI.
+Unpruned, every width and state the whole sheet names is captured; pruned, a
+50-class shard takes some 25 seconds, and the list is 97 shards of that size,
+so the render runs by hand and not in CI.
 
 The inputs are:
 
@@ -280,12 +284,12 @@ rather than compared on no element. With the two sheets already on
 disk, `cascade diff --browser --html tmp/page.html tmp/tw.css tmp/tailwind.css`
 is the same comparison. It samples every viewport width and interaction state
 either sheet names, and exits 0 when neither report finds a difference, 1 when
-one does, and 2 when no browser ran, nothing was sampled or a sheet could not
-be read. A difference marked as painting the
-same is a precision question for cascade. An entry the canonical diff listed
+one does, and 2 when no browser ran, nothing was rendered or a sheet could not
+be read. An entry the canonical diff listed
 that renders the same is an over-report to cut down and file in cascade. The
 page decides what the answer covers: a `group-hover:` or `peer-` class needs
-the markup that variant reads.
+the markup that variant reads, and an element that paints nothing shows
+nothing.
 
 Both reports have traps.
 
