@@ -50,6 +50,21 @@ All run under `dune runtest`. A missing tool skips a check with a line saying
 so; `TW_BROWSER_TESTS=1` and `TW_TAILWIND_TESTS=1`, which CI sets, turn the
 skip into a failure.
 
+- **The corpus, `test/parity/corpus/`.** Every `NAME.css` there is a Tailwind
+  entrypoint, `@import "tailwindcss"` included, compiled by both tools,
+  compared canonically and rendered over `NAME.html` beside it or, without
+  one, over `Test_helpers.classes_page` built from the classes its `@source
+  inline("...")` names. Dropping a file in is the whole act of adding a case;
+  the rule reads the directory. Each case runs the documented command,
+  `tw --input-css NAME.css PAGE --diff --html PAGE`, and passes only when the
+  two oracles agree the sheets are the same: a render that differs is a tw
+  bug, and a disagreement between the render and the canonical diff is a
+  cascade bug the output names. The cases are the idioms the class-list
+  corpus never exercises: a project theme read by every family, namespaces
+  reset to `initial`, declared variants between built-in ones, `@apply` in a
+  component and a declared utility, variants stacked three deep, and a
+  prefixed build.
+
 - **Rendering, `check_rendering_matches`.** Nine suites render their classes
   under tw's sheet and Tailwind's through `Browser_compare`, the runner behind
   `cascade diff --browser`, and `Browser_compare.identical` is the verdict.
@@ -195,11 +210,11 @@ family is worth checking against all five.
   and some sixty more that Tailwind emits as `filter: blur(<value>)` and no
   browser accepts; `bg-[--brand-color]` (v3 syntax) and `justify-baseline` are
   of the same kind. tw emits nothing for them, Chromium drops each of
-  Tailwind's declarations, and both pages render the same. cascade's reader
-  refuses the declarations too, so it drops those rules from the parsed
-  reference with a parse warning each; the warnings the script prints are the
-  signal that the counts below them are short, and a run where a refused
-  declaration is all that separates the sheets exits 2 rather than 0.
+  Tailwind's declarations, and both pages render the same, which is parity.
+  cascade's reader refuses the declarations as the browser does and drops
+  them from the parsed reference with a parse warning each, so the canonical
+  diff answers on what a browser would keep and exits 0 when that is the
+  same; the warnings the script prints say where its reader had to decide.
 - **A bracket value neither property can take** is placed differently:
   `border-[50%]` is `border-color: 50%` in Tailwind and `border-width: 50%` in
   tw, and `decoration-[2]` is `text-decoration-color: 2` in Tailwind and
