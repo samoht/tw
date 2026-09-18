@@ -105,6 +105,12 @@ module Handler = struct
     | Neg_rotate_z_arbitrary of string * Css.angle
     | Scale_z of int
     | Scale_z_arbitrary of string
+    | (* The negative bracket forms hold the bracket as written; the style reads
+         it, as the negative translate forms do. *)
+      Neg_scale_arbitrary of string
+    | Neg_scale_x_arbitrary of string
+    | Neg_scale_y_arbitrary of string
+    | Neg_scale_z_arbitrary of string
     | Scale_3d
     | Scale_none
     | Perspective_none
@@ -460,13 +466,16 @@ module Handler = struct
     && Option.is_some
          (Parse.arbitrary_declaration_value (Parse.bracket_inner value))
 
-  (* The bracket beside its reading: a plain decimal is the number it spells,
-     and anything else goes to the custom property as written. A spelling only
+  (* The number a bracket spells, when it is a plain decimal. A spelling only
      OCaml's number reader takes ([0x4]) is not a number under another name. *)
+  let number_of_inner v = Parse.decimal_float (Parse.decode_arbitrary_value v)
+
+  (* The bracket beside its reading: a plain decimal is the number it spells,
+     and anything else goes to the custom property as written. *)
   let parse_bracket_number s =
     if Parse.is_bracket_value s then
       let inner = Parse.bracket_inner s in
-      match Parse.decimal_float (Parse.decode_arbitrary_value inner) with
+      match number_of_inner inner with
       | Some f -> Ok (inner, `Num f)
       | None -> (
           match Parse.arbitrary_declaration_value inner with
@@ -590,21 +599,39 @@ module Handler = struct
     let axis_decl = Var.set tw_translate_y_var len in
     style ~property_rules:translate_props (axis_decl :: [ translate_xy_refs ])
 
-  (* The bracket [s] negated on [var], the way Tailwind writes it: a length,
-     with any data-type hint taken off, is negated as a length, and every other
-     value goes into [calc(<value> * -1)] as the token stream it is. [None] is a
-     bracket that names no value, which the reader refused. *)
-  let neg_arbitrary_decl var s =
-    let neg (l : Css.length) : Css.length =
-      Calc (Calc.mul (Calc.length l) (Calc.float (-1.)))
-    in
-    match Option.bind (Parse.value_after_hint s) Parse.arbitrary_length with
-    | Some l -> Some (Var.set var (neg l))
+  (* The bracket [s] negated the way Tailwind writes a negative candidate: the
+     value [read] takes, with any data-type hint taken off, comes back [`Typed]
+     for the family to negate as its type, and every other value comes back
+     [`Raw], the token stream [calc(<value> * -1)]. [None] is a bracket that
+     names no value, which the reader refused. *)
+  let neg_bracket_value read s =
+    match Option.bind (Parse.value_after_hint s) read with
+    | Some v -> Some (`Typed v)
     | None ->
         Option.bind (Parse.arbitrary_declaration_value s) (fun v ->
             Option.map
-              (Css.custom_property ~layer:"utilities" (Var.css_name var))
+              (fun raw -> `Raw raw)
               (Parse.wrap_declaration_value ~before:"calc(" ~after:" * -1)" v))
+
+  (* [var] set to the bracket [s] negated: a value [read] takes goes through
+     [neg], the family's own negation, and a token stream is written as it
+     is. *)
+  let neg_channel_decl read neg var s =
+    match neg_bracket_value read s with
+    | Some (`Typed v) -> Some (Var.set var (neg v))
+    | Some (`Raw v) ->
+        Some (Css.custom_property ~layer:"utilities" (Var.css_name var) v)
+    | None -> None
+
+  let neg_length (l : Css.length) : Css.length =
+    Calc (Calc.mul (Calc.length l) (Calc.float (-1.)))
+
+  let neg_number f : Css.number_percentage =
+    Calc (Calc.mul (Calc.float f) (Calc.float (-1.)))
+
+  (* A translate channel: a length is negated as a length. *)
+  let neg_arbitrary_decl var s =
+    neg_channel_decl Parse.arbitrary_length neg_length var s
 
   (* A negative bracket translate on [vars], the axes it sets. *)
   let neg_translate_arbitrary_on vars s =
@@ -691,6 +718,47 @@ module Handler = struct
 
   let scale_x_arbitrary v = scale_axis_arbitrary tw_scale_x_var v
   let scale_y_arbitrary v = scale_axis_arbitrary tw_scale_y_var v
+
+  let scale_props =
+    collect_property_rules [ tw_scale_x_var; tw_scale_y_var; tw_scale_z_var ]
+
+  let scale_xy_refs =
+    let x = Var.reference tw_scale_x_var in
+    let y = Var.reference tw_scale_y_var in
+    Css.scale (XY (Var x, Var y))
+
+  let scale_xyz_refs =
+    let x = Var.reference tw_scale_x_var in
+    let y = Var.reference tw_scale_y_var in
+    let z = Var.reference tw_scale_z_var in
+    Css.scale (XYZ (Var x, Var y, Var z))
+
+  (* A negative bracket scale on [var], the axis it sets, beside [refs], the
+     composition the positive form writes: a number is negated as a number. *)
+  let neg_scale_axis_arbitrary var refs s =
+    match neg_channel_decl number_of_inner neg_number var s with
+    | Some decl ->
+        style ~property_rules:scale_props
+          ~metadata:[ Var.metadata var ]
+          [ decl; refs ]
+    | None -> style []
+
+  let neg_scale_x_arbitrary =
+    neg_scale_axis_arbitrary tw_scale_x_var scale_xy_refs
+
+  let neg_scale_y_arbitrary =
+    neg_scale_axis_arbitrary tw_scale_y_var scale_xy_refs
+
+  let neg_scale_z_arbitrary =
+    neg_scale_axis_arbitrary tw_scale_z_var scale_xyz_refs
+
+  (* The bare form writes [scale] itself, as the positive one does. *)
+  let neg_scale_arbitrary s =
+    match neg_bracket_value number_of_inner s with
+    | Some (`Typed f) -> style [ Css.scale (X (neg_number f)) ]
+    | Some (`Raw v) -> opaque_style "scale" v
+    | None -> style []
+
   let skew_x deg = transform_with_var tw_skew_x_var (Skew_x (make_angle deg))
   let skew_y deg = transform_with_var tw_skew_y_var (Skew_y (make_angle deg))
   let skew_x_arbitrary angle = transform_with_var tw_skew_x_var (Skew_x angle)
@@ -1411,6 +1479,10 @@ module Handler = struct
     | Scale_arbitrary_raw (_, value) -> opaque_style "scale" value
     | Scale_z n -> scale_z n
     | Scale_z_arbitrary s -> scale_z_arbitrary s
+    | Neg_scale_arbitrary s -> neg_scale_arbitrary s
+    | Neg_scale_x_arbitrary s -> neg_scale_x_arbitrary s
+    | Neg_scale_y_arbitrary s -> neg_scale_y_arbitrary s
+    | Neg_scale_z_arbitrary s -> neg_scale_z_arbitrary s
     | Scale_3d -> scale_3d
     | Scale_none -> style [ Css.scale None ]
     | Skew_x n -> skew_x n
@@ -1521,12 +1593,16 @@ module Handler = struct
     | Translate_3d | Translate_none -> 302
     (* Scale utilities use the same sign/axis bands. *)
     | Scale n when n < 0 -> 400
+    | Neg_scale_arbitrary _ -> 400
     | Scale _ | Scale_raw_1 _ | Scale_raw_3 _ | Scale_arbitrary_raw _ -> 401
     | Scale_x n when n < 0 -> 500
+    | Neg_scale_x_arbitrary _ -> 500
     | Scale_x _ | Scale_x_arbitrary _ -> 501
     | Scale_y n when n < 0 -> 600
+    | Neg_scale_y_arbitrary _ -> 600
     | Scale_y _ | Scale_y_arbitrary _ -> 601
     | Scale_z n when n < 0 -> 700
+    | Neg_scale_z_arbitrary _ -> 700
     | Scale_z _ | Scale_z_arbitrary _ -> 701
     | Scale_3d | Scale_none -> 702
     (* Rotate utilities: sign first, then a bare variable, named values and the
@@ -1943,13 +2019,21 @@ module Handler = struct
         | Error _ -> err_not_utility)
     | [ ""; "rotate"; "z"; n ] ->
         Parse.int_pos ~name:"rotate-z" n >|= fun n -> Rotate_z (-n)
-    (* Negative scale: -scale-N *)
+    (* Negative scale: -scale-N, -scale-[1.5] *)
+    | [ ""; "scale"; value ] when neg_bracket value ->
+        Ok (Neg_scale_arbitrary (Parse.bracket_inner value))
     | [ ""; "scale"; n ] ->
         Parse.int_pos ~name:"scale" n >|= fun n -> Scale (-n)
+    | [ ""; "scale"; "x"; value ] when neg_bracket value ->
+        Ok (Neg_scale_x_arbitrary (Parse.bracket_inner value))
     | [ ""; "scale"; "x"; n ] ->
         Parse.int_pos ~name:"scale-x" n >|= fun n -> Scale_x (-n)
+    | [ ""; "scale"; "y"; value ] when neg_bracket value ->
+        Ok (Neg_scale_y_arbitrary (Parse.bracket_inner value))
     | [ ""; "scale"; "y"; n ] ->
         Parse.int_pos ~name:"scale-y" n >|= fun n -> Scale_y (-n)
+    | [ ""; "scale"; "z"; value ] when neg_bracket value ->
+        Ok (Neg_scale_z_arbitrary (Parse.bracket_inner value))
     | [ ""; "scale"; "z"; n ] ->
         Parse.int_pos ~name:"scale-z" n >|= fun n -> Scale_z (-n)
     (* Negative skew: -skew-N, -skew-x-N, -skew-y-N *)
@@ -2135,6 +2219,10 @@ module Handler = struct
     | Scale_arbitrary_raw (raw, _) -> "scale-[" ^ raw ^ "]"
     | Scale_z n -> neg_class "scale-z-" n
     | Scale_z_arbitrary s -> "scale-z-[" ^ s ^ "]"
+    | Neg_scale_arbitrary s -> "-scale-[" ^ s ^ "]"
+    | Neg_scale_x_arbitrary s -> "-scale-x-[" ^ s ^ "]"
+    | Neg_scale_y_arbitrary s -> "-scale-y-[" ^ s ^ "]"
+    | Neg_scale_z_arbitrary s -> "-scale-z-[" ^ s ^ "]"
     | Scale_3d -> "scale-3d"
     | Scale_none -> "scale-none"
     | Skew_x n -> neg_class "skew-x-" n
