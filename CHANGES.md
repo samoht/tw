@@ -218,9 +218,11 @@
   #183, #184, #218, #223).
 - Borders and masks cover their logical and arbitrary forms: axis and
   single-side widths and colours (`border-x-16`, `border-bs-red-500`), any
-  integer width or outline offset, a mask colour stop, a bracket mask image, and
-  a zero mask stop that keeps its unit (#148, #161, #162, #163, #165, #182,
-  #222, #265).
+  integer width or outline offset, a mask colour stop, a bracket mask image, a
+  zero mask stop that keeps its unit, and a bracket mask stop written as
+  Tailwind decodes it, `mask-linear-from-[calc(1px+2px)]` giving
+  `calc(1px + 2px)` where the undecoded text was a value browsers drop (#148,
+  #161, #162, #163, #165, #182, #222, #265, #860).
 - `transition-behavior-normal` and `transition-behavior-allow-discrete` are
   refused, as Tailwind compiles nothing for them. They compiled to a rule for
   `transition-normal` and `transition-discrete`, which no markup written the
