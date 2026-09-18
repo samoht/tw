@@ -1606,7 +1606,7 @@ module Handler = struct
         Color.bracket_color_opacity_style ~theme ~property:Css.background_color
           css_color opacity
     | Bg_current -> style [ Css.background_color Css.Current ]
-    | Bg_current_opacity opacity -> Color.bg_current_with_opacity ~theme opacity
+    | Bg_current_opacity opacity -> Color.bg_current_with_opacity opacity
     | Bg_transparent -> style [ Css.background_color (Css.hex "#0000") ]
     | Bg_opacity (color, shade, opacity) -> bg_with_opacity color shade opacity
     | Bg_bracket_raw_color (_, value) ->

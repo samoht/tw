@@ -2886,10 +2886,7 @@ module Handler = struct
             in
             (* Progressive enhancement: color-mix(in oklab, var(--color-X) NN%,
                transparent) *)
-            let oklab_color =
-              Css.color_mix ~in_space:Oklab color Css.Transparent
-                ~percent1:percent
-            in
+            let oklab_color = mix_alpha opacity color in
             (* Create @supports block with oklab version as top-level rule. Use
                placeholder selector that rule.ml replaces with actual class. *)
             let supports_block =
@@ -3000,16 +2997,11 @@ module Handler = struct
   (** Current color with opacity using color-mix with progressive enhancement *)
   let current_color_with_opacity ~property opacity =
     let property : Css.color -> Css.declaration = property in
-    let percent = opacity_to_percent opacity in
     (* Fallback: just currentColor (browsers that don't support color-mix) *)
     let fallback_decl = property Css.Current in
     (* Progressive enhancement: color-mix(in oklab, currentcolor NN%,
        transparent) *)
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-        ~percent1:percent
-    in
-    let oklab_decl = property oklab_color in
+    let oklab_decl = property (mix_alpha opacity Css.Current) in
     (* Create @supports block with oklab version as top-level rule. Use
        placeholder selector that rule.ml replaces with actual class. *)
     let supports_block = color_mix_supports [ oklab_decl ] in
@@ -3075,26 +3067,18 @@ module Handler = struct
 
   let outline_bracket_var_opacity_style v opacity =
     let bare_name = Parse.extract_var_name v in
-    let percent = opacity_to_percent opacity in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_decl = Css.outline_color var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Css.outline_color oklab_color in
+    let oklab_decl = Css.outline_color (mix_alpha opacity var_color) in
     let supports_block = color_mix_supports [ oklab_decl ] in
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
 
   let outline_bracket_var_opacity v opacity =
     let bare_name = Parse.extract_var_name v in
-    let percent = opacity_to_percent opacity in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
     let fallback_decl = Css.outline_color var_color in
-    let oklab_color =
-      Css.color_mix ~in_space:Oklab var_color Css.Transparent ~percent1:percent
-    in
-    let oklab_decl = Css.outline_color oklab_color in
+    let oklab_decl = Css.outline_color (mix_alpha opacity var_color) in
     let supports_block = color_mix_supports [ oklab_decl ] in
     style ~merge_key:"outline-" ~rules:(Some [ supports_block ])
       [ fallback_decl ]
@@ -3149,14 +3133,9 @@ module Handler = struct
         style ~merge_key:"text-" [ Css.color (Css.Var (Var.bracket bare_name)) ]
     | Text_bracket_var_opacity (v, opacity) ->
         let bare_name = Parse.extract_var_name v in
-        let percent = opacity_to_percent opacity in
         let var_color : Css.color = Css.Var (Var.bracket bare_name) in
         let fallback_decl = Css.color var_color in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab var_color Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = Css.color oklab_color in
+        let oklab_decl = Css.color (mix_alpha opacity var_color) in
         let supports_block = color_mix_supports [ oklab_decl ] in
         style ~merge_key:"text-" ~rules:(Some [ supports_block ])
           [ fallback_decl ]
@@ -3165,14 +3144,9 @@ module Handler = struct
         style ~merge_key:"text-" [ Css.color (Css.Var (Var.bracket bare_name)) ]
     | Text_bracket_typed_var_opacity (v, opacity) ->
         let bare_name = Parse.extract_var_name v in
-        let percent = opacity_to_percent opacity in
         let var_color : Css.color = Css.Var (Var.bracket bare_name) in
         let fallback_decl = Css.color var_color in
-        let oklab_color =
-          Css.color_mix ~in_space:Oklab var_color Css.Transparent
-            ~percent1:percent
-        in
-        let oklab_decl = Css.color oklab_color in
+        let oklab_decl = Css.color (mix_alpha opacity var_color) in
         let supports_block = color_mix_supports [ oklab_decl ] in
         style ~merge_key:"text-" ~rules:(Some [ supports_block ])
           [ fallback_decl ]
@@ -3905,12 +3879,9 @@ let divide_with_opacity ?theme c shade opacity selector =
 
 let divide_current_with_opacity_selector ~selector opacity =
   let open Handler in
-  let percent = opacity_to_percent opacity in
   (* Fallback: just currentColor (browsers that don't support color-mix) *)
   let fallback_rule = Css.rule ~selector [ Css.border_color Css.Current ] in
-  let oklab_color =
-    Css.color_mix ~in_space:Oklab Css.Current Css.Transparent ~percent1:percent
-  in
+  let oklab_color = mix_alpha opacity Css.Current in
   let supports_rule = Css.rule ~selector [ Css.border_color oklab_color ] in
   let supports_block =
     Css.supports ~condition:color_mix_supports_condition [ supports_rule ]
@@ -3983,27 +3954,9 @@ let opacity_fallback_for_theme_value ?theme var_name bare :
   | None -> Css.Var_fallback (bare ^ "-opacity")
 
 (** Background currentColor with opacity *)
-let bg_current_with_opacity ?theme opacity =
-  let open Handler in
+let bg_current_with_opacity opacity =
   let fallback_decl = Css.background_color Css.Current in
-  let oklab_color =
-    match opacity with
-    | Opacity_named name ->
-        let bare = Parse.extract_var_name name in
-        let var_name = "opacity-" ^ bare in
-        let fallback = opacity_fallback_for_theme_value ?theme var_name bare in
-        Css.color_mix_var_pct_fallback ~in_space:Oklab ~var_name ~fallback
-          Css.Current Css.Transparent
-    | Opacity_var var_str ->
-        let bare = Handler.opacity_var_bare var_str in
-        Css.color_mix_var_percent ~in_space:Oklab ~var_name:bare Css.Current
-          Css.Transparent
-    | _ ->
-        let percent = opacity_to_percent opacity in
-        Css.color_mix ~in_space:Oklab Css.Current Css.Transparent
-          ~percent1:percent
-  in
-  let oklab_decl = Css.background_color oklab_color in
+  let oklab_decl = Css.background_color (mix_alpha opacity Css.Current) in
   let supports_block = color_mix_supports [ oklab_decl ] in
   Style.style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 

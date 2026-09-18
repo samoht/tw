@@ -597,9 +597,9 @@ val bg_with_opacity :
     style with opacity. Scheme-aware: uses hex+alpha fallback with theme
     variable in [\@supports] block. *)
 
-val bg_current_with_opacity : ?theme:Scheme.t -> opacity_modifier -> Style.t
-(** [bg_current_with_opacity ?theme opacity] generates background-color
-    currentColor with opacity using color-mix progressive enhancement. *)
+val bg_current_with_opacity : opacity_modifier -> Style.t
+(** [bg_current_with_opacity opacity] generates background-color currentColor
+    with opacity using color-mix progressive enhancement. *)
 
 val rgb_to_oklab : rgb -> float * float * float
 (** [rgb_to_oklab rgb] converts RGB to OKLab (L, a, b) components. *)
