@@ -651,6 +651,70 @@ let test_shadeless_colour_rejects_shade_segment () =
       | Ok u -> Alcotest.failf "%s was renamed to %s" cls (Tw.pp u))
     [ "bg-white-500/50"; "text-black-500/50"; "border-white-500/50" ]
 
+(* A palette family is not a colour on its own: Tailwind resolves [bg-red]
+   against [--color-red], a token the default theme never declares, and emits
+   nothing. tw read the missing shade as 500 and wrote a [.bg-red-500] rule for
+   a class nobody wrote, in every family that reads the palette. The shadeless
+   black and white, the keywords and a project token keep resolving, and a
+   project that declares [--color-red] gets that token back. *)
+let test_shadeless_palette_name_rejected () =
+  let refused (module H : Test_helpers.Handler) classes =
+    List.iter (Test_helpers.check_invalid_input (module H)) classes
+  in
+  refused
+    (module Tw.Color.Handler)
+    [
+      "text-red";
+      "text-red/50";
+      "text-gray";
+      "border-red";
+      "border-t-red";
+      "border-x-blue/50";
+      "accent-red";
+      "caret-red";
+      "outline-red";
+      "placeholder-red";
+    ];
+  refused
+    (module Tw.Backgrounds.Handler)
+    [ "bg-red"; "bg-red/50"; "bg-gray"; "from-red"; "via-red"; "to-red" ];
+  refused
+    (module Tw.Effects.Handler)
+    [ "ring-red"; "ring-offset-red"; "shadow-red"; "inset-shadow-red" ];
+  refused (module Tw.Svg.Handler) [ "fill-red"; "stroke-red" ];
+  refused (module Tw.Divide.Handler) [ "divide-red" ];
+  refused (module Tw.Typography.Typography_early) [ "decoration-red" ];
+  refused (module Tw.Text_shadow.Handler) [ "text-shadow-red" ];
+  refused (module Tw.Filters.Handler) [ "drop-shadow-red" ];
+  refused
+    (module Tw.Mask_gradient.Handler)
+    [ "mask-t-from-red"; "mask-radial-from-red" ];
+  List.iter
+    (fun (cls, decls) -> Test_helpers.check_declarations cls decls)
+    [
+      ("bg-black", [ "background-color:var(--color-black)" ]);
+      ("text-white", [ "color:var(--color-white)" ]);
+      ( "border-t-white/50",
+        [
+          "border-top-color:#ffffff80";
+          "border-top-color:color-mix(in oklab,var(--color-white) \
+           50%,transparent)";
+        ] );
+      ("bg-transparent", [ "background-color:#0000" ]);
+      ("text-current", [ "color:currentColor" ]);
+      ("text-inherit", [ "color:inherit" ]);
+    ];
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red", "#f00") ]
+  in
+  Test_helpers.check_declarations ~theme "bg-red"
+    [ "background-color:var(--color-red)" ];
+  Test_helpers.check_declarations ~theme "text-red/50"
+    [
+      "color:color-mix(in srgb,#f00 50%,transparent)";
+      "color:color-mix(in oklab,var(--color-red) 50%,transparent)";
+    ]
+
 (* A project-defined, shadeless colour follows the same opacity path as the
    built-in shadeless colours. *)
 let test_decoration_theme_colour_opacity () =
@@ -1471,6 +1535,9 @@ let tests =
     ( "Shadeless colour rejects a shade segment",
       `Quick,
       test_shadeless_colour_rejects_shade_segment );
+    ( "Shadeless palette name rejected",
+      `Quick,
+      test_shadeless_palette_name_rejected );
     ( "Decoration theme colour opacity",
       `Quick,
       test_decoration_theme_colour_opacity );
