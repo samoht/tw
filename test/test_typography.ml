@@ -926,7 +926,21 @@ let test_text_bracket_functions () =
   (* an alpha bracket names a colour, so it is a text colour rather than a
      size *)
   check_declarations "text-[--alpha(red/20%)]"
-    [ "color:color-mix(in oklab,red 20%,transparent)" ]
+    [ "color:color-mix(in oklab,red 20%,transparent)" ];
+  (* a bare number is the fraction Tailwind scales to a percentage, and a whole
+     one is the colour itself; the bracket read [0.2] as [0.2%] *)
+  check_declarations "text-[--alpha(red/0.2)]"
+    [ "color:color-mix(in oklab,red 20%,transparent)" ];
+  check_declarations "text-[--alpha(red/1)]" [ "color:red" ];
+  (* a call missing either half is what Tailwind refuses to compile, where the
+     bracket wrote the call out as the colour *)
+  let rejected cls =
+    Alcotest.(check bool)
+      (cls ^ " is refused") true
+      (Result.is_error (Tw.of_string cls))
+  in
+  rejected "text-[--alpha(red/)]";
+  rejected "text-[--alpha(red)]"
 
 (* A bracket list-style value is read with the CSS parser rather than a
    hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be

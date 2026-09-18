@@ -533,10 +533,38 @@ let test_shadow_trailing_var_is_the_colour () =
     "text that is no shadow reads as none" true
     (Option.is_none (Tw.Parse.shadow "nonsense here"))
 
+(* Tailwind's [--alpha(<color>/<alpha>)] takes its two halves trimmed and
+   refuses a call that leaves either empty. A bare number is the fraction it
+   scales to a percentage, so [0.2] is [20%] and [1] is [100%]; every other
+   alpha is as written. The slash that separates the two is the one outside any
+   parentheses, so a colour carrying its own still reads. *)
+let test_alpha_call () =
+  let reads input expected =
+    Alcotest.(check (option (pair string string)))
+      input expected
+      (Tw.Parse.alpha_call input)
+  in
+  reads "--alpha(red/20%)" (Some ("red", "20%"));
+  reads "--alpha( red / 20% )" (Some ("red", "20%"));
+  reads "--alpha(red/0.2)" (Some ("red", "20%"));
+  reads "--alpha(red/.125)" (Some ("red", "12.5%"));
+  reads "--alpha(red/1)" (Some ("red", "100%"));
+  reads "--alpha(red/50)" (Some ("red", "5000%"));
+  reads "--alpha(red/var(--o))" (Some ("red", "var(--o)"));
+  reads "--alpha(oklch(1 0 0 / 50%)/20%)" (Some ("oklch(1 0 0 / 50%)", "20%"));
+  reads "--alpha(red/var(--o, 1/2))" (Some ("red", "var(--o, 1/2)"));
+  reads "--alpha(red/)" None;
+  reads "--alpha(/20%)" None;
+  reads "--alpha(red)" None;
+  reads "--alpha()" None;
+  reads "alpha(red/20%)" None
+
 let tests =
   Alcotest.
     [
       test_case "underscore escape" `Quick test_underscore_escape;
+      test_case "--alpha() halves and a bare number alpha" `Quick
+        test_alpha_call;
       test_case "a quoted bracket stays inside the value" `Quick
         test_quoted_bracket_stays_inside_the_value;
       test_case "underscore inside a url" `Quick test_underscore_inside_url;

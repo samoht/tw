@@ -243,6 +243,16 @@ let test_alpha_fn () =
        (Result.get_ok
           (Tw.of_string "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]")))
 
+(* A bare number in [--alpha()] is the fraction Tailwind scales to a percentage,
+   in an arbitrary property as in a colour utility; the reader took [0.2] for
+   [0.2%]. *)
+let test_alpha_fn_bare_number () =
+  Test_helpers.check_declarations ~minify:false "[color:--alpha(red/0.2)]"
+    [
+      "color: color-mix(in srgb, red 20%, transparent)";
+      "color: color-mix(in oklab, red 20%, transparent)";
+    ]
+
 (* The [/] modifier applies to the colour the value denotes, so a value written
    with [--alpha()] mixes twice, and both spellings survive the round-trip. *)
 let test_alpha_fn_with_modifier () =
@@ -457,6 +467,7 @@ let tests =
     test_case "text after the closing bracket" `Quick test_trailing_text;
     test_case "quoted closing bracket" `Quick test_quoted_closing_bracket;
     test_case "url argument underscores" `Quick test_url_underscore;
+    test_case "--alpha() bare number alpha" `Quick test_alpha_fn_bare_number;
     test_case "--alpha() value with a /opacity modifier" `Quick
       test_alpha_fn_with_modifier;
     test_case "var-valued opacity modifier spelling" `Quick
