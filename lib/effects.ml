@@ -427,18 +427,6 @@ module Handler = struct
         Css.Var v_shadow;
       ]
 
-  let raw_color_value value = function
-    | Color.No_opacity -> value
-    | opacity ->
-        pp_str
-          [
-            "color-mix(in oklab, ";
-            value;
-            " ";
-            pp_float (Color.opacity_to_percent opacity);
-            "%, transparent)";
-          ]
-
   (* Tailwind treats one identifier among two to four shadow lengths as the
      colour token, even when that identifier is not in the CSS named-colour
      table. Keep the authored token order and route that colour through the
@@ -1553,13 +1541,27 @@ module Handler = struct
     bracket_var_channel_opacity ~merge_key:("ring-" ^ v) ring_color_var v
       opacity
 
-  let raw_ring_color var value opacity =
-    style ~metadata:shadow_property_metadata
-      ~property_rules:shadow_property_rules
-      [
-        Css.custom_property ~layer:"utilities" (Var.css_name var)
-          (raw_color_value value opacity);
-      ]
+  (* A token-stream ring colour, forwarded as written into its channel. Under a
+     modifier it takes the mix an [--alpha()] call expands to, and when that mix
+     reads a custom property or [currentcolor], the pair Tailwind's polyfill
+     writes: what a browser without [color-mix()] reads in the open, the mix
+     behind the guard. A ring colour registers nothing: Tailwind writes no
+     [@property] for one, whatever the colour's spelling. *)
+  let raw_ring_color ~theme var value opacity =
+    let set v = Css.custom_property ~layer:"utilities" (Var.css_name var) v in
+    let mixed =
+      match opacity with
+      | Color.No_opacity -> value
+      | opacity ->
+          Option.value ~default:value
+            (Parse.alpha_mix ~alpha:(Color.opacity_percentage opacity) value)
+    in
+    match Parse.color_mix_fallback ~resolve:(Color.theme_token theme) mixed with
+    | None -> style [ set mixed ]
+    | Some in_the_open ->
+        style
+          ~rules:(Some [ Color.color_mix_supports [ set mixed ] ])
+          [ set in_the_open ]
 
   let opacity n =
     let value = float_of_int n /. 100.0 in
@@ -1752,7 +1754,7 @@ module Handler = struct
       | Ring_bracket_var v -> ring_bracket_var v
       | Ring_bracket_var_opacity (v, o) -> ring_bracket_var_with_opacity v o
       | Ring_raw (_, value, opacity) ->
-          raw_ring_color ring_color_var value opacity
+          raw_ring_color ~theme ring_color_var value opacity
       | Ring_bracket_length inner -> ring_of_width (parse_bracket_width inner)
       | Ring_offset_width n -> ring_offset_width n
       | Ring_offset_bracket_length inner -> ring_offset_bracket_length inner
@@ -1776,7 +1778,7 @@ module Handler = struct
       | Ring_offset_bracket_var_opacity (v, o) ->
           ring_offset_bracket_var_opacity v o
       | Ring_offset_raw (_, value, opacity) ->
-          raw_ring_color ring_offset_color_var value opacity
+          raw_ring_color ~theme ring_offset_color_var value opacity
       | Inset_ring_color (color, shade) -> inset_ring_color color shade
       | Inset_ring_color_opacity (color, shade, opacity) ->
           inset_ring_color_with_opacity color shade opacity
@@ -1797,7 +1799,7 @@ module Handler = struct
       | Inset_ring_bracket_var_opacity (v, o) ->
           inset_ring_bracket_var_opacity v o
       | Inset_ring_raw (_, value, opacity) ->
-          raw_ring_color inset_ring_color_var value opacity
+          raw_ring_color ~theme inset_ring_color_var value opacity
       | Inset_ring_default -> inset_ring_default ()
       | Inset_ring_width n -> inset_ring_internal n
       | Inset_ring_bracket_length inner ->

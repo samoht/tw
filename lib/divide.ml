@@ -7,10 +7,6 @@ module Css = Cascade.Css
 
 module Handler = struct
   open Style
-
-  (* Bind tw's string formatter before [open Css] shadows [Pp]. *)
-  let pp_float = Pp.float
-
   open Css
 
   type t =
@@ -284,22 +280,32 @@ module Handler = struct
         in
         style ~rules:(Some [ rule; supports_block ]) []
 
-  let divide_raw_color_style class_name value opacity =
+  (* A token-stream colour, forwarded as written. Under a modifier it takes the
+     mix an [--alpha()] call expands to, and when that mix reads a custom
+     property or [currentcolor], the pair Tailwind's polyfill writes: what a
+     browser without [color-mix()] reads in the open, the mix behind the guard,
+     both on the children the utility borders. *)
+  let divide_raw_color_style ~theme class_name value opacity =
     let selector = divide_children_selector class_name in
-    let value =
+    let rule v =
+      Css.rule ~selector
+        (Option.to_list (Parse.opaque_declaration "border-color" v))
+    in
+    let mixed =
       match opacity with
       | Color.No_opacity -> value
-      | _ ->
-          let percent = Color.opacity_to_percent opacity in
-          "color-mix(in oklab, " ^ value ^ " " ^ pp_float percent
-          ^ "%, transparent)"
+      | opacity ->
+          Option.value ~default:value
+            (Parse.alpha_mix ~alpha:(Color.opacity_percentage opacity) value)
     in
-    let declaration =
-      match Parse.opaque_declaration "border-color" value with
-      | Some declaration -> declaration
-      | None -> assert false
-    in
-    style ~rules:(Some [ Css.rule ~selector [ declaration ] ]) []
+    match Parse.color_mix_fallback ~resolve:(Color.theme_token theme) mixed with
+    | None -> style ~rules:(Some [ rule mixed ]) []
+    | Some in_the_open ->
+        let supports =
+          Css.supports ~condition:Color.color_mix_supports_condition
+            [ rule mixed ]
+        in
+        style ~rules:(Some [ rule in_the_open; supports ]) []
 
   let divide_style_of_string (s : string) =
     let open Css in
@@ -427,7 +433,7 @@ module Handler = struct
         divide_bracket_color_opacity_style ~theme class_name c opacity
     | Raw_color (inner, value, opacity) ->
         let class_name = to_class (Raw_color (inner, value, opacity)) in
-        divide_raw_color_style class_name value opacity
+        divide_raw_color_style ~theme class_name value opacity
     | Line_style bs -> divide_style_style bs
 
   (* Tailwind's order across the family, read off its own output: divide-x,

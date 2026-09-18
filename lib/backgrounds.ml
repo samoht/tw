@@ -416,10 +416,6 @@ module Handler = struct
     | _ -> None
 
   open Style
-
-  (* Bind tw's string formatter before [open Css] shadows [Pp]. *)
-  let pp_float = Pp.float
-
   open Css
 
   let name = "backgrounds"
@@ -1312,24 +1308,39 @@ module Handler = struct
                [ self (extra_decls @ [ fallback_decl ]); supports; self stops ])
           []
 
-  let gradient_raw ~prefix ~set_var value opacity =
-    let value =
+  (* A token-stream stop, forwarded as written. Under a modifier it takes the
+     mix an [--alpha()] call expands to, and when that mix reads a custom
+     property or [currentcolor], the pair Tailwind's polyfill writes: what a
+     browser without [color-mix()] reads in the open, the mix behind the
+     guard. *)
+  let gradient_raw ~theme ~prefix ~set_var value opacity =
+    let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
+    let stops = stops_as_decls d_stops d_via_stops_opt in
+    let property_rules = gradient_all_property_rules () in
+    let metadata = [ Var.metadata set_var ] in
+    let set v =
+      Css.custom_property ~layer:"utilities" (Var.css_name set_var) v
+    in
+    let mixed =
       match opacity with
       | Stdlib.Option.None -> value
       | Stdlib.Option.Some opacity ->
-          let percent = Color.opacity_to_percent opacity in
-          "color-mix(in oklab, " ^ value ^ " " ^ pp_float percent
-          ^ "%, transparent)"
+          Option.value ~default:value
+            (Parse.alpha_mix ~alpha:(Color.opacity_percentage opacity) value)
     in
-    let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
-    let stops = stops_as_decls d_stops d_via_stops_opt in
-    let declaration =
-      Css.custom_property ~layer:"utilities" (Var.css_name set_var) value
-    in
-    style
-      ~property_rules:(gradient_all_property_rules ())
-      ~metadata:[ Var.metadata set_var ]
-      (declaration :: stops)
+    match Parse.color_mix_fallback ~resolve:(Color.theme_token theme) mixed with
+    | Stdlib.Option.None -> style ~property_rules ~metadata (set mixed :: stops)
+    | Stdlib.Option.Some in_the_open ->
+        let self decls = Css.rule ~selector:(Css.Selector.class_ "_") decls in
+        style ~property_rules ~metadata
+          ~rules:
+            (Some
+               [
+                 self [ set in_the_open ];
+                 Color.color_mix_supports [ set mixed ];
+                 self stops;
+               ])
+          []
 
   (* Gradient with opacity: either a static value, or a fallback followed by the
      authored mix under [@supports], then the stop composition. *)
@@ -1474,7 +1485,7 @@ module Handler = struct
                 gradient_with_opacity ~theme ~prefix ~set_var color opacity))
     | Gradient_raw (target, _, value, opacity) ->
         let prefix, set_var, _ = gradient_target_info target in
-        gradient_raw ~prefix ~set_var value opacity
+        gradient_raw ~theme ~prefix ~set_var value opacity
     | Gradient_stop_position (target, src) -> (
         let _prefix, _set_var, pos_var = gradient_target_info target in
         match src with
@@ -1726,6 +1737,10 @@ module Handler = struct
                   plain ~opacity (Color_source.Bracket_var inner)
                 else if Color.parse_bracket_color inner <> None then
                   plain ~opacity (Color_source.Bracket_color inner)
+                else if parse_bracket_position_value inner <> None then
+                  (* A length or a percentage is the stop's position, and a
+                     position takes no modifier. *)
+                  Error (`Msg "A gradient stop position takes no modifier")
                 else
                   match Parse.arbitrary_declaration_value inner with
                   | Some value ->

@@ -779,6 +779,243 @@ let bare_name s =
 let bare_var_inner s =
   if is_bare_var s then String.sub s 1 (String.length s - 2) else s
 
+(* {2 The color-mix() polyfill} *)
+
+(* The tokens of [s] in order, and the source they were read from, which is what
+   a rewrite slices: a comment between two tokens survives that way, and the
+   text of a token an escape spells is the text as written. *)
+let tokens_of s =
+  let lexer = Cascade.Lexer.of_string s in
+  let rec go acc =
+    let token = Cascade.Lexer.next lexer in
+    match token.Cascade.Token.kind with
+    | Eof -> Array.of_list (List.rev acc)
+    | _ -> go (token :: acc)
+  in
+  let tokens = go [] in
+  (Cascade.Lexer.source lexer, tokens)
+
+let is_function name (token : Cascade.Token.t) =
+  match token.kind with
+  | Function f -> String.equal (String.lowercase_ascii f) name
+  | _ -> false
+
+let is_whitespace (token : Cascade.Token.t) =
+  match token.kind with Whitespace _ -> true | _ -> false
+
+(* The index of the [)] closing the group the function token at [i] opens, or
+   the index past the last token when the group runs to the end of the input,
+   which a declaration value never lets it do. *)
+let group_end tokens i =
+  let n = Array.length tokens in
+  let rec go j depth =
+    if j >= n then n
+    else
+      match tokens.(j).Cascade.Token.kind with
+      | Function _ | Open Paren -> go (j + 1) (depth + 1)
+      | Close Paren when depth = 1 -> j
+      | Close Paren -> go (j + 1) (depth - 1)
+      | _ -> go (j + 1) depth
+  in
+  go i 0
+
+(* The source text from the token at [i] through the token at [j]. *)
+let source_slice source tokens i j =
+  let start = tokens.(i).Cascade.Token.loc.start_pos in
+  let stop =
+    if j >= Array.length tokens then String.length source
+    else tokens.(j).Cascade.Token.loc.end_pos
+  in
+  String.sub source start (stop - start)
+
+(* The first token at or after [i] that is not whitespace, if [i] is inside the
+   group ending at [last]. *)
+let rec skip_whitespace tokens ~last i =
+  if i >= last then None
+  else if is_whitespace tokens.(i) then skip_whitespace tokens ~last (i + 1)
+  else Some i
+
+(* The custom property the [var()] at [i] reads: its first argument. *)
+let var_name tokens i =
+  match skip_whitespace tokens ~last:(group_end tokens i) (i + 1) with
+  | Some j -> (
+      match tokens.(j).Cascade.Token.kind with
+      | Ident name -> Some name
+      | _ -> None)
+  | None -> None
+
+(* The custom property a theme value reads when it opens with a [var()]
+   reference, which Tailwind follows rather than inlines, whatever follows the
+   reference. *)
+let leading_var_name value =
+  let _, tokens = tokens_of value in
+  if Array.length tokens > 0 && is_function "var" tokens.(0) then
+    var_name tokens 0
+  else None
+
+(* The value the theme binds [name] to, followed through a chain of references.
+   [None] is a link the theme does not bind, or a chain that loops, which
+   Tailwind cannot inline. *)
+let rec inline_var ~resolve seen name =
+  if List.mem name seen then None
+  else
+    match Option.map String.trim (Option.bind (bare_name name) resolve) with
+    | None -> None
+    | Some value -> (
+        match leading_var_name value with
+        | Some next -> inline_var ~resolve (name :: seen) next
+        | None -> Some value)
+
+(* What Tailwind's polyfill makes of the [color-mix()] at [i], closed at [last].
+   [replace] says the mix stands for its first colour: it holds [currentcolor],
+   or a [var()] the theme does not bind or binds to [currentcolor]. [edits] are
+   the [var()] references the theme binds, each inlined with its value, which a
+   replaced mix's first colour reads as well. *)
+type mix_verdict = { replace : bool; edits : (int * int * string) list }
+
+let is_currentcolor s = String.equal (String.lowercase_ascii s) "currentcolor"
+
+let mix_verdict ~resolve tokens i last =
+  let rec scan j replace edits =
+    if j >= last then { replace; edits = List.rev edits }
+    else
+      match tokens.(j).Cascade.Token.kind with
+      | Ident id when is_currentcolor id -> scan (j + 1) true edits
+      | Function _ when is_function "var" tokens.(j) -> (
+          match var_name tokens j with
+          | None -> scan (j + 1) replace edits
+          | Some name -> (
+              match inline_var ~resolve [] name with
+              | None -> scan (j + 1) true edits
+              | Some value when is_currentcolor value -> scan (j + 1) true edits
+              | Some value ->
+                  let stop = group_end tokens j in
+                  scan (stop + 1) replace ((j, stop, value) :: edits)))
+      | _ -> scan (j + 1) replace edits
+  in
+  scan (i + 1) false []
+
+(* The first colour of the [color-mix()] at [i]: the one token, or the one
+   function call, after the first comma at the mix's own level. *)
+let first_colour source tokens i last =
+  let rec comma j depth =
+    if j >= last then None
+    else
+      match tokens.(j).Cascade.Token.kind with
+      | Function _ | Open Paren -> comma (j + 1) (depth + 1)
+      | Close Paren -> comma (j + 1) (depth - 1)
+      | Comma when depth = 0 -> Some (j + 1)
+      | _ -> comma (j + 1) depth
+  in
+  match Option.bind (comma (i + 1) 0) (skip_whitespace tokens ~last) with
+  | None -> None
+  | Some j ->
+      let stop =
+        match tokens.(j).Cascade.Token.kind with
+        | Function _ -> group_end tokens j
+        | _ -> j
+      in
+      Some (source_slice source tokens j stop)
+
+(* The colour space the mix at [i] names, when [in <space>] opens it and the
+   space is one a browser without [color-mix()] has no colour for: the token to
+   respell as [srgb], as Tailwind does for the value in the open. *)
+let wide_space tokens i last =
+  let ident j =
+    match tokens.(j).Cascade.Token.kind with Ident id -> Some id | _ -> None
+  in
+  match skip_whitespace tokens ~last (i + 1) with
+  | Some j when ident j = Some "in" -> (
+      match skip_whitespace tokens ~last (j + 1) with
+      | Some k -> (
+          match ident k with
+          | Some ("oklab" | "oklch" | "lab" | "lch") -> Some k
+          | Some _ | None -> None)
+      | None -> None)
+  | Some _ | None -> None
+
+(* The respelling of every wide space the mix at [i] and the mixes nested in it
+   name, as edits. *)
+let space_edits tokens i last =
+  let rec go j acc =
+    if j >= last then List.rev acc
+    else if not (is_function "color-mix" tokens.(j)) then go (j + 1) acc
+    else
+      match wide_space tokens j (group_end tokens j) with
+      | Some k -> go (j + 1) ((k, k, "srgb") :: acc)
+      | None -> go (j + 1) acc
+  in
+  go i []
+
+(* The source from token [i] through token [last], with the token ranges in
+   [edits] replaced by the text given for each. *)
+let rewrite source tokens i last edits =
+  let edits = List.sort (fun (a, _, _) (b, _, _) -> compare a b) edits in
+  let buf = Buffer.create 64 in
+  let rec go j = function
+    | [] -> Buffer.add_string buf (source_slice source tokens j last)
+    | (a, b, text) :: rest ->
+        if a > j then
+          Buffer.add_string buf (source_slice source tokens j (a - 1));
+        Buffer.add_string buf text;
+        go (b + 1) rest
+  in
+  go i edits;
+  Buffer.contents buf
+
+(* [color-mix()] calls at any depth, Tailwind's polyfill applied to each in
+   turn. Whether the value needs the polyfill is decided once for the whole
+   value, so a mix a browser resolves on its own still has its space respelled
+   when an earlier one, or one enclosing it, needed the polyfill. *)
+let rec color_mix_fallback ~resolve s =
+  let source, tokens = tokens_of s in
+  let n = Array.length tokens in
+  let buf = Buffer.create (String.length s) in
+  let rec go i copied polyfilled =
+    if i >= n then (
+      if copied < n then
+        Buffer.add_string buf (source_slice source tokens copied (n - 1));
+      polyfilled)
+    else if not (is_function "color-mix" tokens.(i)) then
+      go (i + 1) copied polyfilled
+    else
+      let last = group_end tokens i in
+      let { replace; edits } = mix_verdict ~resolve tokens i last in
+      let polyfilled = polyfilled || replace || edits <> [] in
+      let replacement =
+        if replace then
+          (* The first colour is read off the mix with its references inlined,
+             so a reference the theme binds gives the value it binds. *)
+          let source, tokens = tokens_of (rewrite source tokens i last edits) in
+          Option.map
+            (fun colour ->
+              Option.value (color_mix_fallback ~resolve colour) ~default:colour)
+            (first_colour source tokens 0 (group_end tokens 0))
+        else if polyfilled then
+          Some
+            (rewrite source tokens i last (space_edits tokens i last @ edits))
+        else None
+      in
+      match replacement with
+      | None -> go (last + 1) copied polyfilled
+      | Some text ->
+          if i > copied then
+            Buffer.add_string buf (source_slice source tokens copied (i - 1));
+          Buffer.add_string buf text;
+          go (last + 1) (last + 1) polyfilled
+  in
+  if go 0 0 false then Some (Buffer.contents buf) else None
+
+let alpha_mix ~alpha value =
+  let alpha =
+    Cascade.Css.Pp.to_string ~minify:true
+      (Cascade.Css.Values.pp_percentage ~always:true)
+      alpha
+  in
+  wrap_declaration_value ~before:"color-mix(in oklab, "
+    ~after:(" " ^ alpha ^ ", transparent)")
+    value
+
 (* Split [s] on [sep], reading a [[...]] or a [(...)] group, nested brackets of
    its own kind included, as one atom: the separator inside one belongs to the
    piece around it. Always yields one piece more than the separators it split
