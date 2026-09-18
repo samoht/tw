@@ -411,6 +411,11 @@
   under a modifier reads the custom property in the unguarded fallback and the
   mix behind the guard, where tw folded it to `100%`, and a ring colour
   registers no `@property` (#877).
+- Tailwind's colour-mix polyfill applies to any declaration holding a
+  `color-mix()` that reads a custom property or `currentcolor`, wherever the
+  mix stands: an arbitrary property, a bracket shadow, an inset shadow, a text
+  shadow and a bracket image write the mix's first colour in the open and the
+  value as written behind the guard, where tw wrote the mix alone (#878).
 - An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
   gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
   case, where Tailwind writes back what the bracket held (#700).
