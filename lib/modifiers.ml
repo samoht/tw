@@ -1714,17 +1714,15 @@ let lookup_simple theme s =
 (* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
 let try_custom_breakpoint breakpoints s =
   (* Direct name: e.g., "10xl" → Custom_responsive *)
-  match List.mem s breakpoints with
-  | true -> Some (Custom_responsive s)
-  | false ->
-      (* min-<name>: e.g., "min-10xl" → Min_custom *)
-      if String.starts_with ~prefix:"min-" s && String.length s > 4 then
-        let name = String.sub s 4 (String.length s - 4) in
-        if List.mem name breakpoints then Some (Min_custom name) else None
-      else if String.starts_with ~prefix:"max-" s && String.length s > 4 then
-        let name = String.sub s 4 (String.length s - 4) in
-        if List.mem name breakpoints then Some (Max_custom name) else None
-      else None
+  if List.mem s breakpoints then Some (Custom_responsive s)
+  else if String.starts_with ~prefix:"min-" s && String.length s > 4 then
+    (* min-<name>: e.g., "min-10xl" → Min_custom *)
+    let name = String.sub s 4 (String.length s - 4) in
+    if List.mem name breakpoints then Some (Min_custom name) else None
+  else if String.starts_with ~prefix:"max-" s && String.length s > 4 then
+    let name = String.sub s 4 (String.length s - 4) in
+    if List.mem name breakpoints then Some (Max_custom name) else None
+  else None
 
 (** Try not-* shorthand patterns that aren't in simple_modifiers or bracket
     patterns. These are modifiers like data-foo, has-checked, nth-2 that work as
@@ -2385,12 +2383,10 @@ let apply ?(theme = Scheme.default) modifiers base_utility =
   in
   (* Apply a single parsed modifier to an accumulated utility *)
   let apply_one acc modifier_str =
-    match acc with
-    | None -> None
-    | Some u -> (
-        match parse_modifier ~theme modifier_str with
-        | Some m -> Some (wrap m (to_list u))
-        | None -> None)
+    Option.bind acc (fun u ->
+        Option.map
+          (fun m -> wrap m (to_list u))
+          (parse_modifier ~theme modifier_str))
   in
   (* Apply modifiers in reverse order so that the first modifier in the string
      (e.g., "dark" in "dark:hover:...") ends up as the outermost wrapper

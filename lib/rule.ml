@@ -380,10 +380,9 @@ let max_custom_rule ?theme ?inner_has_hover name base_class selector props =
 let container_rule ?theme ?(inner_has_hover = false) ?(negated = false)
     ?class_name query base_class selector props =
   let modified_class =
-    match class_name with
-    | Some name -> name
-    | None ->
-        Containers.container_query_to_class_prefix query ^ ":" ^ base_class
+    Option.value class_name
+      ~default:
+        (Containers.container_query_to_class_prefix query ^ ":" ^ base_class)
   in
   let new_selector =
     Rules_selector.replace_class_in_selector ~old_class:base_class
@@ -514,9 +513,7 @@ let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~selector
     | None -> wrap_has_bracket_selector ~has_nesting parsed_selector
     | Some _ -> parsed_selector
   in
-  let has_part s =
-    match shorthand with Some sh -> sh | None -> "[" ^ s ^ "]"
-  in
+  let has_part s = Option.value shorthand ~default:("[" ^ s ^ "]") in
   match kind with
   | `Has ->
       let class_name = "has-" ^ has_part selector_str ^ ":" ^ base_class in
@@ -1893,8 +1890,8 @@ let modifier_to_rule ?inner_has_hover modifier base_class selector props =
     rule to be dropped, so each variant gets its own rule. *)
 let pseudo_element_rules ~pseudo_selectors ~selector ~has_hover bc props prefix
     =
-  let c = Css.Selector.Class (prefix ^ ":" ^ bc) in
   let mc = prefix ^ ":" ^ bc in
+  let c = Css.Selector.Class mc in
   let open Css.Selector in
   List.map
     (fun sel ->
@@ -1902,10 +1899,9 @@ let pseudo_element_rules ~pseudo_selectors ~selector ~has_hover bc props prefix
         Rules_selector.transform_selector_with_modifier sel bc mc selector
       in
       regular ~selector:sel ~props ~base_class:mc ~has_hover ())
-    (List.map
+    (List.concat_map
        (fun ps -> [ combine c Descendant ps; compound [ c; ps ] ])
-       pseudo_selectors
-    |> List.concat)
+       pseudo_selectors)
 
 (* [before:] and [after:] over an inner variant. Tailwind's variant rule holds
    the [content] and the inner variant's rule nests inside it, so the flattened
@@ -2729,12 +2725,9 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
                 statements
           | None -> []
         else
-          match
-            process_rule_list_stmt ~sel ~class_name ?merge_key
-              ~has_regular_rules stmt
-          with
-          | Some entries -> entries
-          | None -> [])
+          Option.value ~default:[]
+            (process_rule_list_stmt ~sel ~class_name ?merge_key
+               ~has_regular_rules stmt))
   in
   (* Base rule with props and nested @media *)
   let base_rule =
