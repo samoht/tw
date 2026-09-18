@@ -926,10 +926,51 @@ module Handler = struct
     | Radial_size _ -> Utility.Property_order.last 238
     | Radial_at _ -> Utility.Property_order.last 239
 
-  (* Check if a float is a valid Tailwind spacing multiplier: non-negative,
-     either an integer or ending in .5 *)
-  let is_valid_spacing n =
-    n >= 0.0 && (Float.is_integer n || Float.is_integer (n *. 2.0))
+  (* Tailwind's <number>: an optional sign, digits with at most one point and a
+     digit after it, and an optional exponent. It is what a percentage token
+     opens with, whether or not the token then reads as a stop. *)
+  let is_css_number s =
+    let n = String.length s in
+    let digit i = i < n && s.[i] >= '0' && s.[i] <= '9' in
+    let rec digits i = if digit i then digits (i + 1) else i in
+    let signed i = if i < n && (s.[i] = '+' || s.[i] = '-') then i + 1 else i in
+    let i = signed 0 in
+    let j = digits i in
+    let j = if j < n && s.[j] = '.' then digits (j + 1) else j in
+    if not (j > i && digit (j - 1)) then false
+    else if j = n then true
+    else if s.[j] = 'e' || s.[j] = 'E' then
+      let k = signed (j + 1) in
+      let l = digits k in
+      l > k && l = n
+    else false
+
+  let percentage_number s =
+    if String.ends_with ~suffix:"%" s then
+      Option.some (String.sub s 0 (String.length s - 1))
+    else Option.none
+
+  (* A percentage stop is a whole number with no sign: 12.5%, 05% and -25% are
+     percentages Tailwind refuses rather than positions it writes through. *)
+  let whole_percentage number =
+    match Parse.decimal_int number with
+    | Some n -> n >= 0 && number.[0] <> '-'
+    | None -> false
+
+  (* A bare stop is a spacing step, read in quarters, or a whole percentage,
+     neither of which takes a sign. *)
+  let bare_position suffix =
+    if suffix = "" || suffix.[0] = '-' then Option.none
+    else
+      match percentage_number suffix with
+      | Some number ->
+          if whole_percentage number then
+            Option.some (Percent (Float.of_int (int_of_string number)))
+          else Option.none
+      | None -> (
+          match Parse.spacing_value ~name:"mask stop" suffix with
+          | Ok n -> Option.some (Spacing n)
+          | Error _ -> Option.none)
 
   (* Parse a value from the class suffix *)
   let parse_value suffix =
@@ -938,21 +979,17 @@ module Handler = struct
          stay inside the declaration it is written into. *)
       if Parse.is_bracket_value suffix then
         let inner = Parse.bracket_inner suffix in
+        let value = Option.value (Parse.value_after_hint inner) ~default:"" in
         if String.starts_with ~prefix:"-" inner then Option.none
         else if not (Parse.is_declaration_value inner) then Option.none
-        else Option.some (Arbitrary inner)
+        else
+          match percentage_number value with
+          | Some number when is_css_number number ->
+              if whole_percentage number then Option.some (Arbitrary inner)
+              else Option.none
+          | Some _ | None -> Option.some (Arbitrary inner)
       else Option.none
-    else if String.ends_with ~suffix:"%" suffix then
-      (* Percentage - must be non-negative integer *)
-      let num_str = String.sub suffix 0 (String.length suffix - 1) in
-      match Parse.decimal_int num_str with
-      | Some n when n >= 0 -> Option.some (Percent (Float.of_int n))
-      | _ -> Option.none
-    else
-      (* Spacing multiplier - must be non-negative, integer or half *)
-      match Parse.decimal_float suffix with
-      | Some n when is_valid_spacing n -> Option.some (Spacing n)
-      | _ -> Option.none
+    else bare_position suffix
 
   (* Parse a parenthesized var reference like "(--var)", "(length:--var)",
      "(color:--var)". Returns `Some (is_color, var_name)` or None. *)
