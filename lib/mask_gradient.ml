@@ -743,10 +743,7 @@ module Handler = struct
 
   (* [(--x)] keeps the leading dashes the class was written with; the reference
      takes the bare name. *)
-  let bare_var_name name =
-    if String.length name > 2 && name.[0] = '-' && name.[1] = '-' then
-      String.sub name 2 (String.length name - 2)
-    else name
+  let bare_var_name name = Option.value ~default:name (Parse.bare_name name)
 
   (* A stop utility restates the gradient it belongs to, then writes its own end
      of it. *)
@@ -936,17 +933,16 @@ module Handler = struct
 
   (* Parse a value from the class suffix *)
   let parse_value suffix =
-    if String.length suffix > 0 && suffix.[0] = '[' then
+    if String.starts_with ~prefix:"[" suffix then
       (* Arbitrary value - reject negative values, and any text that would not
          stay inside the declaration it is written into. *)
       if Parse.is_bracket_value suffix then
         let inner = Parse.bracket_inner suffix in
-        if String.length inner > 0 && inner.[0] = '-' then Option.none
+        if String.starts_with ~prefix:"-" inner then Option.none
         else if not (Parse.is_declaration_value inner) then Option.none
         else Option.some (Arbitrary inner)
       else Option.none
-    else if String.length suffix > 0 && suffix.[String.length suffix - 1] = '%'
-    then
+    else if String.ends_with ~suffix:"%" suffix then
       (* Percentage - must be non-negative integer *)
       let num_str = String.sub suffix 0 (String.length suffix - 1) in
       match Parse.decimal_int num_str with
@@ -962,7 +958,11 @@ module Handler = struct
      "(color:--var)". Returns `Some (is_color, var_name)` or None. *)
   let parse_paren_var suffix =
     let len = String.length suffix in
-    if len > 2 && suffix.[0] = '(' && suffix.[len - 1] = ')' then
+    if
+      String.starts_with ~prefix:"(" suffix
+      && String.ends_with ~suffix:")" suffix
+      && len > 2
+    then
       let inner = String.sub suffix 1 (len - 2) in
       if String.starts_with ~prefix:"color:" inner && String.length inner > 7
       then
@@ -975,7 +975,7 @@ module Handler = struct
         (* (length:--var-name) → position ref with length prefix *)
         let var_name = String.sub inner 7 (String.length inner - 7) in
         Some (`Length, var_name)
-      else if String.length inner > 2 && inner.[0] = '-' && inner.[1] = '-' then
+      else if Option.is_some (Parse.bare_name inner) then
         (* (--var-name) → position ref *)
         Some (`Position, inner)
       else None
