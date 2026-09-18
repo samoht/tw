@@ -783,3 +783,10 @@ val channel_bracket_var_opacity :
   channel -> string -> opacity_modifier -> Style.t
 (** [channel_bracket_var_opacity ch v opacity] sets [ch] to the [var()]
     reference [v] at [opacity]. *)
+
+val theme_token : Scheme.t -> string -> string option
+(** [theme_token theme name] is the value [theme] binds the custom property
+    [--name] to, as text: a token the theme declares, or a palette colour
+    spelled out. [None] for a name the theme does not bind, a removed token
+    included. It is what a walk over a value's text inlines for a [var()]
+    reading [name], as Tailwind's polyfills do. *)

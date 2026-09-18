@@ -4197,3 +4197,16 @@ let caret ?opacity ?(shade = 500) color =
 let caret_current = utility Caret_current
 let caret_inherit = utility Caret_inherit
 let caret_transparent = utility Caret_transparent
+
+(* The registry holds the tokens a theme declares; the palette is a table of its
+   own, so a colour token is spelled out from it. A removed token binds nothing,
+   whichever table would have answered. *)
+let theme_token theme name =
+  match Scheme.token theme name with
+  | Some _ as value -> value
+  | None when Scheme.is_removed theme name -> None
+  | None ->
+      Option.map
+        (fun (c, shade) ->
+          Css.Pp.to_string Css.pp_color (Handler.get_color_value ~theme c shade))
+        (Handler.theme_color_of_name name)
