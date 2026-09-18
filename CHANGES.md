@@ -349,14 +349,17 @@
 
 - An opacity modifier reaches every colour family. A ring, a ring offset, a
   per-side border, a shadow, a drop shadow, a decoration and a stroke all take
-  one, the alpha can itself be a variable (`bg-cyan-400/(--my-alpha-value)`),
-  and `transparent` and `inherit` take one everywhere. Shadeless names such as
-  `shadow-white`, `stroke-white`, `ring-offset-white` and `ring-offset-black`
-  work, a colour the project's `@theme` declares names a ring, a ring offset
-  and an inset ring as it names a shadow, `light-dark()` and an arbitrary
-  shadow colour resolve, and a drop shadow keeps both of its default layers
-  under an opacity (#169, #185, #201, #202, #209, #214, #225, #231, #244,
-  #254, #281, #308, #322, #323, #813, #847).
+  one, the alpha can itself be a variable or a named `--opacity-*` token
+  (`bg-cyan-400/(--my-alpha-value)`, `shadow-red-500/half`,
+  `decoration-current/(--o)`), and `transparent` and `inherit` take one
+  everywhere. Shadeless names such as `shadow-white`, `stroke-white`,
+  `ring-offset-white` and `ring-offset-black` work, a colour the project's
+  `@theme` declares names a ring, a ring offset and an inset ring as it names
+  a shadow, a `--text-shadow-color-*` token names a text shadow's,
+  `light-dark()` and an arbitrary shadow colour resolve, and a drop shadow
+  keeps both of its default layers under an opacity (#169, #185, #201, #202,
+  #209, #214, #225, #231, #244, #254, #281, #308, #322, #323, #813, #847,
+  #859).
 - An opacity modifier over a bracket colour paints the colour the class named,
   as a `color-mix()`, across all thirteen colour families.
   `text-[rebeccapurple]/50` and its siblings were unknown classes or rendered
