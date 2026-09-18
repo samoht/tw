@@ -105,7 +105,35 @@ let test_gradient_composition () =
 let test_arbitrary_stop_position () =
   has "mask-t-from-[0.5rem]" "--tw-mask-top-from-position: .5rem;";
   has "mask-t-from-[50px]" "--tw-mask-top-from-position: 50px;";
-  has "mask-t-from-[12.5%]" "--tw-mask-top-from-position: 12.5%;"
+  has "mask-t-from-[12%]" "--tw-mask-top-from-position: 12%;"
+
+let invalid = Test_helpers.check_invalid_input (module Tw.Mask_gradient.Handler)
+
+(* A bare stop is a spacing step or a whole percentage. Tailwind reads the step
+   in quarters, so 2.25 is one where tw stopped at halves, and a percentage has
+   to be a whole number spelled without a sign, bracketed or not: 12.5% is no
+   stop at all. *)
+let test_steps_and_percentages () =
+  has "mask-linear-from-2.25"
+    "--tw-mask-linear-from-position: calc(var(--spacing) * 2.25);";
+  has "mask-linear-from-0.25"
+    "--tw-mask-linear-from-position: calc(var(--spacing) * .25);";
+  has "mask-linear-to-2.5"
+    "--tw-mask-linear-to-position: calc(var(--spacing) * 2.5);";
+  has "mask-t-from-0%" "--tw-mask-top-from-position: 0%;";
+  has "mask-t-from-[0%]" "--tw-mask-top-from-position: 0%;";
+  check "mask-linear-from-2.25";
+  check "mask-linear-from-0.25";
+  invalid "mask-linear-from-3.125";
+  invalid "mask-linear-from-.5";
+  invalid "mask-linear-from-2.0";
+  invalid "mask-t-from-12.5%";
+  invalid "mask-t-from-[12.5%]";
+  invalid "mask-t-from-[percentage:12.5%]";
+  invalid "mask-t-from-[05%]";
+  invalid "mask-l-from-[-25%]";
+  invalid "mask-t-from--0";
+  invalid "mask-t-from--0%"
 
 (* A bracket stop is an arbitrary value, so its [_] is a space and the binary
    operators of a math function take the spaces CSS needs around them: Tailwind
@@ -148,6 +176,8 @@ let tests =
       Alcotest.test_case "gradient composition" `Quick test_gradient_composition;
       Alcotest.test_case "arbitrary stop position" `Quick
         test_arbitrary_stop_position;
+      Alcotest.test_case "steps and percentages" `Quick
+        test_steps_and_percentages;
       Alcotest.test_case "arbitrary angle" `Quick test_arbitrary_angle;
       Alcotest.test_case "arbitrary stop decodes" `Quick
         test_arbitrary_stop_decodes;
