@@ -271,18 +271,19 @@
   sheet, so a length, angle, colour, shadow, ease, blur, tracking, line-height,
   stroke width, border-spacing or gradient stop takes every unit and math
   function CSS allows, and a compact `calc()`, a `var()` with its fallback, a
-  `theme()` in dot notation, a `--spacing()` call, a grid track and a list
-  style mean the same thing wherever they appear: `ml-[50%]`,
+  `theme()` in dot notation, a `--spacing()` call, an `--alpha()` call, a grid
+  track and a list style mean the same thing wherever they appear: `ml-[50%]`,
   `left-[calc(5%-2px)]`, `py-[calc(--spacing(2)+1px)]`, `list-[upper-roman]`,
   `gap-[calc(1px_+_1px)]`, `mx-[--spacing(4)]`, `flex-[calc(1+2)]`,
-  `z-[calc(1+2)]`, `delay-[calc(1s+2s)]` and
+  `z-[calc(1+2)]`, `delay-[calc(1s+2s)]`, `text-[--alpha(red/0.2)]` and
   `origin-[--spacing(4)_--spacing(2)]` all resolve, a bracket colour is read
   as CSS before the palette is consulted, and a value the target property
-  cannot take is still written through as Tailwind writes it (#168, #176,
-  #177, #187, #188, #189, #190, #191, #192, #205, #212, #217, #236, #241,
-  #262, #277, #278, #325, #371, #372, #373, #375, #376, #377, #378, #404,
-  #417, #418, #420, #465, #503, #504, #509, #522, #667, #683, #688, #689,
-  #690).
+  cannot take is still written through as Tailwind writes it. An `--alpha()`
+  scales a bare number as Tailwind does, `0.2` being 20%, and one missing
+  either half names no utility (#168, #176, #177, #187, #188, #189, #190,
+  #191, #192, #205, #212, #217, #236, #241, #262, #277, #278, #325, #371,
+  #372, #373, #375, #376, #377, #378, #404, #417, #418, #420, #465, #503,
+  #504, #509, #522, #667, #683, #688, #689, #690, #863).
 - A bracket only OCaml's number reader accepts is no longer folded to a
   different value. `tab-[0x4]` wrote `tab-size: 4`, `flex-[0x4]` wrote `flex: 4`
   under the class name `.flex-\[4\]`, `grid-cols-[0x4]` wrote `4px`,
