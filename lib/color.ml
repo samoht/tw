@@ -1676,7 +1676,10 @@ let palette_is_declared theme color shade =
 
 (* Parse color and shade from string list. A name the palette does not know is
    still a colour when the [\@theme] block declared [--color-<name>]; such a
-   token carries no shade, and its name may span several segments. *)
+   token carries no shade, and its name may span several segments. A palette
+   family on its own is no colour either: [red] reads [--color-red], which only
+   a project's [\@theme] declares, where [black] and [white] read a token of
+   their own. *)
 let shade_of_strings ?theme parts =
   let theme_named () =
     let name = String.concat "-" parts in
@@ -1701,8 +1704,9 @@ let shade_of_strings ?theme parts =
       | Error _ -> theme_named ())
   | [ color_str ] -> (
       match of_string color_str with
-      | Ok color when palette_is_declared theme color 500 ->
-          Ok (color, 500) (* Default shade *)
+      | Ok color when is_shadeless color && palette_is_declared theme color 500
+        ->
+          Ok (color, 500)
       | Ok _ | Error _ -> theme_named ())
   | [] -> Error (`Msg "No color specified")
   | _ -> theme_named ()
@@ -1759,7 +1763,8 @@ let shade_and_opacity_of_strings ?theme parts =
       | Some keyword -> Ok (Css keyword, 500, opacity)
       | None -> (
           match of_string base_str with
-          | Ok color when palette_is_declared theme color 500 ->
+          | Ok color
+            when is_shadeless color && palette_is_declared theme color 500 ->
               Ok (color, 500, opacity)
           | Ok _ | Error _ -> theme_named ()))
   | [] -> Error (`Msg "No color specified")
