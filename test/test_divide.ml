@@ -231,6 +231,32 @@ let test_bracket_named_color () =
      recognise it as a colour. *)
   emits "border-color:notacolour" "divide-[notacolour]"
 
+(* A modifier reading a custom property mixes that property into the guarded
+   value, on [currentcolor] and on a bracket [var()] however the bracket spells
+   it. The [color:] hint sent the var to the raw arm, which folded the modifier
+   to a percentage, which a var() has none of, so the mix said [100%] with no
+   fallback beside it; the bare [var()] beside it took the typed arm and was
+   right. *)
+let test_colour_opacity_var () =
+  let mixed cls fallback colour =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "border-color: " ^ fallback;
+        "border-color: color-mix(in oklab, " ^ colour
+        ^ " var(--o), transparent)";
+      ]
+  in
+  mixed "divide-current/(--o)" "currentColor" "currentcolor";
+  mixed "divide-current/[var(--o)]" "currentColor" "currentcolor";
+  mixed "divide-[var(--c)]/(--o)" "var(--c)" "var(--c)";
+  mixed "divide-[color:var(--c)]/(--o)" "var(--c)" "var(--c)";
+  mixed "divide-[color:var(--c)]/[var(--o)]" "var(--c)" "var(--c)";
+  Test_helpers.check_declarations ~minify:false "divide-[color:var(--c)]/50"
+    [
+      "border-color: var(--c)";
+      "border-color: color-mix(in oklab, var(--c) 50%, transparent)";
+    ]
+
 (* The divide width suffix is a plain decimal integer. [divide-x-0x10] was read
    as 16 and emitted a rule selecting [.divide-x-16], a class the author never
    wrote; Tailwind emits nothing for it. *)
@@ -266,6 +292,8 @@ let tests =
         test_arbitrary_bracket_color_token_stream;
       Alcotest.test_case "non-decimal widths" `Quick test_non_decimal_widths;
       Alcotest.test_case "bracket named colour" `Quick test_bracket_named_color;
+      Alcotest.test_case "colour opacity from a var" `Quick
+        test_colour_opacity_var;
     ]
 
 let suite = ("divide", tests)
