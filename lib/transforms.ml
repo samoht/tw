@@ -22,7 +22,7 @@ module Handler = struct
     | Rotate_3d_arbitrary of string * float * float * float * Css.angle
     | Rotate_bare_var of string
     | Neg_rotate_bare_var of string
-    | Neg_rotate_arbitrary of string * Css.angle
+    | Neg_rotate_arbitrary of string
     | Translate_x of int
     | Translate_x_full
     | Translate_x_px
@@ -93,19 +93,19 @@ module Handler = struct
     | Rotate_x_raw of string * string
     | Rotate_x_bare_var of string
     | Neg_rotate_x_bare_var of string
-    | Neg_rotate_x_arbitrary of string * Css.angle
+    | Neg_rotate_x_arbitrary of string
     | Rotate_y of int
     | Rotate_y_arbitrary of string * Css.angle
     | Rotate_y_raw of string * string
     | Rotate_y_bare_var of string
     | Neg_rotate_y_bare_var of string
-    | Neg_rotate_y_arbitrary of string * Css.angle
+    | Neg_rotate_y_arbitrary of string
     | Rotate_z of int
     | Rotate_z_arbitrary of string * Css.angle
     | Rotate_z_raw of string * string
     | Rotate_z_bare_var of string
     | Neg_rotate_z_bare_var of string
-    | Neg_rotate_z_arbitrary of string * Css.angle
+    | Neg_rotate_z_arbitrary of string
     | Scale_z of int
     | Scale_z_arbitrary of string
     | (* The negative bracket forms hold the bracket as written; the style reads
@@ -517,11 +517,6 @@ module Handler = struct
     in
     style [ Css.rotate (Angle neg_angle) ]
 
-  let neg_rotate_arbitrary angle =
-    (* Negate the angle for CSS output *)
-    let neg = match angle with Css.Deg d -> Css.Deg (-.d) | a -> a in
-    style [ Css.rotate (Angle neg) ]
-
   let translate_props =
     collect_property_rules
       [ tw_translate_x_var; tw_translate_y_var; tw_translate_z_var ]
@@ -816,6 +811,26 @@ module Handler = struct
   let neg_skew_y_arbitrary = neg_chain_arbitrary_on [ skew_y_axis ]
   let neg_skew_arbitrary = neg_chain_arbitrary_on [ skew_x_axis; skew_y_axis ]
 
+  let rotate_x_axis =
+    (tw_rotate_x_var, "rotateX", fun a : Css.transform -> Rotate_x a)
+
+  let rotate_y_axis =
+    (tw_rotate_y_var, "rotateY", fun a : Css.transform -> Rotate_y a)
+
+  let rotate_z_axis =
+    (tw_rotate_z_var, "rotateZ", fun a : Css.transform -> Rotate_z a)
+
+  let neg_rotate_x_arbitrary = neg_chain_arbitrary_on [ rotate_x_axis ]
+  let neg_rotate_y_arbitrary = neg_chain_arbitrary_on [ rotate_y_axis ]
+  let neg_rotate_z_arbitrary = neg_chain_arbitrary_on [ rotate_z_axis ]
+
+  (* The bare form writes [rotate] itself, as the positive one does. *)
+  let neg_rotate_arbitrary s =
+    match neg_bracket_value angle_of_inner s with
+    | Some (`Typed a) -> style [ Css.rotate (Angle (neg_angle a)) ]
+    | Some (`Raw v) -> opaque_style "rotate" v
+    | None -> style []
+
   let raw_skew_style axes value =
     let raw var fn =
       Parse.wrap_declaration_value ~before:(fn ^ "(") ~after:")" value
@@ -1037,10 +1052,6 @@ module Handler = struct
     in
     transform_with_var tw_rotate_x_var (Rotate_x neg)
 
-  let neg_rotate_x_arbitrary angle =
-    let neg : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.))) in
-    transform_with_var tw_rotate_x_var (Rotate_x neg)
-
   let rotate_y n = transform_with_var tw_rotate_y_var (Rotate_y (make_angle n))
 
   let rotate_y_arbitrary angle =
@@ -1058,10 +1069,6 @@ module Handler = struct
     in
     transform_with_var tw_rotate_y_var (Rotate_y neg)
 
-  let neg_rotate_y_arbitrary angle =
-    let neg : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.))) in
-    transform_with_var tw_rotate_y_var (Rotate_y neg)
-
   let rotate_z n = transform_with_var tw_rotate_z_var (Rotate_z (make_angle n))
 
   let rotate_z_arbitrary angle =
@@ -1077,10 +1084,6 @@ module Handler = struct
     let neg : Css.angle =
       Calc (Expr (Var (Var.bracket bare), Mul, Num (-1.)))
     in
-    transform_with_var tw_rotate_z_var (Rotate_z neg)
-
-  let neg_rotate_z_arbitrary angle =
-    let neg : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.))) in
     transform_with_var tw_rotate_z_var (Rotate_z neg)
 
   let translate_z ?theme n =
@@ -1461,7 +1464,7 @@ module Handler = struct
     | Rotate_3d_arbitrary (_, x, y, z, a) -> rotate_3d_arbitrary x y z a
     | Rotate_bare_var name -> rotate_bare_var name
     | Neg_rotate_bare_var name -> neg_rotate_bare_var name
-    | Neg_rotate_arbitrary (_, a) -> neg_rotate_arbitrary a
+    | Neg_rotate_arbitrary s -> neg_rotate_arbitrary s
     | Translate_x n -> translate_x ~theme n
     | Translate_x_full -> translate_x_full
     | Translate_x_px -> translate_x_px
@@ -1553,17 +1556,17 @@ module Handler = struct
     | Rotate_x_arbitrary (_, a) -> rotate_x_arbitrary a
     | Rotate_x_bare_var name -> rotate_x_bare_var name
     | Neg_rotate_x_bare_var name -> neg_rotate_x_bare_var name
-    | Neg_rotate_x_arbitrary (_, a) -> neg_rotate_x_arbitrary a
+    | Neg_rotate_x_arbitrary s -> neg_rotate_x_arbitrary s
     | Rotate_y n -> rotate_y n
     | Rotate_y_arbitrary (_, a) -> rotate_y_arbitrary a
     | Rotate_y_bare_var name -> rotate_y_bare_var name
     | Neg_rotate_y_bare_var name -> neg_rotate_y_bare_var name
-    | Neg_rotate_y_arbitrary (_, a) -> neg_rotate_y_arbitrary a
+    | Neg_rotate_y_arbitrary s -> neg_rotate_y_arbitrary s
     | Rotate_z n -> rotate_z n
     | Rotate_z_arbitrary (_, a) -> rotate_z_arbitrary a
     | Rotate_z_bare_var name -> rotate_z_bare_var name
     | Neg_rotate_z_bare_var name -> neg_rotate_z_bare_var name
-    | Neg_rotate_z_arbitrary (_, a) -> neg_rotate_z_arbitrary a
+    | Neg_rotate_z_arbitrary s -> neg_rotate_z_arbitrary s
     | Perspective_none -> perspective_none ()
     | Perspective_dramatic -> perspective_dramatic
     | Perspective_theme name -> perspective_theme theme name
@@ -2047,34 +2050,26 @@ module Handler = struct
     (* Negative rotate: -rotate-N, -rotate-(--var), -rotate-[123deg] *)
     | [ ""; "rotate"; n ] when Parse.is_bare_var n ->
         Ok (Neg_rotate_bare_var (Parse.bare_var_inner n))
-    | [ ""; "rotate"; n ] when Parse.is_bracket_value n -> (
-        match parse_bracket_angle n with
-        | Ok (raw, a) -> Ok (Neg_rotate_arbitrary (raw, a))
-        | Error _ -> err_not_utility)
+    | [ ""; "rotate"; value ] when neg_bracket value ->
+        Ok (Neg_rotate_arbitrary (Parse.bracket_inner value))
     | [ ""; "rotate"; n ] ->
         Parse.int_pos ~name:"rotate" n >|= fun n -> Rotate (-n)
     | [ ""; "rotate"; "x"; n ] when Parse.is_bare_var n ->
         Ok (Neg_rotate_x_bare_var (Parse.bare_var_inner n))
-    | [ ""; "rotate"; "x"; n ] when Parse.is_bracket_value n -> (
-        match parse_bracket_angle n with
-        | Ok (raw, a) -> Ok (Neg_rotate_x_arbitrary (raw, a))
-        | Error _ -> err_not_utility)
+    | [ ""; "rotate"; "x"; value ] when neg_bracket value ->
+        Ok (Neg_rotate_x_arbitrary (Parse.bracket_inner value))
     | [ ""; "rotate"; "x"; n ] ->
         Parse.int_pos ~name:"rotate-x" n >|= fun n -> Rotate_x (-n)
     | [ ""; "rotate"; "y"; n ] when Parse.is_bare_var n ->
         Ok (Neg_rotate_y_bare_var (Parse.bare_var_inner n))
-    | [ ""; "rotate"; "y"; n ] when Parse.is_bracket_value n -> (
-        match parse_bracket_angle n with
-        | Ok (raw, a) -> Ok (Neg_rotate_y_arbitrary (raw, a))
-        | Error _ -> err_not_utility)
+    | [ ""; "rotate"; "y"; value ] when neg_bracket value ->
+        Ok (Neg_rotate_y_arbitrary (Parse.bracket_inner value))
     | [ ""; "rotate"; "y"; n ] ->
         Parse.int_pos ~name:"rotate-y" n >|= fun n -> Rotate_y (-n)
     | [ ""; "rotate"; "z"; n ] when Parse.is_bare_var n ->
         Ok (Neg_rotate_z_bare_var (Parse.bare_var_inner n))
-    | [ ""; "rotate"; "z"; n ] when Parse.is_bracket_value n -> (
-        match parse_bracket_angle n with
-        | Ok (raw, a) -> Ok (Neg_rotate_z_arbitrary (raw, a))
-        | Error _ -> err_not_utility)
+    | [ ""; "rotate"; "z"; value ] when neg_bracket value ->
+        Ok (Neg_rotate_z_arbitrary (Parse.bracket_inner value))
     | [ ""; "rotate"; "z"; n ] ->
         Parse.int_pos ~name:"rotate-z" n >|= fun n -> Rotate_z (-n)
     (* Negative scale: -scale-N, -scale-[1.5] *)
@@ -2222,7 +2217,7 @@ module Handler = struct
     | Rotate_3d_arbitrary (raw, _, _, _, _) -> "rotate-[" ^ raw ^ "]"
     | Rotate_bare_var name -> "rotate-(" ^ name ^ ")"
     | Neg_rotate_bare_var name -> "-rotate-(" ^ name ^ ")"
-    | Neg_rotate_arbitrary (raw, _) -> "-rotate-" ^ "[" ^ raw ^ "]"
+    | Neg_rotate_arbitrary s -> "-rotate-[" ^ s ^ "]"
     | Translate_x n -> neg_class "translate-x-" n
     | Translate_x_full -> "translate-x-full"
     | Translate_x_px -> "translate-x-px"
@@ -2305,17 +2300,17 @@ module Handler = struct
     | Rotate_z_raw (raw, _) -> "rotate-z-[" ^ raw ^ "]"
     | Rotate_x_bare_var name -> "rotate-x-(" ^ name ^ ")"
     | Neg_rotate_x_bare_var name -> "-rotate-x-(" ^ name ^ ")"
-    | Neg_rotate_x_arbitrary (raw, _) -> "-rotate-x-" ^ "[" ^ raw ^ "]"
+    | Neg_rotate_x_arbitrary s -> "-rotate-x-[" ^ s ^ "]"
     | Rotate_y n -> neg_class "rotate-y-" n
     | Rotate_y_arbitrary (raw, _) -> "rotate-y-" ^ "[" ^ raw ^ "]"
     | Rotate_y_bare_var name -> "rotate-y-(" ^ name ^ ")"
     | Neg_rotate_y_bare_var name -> "-rotate-y-(" ^ name ^ ")"
-    | Neg_rotate_y_arbitrary (raw, _) -> "-rotate-y-" ^ "[" ^ raw ^ "]"
+    | Neg_rotate_y_arbitrary s -> "-rotate-y-[" ^ s ^ "]"
     | Rotate_z n -> neg_class "rotate-z-" n
     | Rotate_z_arbitrary (raw, _) -> "rotate-z-" ^ "[" ^ raw ^ "]"
     | Rotate_z_bare_var name -> "rotate-z-(" ^ name ^ ")"
     | Neg_rotate_z_bare_var name -> "-rotate-z-(" ^ name ^ ")"
-    | Neg_rotate_z_arbitrary (raw, _) -> "-rotate-z-" ^ "[" ^ raw ^ "]"
+    | Neg_rotate_z_arbitrary s -> "-rotate-z-[" ^ s ^ "]"
     | Perspective_none -> "perspective-none"
     | Perspective_dramatic -> "perspective-dramatic"
     | Perspective_theme name -> "perspective-" ^ name
