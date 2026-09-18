@@ -784,11 +784,7 @@ module Handler = struct
       match Parse.value_after_hint inner with
       | None -> None
       | Some value ->
-          let css_value =
-            Parse.normalize_css_math_operators
-              (Parse.decode_arbitrary_value value)
-          in
-          Option.map (fun l -> (inner, l)) (Css.parse_length css_value)
+          Option.map (fun l -> (inner, l)) (Parse.arbitrary_length value)
     else None
 
   (* A spacing step, and a ratio part, is a non-negative multiple of 0.25
@@ -905,12 +901,7 @@ module Handler = struct
     | Aspect_square -> "aspect-square"
     | Aspect_video -> "aspect-video"
     | Aspect_theme name -> "aspect-" ^ name
-    | Aspect_ratio (w, h) ->
-        let num f =
-          if Float.is_integer f then string_of_int (int_of_float f)
-          else string_of_float f
-        in
-        "aspect-" ^ num w ^ "/" ^ num h
+    | Aspect_ratio (w, h) -> "aspect-" ^ class_float w ^ "/" ^ class_float h
     | Aspect_arbitrary (raw, _) -> "aspect-[" ^ raw ^ "]"
 
   let examples =
