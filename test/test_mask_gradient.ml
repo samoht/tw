@@ -135,6 +135,61 @@ let test_steps_and_percentages () =
   invalid "mask-t-from--0";
   invalid "mask-t-from--0%"
 
+(* Tailwind reads a bracket stop by its data-type hint, or infers one when the
+   author wrote none: a hex, a colour function or a colour keyword is the stop's
+   colour, a var() or anything else its position. tw read every bracket as a
+   position, and wrote a hint into the sheet rather than peeling it. *)
+let test_bracket_stop_classification () =
+  has "mask-linear-from-[#fff]" "--tw-mask-linear-from-color: #fff;";
+  has "mask-linear-from-[red]" "--tw-mask-linear-from-color: red;";
+  has "mask-linear-from-[rgb(0_0_0)]" "--tw-mask-linear-from-color: rgb(0 0 0);";
+  has "mask-linear-from-[color:var(--c)]"
+    "--tw-mask-linear-from-color: var(--c);";
+  has "mask-linear-from-[color:red]" "--tw-mask-linear-from-color: red;";
+  has "mask-t-to-[transparent]" "--tw-mask-top-to-color: transparent;";
+  has "mask-x-from-[#fff]" "--tw-mask-right-from-color: #fff;";
+  has "mask-x-from-[#fff]" "--tw-mask-left-from-color: #fff;";
+  has "mask-linear-from-[--alpha(red/50%)]"
+    "--tw-mask-linear-from-color: color-mix(in oklab, red 50%, transparent);";
+  has "mask-linear-from-[length:10px]" "--tw-mask-linear-from-position: 10px;";
+  has "mask-linear-from-[percentage:10%]" "--tw-mask-linear-from-position: 10%;";
+  has "mask-linear-from-[var(--x)]" "--tw-mask-linear-from-position: var(--x);";
+  has "mask-linear-from-[inherit]" "--tw-mask-linear-from-position: inherit;";
+  check "mask-linear-from-[#fff]";
+  check "mask-linear-from-[color:var(--c)]";
+  check "mask-linear-from-[length:10px]";
+  check "mask-x-from-[#fff]";
+  invalid "mask-linear-from-[percentage:var(--x)]";
+  invalid "mask-linear-from-(percentage:--x)";
+  invalid "mask-linear-from-[]";
+  invalid "mask-linear-from-[:10px]"
+
+(* A bracket position goes into the sheet as the author spelled it, sign and
+   dashes included, and a --spacing() call is the step it computes. tw refused
+   every bracket opening with a dash. *)
+let test_bracket_position_spellings () =
+  has "mask-linear-from-[-10px]" "--tw-mask-linear-from-position: -10px;";
+  has "mask-linear-from-[--x]" "--tw-mask-linear-from-position: --x;";
+  has "mask-linear-from-[--spacing(4)]"
+    "--tw-mask-linear-from-position: calc(var(--spacing) * 4);";
+  has "mask-linear-from-[--spacing(4)]" "--spacing: .25rem;";
+  check "mask-linear-from-[-10px]";
+  check "mask-linear-from-[--spacing(4)]"
+
+(* The (--x) shorthand names a custom property, and the degenerate (--) one with
+   an empty name: Tailwind writes var(--) for it whatever the hint, where tw
+   wrote var(----) for the colour and the length hint into the value. *)
+let test_degenerate_var_shorthand () =
+  has "mask-linear-from-(color:--)" "--tw-mask-linear-from-color: var(--);";
+  has "mask-linear-from-(length:--)" "--tw-mask-linear-from-position: var(--);";
+  has "mask-linear-from-(--)" "--tw-mask-linear-from-position: var(--);";
+  has "mask-linear-from-(color:--c)" "--tw-mask-linear-from-color: var(--c);";
+  has "mask-linear-to-(length:--c)" "--tw-mask-linear-to-position: var(--c);";
+  check "mask-linear-from-(color:--)";
+  check "mask-linear-from-(length:--)";
+  check "mask-linear-from-(--)";
+  check "mask-linear-from-(color:--c)"
+
 (* A bracket stop is an arbitrary value, so its [_] is a space and the binary
    operators of a math function take the spaces CSS needs around them: Tailwind
    writes [calc(1px + 2px)] for [calc(1px+2px)], and a browser drops the
@@ -178,6 +233,12 @@ let tests =
         test_arbitrary_stop_position;
       Alcotest.test_case "steps and percentages" `Quick
         test_steps_and_percentages;
+      Alcotest.test_case "bracket stop classification" `Quick
+        test_bracket_stop_classification;
+      Alcotest.test_case "bracket position spellings" `Quick
+        test_bracket_position_spellings;
+      Alcotest.test_case "degenerate var shorthand" `Quick
+        test_degenerate_var_shorthand;
       Alcotest.test_case "arbitrary angle" `Quick test_arbitrary_angle;
       Alcotest.test_case "arbitrary stop decodes" `Quick
         test_arbitrary_stop_decodes;
