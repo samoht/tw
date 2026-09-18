@@ -1,0 +1,4 @@
+/* Variants three deep with a compound in the middle, negations, container
+   queries, arbitrary variants, and a var() in every slot a modifier touches. */
+@import "tailwindcss";
+@source inline("not-group-hover/x:md:hover:bg-red-500 in-focus:md:hover:p-4 has-not-focus:flex not-@md:hidden @sm:@max-md:flex-col dark:hover:not-focus:bg-black/50 group-has-[.x]:before:content-['x'] supports-[display:grid]:grid peer-aria-checked:p-4 nth-[3n+1]:p-1 min-[500px]:flex max-md:flex @md:flex hover:bg-(--c) bg-(--c)/(--o) text-[var(--t)]/[var(--o)] before:bg-red-500 after:hover:p-2 focus-visible:ring-2 not-[:checked]:opacity-50 in-[.dark]:text-white starting:opacity-0");

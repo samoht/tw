@@ -7,8 +7,8 @@
 ; documented command produces.
 
 (executables
- (names sheet_order gen_order_fixture frozen_order site_page)
- (libraries fmt tw_tools test_helpers))
+ (names sheet_order gen_order_fixture frozen_order site_page corpus_check)
+ (libraries fmt tw_tools test_helpers cascade.browser))
 
 ; package-lock.json pins the tailwindcss the reference comes from, and the CLI
 ; is not a dune dependency of its own, so a version bump has to re-run the
@@ -39,3 +39,19 @@
   classlist.txt)
  (action
   (run %{exe:frozen_order.exe} %{exe:../../bin/main.exe})))
+
+; The parity corpus: every NAME.css under corpus/ is compiled by both tools,
+; compared canonically and rendered over NAME.html or a page built from its
+; @source inline classes, through the documented command. The glob is the
+; registration: a file dropped into the directory is a case on the next run.
+
+(rule
+ (alias runtest)
+ (deps
+  (glob_files corpus/*.css)
+  (glob_files corpus/*.html)
+  (env_var TW_TAILWIND_TESTS)
+  (env_var TW_BROWSER_TESTS)
+  ../../package-lock.json)
+ (action
+  (run %{exe:corpus_check.exe} %{exe:../../bin/main.exe} corpus)))

@@ -1,0 +1,11 @@
+/* Namespaces reset to initial and one token put back: only the token declared
+   compiles, and a breakpoint taken away takes its variant with it. */
+@import "tailwindcss";
+@theme {
+  --color-*: initial;
+  --color-ink: #111;
+  --breakpoint-md: initial;
+  --spacing-*: initial;
+  --spacing-gutter: 1.25rem;
+}
+@source inline("bg-ink text-ink/50 bg-red-500 text-white md:flex lg:flex p-gutter p-4 gap-gutter");

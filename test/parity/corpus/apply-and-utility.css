@@ -1,0 +1,17 @@
+/* @apply inside a component and a declared utility, with variants in both. */
+@import "tailwindcss";
+@utility btn {
+  @apply rounded px-4 py-2 font-bold hover:bg-blue-600;
+}
+@utility tab-* {
+  tab-size: --value(integer);
+}
+@layer components {
+  .card {
+    @apply p-4 shadow-md hover:shadow-lg md:p-6;
+  }
+  .card-title {
+    @apply text-lg font-semibold text-gray-900 dark:text-white;
+  }
+}
+@source inline("btn card card-title tab-4 hover:btn md:tab-8");

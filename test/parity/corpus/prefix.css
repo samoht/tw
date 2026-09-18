@@ -1,0 +1,6 @@
+/* A prefixed build: every class and every theme key carries the prefix. */
+@import "tailwindcss" prefix(tw);
+@theme {
+  --color-brand: #123456;
+}
+@source inline("tw:bg-brand tw:hover:bg-brand/50 tw:md:flex tw:text-(--tw-color-brand) tw:not-hover:p-2");

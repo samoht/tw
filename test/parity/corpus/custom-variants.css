@@ -1,0 +1,10 @@
+/* Declared variants between the built-in ones, stacked and negated. */
+@import "tailwindcss";
+@custom-variant theme-midnight (&:where([data-theme="midnight"] *));
+@custom-variant hocus (&:hover, &:focus);
+@custom-variant any-hover {
+  @media (any-hover: hover) {
+    @slot;
+  }
+}
+@source inline("theme-midnight:bg-black hocus:underline not-hocus:p-2 theme-midnight:hover:bg-white md:theme-midnight:flex any-hover:text-red-500 dark:hocus:bg-black/50 group-hocus:p-1");
