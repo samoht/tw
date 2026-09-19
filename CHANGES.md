@@ -190,6 +190,11 @@
 
 ### Utilities
 
+- A palette name in a bracket is the identifier it is, as in Tailwind:
+  `bg-[emerald]`, `bg-[slate]` and `text-[rose]` wrote the palette's 500 shade,
+  a colour the page does not have. Tailwind writes `background-color: emerald`
+  through and a browser drops it. A CSS colour in a bracket, a keyword or a
+  system colour included, still resolves (#879).
 - A palette name with no shade names no utility, as in Tailwind: `bg-red`,
   `text-red`, `from-red`, `ring-red` and their kin compiled a `.bg-red-500`
   rule nobody wrote. `black`, `white`, `current`, `transparent`, `inherit`
