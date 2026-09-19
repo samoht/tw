@@ -2008,7 +2008,6 @@ module Handler = struct
 
   (* Aliases for names that open Css shadows: the color constructors below, and
      [Pp], whose byte formatter cascade's own [Pp] does not carry. *)
-  let color_of_string = of_string
   let hex_byte = Pp.hex_byte
 
   open Style
@@ -2079,7 +2078,7 @@ module Handler = struct
              inner colour is a raw CSS colour: [red] is the keyword, not the
              red-500 palette entry. *)
           Css.parse_color (Parse.decode_arbitrary_value inner)
-      | None -> (
+      | None ->
           (* A [#] prefix only names a colour when what follows is a hex
              spelling, so this reads the digits rather than raising on them
              inside [of_class]. Reading them through the parser is what keeps
@@ -2090,16 +2089,13 @@ module Handler = struct
             | Some _ -> Some (authored_hex inner)
             | None -> None
           else
-            let normalized = Parse.decode_underscores inner in
-            (* Any colour CSS knows wins over the palette, keywords and system
-               colours included: [[Field]] and [[light-dark(a,b)]] are values,
-               not palette names. The guard used to admit only functions. *)
-            match Css.parse_color normalized with
-            | Some c -> Some c
-            | None -> (
-                match color_of_string inner with
-                | Ok c -> Some (to_css c 500)
-                | Error _ -> None))
+            (* A bracket holds CSS, so only a colour CSS knows is one: keywords
+               and system colours included, [[Field]] and [[light-dark(a,b)]]
+               are values. A palette name is not; Tailwind writes [[emerald]]
+               through as the identifier it is, which browsers drop, where
+               reading it as the 500 shade painted a colour the page does not
+               have. *)
+            Css.parse_color (Parse.decode_underscores inner)
 
   (* What a bracket value names, once the [color:]/[var(] spellings are told
      apart from a plain colour. Every colour-bearing utility (text, outline,
