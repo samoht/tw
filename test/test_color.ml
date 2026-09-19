@@ -422,7 +422,13 @@ let test_bracket_css_colors () =
   (* the whole function, where the affix stopped at the opening paren *)
   has "bg-[light-dark(white,black)]" "background-color:light-dark(white,black)";
   (* a CSS keyword still beats the palette entry of the same name *)
-  has "bg-[red]" "background-color:red"
+  has "bg-[red]" "background-color:red";
+  (* A palette name is not a colour CSS knows: Tailwind writes the identifier
+     through, which a browser drops, where the palette fallback painted the 500
+     shade the page does not have. *)
+  has "bg-[emerald]" "background-color:emerald";
+  has "bg-[slate]" "background-color:slate";
+  has "text-[rose]" "color:rose"
 
 (* The declarations a class writes outside any [@supports] block, and those it
    writes inside one. [Test_helpers.check_declarations] flattens the two
