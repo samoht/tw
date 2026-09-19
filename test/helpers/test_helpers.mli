@@ -294,6 +294,16 @@ val box_marker : string
     property painting the box reaches the raster the oracle judges. An empty
     element paints nothing. *)
 
+val classes_page : ?scope:string list -> string list -> string
+(** [classes_page ?scope classes] is the HTML document the site comparison
+    renders: every class on an element of its own holding {!box_marker}, inside
+    a wrapper carrying every [group] name [scope] (by default [classes]) scopes
+    to and after a sibling carrying every [peer] name, with children for a class
+    whose variants read descendants ([has-*], [*:], [**:]), so [group-*],
+    [peer-*], [has-*], [in-*] and [*:] have the markup they read. A variant
+    testing an attribute or a class on an ancestor matches on neither side, so
+    the render covers it unmatched. No element carries two classes. *)
+
 val render_page : ?inner:string -> string list -> string
 (** [render_page ?inner elements] is the HTML document the browser comparison
     renders: one [div] per entry of [elements], carrying that entry as its class

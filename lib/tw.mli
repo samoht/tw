@@ -2271,6 +2271,9 @@ val border_current : t
 
     This is the default behavior in Tailwind v4, but can be explicitly set. *)
 
+val border_inherit : t
+(** [border_inherit] inherits the border color. *)
+
 (** {2 Border Style}
     @see <https://tailwindcss.com/docs/border-style> Border Style *)
 

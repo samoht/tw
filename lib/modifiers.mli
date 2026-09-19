@@ -23,11 +23,6 @@ val to_selector : modifier -> string -> Css.Selector.t
 (** [to_selector modifier base_class] generates the CSS selector for a modifier
     applied to a base class. *)
 
-val prose_element_inner_selector : string -> Css.Selector.t
-(** [prose_element_inner_selector name] builds the inner nested selector for a
-    prose element variant rule. Creates the "& :is(:where(ELTS):not(not-prose))"
-    pattern. *)
-
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
@@ -772,15 +767,10 @@ val parse_data_expr :
 
 (** {1 Variant Ordering}
 
-    The three functions below read one table of cascade positions, so they
-    cannot put a variant in one place as a [not-*] inner and another place as a
-    class-name token. All three return a key on the same scale, comparable with
-    each other. *)
-
-val not_variant_order : modifier -> int
-(** [not_variant_order m] returns the cascade sort key of the variant [m]. Used
-    for the inner modifier of a [not-*], which sorts where the variant it
-    negates sorts. Never 0: every modifier has a position. *)
+    The two functions below read one table of cascade positions, so they cannot
+    put a variant in one place as a [not-*] inner and another place as a
+    class-name token. Both return a key on the same scale, comparable with each
+    other. *)
 
 val variant_order_of_prefix : ?theme:Scheme.t -> string -> int
 (** [variant_order_of_prefix ?theme prefix] returns the position of a modifier

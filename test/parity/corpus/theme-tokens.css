@@ -1,0 +1,16 @@
+/* A project theme read by every family that names a token: a colour, a
+   spacing step, a shadow and a text shadow with modifiers, a breakpoint, a
+   radius, a font, a named opacity. */
+@import "tailwindcss";
+@theme {
+  --color-brand: #123456;
+  --color-ink: oklch(21% 0.01 260);
+  --spacing-huge: 10rem;
+  --shadow-card: 0 1px 2px var(--color-brand);
+  --text-shadow-glow: 0 0 2px red;
+  --breakpoint-3xl: 120rem;
+  --radius-pill: 9999px;
+  --font-display: ui-serif, serif;
+  --opacity-half: 50%;
+}
+@source inline("bg-brand text-brand/50 text-ink/(--o) p-huge -m-huge shadow-card shadow-card/half text-shadow-glow text-shadow-glow/30 3xl:flex max-3xl:hidden rounded-pill font-display ring-brand/half border-ink/half from-brand to-ink/50 fill-brand stroke-brand/50 decoration-brand/half outline-brand");

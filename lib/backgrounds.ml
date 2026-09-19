@@ -416,10 +416,6 @@ module Handler = struct
     | _ -> None
 
   open Style
-
-  (* Bind tw's string formatter before [open Css] shadows [Pp]. *)
-  let pp_float = Pp.float
-
   open Css
 
   let name = "backgrounds"
@@ -777,13 +773,32 @@ module Handler = struct
   (* A bracket background-image: a gradient, a url(), or a comma-separated layer
      list. [None] means the bracket is not an image, which [of_class] rejects:
      [bg-[image:nope]] used to parse and then emit an empty rule. *)
-  let parse_bracket_image v : Css.background_image option =
-    let css_str = Parse.decode_arbitrary_value v in
+  let image_of_text css_str : Css.background_image option =
     match Css.parse_background_image css_str with
     | Some [ img ] -> Some (Css.minify_background_image img)
     | Some (_ :: _ as imgs) ->
         Some (Css.List (List.map Css.minify_background_image imgs))
     | Some [] | None -> None
+
+  let parse_bracket_image v = image_of_text (Parse.decode_arbitrary_value v)
+
+  (* A bracket image, with the pair Tailwind's polyfill writes when a stop reads
+     a custom property or [currentcolor] through a [color-mix()]: what a browser
+     without [color-mix()] reads in the open, the image as written behind the
+     guard. [v] is the bracket's text after any hint. *)
+  let bracket_image_style ~theme v img =
+    let decl i = Css.background_image i in
+    match
+      Option.bind
+        (Parse.color_mix_fallback ~resolve:(Color.theme_token theme)
+           (Parse.decode_arbitrary_value v))
+        image_of_text
+    with
+    | Stdlib.Option.None -> style [ decl img ]
+    | Stdlib.Option.Some in_the_open ->
+        style
+          ~rules:(Some [ Color.color_mix_supports [ decl img ] ])
+          [ decl in_the_open ]
 
   let gradient_supports_condition =
     Css.Supports.property "background-image" "linear-gradient(in lab, red, red)"
@@ -1312,24 +1327,39 @@ module Handler = struct
                [ self (extra_decls @ [ fallback_decl ]); supports; self stops ])
           []
 
-  let gradient_raw ~prefix ~set_var value opacity =
-    let value =
+  (* A token-stream stop, forwarded as written. Under a modifier it takes the
+     mix an [--alpha()] call expands to, and when that mix reads a custom
+     property or [currentcolor], the pair Tailwind's polyfill writes: what a
+     browser without [color-mix()] reads in the open, the mix behind the
+     guard. *)
+  let gradient_raw ~theme ~prefix ~set_var value opacity =
+    let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
+    let stops = stops_as_decls d_stops d_via_stops_opt in
+    let property_rules = gradient_all_property_rules () in
+    let metadata = [ Var.metadata set_var ] in
+    let set v =
+      Css.custom_property ~layer:"utilities" (Var.css_name set_var) v
+    in
+    let mixed =
       match opacity with
       | Stdlib.Option.None -> value
       | Stdlib.Option.Some opacity ->
-          let percent = Color.opacity_to_percent opacity in
-          "color-mix(in oklab, " ^ value ^ " " ^ pp_float percent
-          ^ "%, transparent)"
+          Option.value ~default:value
+            (Parse.alpha_mix ~alpha:(Color.opacity_percentage opacity) value)
     in
-    let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
-    let stops = stops_as_decls d_stops d_via_stops_opt in
-    let declaration =
-      Css.custom_property ~layer:"utilities" (Var.css_name set_var) value
-    in
-    style
-      ~property_rules:(gradient_all_property_rules ())
-      ~metadata:[ Var.metadata set_var ]
-      (declaration :: stops)
+    match Parse.color_mix_fallback ~resolve:(Color.theme_token theme) mixed with
+    | Stdlib.Option.None -> style ~property_rules ~metadata (set mixed :: stops)
+    | Stdlib.Option.Some in_the_open ->
+        let self decls = Css.rule ~selector:(Css.Selector.class_ "_") decls in
+        style ~property_rules ~metadata
+          ~rules:
+            (Some
+               [
+                 self [ set in_the_open ];
+                 Color.color_mix_supports [ set mixed ];
+                 self stops;
+               ])
+          []
 
   (* Gradient with opacity: either a static value, or a fallback followed by the
      authored mix under [@supports], then the stop composition. *)
@@ -1474,7 +1504,7 @@ module Handler = struct
                 gradient_with_opacity ~theme ~prefix ~set_var color opacity))
     | Gradient_raw (target, _, value, opacity) ->
         let prefix, set_var, _ = gradient_target_info target in
-        gradient_raw ~prefix ~set_var value opacity
+        gradient_raw ~theme ~prefix ~set_var value opacity
     | Gradient_stop_position (target, src) -> (
         let _prefix, _set_var, pos_var = gradient_target_info target in
         match src with
@@ -1553,7 +1583,7 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_image (_, img) -> style [ Css.background_image img ]
+    | Bg_bracket_image (v, img) -> bracket_image_style ~theme v img
     (* The whole [url()] is kept, so cascade reads the token rather than tw
        slicing the file name out of it: the quotes are the tokeniser's, and an
        escape in it stands for one character of the URL. [of_class] refuses a
@@ -1573,7 +1603,7 @@ module Handler = struct
         let bare = Parse.extract_var_name v in
         let var_ref : Css.background_image Css.var = Var.bracket bare in
         style [ Css.background_image (Var var_ref) ]
-    | Bg_bracket_linear_gradient (_, img) -> style [ Css.background_image img ]
+    | Bg_bracket_linear_gradient (v, img) -> bracket_image_style ~theme v img
     | Bg_linear_to dir -> bg_linear_to' dir
     | Bg_linear_to_interp (dir, interp, css) ->
         bg_linear_to_interp' dir (interp_to_color_interpolation interp) css
@@ -1726,6 +1756,10 @@ module Handler = struct
                   plain ~opacity (Color_source.Bracket_var inner)
                 else if Color.parse_bracket_color inner <> None then
                   plain ~opacity (Color_source.Bracket_color inner)
+                else if parse_bracket_position_value inner <> None then
+                  (* A length or a percentage is the stop's position, and a
+                     position takes no modifier. *)
+                  Error (`Msg "A gradient stop position takes no modifier")
                 else
                   match Parse.arbitrary_declaration_value inner with
                   | Some value ->

@@ -72,6 +72,12 @@ module Handler = struct
     | Drop_shadow_keyword_color_opacity of
         Css.color * string * Color.opacity_modifier
     | Drop_shadow_size_opacity of string * Color.opacity_modifier
+    (* A bracket read as a colour, with the text the class wrote *)
+    | Drop_shadow_bracket_color of string * Css.color
+    | Drop_shadow_bracket_color_opacity of
+        string * Css.color * Color.opacity_modifier
+    | Drop_shadow_bracket_cvar of string (* [color:var(--c)], the var() text *)
+    | Drop_shadow_bracket_cvar_opacity of string * Color.opacity_modifier
     | Backdrop_filter
     | Backdrop_filter_none
     | Backdrop_filter_arbitrary of string * Css.filter
@@ -990,6 +996,42 @@ module Handler = struct
           [ bind_drop_shadow drop_shadow_size_ref ];
       ]
 
+  (* The colour channel the bracket forms set through the shared builders. *)
+  let drop_shadow_channel : Color.channel =
+    {
+      color = drop_shadow_color_var;
+      alpha = drop_shadow_alpha_var;
+      property_prefix = "drop-shadow-color";
+      metadata = filter_property_metadata;
+      property_rules = filter_property_rules;
+    }
+
+  (* A colour utility points [--tw-drop-shadow] at the size once the colour and
+     its guarded mix are written. *)
+  let with_drop_shadow_size colour =
+    Group
+      [
+        colour;
+        style ~metadata:filter_property_metadata
+          ~property_rules:filter_property_rules
+          [ bind_drop_shadow drop_shadow_size_ref ];
+      ]
+
+  let drop_shadow_bracket_color ~theme c =
+    with_drop_shadow_size
+      (Color.channel_bracket_color ~theme drop_shadow_channel c)
+
+  let drop_shadow_bracket_color_opacity ~theme c opacity =
+    with_drop_shadow_size
+      (Color.channel_bracket_color_opacity ~theme drop_shadow_channel c opacity)
+
+  let drop_shadow_bracket_var v =
+    with_drop_shadow_size (Color.channel_bracket_var drop_shadow_channel v)
+
+  let drop_shadow_bracket_var_opacity v opacity =
+    with_drop_shadow_size
+      (Color.channel_bracket_var_opacity drop_shadow_channel v opacity)
+
   let drop_shadow_color_opacity ?theme c shade opacity =
     let color_name = Color.scheme_color_name c shade in
     let scheme = Scheme.or_default theme in
@@ -1473,11 +1515,20 @@ module Handler = struct
     | Drop_shadow_color (c, shade) -> drop_shadow_color c shade
     | Drop_shadow_color_opacity (c, shade, op) ->
         drop_shadow_color_opacity c shade op
+    (* Tailwind reads no alpha off a named token on the bare utility and writes
+       the shadow as if no modifier were given. *)
+    | Drop_shadow_opacity (Color.Opacity_named _) -> drop_shadow_ ()
     | Drop_shadow_opacity op -> drop_shadow_opacity op
     | Drop_shadow_keyword_color (c, _) -> drop_shadow_keyword_color c
     | Drop_shadow_keyword_color_opacity (c, _, opacity) ->
         drop_shadow_keyword_color_opacity c opacity
     | Drop_shadow_size_opacity (size, op) -> drop_shadow_size_opacity size op
+    | Drop_shadow_bracket_color (_, c) -> drop_shadow_bracket_color ~theme c
+    | Drop_shadow_bracket_color_opacity (_, c, op) ->
+        drop_shadow_bracket_color_opacity ~theme c op
+    | Drop_shadow_bracket_cvar v -> drop_shadow_bracket_var v
+    | Drop_shadow_bracket_cvar_opacity (v, op) ->
+        drop_shadow_bracket_var_opacity v op
     | Backdrop_blur_none -> backdrop_blur_none ()
     | Backdrop_blur_xs -> backdrop_blur_xs ()
     | Backdrop_blur_sm -> backdrop_blur_sm ()
@@ -1526,6 +1577,52 @@ module Handler = struct
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a filter utility")
 
+  (* Whether a modifier names an [--opacity-*] token. Tailwind reads no alpha
+     off one on a drop-shadow size and compiles nothing for the class, where a
+     colour mixes the token in. *)
+  let named_alpha = function Color.Opacity_named _ -> true | _ -> false
+
+  (* The size a bracket spells, under a modifier or not. A bracket the shadow
+     reader takes whole from a custom property keeps the value and sets the
+     alpha channel: there is no colour in it to fold the alpha into. *)
+  let parse_drop_shadow_size base opacity =
+    match opacity with
+    | Color.No_opacity -> (
+        match drop_shadow_arbitrary_value base with
+        | Option.Some size -> Ok (Drop_shadow_arbitrary (base, size))
+        | Option.None -> (
+            match
+              Parse.arbitrary_declaration_value (Parse.bracket_inner base)
+            with
+            | Some value -> Ok (Drop_shadow_raw (base, value))
+            | None -> err_not_utility))
+    | op when named_alpha op -> err_not_utility
+    | op -> (
+        match drop_shadow_bodies base with
+        | Some bodies -> Ok (Drop_shadow_arbitrary_opacity (base, bodies, op))
+        | None -> (
+            match drop_shadow_arbitrary_value base with
+            | Option.Some (Css.Drop_shadow (Css.Var _) as size) ->
+                Ok (Drop_shadow_var_opacity (base, size, op))
+            | Option.Some _ | Option.None -> err_not_utility))
+
+  (* A bracket that reads as a colour, or carries a [color:] hint, is the
+     shadow's colour, as [shadow-[...]] reads its bracket; anything else, a bare
+     [var()] included, is its size. *)
+  let parse_drop_shadow_bracket ~theme s =
+    let base, opacity = Color.parse_opacity_modifier ~theme s in
+    let inner = Parse.bracket_inner base in
+    match Color.parse_bracket_hint inner with
+    | Some (Color.Typed_var v) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Drop_shadow_bracket_cvar v)
+        | op -> Ok (Drop_shadow_bracket_cvar_opacity (v, op)))
+    | Some (Color.Plain_color c) -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Drop_shadow_bracket_color (inner, c))
+        | op -> Ok (Drop_shadow_bracket_color_opacity (inner, c, op)))
+    | Some (Color.Bare_var _) | None -> parse_drop_shadow_size base opacity
+
   let suborder = function
     (* Each filter kind is one property slot. Tailwind uses the natural
        candidate spelling inside it, which handles bare defaults, numeric
@@ -1551,7 +1648,9 @@ module Handler = struct
        orders them among themselves by class name, which the alphabetical
        tie-break already does. *)
     | Drop_shadow_keyword_color _ | Drop_shadow_keyword_color_opacity _
-    | Drop_shadow_inherit | Drop_shadow_color _ | Drop_shadow_color_opacity _ ->
+    | Drop_shadow_inherit | Drop_shadow_color _ | Drop_shadow_color_opacity _
+    | Drop_shadow_bracket_color _ | Drop_shadow_bracket_color_opacity _
+    | Drop_shadow_bracket_cvar _ | Drop_shadow_bracket_cvar_opacity _ ->
         2710
     | Grayscale _ | Grayscale_arbitrary _ -> 4000
     | Hue_rotate _ | Hue_rotate_arbitrary _ | Hue_rotate_raw _
@@ -1720,28 +1819,9 @@ module Handler = struct
     | [ "drop"; "shadow"; "transparent" ] ->
         Ok (Drop_shadow_keyword_color (Css.Transparent, "transparent"))
     | [ "drop"; "shadow"; s ]
-      when let base, opacity = Color.parse_opacity_modifier ~theme s in
-           opacity <> Color.No_opacity && Parse.is_bracket_value base -> (
-        let base, opacity = Color.parse_opacity_modifier ~theme s in
-        match drop_shadow_bodies base with
-        | Some bodies ->
-            Ok (Drop_shadow_arbitrary_opacity (base, bodies, opacity))
-        | None -> (
-            (* A shadow read whole from a custom property has no colour to fold
-               the alpha into: the channel is set and the value kept. *)
-            match drop_shadow_arbitrary_value base with
-            | Option.Some (Css.Drop_shadow (Css.Var _) as size) ->
-                Ok (Drop_shadow_var_opacity (base, size, opacity))
-            | Option.Some _ | Option.None -> err_not_utility))
-    | [ "drop"; "shadow"; s ] when Parse.is_bracket_value s -> (
-        (* Prefer the typed shadow representation, then preserve any safe raw
-           declaration-value token stream. *)
-        match drop_shadow_arbitrary_value s with
-        | Option.Some size -> Ok (Drop_shadow_arbitrary (s, size))
-        | Option.None -> (
-            match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-            | Some value -> Ok (Drop_shadow_raw (s, value))
-            | None -> err_not_utility))
+      when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ~theme s))
+      ->
+        parse_drop_shadow_bracket ~theme s
     | "drop" :: "shadow" :: rest -> (
         let full = String.concat "-" rest in
         let base, opacity = Color.parse_opacity_modifier ~theme full in
@@ -1764,11 +1844,13 @@ module Handler = struct
             | Error _ -> err_not_utility)
         | op -> (
             match drop_shadow_scale_body base with
+            | Option.Some _ when named_alpha op -> err_not_utility
             | Option.Some _ -> Ok (Drop_shadow_size_opacity (base, op))
             | Option.None -> (
                 if base = "" then Ok (Drop_shadow_opacity op)
                 else if drop_shadow_theme_bodies ~theme base <> Option.None then
-                  Ok (Drop_shadow_named_opacity (base, op))
+                  if named_alpha op then err_not_utility
+                  else Ok (Drop_shadow_named_opacity (base, op))
                 else if base = "inherit" then
                   Ok (Drop_shadow_keyword_color_opacity (Css.Inherit, base, op))
                 else if base = "transparent" then
@@ -1950,6 +2032,12 @@ module Handler = struct
         "drop-shadow-" ^ name ^ "/" ^ Color.pp_opacity opacity
     | Drop_shadow_size_opacity (size, op) ->
         "drop-shadow-" ^ size ^ "/" ^ Color.pp_opacity op
+    | Drop_shadow_bracket_color (inner, _) -> "drop-shadow-[" ^ inner ^ "]"
+    | Drop_shadow_bracket_color_opacity (inner, _, op) ->
+        "drop-shadow-[" ^ inner ^ "]" ^ Color.opacity_suffix op
+    | Drop_shadow_bracket_cvar v -> "drop-shadow-[color:" ^ v ^ "]"
+    | Drop_shadow_bracket_cvar_opacity (v, op) ->
+        "drop-shadow-[color:" ^ v ^ "]" ^ Color.opacity_suffix op
     | Backdrop_blur_none -> "backdrop-blur-none"
     | Backdrop_blur_xs -> "backdrop-blur-xs"
     | Backdrop_blur_sm -> "backdrop-blur-sm"

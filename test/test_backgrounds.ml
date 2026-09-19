@@ -194,6 +194,30 @@ let test_bracket_gradient_alpha_fn () =
        #0000ff)";
     ]
 
+(* Tailwind's colour-mix polyfill applies to a bracket image the way it applies
+   to any declaration: a gradient whose stop is a [color-mix()] reading a custom
+   property or [currentcolor] is written with the mix's first colour in the open
+   and as written behind the colour-mix guard, hinted or not. tw wrote the mix
+   alone. *)
+let test_bracket_image_mix_polyfill () =
+  let pair cls ~open_ ~guarded =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "background-image: " ^ open_; "background-image: " ^ guarded ]
+  in
+  let mix colour alpha =
+    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
+  in
+  pair "bg-[linear-gradient(--alpha(red/var(--o)),blue)]"
+    ~open_:"linear-gradient(red, #0000ff)"
+    ~guarded:("linear-gradient(" ^ mix "red" "var(--o)" ^ ", #0000ff)");
+  (* [currentColor] is cascade's spelling of the keyword outside a mix *)
+  pair "bg-[image:linear-gradient(--alpha(currentcolor/50%),blue)]"
+    ~open_:"linear-gradient(currentColor, #0000ff)"
+    ~guarded:("linear-gradient(" ^ mix "currentcolor" "50%" ^ ", #0000ff)");
+  pair "bg-[linear-gradient(color-mix(in_oklab,red_var(--o),transparent),blue)]"
+    ~open_:"linear-gradient(red, #0000ff)"
+    ~guarded:("linear-gradient(" ^ mix "red" "var(--o)" ^ ", #0000ff)")
+
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [bg-position-] and [bg-size-] each write one longhand, so
    every hint lands there and the reader is handed what follows it; the hint
@@ -697,8 +721,86 @@ let test_percentage_hint_names_a_position () =
   check_declarations "bg-[position:notaposition]"
     [ "background-position:notaposition" ]
 
+(* A stop written as a length or a percentage sets the stop's position, and a
+   position takes no modifier: Tailwind names no utility for [from-[10px]/50],
+   hinted or not, and for the var() a hint types as one. tw read the bracket as
+   a colour once a modifier followed it and mixed the length. *)
+let test_gradient_position_refuses_modifier () =
+  let invalid =
+    Test_helpers.check_invalid_input (module Tw.Backgrounds.Handler)
+  in
+  invalid "from-[10px]/50";
+  invalid "from-[length:10px]/50";
+  invalid "via-[10px]/50";
+  invalid "to-[length:10px]/50";
+  invalid "from-[10%]/50";
+  invalid "from-[percentage:10%]/50";
+  invalid "from-[length:var(--x)]/50";
+  invalid "from-[calc(1px+2px)]/50";
+  invalid "via-[percentage:var(--x)]/(--o)";
+  invalid "to-[10px]/[0.5]"
+
+(* A token-stream stop takes a modifier the way a colour does. A percentage
+   folds into the mix. A modifier read from a custom property is the pair
+   Tailwind's polyfill writes: the bare value in the open, for a browser with no
+   [color-mix()], and the mix behind the colour-mix guard, reading the property
+   the class named. A named token reads the theme's percentage into an sRGB mix
+   in the open and the token itself behind the guard. tw folded every modifier
+   it could not read to [100%] and wrote nothing beside it. *)
+let test_gradient_raw_stop_modifier () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let pair cls channel ~open_ ~mixed rest =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      ([ channel ^ ": " ^ open_; channel ^ ": " ^ mixed ] @ rest)
+  in
+  let mix colour alpha =
+    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
+  in
+  let from_stops = [ stops ] in
+  let via_rest =
+    [ via_stops; "--tw-gradient-stops: var(--tw-gradient-via-stops)" ]
+  in
+  pair "from-[foo(1)]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  pair "from-[foo(1)]/[var(--o)]" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  pair "from-[color:foo(1)]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  pair "via-[foo(1)]/(--o)" "--tw-gradient-via" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") via_rest;
+  pair "to-[foo(1)]/(--o)" "--tw-gradient-to" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
+  (* The open form is the mix's first colour, the one token after its comma, so
+     a value of several tokens keeps only its first there. *)
+  pair "from-[foo(1)_bar]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
+    ~mixed:(mix "foo(1) bar" "var(--o)")
+    from_stops;
+  pair "from-[foo(1)]/half" "--tw-gradient-from"
+    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
+    ~mixed:(mix "foo(1)" "var(--opacity-half)")
+    from_stops;
+  pair "via-[foo(1)]/half" "--tw-gradient-via"
+    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
+    ~mixed:(mix "foo(1)" "var(--opacity-half)")
+    via_rest;
+  pair "to-[foo(1)]/half" "--tw-gradient-to"
+    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
+    ~mixed:(mix "foo(1)" "var(--opacity-half)")
+    from_stops;
+  (* A percentage needs no guard: the mix holds nothing a browser resolves. *)
+  Test_helpers.check_declarations ~minify:false "from-[foo(1)]/50"
+    (("--tw-gradient-from: " ^ mix "foo(1)" "50%") :: from_stops);
+  Test_helpers.check_declarations ~minify:false "to-[foo(1)]/[0.5]"
+    (("--tw-gradient-to: " ^ mix "foo(1)" "50%") :: from_stops)
+
 let tests =
   [
+    test_case "gradient position refuses a modifier" `Quick
+      test_gradient_position_refuses_modifier;
+    test_case "gradient token-stream stop under a modifier" `Quick
+      test_gradient_raw_stop_modifier;
     test_case "percentage hint names a position" `Quick
       test_percentage_hint_names_a_position;
     test_case "bracket data-type hint reads the value" `Quick
@@ -733,6 +835,8 @@ let tests =
     test_case "bg-position bracket keyword+length" `Quick
       test_bg_position_bracket_keyword_length;
     test_case "bracket gradient --alpha()" `Quick test_bracket_gradient_alpha_fn;
+    test_case "bracket image colour-mix polyfill" `Quick
+      test_bracket_image_mix_polyfill;
     test_case "bg-position and bg-size peel a data-type hint" `Quick
       test_bg_position_and_size_peel_a_hint;
     test_case "bracket position grammar" `Quick test_bracket_position_grammar;

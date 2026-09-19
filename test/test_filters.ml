@@ -634,10 +634,126 @@ let test_var_drop_shadow_takes_a_modifier () =
       chain_min;
     ]
 
+(* A bracket that reads as a colour, or carries a [color:] hint, is the drop
+   shadow's colour, the way [shadow-[...]] reads its bracket: Tailwind sets
+   [--tw-drop-shadow-color], mixes the alpha channel into it behind the guard
+   and points [--tw-drop-shadow] at the size. Every such bracket was read as a
+   size, so [drop-shadow-[#123456]] painted a [drop-shadow(#123456)] with no
+   geometry, a modifier on one was refused, and so was an [--alpha()] call. A
+   bare [var()] stays the size: nothing says what the property holds.
+
+   A hex under a literal alpha folds the byte into the plain fallback, as the
+   box shadow's channel does, where the CLI writes an sRGB mix; the canonical
+   differ reads the two as one colour. *)
+let test_drop_shadow_bracket_colour () =
+  let colour cls fallback mixed =
+    Test_helpers.check_declarations ~minify:false cls
+      [
+        "--tw-drop-shadow-color: " ^ fallback;
+        "--tw-drop-shadow-color: color-mix(in oklab, " ^ mixed
+        ^ " var(--tw-drop-shadow-alpha), transparent)";
+        "--tw-drop-shadow: var(--tw-drop-shadow-size)";
+      ]
+  in
+  colour "drop-shadow-[#123456]" "#123456" "#123456";
+  colour "drop-shadow-[red]" "red" "red";
+  colour "drop-shadow-[color:red]" "red" "red";
+  colour "drop-shadow-[color:var(--c)]" "var(--c)" "var(--c)";
+  colour "drop-shadow-(color:--c)" "var(--c)" "var(--c)";
+  colour "drop-shadow-[red]/50" "color-mix(in srgb, red 50%, transparent)"
+    "color-mix(in oklab, red 50%, transparent)";
+  colour "drop-shadow-[color:var(--c)]/50" "var(--c)"
+    "color-mix(in oklab, var(--c) 50%, transparent)";
+  colour "drop-shadow-[color:var(--c)]/(--o)" "var(--c)"
+    "color-mix(in oklab, var(--c) var(--o), transparent)";
+  colour "drop-shadow-[#123456]/(--o)" "#123456"
+    "color-mix(in oklab, #123456 var(--o), transparent)";
+  colour "drop-shadow-[--alpha(red/50%)]"
+    "color-mix(in oklab, red 50%, transparent)"
+    "color-mix(in oklab, red 50%, transparent)";
+  colour "drop-shadow-[#123456]/50" "#12345680"
+    "oklab(31.91684206% -.02338737 -.06857615 / .5)";
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  Test_helpers.check_declarations ~theme ~minify:false "drop-shadow-[red]/half"
+    [
+      "--tw-drop-shadow-color: color-mix(in srgb, red 50%, transparent)";
+      "--tw-drop-shadow-color: color-mix(in oklab, color-mix(in oklab, red \
+       var(--opacity-half), transparent) var(--tw-drop-shadow-alpha), \
+       transparent)";
+      "--tw-drop-shadow: var(--tw-drop-shadow-size)";
+    ];
+  (* the size a bare [var()] names, with and without the alpha channel *)
+  Test_helpers.check_declarations ~minify:false "drop-shadow-[var(--c)]"
+    [
+      "--tw-drop-shadow-size: drop-shadow(var(--c))";
+      "--tw-drop-shadow: var(--tw-drop-shadow-size)";
+      chain;
+    ];
+  Test_helpers.check_declarations ~minify:false "drop-shadow-[var(--c)]/(--o)"
+    [
+      "--tw-drop-shadow-alpha: var(--o)";
+      "--tw-drop-shadow-size: drop-shadow(var(--c))";
+      "--tw-drop-shadow: var(--tw-drop-shadow-size)";
+      chain;
+    ];
+  List.iter check
+    [
+      "drop-shadow-[#123456]";
+      "drop-shadow-[#123456]/50";
+      "drop-shadow-[color:var(--c)]/(--o)";
+      "drop-shadow-[--alpha(red/50%)]";
+      "drop-shadow-[red]/50";
+    ]
+
+(* A named [--opacity-*] token on a drop-shadow size is refused: Tailwind reads
+   no alpha off it there and compiles nothing, where a number, a bracket or a
+   custom property sets the alpha channel. tw set [--tw-drop-shadow-alpha] to
+   the token. The bare [drop-shadow/half] is the one form Tailwind keeps, and it
+   writes it as if no modifier were given. *)
+let test_drop_shadow_named_alpha_on_size () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default
+      [ ("opacity-half", "50%"); ("drop-shadow-halo", "0 0 4px red") ]
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Error _ -> ()
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    [
+      "drop-shadow-lg/half";
+      "drop-shadow-[var(--c)]/half";
+      "drop-shadow-[0_0_1px_red]/half";
+      "drop-shadow-halo/half";
+    ];
+  Test_helpers.check_declarations ~theme ~minify:false "drop-shadow/half"
+    [
+      "--tw-drop-shadow-size: drop-shadow(0 1px 2px \
+       var(--tw-drop-shadow-color, #0000001a)) drop-shadow(0 1px 1px \
+       var(--tw-drop-shadow-color, #0000000f))";
+      "--tw-drop-shadow: drop-shadow(0 1px 2px #0000001a) drop-shadow(0 1px \
+       1px #0000000f)";
+      chain;
+    ];
+  Test_helpers.check_declarations ~theme ~minify:false "drop-shadow-md/50"
+    [
+      "--tw-drop-shadow-alpha: 50%";
+      "--tw-drop-shadow-size: drop-shadow(0 3px 3px \
+       var(--tw-drop-shadow-color, oklab(0% 0 0 / .5)))";
+      "--tw-drop-shadow: var(--tw-drop-shadow-size)";
+      chain;
+    ]
+
 let tests =
   [
     test_case "drop-shadow arbitrary opacity" `Quick
       test_drop_shadow_arbitrary_opacity;
+    test_case "drop-shadow bracket colour" `Quick
+      test_drop_shadow_bracket_colour;
+    test_case "drop-shadow named alpha on a size" `Quick
+      test_drop_shadow_named_alpha_on_size;
     test_case "project drop-shadow opacity" `Quick
       test_project_drop_shadow_opacity;
     test_case "drop-shadow size reads the theme" `Quick

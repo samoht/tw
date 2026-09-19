@@ -168,7 +168,10 @@
 - Compiling a project is fast: tailwindcss.com's class list takes 0.3 s of
   CPU, where `tailwindcss` takes 0.6 s (#843, #845, #846).
 - `tw --diff --html PAGE` also renders both stylesheets over `PAGE` in a
-  headless Chromium and lists every computed style they disagree on (#841).
+  headless Chromium, compares the pixels, and says when the render and the
+  structural diff disagree: an entry listed over a page that paints alike is
+  named an over-report of the differ, and a render that differs where nothing
+  was listed an under-report, each a cascade bug to file (#841, #873).
 - `tw --diff` exits 1 when the two sheets differ and 2 when it cannot read one
   of them, so a CI job can gate on it. It printed the differences and exited 0
   (#810).
@@ -187,6 +190,15 @@
 
 ### Utilities
 
+- A palette name in a bracket is the identifier it is, as in Tailwind:
+  `bg-[emerald]`, `bg-[slate]` and `text-[rose]` wrote the palette's 500 shade,
+  a colour the page does not have. Tailwind writes `background-color: emerald`
+  through and a browser drops it. A CSS colour in a bracket, a keyword or a
+  system colour included, still resolves (#879).
+- A palette name with no shade names no utility, as in Tailwind: `bg-red`,
+  `text-red`, `from-red`, `ring-red` and their kin compiled a `.bg-red-500`
+  rule nobody wrote. `black`, `white`, `current`, `transparent`, `inherit`
+  and a project's own `--color-red` token still resolve (#874).
 - A fraction resolves exactly, as Tailwind's `calc(1/3 * 100%)` does: `w-1/3`
   rendered 106.984px against 107px in a 321px container. The sizing, inset,
   flex and basis families share it (#828).
@@ -373,15 +385,17 @@
   every one of them, `currentcolor` and a bracket `var()` included
   (`bg-cyan-400/(--my-alpha-value)`, `shadow-red-500/half`,
   `decoration-current/(--o)`, `ring-[var(--c)]/half`,
-  `scrollbar-thumb-current/(--o)`), and `transparent` and `inherit` take one
-  everywhere. Shadeless names such as `shadow-white`, `stroke-white`,
+  `scrollbar-thumb-current/(--o)`, `border-t-current/50`,
+  `border-bs-[color:var(--c)]/50`), `transparent` and `inherit` take one
+  everywhere, and `border-inherit` and `border-t-inherit` compile. Shadeless
+  names such as `shadow-white`, `stroke-white`,
   `ring-offset-white` and `ring-offset-black` work, a colour the project's
   `@theme` declares names a ring, a ring offset and an inset ring as it names
   a shadow, a `--text-shadow-color-*` token names a text shadow's,
   `light-dark()` and an arbitrary shadow colour resolve, and a drop shadow
   keeps both of its default layers under an opacity (#169, #185, #201, #202,
   #209, #214, #225, #231, #244, #254, #281, #308, #322, #323, #813, #847,
-  #859, #868).
+  #859, #868, #876).
 - An opacity modifier over a bracket colour paints the colour the class named,
   as a `color-mix()`, across all thirteen colour families.
   `text-[rebeccapurple]/50` and its siblings were unknown classes or rendered
@@ -389,9 +403,24 @@
   elsewhere the mix resolved to that colour's `oklab()` channels rather than
   staying a mix, going out with no unguarded fallback where the alpha read a
   custom property, so a browser without `color-mix()` painted nothing.
-  `decoration-`, `divide-` and `stroke-` accept the modifier at all now, and a
+  `decoration-`, `divide-` and `stroke-` accept the modifier at all now, a
   colour the browser resolves at use time keeps the `@supports` fallback
-  Tailwind writes (#508, #517, #711).
+  Tailwind writes, and a drop shadow's bracket names its colour as Tailwind
+  reads it: `drop-shadow-[#123456]/50` and `drop-shadow-[color:var(--c)]/(--o)`
+  set `--tw-drop-shadow-color` where the bracket was read as a size, and a
+  named opacity on a drop-shadow size, `drop-shadow-lg/half`, names no utility
+  (#508, #517, #711, #875).
+- A gradient stop's modifier is read as Tailwind reads it. A length or
+  percentage stop is a position and takes none, so `from-[10px]/50` is refused
+  rather than mixed; a token-stream stop, a divide colour or a ring colour
+  under a modifier reads the custom property in the unguarded fallback and the
+  mix behind the guard, where tw folded it to `100%`, and a ring colour
+  registers no `@property` (#877).
+- Tailwind's colour-mix polyfill applies to any declaration holding a
+  `color-mix()` that reads a custom property or `currentcolor`, wherever the
+  mix stands: an arbitrary property, a bracket shadow, an inset shadow, a text
+  shadow and a bracket image write the mix's first colour in the open and the
+  value as written behind the guard, where tw wrote the mix alone (#878).
 - An arbitrary colour reaches CSS in the spelling the class wrote. `bg-[#f00]`
   gave `#ff0000`, `bg-[#ffffffff]` gave `#ffffff` and `bg-[#FF0000]` lost its
   case, where Tailwind writes back what the bracket held (#700).
@@ -582,6 +611,10 @@
   different utility, with nothing to say so (#809).
 - `Var.needs_property_rule` answers `false` for a variable carrying metadata tw
   did not create, where it failed an assertion (#707).
+- `Modifiers.not_variant_order` and `Modifiers.prose_element_inner_selector`
+  are gone: nothing read the first, and the second was the module's own
+  helper. A caller of either uses `Modifiers.variant_order_of_prefix` and
+  `Modifiers.to_selector` (#871).
 
 ### Packaging
 

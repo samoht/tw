@@ -102,28 +102,30 @@ module Handler = struct
     | Some ([ h; v; blur ], color) -> Some (h, v, Some blur, color)
     | _ -> Stdlib.Option.None
 
-  (* What the scan above cannot spell goes to the value parser, which reads the
-     rest of the CSS colour grammar: [red] is a colour to it and a failed length
-     to the scan. This is the fallback the box-shadow family already has. *)
+  (* A decoded value read by the value parser, which reads the rest of the CSS
+     colour grammar: [red] is a colour to it and a failed length to the scan.
+     CSS text-shadow has no spread, so a body carrying one is not one. *)
+  let read_shadow_text (normalized : string) :
+      (length * length * length option * Parse.shadow_colour) option =
+    match Parse.shadow normalized with
+    | Some
+        (Shadow { h_offset; v_offset; blur; spread = Stdlib.Option.None; color })
+      ->
+        let color =
+          match color with
+          | Some c -> Parse.Colour c
+          | Stdlib.Option.None -> Parse.No_colour
+        in
+        Some (h_offset, v_offset, blur, color)
+    | _ -> Stdlib.Option.None
+
+  (* What the scan above cannot spell goes to the value parser. This is the
+     fallback the box-shadow family already has. *)
   let parse_arbitrary_shadow (s : string) :
       (length * length * length option * Parse.shadow_colour) option =
     match scan_verbatim_colour s with
     | Some _ as shadow -> shadow
-    | Stdlib.Option.None -> (
-        let normalized = Parse.decode_arbitrary_value s in
-        match Parse.shadow normalized with
-        (* CSS text-shadow has no spread, so a body carrying one is not one. *)
-        | Some
-            (Shadow
-               { h_offset; v_offset; blur; spread = Stdlib.Option.None; color })
-          ->
-            let color =
-              match color with
-              | Some c -> Parse.Colour c
-              | Stdlib.Option.None -> Parse.No_colour
-            in
-            Some (h_offset, v_offset, blur, color)
-        | _ -> Stdlib.Option.None)
+    | Stdlib.Option.None -> read_shadow_text (Parse.decode_arbitrary_value s)
 
   (* ============ Shape definitions ============ *)
 
@@ -323,18 +325,42 @@ module Handler = struct
   (* The layer a bracket wrote, with its colour as the class spelled it: a hex
      keeps its case, a [var()] its reference, a colour function folds to hex
      where one spells it, and no colour is the current colour. *)
-  let arbitrary_body arb : Css.shadow_body option =
-    match parse_arbitrary_shadow arb with
-    | Some (h_offset, v_offset, blur, color) -> (
-        let color = Color.shadow_token_colour color in
-        match Css.shadow ~h_offset ~v_offset ?blur ~color () with
-        | Css.Shadow body -> Some body
-        | _ -> Stdlib.Option.None)
-    | Stdlib.Option.None -> Stdlib.Option.None
+  let body_of_layer (h_offset, v_offset, blur, color) : Css.shadow_body option =
+    let color = Color.shadow_token_colour color in
+    match Css.shadow ~h_offset ~v_offset ?blur ~color () with
+    | Css.Shadow body -> Some body
+    | _ -> Stdlib.Option.None
 
-  let arbitrary_shadow_style arb =
+  let arbitrary_body arb : Css.shadow_body option =
+    Option.bind (parse_arbitrary_shadow arb) body_of_layer
+
+  (* A bracket shadow holding a [color-mix()] Tailwind polyfills: the layer
+     every browser reads in the open, the layer as written behind the guard,
+     each colour behind the family's channel. Nothing when the layer's colour
+     reads no custom property or [currentcolor] through a mix. *)
+  let polyfilled_style ~theme arb body =
+    let normalized = Parse.decode_arbitrary_value arb in
+    match
+      Option.bind
+        (Parse.color_mix_fallback ~resolve:(Color.theme_token theme) normalized)
+        (fun in_the_open ->
+          Option.bind (read_shadow_text in_the_open) body_of_layer)
+    with
+    | Stdlib.Option.None -> Stdlib.Option.None
+    | Some in_the_open ->
+        let decl b = layers_decl [ b ] [ body_colour b ] in
+        Some
+          (style ~metadata:text_shadow_property_metadata
+             ~property_rules:text_shadow_property_rules
+             ~rules:(Some [ Color.color_mix_supports [ decl body ] ])
+             [ decl in_the_open ])
+
+  let arbitrary_shadow_style ~theme arb =
     match arbitrary_body arb with
-    | Some body -> layers_style [ body ]
+    | Some body -> (
+        match polyfilled_style ~theme arb body with
+        | Some polyfilled -> polyfilled
+        | Stdlib.Option.None -> layers_style [ body ])
     | Stdlib.Option.None -> style [ Css.text_shadow Css.None ]
 
   let arbitrary_shadow_opacity_style arb opacity =
@@ -378,7 +404,7 @@ module Handler = struct
     (* The hint says the payload is a shadow, not that it names a variable. A
        [var()] still reads as one; anything else is the shadow itself. *)
     | Bracket_shadow payload when not (Parse.is_var payload) ->
-        arbitrary_shadow_style payload
+        arbitrary_shadow_style ~theme payload
     | Bracket_shadow var_expr ->
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
@@ -400,7 +426,7 @@ module Handler = struct
             opacity_decl opacity;
             Css.text_shadow (make_text_shadow_var var_expr);
           ]
-    | Arbitrary arb -> arbitrary_shadow_style arb
+    | Arbitrary arb -> arbitrary_shadow_style ~theme arb
     | Arbitrary_opacity (arb, opacity) ->
         arbitrary_shadow_opacity_style arb opacity
 

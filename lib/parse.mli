@@ -229,6 +229,28 @@ val wrap_declaration_value :
     implicitly closed by the end of [value], so that comment cannot swallow
     [after]. *)
 
+val color_mix_fallback :
+  resolve:(string -> string option) -> string -> string option
+(** [color_mix_fallback ~resolve value] is what a browser without [color-mix()]
+    reads for the declaration value [value], as Tailwind's polyfill writes it in
+    the open before the value itself behind the [color-mix()] supports guard.
+    Each [color-mix()] in [value], at any depth, is judged on its own: one
+    holding [currentcolor], or a [var()] reading a custom property the theme
+    does not bind, is replaced by its first colour, the one token or call after
+    its first comma; one holding only [var()] references the theme binds has
+    each inlined with the value it binds, followed through a chain of
+    references, and its space respelled as [srgb] when it named one of the wide
+    ones. [resolve name] is the value the theme binds the custom property
+    [--name] to. [None] when no call needs the polyfill: a mix a browser
+    resolves on its own, or no mix at all, which Tailwind writes as it is. *)
+
+val alpha_mix : alpha:Cascade.Css.percentage -> string -> string option
+(** [alpha_mix ~alpha value] is the token-stream colour [value] under the alpha
+    [alpha], spelled as an [--alpha()] call expands:
+    [color-mix(in oklab, value alpha, transparent)], with [alpha] a percentage
+    or the custom property a modifier reads. [None] when [value] cannot stand
+    inside a declaration, as {!wrap_declaration_value} answers. *)
+
 val opaque_declaration : string -> string -> Cascade.Css.declaration option
 (** [opaque_declaration property value] preserves one non-empty,
     declaration-safe value verbatim. It implements Tailwind's token-stream

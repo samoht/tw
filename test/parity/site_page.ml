@@ -12,6 +12,7 @@
    ancestor ([group-data-[checked]:], [in-[.dark]:]): both sheets leave those
    elements alone, so the render covers them unmatched only.
 
+   The page is [Test_helpers.classes_page], shared with the parity corpus.
    Unlike [Test_helpers.check_rendering_matches], no element carries a pair of
    classes. Pairing costs a canonicalisation per pair, twelve million over the
    site's list, and the order a pair would expose is what the whole-sheet order
@@ -25,52 +26,6 @@ let read_lines path =
   In_channel.with_open_text path In_channel.input_all
   |> String.split_on_char '\n' |> List.map String.trim
   |> List.filter (fun line -> line <> "")
-
-(* The [/name] a [group-*] or [peer-*] variant scopes to, from any segment of a
-   class that starts with [prefix]. *)
-let scope_names prefix classes =
-  let names = Hashtbl.create 16 in
-  List.iter
-    (fun cls ->
-      List.iter
-        (fun segment ->
-          if String.starts_with ~prefix segment then
-            match String.rindex_opt segment '/' with
-            | Some i when i + 1 < String.length segment ->
-                let name =
-                  String.sub segment (i + 1) (String.length segment - i - 1)
-                in
-                if not (String.contains name ']') then
-                  Hashtbl.replace names name ()
-            | _ -> ())
-        (Tw_tools.Entrypoint.variant_segments cls))
-    classes;
-  Hashtbl.fold (fun name () acc -> name :: acc) names [] |> List.sort compare
-
-let scoped base names =
-  String.concat " " (base :: List.map (fun n -> base ^ "/" ^ n) names)
-
-let reads_descendants cls =
-  List.exists
-    (fun segment ->
-      String.starts_with ~prefix:"has-" segment
-      || String.starts_with ~prefix:"group-has-" segment
-      || String.starts_with ~prefix:"peer-has-" segment
-      || String.equal segment "*" || String.equal segment "**")
-    (Tw_tools.Entrypoint.variant_segments cls)
-
-(* The children a descendant-reading variant needs, each holding the marker the
-   rendering check gives every element, so their boxes paint too. *)
-let children =
-  String.concat ""
-    [
-      "<p>";
-      Test_helpers.box_marker;
-      " <code>x</code> <strong>x</strong> <a href=\"#\">x</a></p><svg \
-       width=\"1\" height=\"1\"></svg><ul><li>";
-      Test_helpers.box_marker;
-      "</li></ul><pre>x</pre><img alt=\"\">";
-    ]
 
 let slice first count l =
   List.filteri (fun i _ -> i >= first && i < first + count) l
@@ -90,27 +45,4 @@ let () =
   in
   (* Scope names come from the whole list, so every shard's wrappers carry the
      same classes. *)
-  let group = scoped "group" (scope_names "group-" classes) in
-  let peer = scoped "peer" (scope_names "peer-" classes) in
-  let buf = Buffer.create (1 lsl 20) in
-  Buffer.add_string buf
-    "<!doctype html><html><head><meta charset=\"utf-8\"></head><body>";
-  List.iter
-    (fun cls ->
-      Buffer.add_string buf
-        (String.concat ""
-           [
-             "<div class=\"";
-             Test_helpers.escape_attribute group;
-             "\"><input type=\"checkbox\" class=\"";
-             Test_helpers.escape_attribute peer;
-             "\"><div class=\"";
-             Test_helpers.escape_attribute cls;
-             "\">";
-             (if reads_descendants cls then children
-              else Test_helpers.box_marker);
-             "</div></div>";
-           ]))
-    shard;
-  Buffer.add_string buf "</body></html>\n";
-  print_string (Buffer.contents buf)
+  print_string (Test_helpers.classes_page ~scope:classes shard)

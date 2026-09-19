@@ -81,22 +81,19 @@ let test_var_color_opacity () =
 (* Arbitrary-value underscores encode spaces before the colour is parsed. The
    plain declaration path already decoded them; the /opacity path did not. *)
 let test_encoded_space_color_opacity () =
-  (* The whole list, which also says the modifier decodes the colour once and
-     reuses it: both arms name the same rgb(), neither the undecoded spelling. A
-     colour modifier writes an unguarded arm and an oklab arm under @supports;
-     the unguarded value is tw's own, a srgb color-mix where the CLI leaves the
-     colour bare. *)
+  (* The whole list, which also says the modifier decodes the colour once: the
+     mix names the decoded rgb(), not the undecoded spelling. A mix of a colour
+     and a percentage is written once, as the CLI writes it; tw wrote an sRGB
+     twin of its own before it. *)
   Test_helpers.check_declarations ~minify:false "[color:rgb(255_0_0)]/50"
-    [
-      "color: color-mix(in srgb, rgb(255 0 0) 50%, transparent)";
-      "color: color-mix(in oklab, rgb(255 0 0) 50%, transparent)";
-    ];
-  (* Same two arms for a var() alpha. The oklch value is the spelling already
-     pinned here: cascade drops the leading zero the CLI writes. *)
+    [ "color: color-mix(in oklab, rgb(255 0 0) 50%, transparent)" ];
+  (* A var() alpha needs the polyfill pair, the bare colour in the open. The
+     oklch value is the spelling already pinned here: cascade drops the leading
+     zero the CLI writes. *)
   Test_helpers.check_declarations ~minify:false
     "[border-color:oklch(0.5_0.2_250)]/[var(--x)]"
     [
-      "border-color: color-mix(in srgb, oklch(.5 .2 250) var(--x), transparent)";
+      "border-color: oklch(.5 .2 250)";
       "border-color: color-mix(in oklab, oklch(.5 .2 250) var(--x), \
        transparent)";
     ]
@@ -105,10 +102,7 @@ let test_encoded_space_color_opacity () =
    typed [Css.var] form (no token stream). *)
 let test_custom_prop_opacity () =
   Test_helpers.check_declarations ~minify:false "[--x:#ff0000]/50"
-    [
-      "--x: color-mix(in srgb, #ff0000 50%, transparent)";
-      "--x: color-mix(in oklab, #ff0000 50%, transparent)";
-    ]
+    [ "--x: color-mix(in oklab, #ff0000 50%, transparent)" ]
 
 (* A class either compiles or is refused; an exception escaping [of_string] or
    [to_css] is neither. Swallowing [Error] here is the point - Tailwind refuses
@@ -248,22 +242,16 @@ let test_alpha_fn () =
    [0.2%]. *)
 let test_alpha_fn_bare_number () =
   Test_helpers.check_declarations ~minify:false "[color:--alpha(red/0.2)]"
-    [
-      "color: color-mix(in srgb, red 20%, transparent)";
-      "color: color-mix(in oklab, red 20%, transparent)";
-    ]
+    [ "color: color-mix(in oklab, red 20%, transparent)" ]
 
 (* An [--alpha()] whose alpha reads a custom property mixes that property, in an
    arbitrary property as in a colour utility. The reader took only a percentage
-   alpha, so the class was refused. Both arms mix, the way the [/(--o)] modifier
-   writes them. *)
+   alpha, so the class was refused. The pair is the one the [/(--o)] modifier
+   writes: the bare colour in the open, the mix behind the guard. *)
 let test_alpha_fn_var_alpha () =
   check "[color:--alpha(red/var(--o))]";
   Test_helpers.check_declarations ~minify:false "[color:--alpha(red/var(--o))]"
-    [
-      "color: color-mix(in srgb, red var(--o), transparent)";
-      "color: color-mix(in oklab, red var(--o), transparent)";
-    ];
+    [ "color: red"; "color: color-mix(in oklab, red var(--o), transparent)" ];
   Test_helpers.check_declarations ~minify:false
     "[--x:--alpha(var(--c)/var(--o))]"
     [
@@ -294,11 +282,11 @@ let test_alpha_fn_inside_a_value () =
    with [--alpha()] mixes twice, and both spellings survive the round-trip. *)
 let test_alpha_fn_with_modifier () =
   check "[color:--alpha(red/50%)]/25";
-  (* Both mixes are nested, and the fallback arm nests its own fallback. *)
+  (* Both mixes are nested. Neither reads a custom property or [currentcolor],
+     so a browser resolves the value on its own and Tailwind writes it once; tw
+     wrote an sRGB twin in the open that Tailwind's polyfill never writes. *)
   Test_helpers.check_declarations ~minify:false "[color:--alpha(red/50%)]/25"
     [
-      "color: color-mix(in oklab, color-mix(in srgb, red 50%, transparent) \
-       25%, transparent)";
       "color: color-mix(in oklab, color-mix(in oklab, red 50%, transparent) \
        25%, transparent)";
     ]
@@ -308,11 +296,65 @@ let test_alpha_fn_with_modifier () =
 let test_var_opacity_spelling () =
   check "[color:red]/[var(--x)]";
   check "[color:red]/(--x)";
+  (* The mix reads a custom property, so the open form is its first colour, as
+     it is for every other family; tw wrote the mix in sRGB there. *)
   Test_helpers.check_declarations ~minify:false "[color:red]/(--x)"
-    [
-      "color: color-mix(in srgb, red var(--x), transparent)";
-      "color: color-mix(in oklab, red var(--x), transparent)";
-    ]
+    [ "color: red"; "color: color-mix(in oklab, red var(--x), transparent)" ]
+
+(* Tailwind's colour-mix polyfill applies to any declaration whose value holds a
+   [color-mix()] reading a custom property or [currentcolor], wherever in the
+   value the mix stands: the declaration is written with each such mix replaced
+   by its first colour in the open, and as written behind the colour-mix guard.
+   A mix reading only theme tokens has them inlined, in sRGB, in the open. A mix
+   a browser resolves on its own is written once. tw wrote the mix alone
+   wherever it stood inside a longer value, and the typed colour arm wrote an
+   sRGB twin for every modifier, guarded or not. *)
+let test_mix_polyfill () =
+  let pair cls ~open_ ~guarded =
+    Test_helpers.check_declarations ~minify:false cls [ open_; guarded ]
+  in
+  let mix colour alpha =
+    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
+  in
+  pair "[box-shadow:0_0_0_1px_--alpha(red/var(--o))]"
+    ~open_:"box-shadow: 0 0 0 1px red"
+    ~guarded:("box-shadow: 0 0 0 1px " ^ mix "red" "var(--o)");
+  (* a mix the author spelled out is read the same way *)
+  pair "[box-shadow:0_0_0_1px_color-mix(in_oklab,red_var(--o),transparent)]"
+    ~open_:"box-shadow: 0 0 0 1px red"
+    ~guarded:("box-shadow: 0 0 0 1px " ^ mix "red" "var(--o)");
+  (* [currentColor] is cascade's spelling of the keyword outside a mix *)
+  pair "[background-image:linear-gradient(--alpha(currentcolor/50%),blue)]"
+    ~open_:"background-image: linear-gradient(currentColor, blue)"
+    ~guarded:
+      ("background-image: linear-gradient(" ^ mix "currentcolor" "50%"
+     ^ ", blue)");
+  pair "[--x:0_0_1px_--alpha(red/var(--o))]" ~open_:"--x: 0 0 1px red"
+    ~guarded:("--x: 0 0 1px " ^ mix "red" "var(--o)");
+  (* a theme token is inlined, and the mix narrowed to sRGB, in the open *)
+  pair "[box-shadow:0_0_0_1px_--alpha(var(--color-red-500)/50%)]"
+    ~open_:
+      "box-shadow: 0 0 0 1px color-mix(in srgb, oklch(63.7% .237 25.331) 50%, \
+       transparent)"
+    ~guarded:("box-shadow: 0 0 0 1px " ^ mix "var(--color-red-500)" "50%");
+  (* a mix standing for its first colour is read again when that colour is a mix
+     itself *)
+  pair
+    "[color:color-mix(in_oklab,color-mix(in_oklab,red_var(--o),transparent)_50%,transparent)]"
+    ~open_:"color: red"
+    ~guarded:("color: " ^ mix (mix "red" "var(--o)") "50%");
+  (* the typed colour arm follows the same rule: a percentage alone needs no
+     twin, [currentcolor] and a custom property need the pair *)
+  Test_helpers.check_declarations ~minify:false "[color:red]/50"
+    [ "color: " ^ mix "red" "50%" ];
+  pair "[color:currentcolor]/50" ~open_:"color: currentColor"
+    ~guarded:("color: " ^ mix "currentcolor" "50%");
+  pair "[--x:red]/(--o)" ~open_:"--x: red"
+    ~guarded:("--x: " ^ mix "red" "var(--o)");
+  (* a mix a browser resolves on its own is written once *)
+  Test_helpers.check_declarations ~minify:false
+    "[box-shadow:0_0_0_1px_--alpha(red/50%)]"
+    [ "box-shadow: 0 0 0 1px " ^ mix "red" "50%" ]
 
 (* A modifier reading a custom property mixes that property into the guarded
    value on a bracket [var()] colour as on a plain one. The var arm folded the
@@ -364,10 +406,7 @@ let test_named_opacity () =
 let test_named_colour_value () =
   check "[color:rebeccapurple]/50";
   Test_helpers.check_declarations ~minify:false "[color:rebeccapurple]/50"
-    [
-      "color: color-mix(in srgb, rebeccapurple 50%, transparent)";
-      "color: color-mix(in oklab, rebeccapurple 50%, transparent)";
-    ];
+    [ "color: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
   (* A value that names no colour has nothing to mix. *)
   rejected "[color:notacolour]/50"
 
@@ -552,6 +591,7 @@ let tests =
     test_case "--alpha() bare number alpha" `Quick test_alpha_fn_bare_number;
     test_case "--alpha() value with a /opacity modifier" `Quick
       test_alpha_fn_with_modifier;
+    test_case "colour-mix polyfill" `Quick test_mix_polyfill;
     test_case "--alpha() with a var alpha" `Quick test_alpha_fn_var_alpha;
     test_case "--alpha() inside a value" `Quick test_alpha_fn_inside_a_value;
     test_case "var-valued opacity modifier spelling" `Quick

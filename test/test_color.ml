@@ -298,6 +298,89 @@ let test_border_side_color_opacity () =
     "border-b-white/5 round-trips" "border-b-white/5"
     (Tw.pp (Result.get_ok (Tw.of_string "border-b-white/5")))
 
+(* A per-side border colour takes every modifier the all-sides one takes, on
+   [currentcolor] and on a bracket colour as on a palette colour, and reads
+   [inherit]. Tailwind writes the colour in the open and the mix behind the
+   [color-mix()] guard, or the mix alone where a browser can read it. Only the
+   palette and the [transparent]/[inherit] keywords took a modifier on a side:
+   [border-t-current/50], [border-t-[var(--c)]/(--o)], a hinted or bracket
+   colour under a modifier, and [border-t-inherit] were unknown classes, on
+   every side and axis. *)
+let test_border_side_keyword_and_bracket_opacity () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let guarded cls prop fallback mixed =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [ prop ^ ": " ^ fallback; prop ^ ": " ^ mixed ]
+  in
+  let folded cls prop value =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [ prop ^ ": " ^ value ]
+  in
+  guarded "border-t-current/50" "border-top-color" "currentColor"
+    "color-mix(in oklab, currentcolor 50%, transparent)";
+  guarded "border-x-current/(--o)" "border-inline-color" "currentColor"
+    "color-mix(in oklab, currentcolor var(--o), transparent)";
+  guarded "border-s-current/half" "border-inline-start-color" "currentColor"
+    "color-mix(in oklab, currentcolor var(--opacity-half), transparent)";
+  guarded "border-t-current/[50%]" "border-top-color" "currentColor"
+    "color-mix(in oklab, currentcolor 50%, transparent)";
+  guarded "border-t-[var(--c)]/(--o)" "border-top-color" "var(--c)"
+    "color-mix(in oklab, var(--c) var(--o), transparent)";
+  guarded "border-bs-[color:var(--c)]/50" "border-block-start-color" "var(--c)"
+    "color-mix(in oklab, var(--c) 50%, transparent)";
+  guarded "border-be-(--c)/50" "border-block-end-color" "var(--c)"
+    "color-mix(in oklab, var(--c) 50%, transparent)";
+  guarded "border-l-[var(--c)]/[0.5]" "border-left-color" "var(--c)"
+    "color-mix(in oklab, var(--c) 50%, transparent)";
+  guarded "border-y-[var(--c)]/half" "border-block-color" "var(--c)"
+    "color-mix(in oklab, var(--c) var(--opacity-half), transparent)";
+  guarded "border-t-[#123456]/(--o)" "border-top-color" "#123456"
+    "color-mix(in oklab, #123456 var(--o), transparent)";
+  guarded "border-e-[#123456]/half" "border-inline-end-color"
+    "color-mix(in srgb, #123456 50%, transparent)"
+    "color-mix(in oklab, #123456 var(--opacity-half), transparent)";
+  folded "border-t-[red]/50" "border-top-color"
+    "color-mix(in oklab, red 50%, transparent)";
+  folded "border-t-[color:red]/50" "border-top-color"
+    "color-mix(in oklab, red 50%, transparent)";
+  folded "border-r-[rgb(1_2_3)]/50" "border-right-color"
+    "color-mix(in oklab, #010203 50%, transparent)";
+  folded "border-t-inherit" "border-top-color" "inherit";
+  folded "border-y-inherit" "border-block-color" "inherit";
+  folded "border-inherit" "border-color" "inherit";
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        (cls ^ " round-trips") cls
+        (Tw.pp (Result.get_ok (Tw.of_string ~theme cls))))
+    [
+      "border-t-current/50";
+      "border-x-current/(--o)";
+      "border-s-current/half";
+      "border-t-[var(--c)]/(--o)";
+      "border-bs-[color:var(--c)]/50";
+      "border-be-(--c)/50";
+      "border-e-[#123456]/half";
+      "border-t-[red]/50";
+      "border-t-inherit";
+      "border-inherit";
+    ];
+  (* A bracket the colour reader declines takes no modifier, on a side as on the
+     all-sides utility: Tailwind mixes the raw token, which tw holds open rather
+     than settles. *)
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "the raw token is mixed verbatim; tw refuses a modifier on a bracket \
+          no reader took, as border-[...] does")
+    (module Tw.Color.Handler)
+    "border-t-[notacolour]/50";
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Color.Handler))
+    [ "border-t-currentx"; "border-t-current/" ]
+
 (* An alpha can name a custom property to read the percentage from, written
    either as [/[var(--x)]] or as the [/(--x)] shorthand. The percentage is not
    known at build time, so it goes into the [color-mix] as a reference; before,
@@ -339,7 +422,13 @@ let test_bracket_css_colors () =
   (* the whole function, where the affix stopped at the opening paren *)
   has "bg-[light-dark(white,black)]" "background-color:light-dark(white,black)";
   (* a CSS keyword still beats the palette entry of the same name *)
-  has "bg-[red]" "background-color:red"
+  has "bg-[red]" "background-color:red";
+  (* A palette name is not a colour CSS knows: Tailwind writes the identifier
+     through, which a browser drops, where the palette fallback painted the 500
+     shade the page does not have. *)
+  has "bg-[emerald]" "background-color:emerald";
+  has "bg-[slate]" "background-color:slate";
+  has "text-[rose]" "color:rose"
 
 (* The declarations a class writes outside any [@supports] block, and those it
    writes inside one. [Test_helpers.check_declarations] flattens the two
@@ -650,6 +739,70 @@ let test_shadeless_colour_rejects_shade_segment () =
       | Error _ -> ()
       | Ok u -> Alcotest.failf "%s was renamed to %s" cls (Tw.pp u))
     [ "bg-white-500/50"; "text-black-500/50"; "border-white-500/50" ]
+
+(* A palette family is not a colour on its own: Tailwind resolves [bg-red]
+   against [--color-red], a token the default theme never declares, and emits
+   nothing. tw read the missing shade as 500 and wrote a [.bg-red-500] rule for
+   a class nobody wrote, in every family that reads the palette. The shadeless
+   black and white, the keywords and a project token keep resolving, and a
+   project that declares [--color-red] gets that token back. *)
+let test_shadeless_palette_name_rejected () =
+  let refused (module H : Test_helpers.Handler) classes =
+    List.iter (Test_helpers.check_invalid_input (module H)) classes
+  in
+  refused
+    (module Tw.Color.Handler)
+    [
+      "text-red";
+      "text-red/50";
+      "text-gray";
+      "border-red";
+      "border-t-red";
+      "border-x-blue/50";
+      "accent-red";
+      "caret-red";
+      "outline-red";
+      "placeholder-red";
+    ];
+  refused
+    (module Tw.Backgrounds.Handler)
+    [ "bg-red"; "bg-red/50"; "bg-gray"; "from-red"; "via-red"; "to-red" ];
+  refused
+    (module Tw.Effects.Handler)
+    [ "ring-red"; "ring-offset-red"; "shadow-red"; "inset-shadow-red" ];
+  refused (module Tw.Svg.Handler) [ "fill-red"; "stroke-red" ];
+  refused (module Tw.Divide.Handler) [ "divide-red" ];
+  refused (module Tw.Typography.Typography_early) [ "decoration-red" ];
+  refused (module Tw.Text_shadow.Handler) [ "text-shadow-red" ];
+  refused (module Tw.Filters.Handler) [ "drop-shadow-red" ];
+  refused
+    (module Tw.Mask_gradient.Handler)
+    [ "mask-t-from-red"; "mask-radial-from-red" ];
+  List.iter
+    (fun (cls, decls) -> Test_helpers.check_declarations cls decls)
+    [
+      ("bg-black", [ "background-color:var(--color-black)" ]);
+      ("text-white", [ "color:var(--color-white)" ]);
+      ( "border-t-white/50",
+        [
+          "border-top-color:#ffffff80";
+          "border-top-color:color-mix(in oklab,var(--color-white) \
+           50%,transparent)";
+        ] );
+      ("bg-transparent", [ "background-color:#0000" ]);
+      ("text-current", [ "color:currentColor" ]);
+      ("text-inherit", [ "color:inherit" ]);
+    ];
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red", "#f00") ]
+  in
+  Test_helpers.check_declarations ~theme "bg-red"
+    [ "background-color:var(--color-red)" ];
+  Test_helpers.check_declarations ~theme "text-red/50"
+    [
+      "color:color-mix(in srgb,#f00 50%,transparent)";
+      "color:color-mix(in oklab,var(--color-red) 50%,transparent)";
+    ]
 
 (* A project-defined, shadeless colour follows the same opacity path as the
    built-in shadeless colours. *)
@@ -1442,6 +1595,9 @@ let tests =
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);
     ("Border side color opacity", `Quick, test_border_side_color_opacity);
+    ( "Border side keyword and bracket opacity",
+      `Quick,
+      test_border_side_keyword_and_bracket_opacity );
     ("Per-side border color order", `Slow, test_border_side_color_order);
     ( "Per-side border bracket color order",
       `Slow,
@@ -1471,6 +1627,9 @@ let tests =
     ( "Shadeless colour rejects a shade segment",
       `Quick,
       test_shadeless_colour_rejects_shade_segment );
+    ( "Shadeless palette name rejected",
+      `Quick,
+      test_shadeless_palette_name_rejected );
     ( "Decoration theme colour opacity",
       `Quick,
       test_decoration_theme_colour_opacity );

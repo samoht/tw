@@ -326,6 +326,9 @@ val border_transparent : t
 val border_current : t
 (** [border_current] uses [currentColor] for border color. *)
 
+val border_inherit : t
+(** [border_inherit] inherits the border color. *)
+
 val outline_color : ?opacity:int -> ?shade:int -> color -> t
 (** [outline_color color] sets the outline color. [shade] defaults to 500 and
     [opacity] sets the alpha modifier (0-100). *)
@@ -780,3 +783,10 @@ val channel_bracket_var_opacity :
   channel -> string -> opacity_modifier -> Style.t
 (** [channel_bracket_var_opacity ch v opacity] sets [ch] to the [var()]
     reference [v] at [opacity]. *)
+
+val theme_token : Scheme.t -> string -> string option
+(** [theme_token theme name] is the value [theme] binds the custom property
+    [--name] to, as text: a token the theme declares, or a palette colour
+    spelled out. [None] for a name the theme does not bind, a removed token
+    included. It is what a walk over a value's text inlines for a [var()]
+    reading [name], as Tailwind's polyfills do. *)

@@ -270,9 +270,36 @@ let test_non_decimal_widths () =
   rejected "divide-y-0x10";
   rejected "divide-x-1_0"
 
+(* A token-stream colour under a modifier read from a custom property is the
+   pair Tailwind's polyfill writes: the bare value in the open and the mix,
+   reading the property the class named, behind the colour-mix guard. A named
+   token reads the theme's percentage into an sRGB mix in the open. The raw arm
+   folded either modifier to [100%] and wrote nothing beside it. *)
+let test_raw_colour_opacity_var () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
+  in
+  let pair cls ~open_ ~alpha =
+    Test_helpers.check_declarations ~theme ~minify:false cls
+      [
+        "border-color: " ^ open_;
+        "border-color: color-mix(in oklab, foo(1) " ^ alpha ^ ", transparent)";
+      ]
+  in
+  pair "divide-[foo(1)]/(--o)" ~open_:"foo(1)" ~alpha:"var(--o)";
+  pair "divide-[foo(1)]/[var(--o)]" ~open_:"foo(1)" ~alpha:"var(--o)";
+  pair "divide-[foo(1)]/half"
+    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
+    ~alpha:"var(--opacity-half)";
+  (* A percentage needs no guard. *)
+  Test_helpers.check_declarations ~minify:false "divide-[foo(1)]/50"
+    [ "border-color: color-mix(in oklab, foo(1) 50%, transparent)" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "token-stream colour opacity from a var" `Quick
+        test_raw_colour_opacity_var;
       Alcotest.test_case "typed constructors" `Quick test_typed;
       Alcotest.test_case "arbitrary width roundtrip" `Quick
         test_arbitrary_width_roundtrip;
