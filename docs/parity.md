@@ -78,8 +78,8 @@ skip into a failure.
 - **Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt`
   are generated from the v4.3.3 tag by `extract_tests.ml`; the runner rejects a
   file whose block count no longer matches the banner the extractor stamped.
-  A case Tailwind has no test for lives in `handwritten.txt`, which no
-  regeneration writes. A class Tailwind accepts and tw rejects, or compiles
+  A case Tailwind has no test for belongs in the `test_<module>.ml` of the
+  utility it covers. A class Tailwind accepts and tw rejects, or compiles
   differently, fails.
 - **Examples, `examples/*/dune`.** Guarded by `%{bin-available:npx}`;
   `%{bin:cascade}` resolves through the workspace, never `PATH`.

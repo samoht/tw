@@ -373,8 +373,7 @@ and the fields it keys on.
 * `test/`: Tailwind v4 parity by utility, one `test_<module>.ml` per
   `lib/<module>.ml`.
 * `test/upstream/`: replay of Tailwind's own fixture corpus. `utilities.txt`
-  and `variants.txt` are generated; never hand-edit them. A case upstream has
-  no test for goes in `handwritten.txt`, which no regeneration writes.
+  and `variants.txt` are generated; never hand-edit them.
 * **Rules:**
 
   1. Define named test functions (`let test_foo () = ...`).
