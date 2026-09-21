@@ -1,0 +1,6 @@
+/* An @supports whose condition is no declaration is a rule no browser applies:
+   Tailwind writes the @supports out and tw writes nothing, so the two render
+   the same. The layer declaration forms differ too, one statement against
+   per-layer blocks, and the canonical diff has to read past both. */
+@import "tailwindcss";
+@source inline("supports-[@media(width>=1px)]:flex");
