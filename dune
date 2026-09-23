@@ -20,5 +20,5 @@
 
 (mdx
  (files README.md CLAUDE.md)
- (libraries tw cascade)
+ (libraries tw tw.html cascade)
  (deps %{bin:tw}))
