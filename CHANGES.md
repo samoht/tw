@@ -1,3 +1,15 @@
+## Unreleased
+
+### Command line
+
+- `-q` says what it suppresses, and the scan statistics header no longer ends
+  in a stray `@.` (#887).
+- An installed `tw --diff` or `tw --tailwind` no longer leaves a `tmp/`
+  directory in the project; its scratch files go under `node_modules/.cache/tw`
+  and are removed on exit (#886).
+- `--html` is read against `--cwd`, like `-i`, `-o` and the paths to scan
+  (#885).
+
 ## 1.1.0
 
 ### Breaking changes

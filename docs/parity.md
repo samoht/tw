@@ -1,228 +1,210 @@
-Title: Measuring parity with Tailwind
+# Measuring parity with Tailwind
 
-tw aims to render every page the way Tailwind CSS v4.3.3 renders it.
+`tw` aims to style every page exactly as Tailwind CSS v4.3.3 would. This page
+explains what "exactly" means, how it is checked, and what to do when a check
+fails. It is written for contributors; users only need `tw --diff`, described
+in the [README](../README.md).
 
-## The contract
+## What counts as the same
 
-- **Rendering parity.** Over the same document, tw's sheet and the sheet the
-  Tailwind CLI compiles paint the same pixels at every viewport and in every
-  interaction state measured. The raster is the verdict and nothing normalises
-  it: what a script reads back through `getComputedStyle` is not part of the
-  contract, so two spellings the browser paints alike are one render, and a
-  spelling that moves a pixel is a difference.
-- **Size budget.** `tw --minify` is never larger than `tailwindcss --minify`.
+Comparing the two stylesheets byte for byte is too strict. `tw` prints CSS
+through [cascade](https://github.com/samoht/cascade), which spells colours,
+numbers and selectors differently from Tailwind, and most of those differences
+change nothing on the page. Comparing them by eye is too loose. So parity has
+two parts:
 
-The reference is the compiled sheet, before lightningcss minifies it, so a
-difference is tw against Tailwind and never cascade's printer against another
-minifier. Whether either side is minified does not matter to the verdict.
-Chromium drops a declaration it cannot parse, so a rule Tailwind writes around
-one is at parity with tw writing nothing.
+- **The page renders the same.** Load one HTML document under Tailwind's sheet
+  and under `tw`'s, at every viewport width and interaction state (hover,
+  focus, and so on) the sheets mention, and the screenshots must match pixel
+  for pixel. The browser is the judge. If two spellings paint the same pixels,
+  they are the same, whatever `getComputedStyle` reports.
+- **The output is no larger.** `tw --minify` must never produce a bigger file
+  than `tailwindcss --minify`.
 
-A disagreement is fixed where it lives:
+The reference is Tailwind's compiled sheet before lightningcss minifies it, so
+a difference is always `tw` against Tailwind, never one minifier against
+another. Chromium ignores a declaration it cannot parse, so if Tailwind emits
+one and `tw` emits nothing, the two are at parity.
 
-| The browser says | The canonical diff says | It is |
+A render only sees what it paints. Properties such as `cursor` or a
+transition's timing leave no pixels, so for those the CSS-level comparison
+below is what catches a mistake.
+
+## The two comparisons
+
+Two tools answer the question, and they check each other:
+
+- **The browser render**, `cascade diff --browser --html PAGE A.css B.css`,
+  loads the page under each sheet, takes screenshots and compares them. Where
+  pixels differ, it lists the computed values of the elements under them, so
+  the report points at a property. This is the verdict, but it only covers
+  the rules the page actually uses.
+- **The canonical diff**, `cascade diff --diff=canonical A.css B.css`, needs no
+  page. It normalises both sheets and reports every rule or declaration that
+  could compute differently. It covers the whole sheet, but it can be wrong in
+  either direction, so each entry it lists is a candidate for the browser to
+  confirm. By default it assumes the evergreen browsers `cascade --minify`
+  targets, and `--enforce-spec` drops that assumption.
+
+When the two disagree, the table says where the bug is:
+
+| The browser | The canonical diff | Where to fix it |
 |---|---|---|
-| renders differently | anything | a tw bug |
-| renders the same | lists an entry | a cascade over-report, fixed there with a reproducer |
-| renders differently | lists nothing | a cascade under-report, the worse of the two: every gate that reads the diff passed over it |
+| renders differently | anything | `tw` |
+| renders the same | lists a difference | `cascade` over-reports; file a reproducer there |
+| renders differently | lists nothing | `cascade` under-reports; this is the worse case, since every check that trusts the diff missed it |
 
-A property that paints nothing on the page rendered, a cursor or a
-transition's timing, is outside what the render measures; the canonical diff
-is what reads it.
+## What runs in `dune runtest`
 
-## Instruments
+The browser checks need node and a headless Chromium (found through `NODE`
+and `CHROME`, or in the usual places). The Tailwind checks need the pinned
+`tailwindcss` CLI, which `npm ci` installs from `package-lock.json`. A check
+whose tool is missing is skipped with a message. CI sets `TW_BROWSER_TESTS=1`
+and `TW_TAILWIND_TESTS=1`, which turn those skips into failures.
 
-| Instrument | Command | What it answers |
-|---|---|---|
-| Browser render | `cascade diff --browser --html PAGE A.css B.css` | The verdict: the page is loaded under each sheet at every viewport width and interaction state either sheet names, captured, and compared pixel for pixel. Where a capture differs, the computed values of the elements under the differing pixels are listed, so the report names a property. |
-| Canonical diff | `cascade diff --diff=canonical A.css B.css` | Every rule of both sheets, with no document: a render sees only the rules its page exercises. Every entry is a candidate for the browser to judge. It judges for the evergreen browsers `--minify` targets, so a `@supports` guard every target satisfies, the fallback before a value every target parses, and a prefix a target needs are no difference; `--enforce-spec` reports them again. |
-| Order gate | `test/parity/dune` | The order of top-level statements in `@layer utilities` and `@layer components`, which the canonical diff collapses when it is cascade-neutral and Tailwind still fixes. |
-| Upstream fixtures | `test/upstream/` | Tailwind's own test corpus, replayed. |
-| Examples | `examples/*/dune` | Nine real entrypoints compiled by both tools and diffed canonically. |
-
-The browser needs node and a headless Chromium (`NODE`, `CHROME`, or the usual
-places); the fixtures and examples need the pinned `tailwindcss` CLI through
-`npx`. Both come from `package-lock.json`.
-
-## Checks in CI
-
-All run under `dune runtest`. A missing tool skips a check with a line saying
-so; `TW_BROWSER_TESTS=1` and `TW_TAILWIND_TESTS=1`, which CI sets, turn the
-skip into a failure.
-
-- **The corpus, `test/parity/corpus/`.** Every `NAME.css` there is a Tailwind
-  entrypoint, `@import "tailwindcss"` included, compiled by both tools,
-  compared canonically and rendered over `NAME.html` beside it or, without
-  one, over `Test_helpers.classes_page` built from the classes its `@source
-  inline("...")` names. Dropping a file in is the whole act of adding a case;
-  the rule reads the directory. Each case runs the documented command,
-  `tw --input-css NAME.css PAGE --diff --html PAGE`, and passes only when the
-  two oracles agree the sheets are the same: a render that differs is a tw
-  bug, and a disagreement between the render and the canonical diff is a
-  cascade bug the output names. The cases are the idioms the class-list
-  corpus never exercises: a project theme read by every family, namespaces
-  reset to `initial`, declared variants between built-in ones, `@apply` in a
-  component and a declared utility, variants stacked three deep, and a
+- **Project entrypoints, `test/parity/corpus/`.** Each `NAME.css` there is a
+  complete Tailwind entrypoint. Both tools compile it, and the result is
+  compared canonically and rendered over `NAME.html`, or, when there is no
+  such file, over a page built from the classes its `@source inline("...")`
+  names. To add a case, drop a file in the directory. The cases cover what
+  single classes do not: a project theme, theme namespaces reset to
+  `initial`, custom variants, `@apply`, variants stacked three deep, and a
   prefixed build.
+- **Rendering per class.** Nine test suites render their classes under both
+  sheets. Each class gets its own element containing some text and a bar as
+  wide as its content box, so a property that affects the box shows up in the
+  screenshot; an empty element would paint nothing. Two classes that set the
+  same property also share an element, so an ordering mistake shows up there. The page and sheets of each run are kept under `tmp/browser/`.
+- **Tailwind's own tests, `test/upstream/`.** `utilities.txt` and
+  `variants.txt` are extracted from the v4.3.3 tag by `extract_tests.ml`, and
+  every class Tailwind accepts must compile the same way in `tw`. A class
+  Tailwind has no test for gets one in the `test_<module>.ml` of its utility.
+- **Examples, `examples/*/dune`.** Nine example projects are compiled by both
+  tools and compared canonically.
+- **Rule order, `test/parity/dune`.** Tailwind fixes the order of utilities
+  even where the order cannot change the page, and the canonical diff ignores
+  such reorders. This check counts how many rules would have to move for `tw`'s
+  order to match Tailwind's in `@layer utilities` and `@layer components`. The
+  count is pinned at zero.
 
-- **Rendering, `check_rendering_matches`.** Nine suites render their classes
-  under tw's sheet and Tailwind's through `Browser_compare`, the runner behind
-  `cascade diff --browser`, and `Browser_compare.identical` is the verdict.
-  Each class gets an element of its own holding `Test_helpers.box_marker`, a
-  run of text and a bar as wide as the content box in the element's colour, so
-  a property painting the box reaches the raster; an empty element paints
-  nothing. A pair that writes a common property, or whose order cascade cannot
-  prove neutral, gets one more element carrying both, which is where an
-  ordering difference shows. The page and both sheets of a run stay under
-  `tmp/browser/`.
-- **Upstream fixtures, `test/upstream/`.** `utilities.txt` and `variants.txt`
-  are generated from the v4.3.3 tag by `extract_tests.ml`; the runner rejects a
-  file whose block count no longer matches the banner the extractor stamped.
-  A case Tailwind has no test for belongs in the `test_<module>.ml` of the
-  utility it covers. A class Tailwind accepts and tw rejects, or compiles
-  differently, fails.
-- **Examples, `examples/*/dune`.** Guarded by `%{bin-available:npx}`;
-  `%{bin:cascade}` resolves through the workspace, never `PATH`.
-- **Order gate, `test/parity/dune`.** Pairs the statement keys occurring
-  exactly once on both sides and reports the fewest that must move for tw's
-  order to match Tailwind's. Pinned at 0 moves for both layers and a floor on
-  the pair count, and it ratchets both ways: a rising move count or a falling
-  pair count fails, a dropping move count prints the figure to tighten.
+## Comparing against tailwindcss.com
 
-## The site comparison
-
-The class list of tailwindcss.com exercises combinations no fixture covers.
-The inputs are committed under `test/parity/`:
-
-- `classlist.txt`, every class the deployed site uses, extracted from its CSS.
-- `globals.css`, the site's entrypoint with the files it imports; tw compiles
-  this.
-- `ref-entry.css`, the same entrypoint with `source(none)` and an explicit
-  `@source "./classlist.txt"`, so Tailwind does not scan the directory and
-  pick up tw's own output; Tailwind compiles this.
+The Tailwind website uses far more class combinations than any fixture. Its
+class list and entrypoint are committed under `test/parity/`: `classlist.txt`
+holds every class the site uses, `globals.css` is the entrypoint `tw`
+compiles, and `ref-entry.css` is the same entrypoint told to read only
+`classlist.txt`, which Tailwind compiles.
 
 <!-- $MDX skip -->
 ```sh
-sh test/parity/measure.sh                           # canonical diff and size budget
-TW_PARITY_RENDER="0 50" sh test/parity/measure.sh   # plus one 50-class shard rendered
+sh test/parity/measure.sh                           # canonical diff and size
+TW_PARITY_RENDER="0 50" sh test/parity/measure.sh   # also render classes 0 to 49
 ```
 
-The script builds both binaries from the workspace, writes `ref.css`,
-`ref_local.css`, `tw_all.css` and `diff.txt` under `tmp/parity`, fails when
-tw's minified sheet is the larger, and prints the diff with its top-level
-entries. With `TW_PARITY_RENDER`, `site_page.exe` puts each class of the shard
-on an element of its own holding the box marker, inside a wrapper carrying
-every `group` name the list uses and after a sibling carrying every `peer`
-name, with children for a class whose variants read descendants. Both sheets
-are pruned to the page with `cascade prune` first, since a rule no element
-matches cannot change what the page paints. A variant that tests an attribute
-or a class on an ancestor (`group-data-[checked]:`, `in-[.dark]:`) matches on
-neither side, so the render covers it unmatched. A shard takes some 25
-seconds and the list is 97 shards, so the whole render runs by hand.
+The script builds both tools from the workspace and writes its outputs to
+`tmp/parity/`. It prints the diff, and it fails if `tw`'s minified sheet is
+the larger one.
+With `TW_PARITY_RENDER`, it also renders one batch of 50 classes. Each class
+sits on its own element, inside a wrapper carrying every `group` name the list
+uses and after a sibling carrying every `peer` name. Variants that test an
+ancestor's attribute or class, such as `group-data-[checked]:` or
+`in-[.dark]:`, match on neither side, so the render does not exercise them. A
+batch takes about 25 seconds and the list has 97 batches, so the full render is
+run by hand.
 
-### Current figures
+The last full run used tw at #869, cascade at #1268 and tailwindcss 4.3.3.
+The canonical diff reported the two sheets identical, `tw` produced 661,153
+bytes against Tailwind's 664,632, and all 97 batches rendered the same across
+30,264 screenshots (twelve viewports, thirteen states, two sheets). A newer
+cascade can change these figures, so compare them only against a run with the
+same revisions.
 
-tw `main` at #869, cascade `main` at #1268, tailwindcss 4.3.3:
+## Investigating a difference
 
-- Canonical diff over the whole list: `CSS files are identical`, no top-level
-  entry.
-- Size: tw 661,153 bytes, tailwindcss 664,632 bytes.
-- Render: 97 of 97 shards the same picture, 30,264 captures (twelve viewports
-  by thirteen states by two sheets per shard).
-
-A figure is comparable only against the cascade it was taken with, which is
-why both shas are quoted.
-
-## Reading a failure
+Start small:
 
 <!-- $MDX skip -->
 ```sh
-dune exec -- tw --single="hover:bg-blue-600" --diff           # one class, canonical
+dune exec -- tw --single="hover:bg-blue-600" --diff
 mkdir -p tmp && echo '<div class="bg-blue-500 hover:bg-blue-600">x</div>' > tmp/page.html
-dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --diff --html tmp/page.html   # and rendered
-dune exec -- tw --input-css app.css page.html --diff --html page.html            # an entrypoint
+dune exec -- tw -s "bg-blue-500 hover:bg-blue-600" --diff --html tmp/page.html
+dune exec -- tw -i app.css page.html --diff --html page.html
 ```
 
 Use `--single=` for a class that starts with `-` or contains spaces. With
-`--html`, the canonical report comes first and the render after it; the page
-has to carry every class compared, and a class it lacks is refused rather than
-compared on no element. With both sheets on disk,
-`cascade diff --browser --html PAGE tw.css tailwind.css` is the same render:
-exit 0 when the two paint alike, 1 when they do not, 2 when no browser ran,
-nothing was rendered or a sheet could not be read.
+`--html`, the canonical report comes first and the render second, and every
+class compared must appear in the page. With both sheets already on disk,
+`cascade diff --browser --html PAGE tw.css tailwind.css` runs the same render.
+It exits 0 when the pages match, 1 when they differ, and 2 when no browser ran
+or a sheet could not be read.
 
-An entry the canonical diff lists is a reproducer to cut, not a defect to read.
-Cut it down to the classes involved, render them over a page that carries them
-and the markup their variants read, and file it where the table above says.
+An entry in the canonical diff is a lead, not yet a bug. Cut it down to the
+classes involved, render them over a page that contains them (and the markup
+their variants look for), and file it according to the table above.
 
-Traps:
+A few things regularly mislead:
 
-- **`added` means present in the second file.** `cascade diff A B` prints A as
-  `---` and B as `+++`; `measure.sh` passes tw first, so `added` reads
-  "Tailwind emits this and tw does not".
-- **The summary line counts containers, not contents.** `3 changed
-  containers` can hide a hundred rules; `--limit=none`, which `measure.sh`
-  passes, keeps the tree whole.
-- **`--minify` and `--optimize` reach both sides** of `--diff`: tw prints its
-  sheet through cascade and the CLI runs lightningcss. A report under either
-  is partly one minifier against the other; drop the flags before calling
-  something a tw bug.
-- **A reorder the canonical diff collapses can still be a tw bug.** A reorder
-  among utilities sharing no property is cascade-neutral and reported by no
-  mode, while Tailwind still fixes it. `check_class_order` in
-  `test/test_sort.ml` reads byte positions out of the sheet for order inside a
-  family, and the order gate reads the whole sheet for where a family sits.
-- **A reorder the canonical diff lists is not thereby a rendering change.** It
-  flags a same-property pair whose selectors might match a common element
-  without asking whether the boxes differ or the values coincide, which is the
-  right conservatism for a differ. The browser decides.
-- **Use the built cascade.** `%{bin:cascade}` and `measure.sh` resolve it
-  through the workspace; an installed one from an opam switch invents
-  differences that do not exist.
+- **`added` means "only in the second file".** `cascade diff A B` shows A as
+  `---` and B as `+++`. `measure.sh` passes `tw` first, so `added` means
+  Tailwind emits something `tw` does not.
+- **The summary counts containers, not rules.** "3 changed containers" can
+  hide a hundred rules. `--limit=none` prints them all.
+- **`--minify` and `--optimize` apply to both sides of `--diff`.** `tw` then
+  minifies with cascade and Tailwind with lightningcss, so part of any
+  difference is one minifier against the other. Drop the flags before calling
+  something a `tw` bug.
+- **A reorder the canonical diff ignores can still be a `tw` bug**, because
+  Tailwind fixes an order the page does not depend on. `check_class_order` in
+  `test/test_sort.ml` checks order within a family, and the rule-order check
+  above checks where each family sits.
+- **A reorder the canonical diff lists may paint nothing.** The diff flags two
+  rules that set the same property and might match the same element, without
+  checking whether they do. The browser decides.
+- **Use the cascade built in this workspace.** `%{bin:cascade}` and
+  `measure.sh` do; an older cascade from an opam switch reports differences
+  that are not there.
 
-## Recurring bug shapes
+## Common causes
 
-Five patterns account for most of what the site comparison has found; a new
-family is worth checking against all five.
+Most bugs the site comparison has found had one of five causes, so a new
+utility family is worth checking against each:
 
-- **Invented theme token.** A utility references `var(--<family>-<name>)` that
-  no `@theme` declares. Write the keyword instead.
-- **Silent coercion.** An arbitrary value that does not parse falls back to a
-  plausible one: `rounded-[calc(...)]` became `0`, `object-[50%]` became
-  `var(--50)`. Reject the class.
-- **A route that rebuilds the selector from the bare class**, discarding what
-  an inner variant already did. Rebase on the incoming selector; see
-  `route_regular` in `lib/rule.ml`.
-- **A palette colour looked up only in `Scheme.hex_color`**, which holds
-  per-render overrides and is empty by default, so the hex is never found and
-  the fallback degrades.
-- **A class name re-printed from the AST instead of echoed.** A class name is
-  also the selector that must match the markup, so it comes back out spelled
-  as the author wrote it. `min-[0.5ch]:flex` once emitted
-  `.min-\[\.5ch\]\:flex` because `Pp.float` drops a leading zero; check a new
-  family with a value the printer would respell, and check the selector, not
-  just the declaration.
+- **A theme variable that does not exist.** The utility writes
+  `var(--<family>-<name>)` but no `@theme` declares it. Write the literal
+  value instead.
+- **A bad value quietly replaced by a plausible one.** `rounded-[calc(...)]`
+  once became `0`, and `object-[50%]` became `var(--50)`. An arbitrary value
+  that does not parse should reject the class.
+- **A selector rebuilt from the bare class name**, which throws away what an
+  inner variant had already added. Build on the incoming selector instead, as
+  `route_regular` in `lib/rule.ml` does.
+- **A palette colour looked up only in `Scheme.hex_color`.** That table holds
+  per-render overrides and is empty by default, so the lookup fails and the
+  fallback is wrong.
+- **A class name printed back from its parsed value.** The class name is also
+  the selector that must match the HTML, so it must come out exactly as
+  written. `min-[0.5ch]:flex` once produced `.min-\[\.5ch\]\:flex`, because
+  the number printer drops the leading zero. Test a new family with a value
+  the printer would respell, and check the selector as well as the
+  declaration.
 
-## Known limits
+## Known differences
 
-- **Placeholder classes.** The docs pages carry literal `<value>` and `<color>`
-  placeholders, so the site list holds `blur-[<value>]`, `shadow-[<value>]`
-  and some sixty more that Tailwind emits as `filter: blur(<value>)` and no
-  browser accepts; `bg-[--brand-color]` (v3 syntax) and `justify-baseline` are
-  of the same kind. tw emits nothing for them, Chromium drops each of
-  Tailwind's declarations, and both pages render the same, which is parity.
-  cascade's reader refuses the declarations as the browser does and drops
-  them from the parsed reference with a parse warning each, so the canonical
-  diff answers on what a browser would keep and exits 0 when that is the
-  same; the warnings the script prints say where its reader had to decide.
-- **A bracket value neither property can take** is placed differently:
-  `border-[50%]` is `border-color: 50%` in Tailwind and `border-width: 50%` in
-  tw, and `decoration-[2]` is `text-decoration-color: 2` in Tailwind and
-  nothing in tw. `Css.color` has no numeric inhabitant, so tw cannot spell the
-  Tailwind form without an untyped escape. Browsers drop both.
-- **The size budget is one minifier against another.** cascade folds `calc()`
-  only where the fold is exact, so the typography component keeps
-  `line-height: calc(28/18)` where lightningcss rounds it to `1.55556`.
+- **Placeholder classes on the Tailwind site.** Its documentation contains
+  literal placeholders, so the class list includes `blur-[<value>]`,
+  `shadow-[<value>]` and about sixty similar names, plus `bg-[--brand-color]`
+  (v3 syntax) and `justify-baseline`. Tailwind emits declarations for them
+  that no browser accepts, and `tw` emits nothing. Both pages render the same.
+  cascade drops those declarations as a browser would, with a parse warning
+  each, so the canonical diff still reports no difference.
+- **Arbitrary values that fit neither property.** `border-[50%]` becomes
+  `border-color: 50%` in Tailwind and `border-width: 50%` in `tw`, and
+  `decoration-[2]` becomes `text-decoration-color: 2` in Tailwind and nothing
+  in `tw`. `tw`'s typed colour values cannot hold a number, and browsers ignore
+  both forms anyway.
+- **The size comparison is also a minifier comparison.** cascade folds
+  `calc()` only when the result is exact, so the typography plugin keeps
+  `line-height: calc(28/18)` where lightningcss writes `1.55556`.
 
 Anything else the site comparison reports is worth investigating, and so is
-the disappearance of any of the above.
+any of these differences disappearing.

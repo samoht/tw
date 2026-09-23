@@ -159,17 +159,26 @@ let rec dir_containing name dir =
 
 let pinned_cli_relative = "node_modules/.bin/tailwindcss"
 
-(* Scratch files stay in a project-local [tmp/], never a system temp directory:
-   that one is shared with every other user and run on the machine, and the CLI
+(* Scratch files stay inside a project, never in a system temp directory: that
+   one is shared with every other user and run on the machine, and the CLI
    resolves [@import "tailwindcss"] against the nearest [node_modules] above the
    entrypoint, which a system directory has none of.
 
-   The project is the tree the running executable was built in, which is the one
-   carrying the pinned CLI, rather than the caller's directory. A worktree's
-   binary is routinely invoked from another checkout, and a caller-relative
-   scratch root sends its generated entrypoints into that checkout instead. An
-   installed binary has no such tree and keeps the caller-relative root, which
-   resolves against whatever project the caller stands in. *)
+   The project is the tree the running executable was built in when it carries
+   the pinned CLI, and the scratch root its [tmp/], which the checkout ignores.
+   A worktree's binary is routinely invoked from another checkout, and a
+   caller-relative root sends its generated entrypoints into that checkout
+   instead.
+
+   An installed binary has no such tree and writes into the caller's project, so
+   it must not leave anything there. It uses the [.cache/tw] of the nearest
+   [node_modules] above the working directory, where JavaScript tools keep their
+   scratch files and which a project already ignores; resolution from there
+   walks up to that same [node_modules]. With none above there is no project
+   tree for the CLI to resolve against, and a hidden [.tw-scratch] in the
+   working directory serves. Either way the directories tw creates are removed
+   when it exits, as each file in them is removed after its run; a directory
+   still holding another run's files is left to that run. *)
 let executable_dir () =
   let self = Sys.executable_name in
   let self =
@@ -178,20 +187,61 @@ let executable_dir () =
   in
   Filename.dirname self
 
-let tmp_root () =
+(* Where scratch files go, and whether the directory outlives the run. *)
+let scratch_root () =
   match dir_containing pinned_cli_relative (executable_dir ()) with
-  | Some root -> Filename.concat root "tmp"
-  | None -> Filename.concat (Sys.getcwd ()) "tmp"
+  | Some root -> `Checkout (Filename.concat root "tmp")
+  | None -> (
+      let cwd = Sys.getcwd () in
+      match dir_containing "node_modules" cwd with
+      | Some project ->
+          `Project
+            (List.fold_left Filename.concat project
+               [ "node_modules"; ".cache"; "tw" ])
+      | None -> `Project (Filename.concat cwd ".tw-scratch"))
 
-let ensure_tmp_root root =
-  (* Another test binary may have created it between the two calls. *)
-  if not (Sys.file_exists root) then
-    try Sys.mkdir root 0o755 with Sys_error _ -> ()
+let tmp_root () = match scratch_root () with `Checkout d | `Project d -> d
+
+(* The directories tw created, innermost first, so that removing them in order
+   empties each parent before it is reached. *)
+let created_dirs = ref []
+
+let remove_created_dirs () =
+  List.iter
+    (fun dir -> try Sys.rmdir dir with Sys_error _ -> ())
+    !created_dirs;
+  created_dirs := []
+
+let rec mkdir_tracked dir =
+  if not (Sys.file_exists dir) then begin
+    mkdir_tracked (Filename.dirname dir);
+    (* Another run may have created it between the two calls. *)
+    match Sys.mkdir dir 0o755 with
+    | () ->
+        if !created_dirs = [] then at_exit remove_created_dirs;
+        created_dirs := dir :: !created_dirs
+    | exception Sys_error _ -> ()
+  end
 
 let tmp_file prefix suffix =
-  let root = tmp_root () in
-  ensure_tmp_root root;
-  Filename.temp_file ~temp_dir:root prefix suffix
+  let root =
+    match scratch_root () with
+    | `Checkout root ->
+        (* The checkout's own [tmp/] outlives the run. Another test binary may
+           have created it between the two calls. *)
+        (if not (Sys.file_exists root) then
+           try Sys.mkdir root 0o755 with Sys_error _ -> ());
+        root
+    | `Project root ->
+        mkdir_tracked root;
+        root
+  in
+  (* A concurrent run removes the directory once it holds nothing, so it may
+     have gone between creating it here and the file going in. *)
+  try Filename.temp_file ~temp_dir:root prefix suffix
+  with Sys_error _ when not (Sys.file_exists root) ->
+    mkdir_tracked root;
+    Filename.temp_file ~temp_dir:root prefix suffix
 
 let first_line path =
   let ic = open_in path in

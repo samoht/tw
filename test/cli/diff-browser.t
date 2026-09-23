@@ -15,3 +15,19 @@ compiled:
   $ tw -s p-4 --diff --html page.html
   Error: no element of page.html carries p-4, so the browser would compare nothing for it
   [2]
+
+`--html` is a path like `-i`, so under `--cwd` it is read against that
+directory rather than the one tw was started from:
+
+  $ mkdir -p proj/templates
+  $ echo '<div class="m-2"></div>' > proj/templates/index.html
+  $ tw --cwd proj -s p-4 --diff --html templates/index.html
+  Error: no element of templates/index.html carries p-4, so the browser would compare nothing for it
+  [2]
+
+A document that is not there is reported the way a missing `-i` is:
+
+  $ tw --cwd proj -s p-4 --diff --html templates/missing.html
+  Usage: tw [--help] [OPTION]… [PATH]…
+  tw: no 'templates/missing.html' file or directory
+  [124]
