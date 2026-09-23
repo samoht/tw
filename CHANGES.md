@@ -1,3 +1,10 @@
+## Unreleased
+
+### Command line
+
+- `--html` is read against `--cwd`, like `-i`, `-o` and the paths to scan
+  (#885).
+
 ## 1.1.0
 
 ### Breaking changes
