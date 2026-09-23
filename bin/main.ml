@@ -3,19 +3,12 @@ module Entrypoint = Tw_tools.Entrypoint
 open Cascade_diff
 open Cmdliner
 
-(* Parse a whitespace-separated string of classes *)
-let parse_classes ?(warn = true) ?(theme = Tw.Scheme.default) classes_str =
-  let class_names = Tw_tools.Source_scan.split_whitespace classes_str in
+(* The utilities of a whitespace-separated string of classes, less the names no
+   utility reads. *)
+let parse_classes ~theme classes_str =
   List.filter_map
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Ok style -> Some style
-      | Error (`Msg msg) ->
-          (* The parser says why - a v3 spelling, a malformed arbitrary property
-             - and repeating "Unknown class" here threw that away. *)
-          if warn then Fmt.epr "Warning: %s@." msg;
-          None)
-    class_names
+    (fun cls -> Result.to_option (Tw.of_string ~theme cls))
+    (Tw_tools.Source_scan.split_whitespace classes_str)
 
 let ignored_scan_entry name =
   name = "_build" || name = "node_modules" || name = ".git"
@@ -213,7 +206,7 @@ let unknown_class_error ~theme class_str =
 let single_class_sheet ~(opts : gen_opts) ~base class_str =
   match opts.input_css_path with
   | None -> (
-      match parse_classes ~warn:false ~theme:opts.theme class_str with
+      match parse_classes ~theme:opts.theme class_str with
       | [] when class_str <> "" -> None
       | styles -> Some (Tw.to_css ~theme:opts.theme ~base styles))
   | Some _ as entrypoint ->
@@ -380,9 +373,13 @@ let collect_files paths =
       else [])
     paths
 
+(* A scan reads every token that could be a class, as Tailwind's extractor does,
+   so an unknown one is usually prose or code rather than a typo and is not
+   reported. A scan in which no token at all is a class usually means the wrong
+   files were scanned, and that is said. *)
 let print_stats ~quiet ~candidate_count ~known_count =
   if (not quiet) && known_count = 0 && candidate_count > 0 then (
-    Fmt.epr "@.--- Statistics ---%@.";
+    Fmt.epr "@.--- Statistics ---@.";
     Fmt.epr "Candidate tokens scanned: %d@." candidate_count;
     Fmt.epr "Successfully parsed: %d@." known_count)
 
@@ -679,7 +676,12 @@ let optimize_flag =
   Arg.(value & flag & info [ "optimize" ] ~doc)
 
 let quiet_flag =
-  let doc = "Suppress warnings about unknown classes" in
+  let doc =
+    "Suppress the note printed when a scan finds candidate tokens but none of \
+     them is a class. A scan does not report unknown tokens one by one: like \
+     Tailwind's, it reads every token that could be a class, and most are not \
+     meant as one."
+  in
   Arg.(value & flag & info [ "q"; "quiet"; "silent" ] ~doc)
 
 let input_css_arg =
