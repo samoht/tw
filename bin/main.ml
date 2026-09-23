@@ -779,7 +779,10 @@ let html_arg =
      class compared must appear in $(docv). Needs node and a headless \
      Chromium, and exits 2 without them."
   in
-  Arg.(value & opt (some file) None & info [ "html" ] ~docv:"FILE" ~doc)
+  (* A plain string rather than [file]: [file] checks the path when the command
+     line is parsed, before [--cwd] has moved the process, so a document named
+     against that directory would be refused. [run] checks it once there. *)
+  Arg.(value & opt (some string) None & info [ "html" ] ~docv:"FILE" ~doc)
 
 let backend_term =
   let backend tailwind diff diff_mode html =
@@ -850,15 +853,15 @@ let man =
   ]
 
 (* [--cwd] moves the process before any path is read, so the entrypoint, the
-   output and the paths are all read against it, as Tailwind's CLI reads [-i]
-   and [-o]. *)
+   output, the [--html] document and the paths are all read against it, as
+   Tailwind's CLI reads [-i] and [-o]. *)
 let run ~minify ~optimize ~quiet s b css_m (backend, diff_mode, html) input_css
     output watching cwd paths =
   Option.iter Sys.chdir cwd;
   let missing =
     List.find_opt
       (fun path -> not (Sys.file_exists path))
-      (Option.to_list input_css @ paths)
+      (Option.to_list input_css @ Option.to_list html @ paths)
   in
   match missing with
   | Some path -> `Error (true, Fmt.str "no '%s' file or directory" path)
