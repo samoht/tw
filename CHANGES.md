@@ -154,6 +154,10 @@
 
 ### Command line
 
+- `tw --diff` and `tw --tailwind` find a `tailwindcss` or `npx` on `PATH`
+  without asking `which`, which Arch Linux does not install; the lookup, like
+  the project's own `node_modules/.bin/tailwindcss`, skips a file that is not
+  executable.
 - `-q` says what it suppresses, and the scan statistics header no longer ends
   in a stray `@.` (#887).
 - An installed `tw --diff` or `tw --tailwind` no longer leaves a `tmp/`
