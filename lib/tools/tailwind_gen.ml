@@ -348,6 +348,31 @@ let describe_candidate label = function
       label ^ version ^ ", but it did not compile the probe entrypoint under "
       ^ tmp_root ()
 
+(* A program resolved the way opam resolves one, with no shell involved: a name
+   holding a slash is that file, and a bare name is the first executable match
+   in [PATH], a match without the execute bit skipped as the shell skips it.
+   Asking a shell instead needs a [which] binary, and Arch Linux installs none,
+   or [command -v], and dash answers that for any file named by path. *)
+let resolve_command name =
+  let executable path =
+    (try not (Sys.is_directory path) with Sys_error _ -> false)
+    &&
+      try
+        Unix.access path [ Unix.X_OK ];
+        true
+      with Unix.Unix_error _ -> false
+  in
+  if String.contains name '/' then if executable name then Some name else None
+  else
+    let path = Option.value ~default:"" (Sys.getenv_opt "PATH") in
+    List.find_map
+      (fun dir ->
+        if dir = "" then None
+        else
+          let candidate = Filename.concat dir name in
+          if executable candidate then Some candidate else None)
+      (String.split_on_char ':' path)
+
 (* Worktrees can safely share an installed node_modules tree: the packages are
    read-only while tests run. Do not put npx between the harness and the pinned
    binary, because concurrent npx processes coordinate through npm's shared
@@ -376,14 +401,8 @@ let project_tailwindcss_command () =
   match root with
   | None -> None
   | Some root ->
-      let path = Filename.concat root relative in
-      let executable =
-        try
-          Unix.access path [ Unix.X_OK ];
-          true
-        with Unix.Unix_error _ -> false
-      in
-      if executable then Some (Filename.quote path) else None
+      Option.map Filename.quote
+        (resolve_command (Filename.concat root relative))
 
 (* Candidates in the order they are tried, and the search stops at the first
    usable one, so a project pin costs one probe and npx is never run behind it.
@@ -391,7 +410,7 @@ let project_tailwindcss_command () =
    project pin is labelled by its relative path, since the absolute one says
    nothing a reader of the message does not already know. *)
 let tailwindcss_command () =
-  let have cmd = Sys.command ("which " ^ cmd ^ " > /dev/null 2>&1") = 0 in
+  let have cmd = Option.is_some (resolve_command cmd) in
   let project = project_tailwindcss_command () in
   let candidates =
     [
