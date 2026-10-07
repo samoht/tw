@@ -1,3 +1,12 @@
+## Unreleased
+
+### OCaml API
+
+- `bg-*`, gradient and scrollbar utilities honour `Scheme.colors` overrides,
+  as text and border utilities already did (#891).
+- A colour defined only in `Scheme.colors`, such as `bg-neon-plum`, parses as
+  a class (#892).
+
 ## 1.1.0
 
 ### Breaking changes

@@ -1128,8 +1128,8 @@ let palette_nodes =
     ];
   table
 
-(* Convert color to CSS color value *)
-let to_css ?theme color shade =
+(* The value a colour has with no scheme colour standing in for it. *)
+let palette_css ?theme color shade =
   match color with
   (* Tailwind writes these two palette entries in the three digits its own theme
      block spells, where every other entry is an [oklch()]. [Css.hex] keeps the
@@ -1298,6 +1298,30 @@ let opacity_keyword = function
 
 (* Check if a color is a theme-named color (no shade suffix) *)
 let is_theme_named = function Theme_named _ -> true | _ -> false
+
+(* The name a scheme keys a colour's token by: [pink-500], [black], or a project
+   colour's own name. *)
+let scheme_color_name c shade =
+  match c with
+  | Black | White | Theme_named _ -> pp c
+  | _ -> pp c ^ "-" ^ string_of_int shade
+
+(* The value a scheme binds a colour's token to. *)
+let scheme_color ?theme c shade : Css.color option =
+  match theme with
+  | None -> None
+  | Some scheme -> (
+      match Scheme.color scheme (scheme_color_name c shade) with
+      | Some (Scheme.Hex hex) -> Some (Css.hex hex)
+      | Some (Scheme.Oklch { l; c; h }) -> Some (css_color_of_oklch { l; c; h })
+      | None -> None)
+
+(* A colour's value: what the scheme binds its token to, or else the palette's.
+   Every utility reads the token, so every utility has to read it here. *)
+let to_css ?theme color shade =
+  match scheme_color ?theme color shade with
+  | Some value -> value
+  | None -> palette_css ?theme color shade
 
 (* Check if a color should NOT have a shade suffix in class names *)
 let is_shadeless c = is_base_color c || is_custom_color c || is_theme_named c
@@ -1683,10 +1707,8 @@ let palette_is_declared theme color shade =
 let shade_of_strings ?theme parts =
   let theme_named () =
     let name = String.concat "-" parts in
-    if
-      Parse.is_valid_theme_name name
-      && Scheme.theme_value theme ("color-" ^ name) <> None
-    then Ok (Theme_named name, 500)
+    if Parse.is_valid_theme_name name && Scheme.declares_color theme name then
+      Ok (Theme_named name, 500)
     else Error (`Msg ("Invalid color: " ^ name))
   in
   match parts with
@@ -1722,9 +1744,7 @@ let shade_and_opacity_of_strings ?theme parts =
     | last :: front ->
         let base, opacity = parse_opacity_modifier ?theme last in
         let name = String.concat "-" (List.rev (base :: front)) in
-        if
-          Parse.is_valid_theme_name name
-          && Scheme.theme_value theme ("color-" ^ name) <> None
+        if Parse.is_valid_theme_name name && Scheme.declares_color theme name
         then Ok (Theme_named name, 500, opacity)
         else Error (`Msg ("Invalid color: " ^ name))
   in
@@ -1898,21 +1918,8 @@ module Handler = struct
 
   (** Resolve the optionally-threaded theme, defaulting to the base scheme. *)
 
-  (** Get the scheme color name for a color and shade (e.g., "red-500"). Must be
-      defined before [open Css] to use the outer [color] type. *)
-  let scheme_color_name (c : color) shade =
-    let base = pp c in
-    match c with
-    | Black | White | Theme_named _ -> base
-    | _ -> base ^ "-" ^ string_of_int shade
-
-  (** Get the color value for a color and shade, checking scheme first. When
-      scheme defines the color as hex, returns hex. Otherwise returns oklch. *)
   let get_color_value ?theme (c : color) shade =
-    let color_name = scheme_color_name c shade in
-    match Scheme.hex_color (Scheme.or_default theme) color_name with
-    | Some hex -> Css.hex hex
-    | None -> to_css ?theme c (if is_base_color c then 500 else shade)
+    to_css ?theme c (if is_base_color c then 500 else shade)
 
   (* The theme-layer declaration for a palette colour together with the typed
      reference to it, so a utility outside this module can both emit the token
@@ -1931,12 +1938,6 @@ module Handler = struct
         List.map (fun sh -> fst (color_binding ?theme c sh)) shades)
       palette_names
 
-  (* The theme-layer declaration for a colour token named like "color-red-500",
-     or None when the name is not a catalogued colour token. [color_var]
-     registers the token's canonical order and [get_color_value] supplies the
-     typed value, so the result matches what a colour utility would emit. Used
-     to emit tokens that arbitrary values reference via var() but that no colour
-     utility set. *)
   (* The palette colour a [--color-*] token names, so a value that references
      the token can be rendered from the palette. *)
   let theme_color_of_name name =
@@ -1948,18 +1949,24 @@ module Handler = struct
       | Ok (c, shade) when not (is_custom_color c) -> Some (c, shade)
       | _ -> None
 
+  (* The theme-layer declaration for a colour token named like "color-red-500",
+     or None when the name is not a catalogued colour token: a palette colour,
+     or one the scheme's [colors] names. [color_var] registers the token's
+     canonical order and [get_color_value] supplies the typed value, so the
+     result matches what a colour utility would emit. Used to emit tokens that
+     arbitrary values reference via var() but that no colour utility set. *)
   let theme_color_decl ?theme name =
-    if not (String.starts_with ~prefix:"color-" name && String.length name > 6)
-    then None
-    else
-      let rest = String.sub name 6 (String.length name - 6) in
-      match shade_of_strings (String.split_on_char '-' rest) with
-      | Ok (c, shade) when not (is_custom_color c) ->
-          let decl =
-            Var.set (color_var c shade) (get_color_value ?theme c shade)
-          in
-          Some decl
-      | _ -> None
+    let decl c shade =
+      Some (Var.set (color_var c shade) (get_color_value ?theme c shade))
+    in
+    match theme_color_of_name name with
+    | Some (c, shade) -> decl c shade
+    | None when String.starts_with ~prefix:"color-" name -> (
+        let rest = String.sub name 6 (String.length name - 6) in
+        match Option.bind theme (fun t -> Scheme.color t rest) with
+        | Some _ -> decl (Theme_named rest) 500
+        | None -> None)
+    | None -> None
 
   (** Get a color variable for a property. Checks if a property-scoped theme
       value exists (e.g., [--accent-color-blue-500]) and if so creates a
@@ -1985,7 +1992,7 @@ module Handler = struct
 
   (** Get the color value for use with color variables. Checks for
       property-scoped theme value first, then scheme, then generic theme value,
-      then converts from oklch as fallback. *)
+      then the palette. *)
   let property_color_value ?theme ~property_prefix (c : color) shade =
     let color_name = scheme_color_name c shade in
     let prop_name = property_prefix ^ "-" ^ color_name in
@@ -1997,14 +2004,15 @@ module Handler = struct
     match Scheme.theme_value theme prop_name with
     | Some value -> parse_theme_color value
     | None -> (
-        match Scheme.hex_color (Scheme.or_default theme) color_name with
-        | Some hex -> Css.hex hex
+        let shade = if is_base_color c then 500 else shade in
+        match scheme_color ?theme c shade with
+        | Some value -> value
         | None -> (
             (* Check theme value overrides for standard color name *)
             let std_name = "color-" ^ color_name in
             match Scheme.theme_value theme std_name with
             | Some value -> parse_theme_color value
-            | None -> to_css ?theme c (if is_base_color c then 500 else shade)))
+            | None -> palette_css ?theme c shade))
 
   (* Aliases for names that open Css shadows: the color constructors below, and
      [Pp], whose byte formatter cascade's own [Pp] does not carry. *)
@@ -3598,9 +3606,8 @@ module Utility_factory = Utility.Make (Handler)
 (** Register color handler with Utility system *)
 
 (** Re-export helper functions from Handler for use by other modules *)
-let scheme_color_name = Handler.scheme_color_name
-
 let property_color_var = Handler.property_color_var
+
 let property_color_value = Handler.property_color_value
 let opacity_to_percent = Handler.opacity_to_percent
 let opacity_var_bare = Handler.opacity_var_bare
@@ -4026,7 +4033,7 @@ let channel_inherit ch =
     [ Var.set ch.color Css.Inherit ]
 
 let palette_hex ?theme ?property_prefix c shade =
-  let color_name = Handler.scheme_color_name c shade in
+  let color_name = scheme_color_name c shade in
   let scoped =
     match property_prefix with
     | Some prefix -> Scheme.theme_value theme (prefix ^ "-" ^ color_name)

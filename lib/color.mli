@@ -73,7 +73,8 @@ val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
 
 val to_css : ?theme:Scheme.t -> color -> int -> Css.color
-(** [to_css ?theme color shade] converts a color to CSS color value. A project
+(** [to_css ?theme color shade] converts a color to CSS color value. A colour
+    [theme.colors] binds takes that value instead of the palette's. A project
     token declared in an [\@theme] block has no palette entry, so [theme]
     supplies its value; without one such a colour reads as transparent. *)
 

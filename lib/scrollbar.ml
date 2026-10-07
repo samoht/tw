@@ -103,7 +103,9 @@ module Handler = struct
     | Raw (_, value) -> ([ keyword value ], [])
     | Theme (color, shade, Color.No_opacity) ->
         let color_decl, color_ref =
-          Var.binding (Color.color_var color shade) (Color.to_css color shade)
+          Var.binding
+            (Color.color_var color shade)
+            (Color.to_css ?theme color shade)
         in
         let set_decl = Var.set set_var (Css.Var color_ref) in
         ([ color_decl; set_decl ], [])
@@ -115,7 +117,9 @@ module Handler = struct
         in
         let fallback = Var.set set_var (Css.hex fallback_hex) in
         let color_decl, color_ref =
-          Var.binding (Color.color_var color shade) (Color.to_css color shade)
+          Var.binding
+            (Color.color_var color shade)
+            (Color.to_css ?theme color shade)
         in
         let supports_decl =
           Var.set set_var (Color.mix_alpha op (Css.Var color_ref))
