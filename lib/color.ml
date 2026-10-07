@@ -1707,10 +1707,8 @@ let palette_is_declared theme color shade =
 let shade_of_strings ?theme parts =
   let theme_named () =
     let name = String.concat "-" parts in
-    if
-      Parse.is_valid_theme_name name
-      && Scheme.theme_value theme ("color-" ^ name) <> None
-    then Ok (Theme_named name, 500)
+    if Parse.is_valid_theme_name name && Scheme.declares_color theme name then
+      Ok (Theme_named name, 500)
     else Error (`Msg ("Invalid color: " ^ name))
   in
   match parts with
@@ -1746,9 +1744,7 @@ let shade_and_opacity_of_strings ?theme parts =
     | last :: front ->
         let base, opacity = parse_opacity_modifier ?theme last in
         let name = String.concat "-" (List.rev (base :: front)) in
-        if
-          Parse.is_valid_theme_name name
-          && Scheme.theme_value theme ("color-" ^ name) <> None
+        if Parse.is_valid_theme_name name && Scheme.declares_color theme name
         then Ok (Theme_named name, 500, opacity)
         else Error (`Msg ("Invalid color: " ^ name))
   in
@@ -1942,12 +1938,6 @@ module Handler = struct
         List.map (fun sh -> fst (color_binding ?theme c sh)) shades)
       palette_names
 
-  (* The theme-layer declaration for a colour token named like "color-red-500",
-     or None when the name is not a catalogued colour token. [color_var]
-     registers the token's canonical order and [get_color_value] supplies the
-     typed value, so the result matches what a colour utility would emit. Used
-     to emit tokens that arbitrary values reference via var() but that no colour
-     utility set. *)
   (* The palette colour a [--color-*] token names, so a value that references
      the token can be rendered from the palette. *)
   let theme_color_of_name name =
@@ -1959,18 +1949,24 @@ module Handler = struct
       | Ok (c, shade) when not (is_custom_color c) -> Some (c, shade)
       | _ -> None
 
+  (* The theme-layer declaration for a colour token named like "color-red-500",
+     or None when the name is not a catalogued colour token: a palette colour,
+     or one the scheme's [colors] names. [color_var] registers the token's
+     canonical order and [get_color_value] supplies the typed value, so the
+     result matches what a colour utility would emit. Used to emit tokens that
+     arbitrary values reference via var() but that no colour utility set. *)
   let theme_color_decl ?theme name =
-    if not (String.starts_with ~prefix:"color-" name && String.length name > 6)
-    then None
-    else
-      let rest = String.sub name 6 (String.length name - 6) in
-      match shade_of_strings (String.split_on_char '-' rest) with
-      | Ok (c, shade) when not (is_custom_color c) ->
-          let decl =
-            Var.set (color_var c shade) (get_color_value ?theme c shade)
-          in
-          Some decl
-      | _ -> None
+    let decl c shade =
+      Some (Var.set (color_var c shade) (get_color_value ?theme c shade))
+    in
+    match theme_color_of_name name with
+    | Some (c, shade) -> decl c shade
+    | None when String.starts_with ~prefix:"color-" name -> (
+        let rest = String.sub name 6 (String.length name - 6) in
+        match Option.bind theme (fun t -> Scheme.color t rest) with
+        | Some _ -> decl (Theme_named rest) 500
+        | None -> None)
+    | None -> None
 
   (** Get a color variable for a property. Checks if a property-scoped theme
       value exists (e.g., [--accent-color-blue-500]) and if so creates a

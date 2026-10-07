@@ -217,6 +217,11 @@ let or_default theme = Option.value ~default theme
 
 let theme_value theme name = Option.bind theme (fun s -> token_override s name)
 
+let declares_color theme name =
+  match theme with
+  | None -> false
+  | Some t -> color t name <> None || token_override t ("color-" ^ name) <> None
+
 (** Resolve a theme token: override (if any) else the registered default. A
     token the [@theme] block removed resolves to nothing, default or not. *)
 let token scheme name =

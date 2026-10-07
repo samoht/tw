@@ -178,6 +178,10 @@ val is_static_token : t -> string -> bool
 val color : t -> string -> color_value option
 (** [color t name] looks up a color in the scheme. *)
 
+val declares_color : t option -> string -> bool
+(** [declares_color theme name] is whether [theme] binds [--color-<name>],
+    through {!color} or a token override. *)
+
 val spacing : t -> int -> Css.length option
 (** [spacing t n] looks up a spacing value in the scheme. *)
 
