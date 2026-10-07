@@ -2,11 +2,8 @@
 
 ### OCaml API
 
-- A colour in `Scheme.colors` reaches every utility that reads its token.
-  `bg-*`, the gradient stops and the scrollbar colours declared the palette
-  value, an `Oklch` entry was read by no utility, and a sheet mixing
-  `bg-pink-500` and `text-pink-500` kept whichever `--color-pink-500` came
-  first.
+- `bg-*`, gradient and scrollbar utilities honour `Scheme.colors` overrides,
+  as text and border utilities already did (#891).
 
 ## 1.1.0
 
