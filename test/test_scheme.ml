@@ -111,6 +111,33 @@ let test_color_override_any_order () =
   check_declares ~theme ~token:"--color-pink-500" ~value:"#ff3c8e" [ bg; text ];
   check_declares ~theme ~token:"--color-pink-500" ~value:"#ff3c8e" [ text; bg ]
 
+(* [@theme { --color-neon-plum: #aa00aa }] declares a colour the palette lacks,
+   and Tailwind then accepts [bg-neon-plum] and every other colour utility on
+   it. A scheme colour is that token, so its name parses wherever a colour
+   does. *)
+let test_scheme_color_name_parses () =
+  let theme =
+    { Tw.Scheme.default with colors = [ ("neon-plum", Hex "#aa00aa") ] }
+  in
+  List.iter
+    (fun cls ->
+      match Tw.of_string ~theme cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u ->
+          Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u);
+          check_declares ~theme ~token:"--color-neon-plum" ~value:"#aa00aa"
+            [ u ])
+    [
+      "bg-neon-plum";
+      "text-neon-plum";
+      "border-neon-plum";
+      "divide-neon-plum";
+      "fill-neon-plum";
+      "from-neon-plum";
+      "bg-neon-plum/50";
+      "divide-neon-plum/50";
+    ]
+
 let test_breakpoint_override () =
   let s =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("breakpoint-10xl", "1600px") ]
@@ -163,6 +190,7 @@ let tests =
         test_color_override_every_family;
       test_case "color override whatever the order" `Quick
         test_color_override_any_order;
+      test_case "scheme colour name parses" `Quick test_scheme_color_name_parses;
       test_case "breakpoint override" `Quick test_breakpoint_override;
     ]
 
