@@ -1,3 +1,11 @@
+## Unreleased
+
+### OCaml API
+
+- `Tw_html` writes an attribute with an empty value as its bare name, so
+  `At.disabled` renders `disabled` rather than `disabled=""`, and `At.void`
+  writes nothing rather than ` =""` (#894).
+
 ## 1.1.1
 
 ### OCaml API
