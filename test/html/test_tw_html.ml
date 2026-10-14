@@ -34,12 +34,11 @@ let test_html_escaping () =
     (to_string (div ~at:[ At.title "5 > 3 & \"yes\"" ] [ txt "t" ]))
 
 let test_boolean_and_data_attrs () =
-  (* A boolean attribute is written with an empty value, which HTML reads as the
-     attribute being present. A substring on the name alone could not tell that
-     from any other spelling. *)
-  check string "boolean attributes carry an empty value"
-    {|<input disabled="" checked="" required="" />|}
-    (to_string (input ~at:[ At.disabled; At.checked; At.required ] ()));
+  (* A boolean attribute is written as its bare name, which HTML reads as the
+     attribute being present with an empty value. [At.void] writes nothing. *)
+  check string "boolean attributes are bare names"
+    {|<input disabled checked required />|}
+    (to_string (input ~at:[ At.disabled; At.void; At.checked; At.required ] ()));
   check string "aria and data attributes serialise in order, values escaped"
     {|<div aria-label="Greeting" aria-hidden="true" aria-expanded="true" data-user="Tom &amp; Jerry">x</div>|}
     (to_string
