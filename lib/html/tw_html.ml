@@ -38,16 +38,23 @@ module El = struct
         | c -> Buffer.add_char b c)
       s
 
+  (* An empty value is written as the bare name, which HTML reads as the empty
+     string. An empty name is [At.void] and writes nothing. *)
   let add_open_tag b name attrs =
     Buffer.add_char b '<';
     Buffer.add_string b name;
     List.iter
-      (fun (k, v) ->
-        Buffer.add_char b ' ';
-        Buffer.add_string b k;
-        Buffer.add_string b "=\"";
-        add_escaped b v;
-        Buffer.add_char b '"')
+      (function
+        | "", _ -> ()
+        | k, "" ->
+            Buffer.add_char b ' ';
+            Buffer.add_string b k
+        | k, v ->
+            Buffer.add_char b ' ';
+            Buffer.add_string b k;
+            Buffer.add_string b "=\"";
+            add_escaped b v;
+            Buffer.add_char b '"')
       attrs
 
   (* One buffer serves the whole document. Rendering each element to its own
