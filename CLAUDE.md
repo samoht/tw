@@ -363,6 +363,17 @@ and the fields it keys on.
    since it takes length values).
 7. Adding `Raw of string` or similar escape hatches to bypass type safety → **NEVER**. Always add
    the properly typed properties/variants you need. Extend the type system rather than escape it.
+8. Using `Fmt`, `Format` or `Printf` in `lib/` → `lib/` compiles to JavaScript and
+   these bloat the bundle; use `Pp` (`lib/pp.ml`). Inside a module that opens
+   `Css`, a bare `Pp` is `Css.Pp`, so bind the helpers you need before the open.
+   `lib/tools/` is a native-only library where `Fmt` is fine.
+9. Giving constructors a shared prefix (`Sh_xs`, `Arb_hex`) to disambiguate →
+   name them plainly (`Two_xs | Xs | Sm`) and add a type annotation where a bare
+   name is ambiguous. Shadowing a `Css` constructor is fine, `None` included.
+10. Leaving a bare constructor in a GADT match to type-directed disambiguation →
+    annotate the pattern's type. A local build compiles cascade from source and
+    CI builds against the opam-installed library, and the two can pick
+    different constructors.
 
 ---
 
@@ -381,17 +392,59 @@ and the fields it keys on.
   3. Cover invalid inputs with `Test_helpers.check_invalid_input`, passing
      `~why` to say what the rejection claims about Tailwind.
   4. Document any ambiguous spec choices in comments.
+  5. A test encodes the spec. When one disagrees with a change, re-derive the
+     expectation from Tailwind's output and fix whichever side is wrong.
+* merlint's E610 requires every `test/test_<X>.ml` to have a `lib/<X>.ml`, so a
+  check spanning several modules goes into each module's test file, with the
+  shared logic in `test/helpers/test_helpers.ml`, which is exempt.
+* Each upstream fixture test carries its own `@theme`, so its expected CSS
+  follows that theme. `tw -s X --diff` uses Tailwind's default theme; read the
+  test's `@theme` before changing a value to match the CLI.
+* The `test_sort` fuzzer finds real ordering bugs. A failure prints
+  `TEST_SEED=<n>`; replay it with that variable and fix the order. Never pin
+  the seed or skip the case.
 
 ---
 
-## 11) Critical instructions (please read once)
+## 11) Worktrees and gates
+
+* A fresh `git worktree` lacks three gitignored links of the main checkout:
+  `cascade` (the cascade checkout), `_opam` (the local switch) and
+  `node_modules` (the pinned `tailwindcss` CLI from `npm ci`). Recreate them
+  from the worktree root. Without `node_modules` the suite still reports
+  success but skips the Tailwind cases, so set `TW_TAILWIND_TESTS=1` and
+  `TW_BROWSER_TESTS=1` as CI does, or check the test count.
+* `cascade` points at a checkout other work moves, while CI installs the
+  cascade release `tw.opam` asks for. Before trusting a green gate on a change
+  that touches cascade, check the checkout is at that release, or give the
+  worktree its own: `git -C <cascade> worktree add --detach <dir> <tag>`, then
+  point the worktree's `cascade` link at `<dir>`.
+* Format the files you changed with `ocamlformat --inplace`. A repo-wide
+  `dune fmt` also rewrites the cascade tree behind the symlink.
+* `dune build @fmt` can name a correctly formatted file when the dune cache
+  serves a stale correction. Confirm with `ocamlformat FILE | diff - FILE`, or
+  rerun with `DUNE_CACHE=disabled`.
+* The gate before a push is `dune build @runtest`, not `test/test.exe` alone:
+  it also type-checks the MDX examples in `README.md` and the `.mli` files and
+  runs the cram tests in `test/cli/`, the upstream replay and the examples.
+* `dune build @runtest --auto-promote` rewrites every failing cram file,
+  unrelated ones included. Restore those from git and edit the intended one by
+  hand. An error `tw` reports exits 124 in a cram transcript.
+* `scripts/pre-commit` formats and lints staged files; install it with
+  `ln -s ../../scripts/pre-commit .git/hooks/pre-commit`. Fix every merlint
+  finding rather than adding an exclusion. A function that grows past
+  merlint's length limit needs a helper extracted before it commits.
+
+---
+
+## 12) Critical instructions (please read once)
 
 * Use **`tmp/`** for all test/debug files; never `/tmp/`.
 * Prefer **editing** existing docs over creating new ones unless explicitly requested.
 
 ---
 
-## 12) CSS comparison tool bugs — MUST FIX IMMEDIATELY
+## 13) CSS comparison tool bugs — MUST FIX IMMEDIATELY
 
 ⚠️ **CRITICAL**: If `--diff` or cssdiff reports **"No differences found"** but there ARE actual differences in the CSS output, this is **NOT** a known limitation to work around. It is a **bug in the cssdiff tool that MUST be fixed before doing any other work**.
 
@@ -427,7 +480,7 @@ highest priority.
 
 ---
 
-## 13) PR checklist (copy into your description)
+## 14) PR checklist (copy into your description)
 
 * [ ] Variable pattern chosen and used consistently (link line numbers).
 * [ ] Correct layer(s) touched; no cross-layer leakage.
