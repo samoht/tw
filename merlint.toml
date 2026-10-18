@@ -1,6 +1,6 @@
 # Utility parsers are intentionally expressed as large Tailwind class matchers.
-max-complexity = 43
-max-nesting = 9
+max_complexity = 43
+max_nesting = 9
 
 allowed_words = [
   "base_to_style",
