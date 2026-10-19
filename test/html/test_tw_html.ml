@@ -425,6 +425,78 @@ let test_versioned () =
   check bool "a page links its stylesheet the same way" true
     (Option.is_some (Astring.String.find_sub ~sub:href (html p)))
 
+(* Each element is visited once, before its children, with the attributes it
+   renders: the class attribute its utilities became included, [At.void] left
+   out. Raw markup is text to the tree and is not visited. *)
+let test_fold_attrs () =
+  let tree =
+    div
+      ~at:[ At.id "a" ]
+      ~tw:Tw.[ flex ]
+      [
+        section
+          ~at:[ At.id "b"; At.void ]
+          [ a ~at:[ At.href "/x.html#c-1" ] [ txt "x" ] ];
+        raw {|<section id="hidden"></section>|};
+        img ~at:[ At.src "i.png" ] ();
+      ]
+  in
+  let visit name attrs acc = (name, List.map At.to_pair attrs) :: acc in
+  check
+    (list (pair string (list (pair string string))))
+    "elements in document order, with their attributes"
+    [
+      ("div", [ ("class", "flex"); ("id", "a") ]);
+      ("section", [ ("id", "b") ]);
+      ("a", [ ("href", "/x.html#c-1") ]);
+      ("img", [ ("src", "i.png") ]);
+    ]
+    (List.rev (fold_attrs visit tree []))
+
+let relink name attrs =
+  if name <> "a" then attrs
+  else
+    List.map
+      (fun at ->
+        match At.to_pair at with
+        | "href", h -> At.href ("part-2.html" ^ h)
+        | _ -> at)
+      attrs
+
+let test_map_attrs () =
+  let tree =
+    div
+      ~tw:Tw.[ p 4 ]
+      [ a ~at:[ At.href "#x" ] [ txt "x" ]; raw {|<a href="#y">y</a>|} ]
+  in
+  check string "the element's link is rewritten, the raw one is not"
+    {|<div class="p-4"><a href="part-2.html#x">x</a><a href="#y">y</a></div>|}
+    (to_string (map_attrs relink tree))
+
+(* A class attribute the function returns is read as one given through [~at] is:
+   its utilities are the element's, and the other names are reported. *)
+let test_map_attrs_class () =
+  let restyle name attrs =
+    if name <> "span" then attrs
+    else
+      List.map
+        (fun at ->
+          match At.to_pair at with
+          | "class", _ -> At.v "class" "m-2 js-hook"
+          | _ -> at)
+        attrs
+  in
+  let tree =
+    map_attrs restyle (div ~tw:Tw.[ flex ] [ span ~tw:Tw.[ p 1 ] [] ])
+  in
+  check string "the new class is rendered"
+    {|<div class="flex"><span class="m-2 js-hook"></span></div>|}
+    (to_string tree);
+  check (list string) "its utilities replace the old ones" [ "flex"; "m-2" ]
+    (List.map Tw.pp (to_tw tree));
+  check (list string) "its other names are reported" [ "js-hook" ]
+    (unknown_classes tree)
+
 let suite =
   ( "tw_html",
     [
@@ -461,4 +533,7 @@ let suite =
       test_case "escape" `Quick test_escape;
       test_case "class attribute" `Quick test_class_attribute;
       test_case "versioned" `Quick test_versioned;
+      test_case "fold attributes" `Quick test_fold_attrs;
+      test_case "map attributes" `Quick test_map_attrs;
+      test_case "map the class attribute" `Quick test_map_attrs_class;
     ] )
