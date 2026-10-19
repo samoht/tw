@@ -265,6 +265,54 @@ let extract_class_attrs atts =
       else (tw_extra, raw_cls, att :: rest))
     ([], [], []) atts
 
+(* An element's attributes as it renders them: [At.void] writes nothing. *)
+let rendered_attrs atts = List.filter (fun at -> not (At.is_void at)) atts
+
+let fold_attrs f t acc =
+  let rec go acc = function
+    | El.Element (name, atts, children) ->
+        List.fold_left go (f name (rendered_attrs atts) acc) children
+    | El.Void_element (name, atts) -> f name (rendered_attrs atts) acc
+    | El.Text _ | El.Void | El.Raw _ -> acc
+  in
+  go acc t.el
+
+let class_names atts =
+  String.concat " "
+    (List.filter_map (fun (k, v) -> if k = "class" then Some v else None) atts)
+
+(* A class attribute [map_attrs] changed is read again, as [el_with_tw] reads
+   one given through [~at]. *)
+let reclass before after node =
+  let names = class_names after in
+  if String.equal (class_names before) names then node
+  else
+    let own, unknown = Tw.of_classes names in
+    { node with own; unknown }
+
+(* [t.el] and [t.tw] are built together, so an element's children line up with
+   its [kids]. A [<style>] element is the exception: its CSS is a child with no
+   utilities of its own, and it has no [kids]. *)
+let map_attrs f t =
+  let rec go el node =
+    match el with
+    | El.Element (name, atts, children) ->
+        let atts' = f name (rendered_attrs atts) in
+        let children, kids =
+          if List.compare_lengths children node.kids = 0 then
+            List.split (List.map2 go children node.kids)
+          else (List.map (fun c -> fst (go c no_tw)) children, node.kids)
+        in
+        ( El.Element (name, atts', children),
+          { (reclass atts atts' node) with kids } )
+    | El.Void_element (name, atts) ->
+        let atts' = f name (rendered_attrs atts) in
+        (El.Void_element (name, atts'), reclass atts atts' node)
+    | El.Text _ | El.Void | El.Raw _ -> (el, node)
+  in
+  let el, tw = go t.el t.tw in
+  { t with el; tw }
+
 (* Helper to create elements - applies tw classes immediately *)
 let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let atts = Option.value ~default:[] at in

@@ -373,6 +373,21 @@ val has_forms : t -> bool
 (** [has_forms t] returns true if the HTML tree contains form elements (input,
     select, textarea) that benefit from the forms plugin base styles. *)
 
+(** {1:attrs Attributes over a tree} *)
+
+val fold_attrs : (string -> attr list -> 'a -> 'a) -> t -> 'a -> 'a
+(** [fold_attrs f t acc] folds [f name attrs] over the elements of [t] in
+    document order, an element before its children. [name] is the element's tag
+    and [attrs] the attributes it renders, its [class] attribute included and
+    {!At.void} left out. Markup given to {!raw} is not visited. *)
+
+val map_attrs : (string -> attr list -> attr list) -> t -> t
+(** [map_attrs f t] is [t] with the attributes of each element replaced by
+    [f name attrs], [name] and [attrs] as {!fold_attrs} gives them. A [class]
+    attribute [f] changes is read as one given through [~at] is: {!to_tw} and
+    {!unknown_classes} report the names it carries. Markup given to {!raw} is
+    left as it is. *)
+
 (** {1 Page generation} *)
 
 (** How a {!page} delivers its generated CSS. *)

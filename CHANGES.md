@@ -12,6 +12,9 @@
 - `Tw_html.escape`, `Tw_html.At.class'` and `Tw_html.versioned`, the MD5
   cache-buster a page puts on its stylesheet link, are exported for markup
   and links assembled outside a tree (#899).
+- `Tw_html.fold_attrs` and `Tw_html.map_attrs` read and rewrite the attributes
+  of every element in a tree, so links and ids change before rendering rather
+  than in the HTML after it; a class the map changes is read again (#900).
 
 ## 1.1.2
 
