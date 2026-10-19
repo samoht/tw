@@ -324,6 +324,43 @@ let test_unknown_classes_document_order () =
     [ "outer-hook"; "a-hook"; "b-hook"; "c-hook" ]
     (unknown_classes tree)
 
+(* A content security policy covers only what follows it, and a script that sets
+   the theme before the stylesheet loads avoids a flash of the wrong one: the
+   prelude goes right after the character set, before the other meta tags, the
+   title and the stylesheet. *)
+let test_page_prelude () =
+  let csp =
+    meta
+      ~at:
+        [
+          At.v "http-equiv" "Content-Security-Policy";
+          At.content "default-src 'self'";
+        ]
+      ()
+  in
+  let theme = script [ raw "document.documentElement.dataset.theme='dark'" ] in
+  let p =
+    page ~title:"T"
+      ~meta:[ ("description", "d") ]
+      ~prelude:[ csp; theme ] ~tw_css:Inline
+      [ link ~at:[ At.rel "icon"; At.href "i.png" ] () ]
+      [ div [ txt "b" ] ]
+  in
+  check string "prelude after the character set, before everything else"
+    ({|<!DOCTYPE html>|} ^ "\n"
+   ^ {|<html lang="en"><head><meta charset="utf-8" /><meta http-equiv="Content-Security-Policy" content="default-src &#x27;self&#x27;" /><script>document.documentElement.dataset.theme='dark'</script><meta name="description" content="d" /><title>T</title><style>|}
+   ^ sheet p
+   ^ {|</style><link rel="icon" href="i.png" /></head><body><div>b</div></body></html>|}
+    )
+    (html p)
+
+(* [<style>] is a raw-text element: its CSS is written as given. *)
+let test_style () =
+  check string "the stylesheet unescaped, the attributes as given"
+    {|<style media="print">ol>li::marker{content:"\2022"}</style>|}
+    (to_string
+       (style ~at:[ At.media "print" ] {|ol>li::marker{content:"\2022"}|}))
+
 let suite =
   ( "tw_html",
     [
@@ -352,4 +389,6 @@ let suite =
         test_unknown_class_passes_through;
       test_case "unknown classes document order" `Quick
         test_unknown_classes_document_order;
+      test_case "page prelude" `Quick test_page_prelude;
+      test_case "style" `Quick test_style;
     ] )
