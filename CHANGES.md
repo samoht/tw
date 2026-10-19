@@ -6,6 +6,9 @@
   set and ahead of the stylesheet, where a content security policy or a theme
   script has to stand (#897).
 - `Tw_html.style` builds a `<style>` element, its CSS written unescaped (#897).
+- `Tw_html.el` builds an element of any tag as the named constructors do, and
+  the SVG `text`, `tspan`, `desc`, `defs` and `pattern` and the table
+  `caption` have constructors of their own (#898).
 
 ## 1.1.2
 

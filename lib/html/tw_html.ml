@@ -313,6 +313,8 @@ module Livereload = struct
     else empty
 end
 
+let el name ?at ?tw children = el_with_tw name ?at ?tw children
+
 (* HTML Elements with optional Tailwind classes *)
 let div ?at ?tw children = el_with_tw "div" ?at ?tw children
 let span ?at ?tw children = el_with_tw "span" ?at ?tw children
@@ -417,6 +419,7 @@ let tfoot ?at ?tw children = el_with_tw "tfoot" ?at ?tw children
 let tr ?at ?tw children = el_with_tw "tr" ?at ?tw children
 let th ?at ?tw children = el_with_tw "th" ?at ?tw children
 let td ?at ?tw children = el_with_tw "td" ?at ?tw children
+let caption ?at ?tw children = el_with_tw "caption" ?at ?tw children
 
 (* Lists *)
 let ol ?at ?tw children = el_with_tw "ol" ?at ?tw children
@@ -447,6 +450,11 @@ let circle ?at ?tw children = el_with_tw "circle" ?at ?tw children
 let rect ?at ?tw children = el_with_tw "rect" ?at ?tw children
 let path ?at ?tw children = el_with_tw "path" ?at ?tw children
 let line ?at ?tw children = el_with_tw "line" ?at ?tw children
+let text ?at ?tw children = el_with_tw "text" ?at ?tw children
+let tspan ?at ?tw children = el_with_tw "tspan" ?at ?tw children
+let desc ?at ?tw children = el_with_tw "desc" ?at ?tw children
+let defs ?at ?tw children = el_with_tw "defs" ?at ?tw children
+let pattern ?at ?tw children = el_with_tw "pattern" ?at ?tw children
 
 (* CSS delivery strategy: link to an external stylesheet (with cache busting) or
    inline the stylesheet directly into the document. *)

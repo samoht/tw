@@ -445,6 +445,11 @@ end
 
 (** {1 HTML Elements} *)
 
+val el : string -> ?at:attr list -> ?tw:tw list -> t list -> t
+(** [el name ?at ?tw children] is the element [name], built as the named
+    constructors below build theirs, for a tag they do not cover. It always has
+    an end tag: a void element such as {!val-br} has its own constructor. *)
+
 val div : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [div ?at ?tw children] is a div element. *)
 
@@ -632,6 +637,9 @@ val th : ?at:attr list -> ?tw:tw list -> t list -> t
 val td : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [td ?at ?tw children] is a table data cell element. *)
 
+val caption : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [caption ?at ?tw children] is a table caption element. *)
+
 val ol : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [ol ?at ?tw children] is an ordered list element. *)
 
@@ -689,6 +697,25 @@ val path : ?at:attr list -> ?tw:tw list -> t list -> t
 
 val line : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [line ?at ?tw children] creates a line element. *)
+
+val text : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [text ?at ?tw children] creates a text element. *)
+
+val tspan : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [tspan ?at ?tw children] creates a tspan element, a run of text inside
+    {!val-text}. *)
+
+val desc : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [desc ?at ?tw children] creates a desc element, the text description of its
+    parent. *)
+
+val defs : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [defs ?at ?tw children] creates a defs element, holding elements drawn only
+    where they are referenced. *)
+
+val pattern : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [pattern ?at ?tw children] creates a pattern element, a tile a fill or a
+    stroke can repeat. *)
 
 val pp : t -> string
 (** [pp t] pretty-prints HTML element [t]. *)
