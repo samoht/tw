@@ -391,11 +391,12 @@ val page :
   ?charset:string ->
   ?tw_css:tw_css ->
   ?forms:bool ->
+  ?prelude:t list ->
   t list ->
   t list ->
   page
-(** [page ?lang ?meta ?title ?charset ?tw_css ?forms head body] generates a
-    complete HTML page and its corresponding CSS.
+(** [page ?lang ?meta ?title ?charset ?tw_css ?forms ?prelude head body]
+    generates a complete HTML page and its corresponding CSS.
 
     - [lang] defaults to ["en"]
     - [charset] defaults to ["utf-8"]
@@ -408,6 +409,10 @@ val page :
     - [forms] explicitly enables the [\@tailwindcss/forms] plugin base layer,
       mirroring Tailwind's [\@plugin] opt-in. When omitted, the forms base is
       auto-detected from forms utility usage (like prose styling).
+    - [prelude] (default [[]]) goes first in the head, right after the character
+      set and before the [meta] tags, the title and the stylesheet: where a
+      content security policy has to stand to cover them, and where a script
+      that sets the theme runs before the stylesheet applies.
     - [head] is additional content for the head section
     - [body] is the body content
 
@@ -496,6 +501,10 @@ val img : ?at:attr list -> ?tw:tw list -> unit -> t
 
 val script : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [script ?at ?tw children] is a script element. *)
+
+val style : ?at:attr list -> ?tw:tw list -> string -> t
+(** [style ?at ?tw css] is a style element holding [css]. [<style>] is a
+    raw-text element, so [css] is written as given, unescaped. *)
 
 val meta : ?at:attr list -> ?tw:tw list -> unit -> t
 (** [meta ?at ?tw ()] is a meta element. *)

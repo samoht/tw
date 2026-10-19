@@ -1,3 +1,12 @@
+## Unreleased
+
+### OCaml API
+
+- `Tw_html.page ?prelude` puts nodes first in the head, after the character
+  set and ahead of the stylesheet, where a content security policy or a theme
+  script has to stand (#897).
+- `Tw_html.style` builds a `<style>` element, its CSS written unescaped (#897).
+
 ## 1.1.2
 
 ### OCaml API

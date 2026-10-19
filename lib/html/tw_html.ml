@@ -472,24 +472,26 @@ let dedup_by_class utilities =
         true))
     utilities
 
-let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
-    body_content =
+let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
+    head_content body_content =
   (* Build HTML tree with placeholder for CSS link *)
   let meta_charset = meta ~at:[ At.charset charset ] () in
   let meta_tags =
-    meta_charset
-    :: List.map
-         (fun (name, content) ->
-           meta ~at:[ At.name name; At.content content ] ())
-         meta_list
+    (meta_charset :: prelude)
+    @ List.map
+        (fun (name, content) ->
+          meta ~at:[ At.name name; At.content content ] ())
+        meta_list
   in
 
   (* Create the body and collect all Tw styles *)
   let body_element = body body_content in
   let all_tw = to_tw body_element in
 
-  (* Add styles from head content *)
-  let all_tw = dedup_by_class (all_tw @ List.concat_map to_tw head_content) in
+  (* Add styles from the prelude and head content *)
+  let all_tw =
+    dedup_by_class (all_tw @ List.concat_map to_tw (prelude @ head_content))
+  in
 
   (* The forms plugin base layer follows Tailwind's [\@plugin] model: it is
      emitted only when the plugin is explicitly enabled ([~forms:true]), since a
@@ -531,9 +533,9 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
 
 (* Page generation with CSS - use renamed parameters to avoid shadowing *)
 let page ?(lang = "en") ?(meta = []) ?title ?(charset = "utf-8")
-    ?(tw_css = Link "tw.css") ?forms head_content body_content =
+    ?(tw_css = Link "tw.css") ?forms ?(prelude = []) head_content body_content =
   page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css ?forms
-    head_content body_content
+    ~prelude head_content body_content
 
 (* Page accessor functions *)
 let html page = page.html
