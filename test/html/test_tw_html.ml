@@ -361,6 +361,42 @@ let test_style () =
     (to_string
        (style ~at:[ At.media "print" ] {|ol>li::marker{content:"\2022"}|}))
 
+(* [el] builds what the named constructors build, for a tag they do not name. *)
+let test_el () =
+  check string "the tag as given, the class attribute first"
+    {|<foreignObject class="p-2" width="10"><p>x</p></foreignObject>|}
+    (to_string
+       (el "foreignObject"
+          ~at:[ At.v "width" "10" ]
+          ~tw:Tw.[ p 2 ]
+          [ p [ txt "x" ] ]));
+  check (list string) "its utilities are collected" [ "p-2"; "font-bold" ]
+    (List.map Tw.pp
+       (to_tw (el "g" ~tw:Tw.[ p 2 ] [ span ~tw:Tw.[ font_bold ] [] ])))
+
+let test_svg_text () =
+  check string "a chart's description, definitions and text"
+    {|<svg><desc>Two bars</desc><defs><pattern id="h" width="4" height="4"><path d="M0,4L4,0"></path></pattern></defs><text x="1" y="2">A <tspan class="font-bold">&amp; B</tspan></text></svg>|}
+    (to_string
+       (svg
+          [
+            desc [ txt "Two bars" ];
+            defs
+              [
+                pattern
+                  ~at:[ At.id "h"; At.width 4; At.height 4 ]
+                  [ path ~at:[ At.d "M0,4L4,0" ] [] ];
+              ];
+            text
+              ~at:[ At.x "1"; At.y "2" ]
+              [ txt "A "; tspan ~tw:Tw.[ font_bold ] [ txt "& B" ] ];
+          ]))
+
+let test_caption () =
+  check string "a table's caption"
+    {|<table><caption class="sr-only">Shares</caption></table>|}
+    (to_string (table [ caption ~tw:Tw.[ sr_only ] [ txt "Shares" ] ]))
+
 let suite =
   ( "tw_html",
     [
@@ -391,4 +427,7 @@ let suite =
         test_unknown_classes_document_order;
       test_case "page prelude" `Quick test_page_prelude;
       test_case "style" `Quick test_style;
+      test_case "el" `Quick test_el;
+      test_case "svg text" `Quick test_svg_text;
+      test_case "caption" `Quick test_caption;
     ] )
