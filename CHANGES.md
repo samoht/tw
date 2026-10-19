@@ -9,6 +9,9 @@
 - `Tw_html.el` builds an element of any tag as the named constructors do, and
   the SVG `text`, `tspan`, `desc`, `defs` and `pattern` and the table
   `caption` have constructors of their own (#898).
+- `Tw_html.escape`, `Tw_html.At.class'` and `Tw_html.versioned`, the MD5
+  cache-buster a page puts on its stylesheet link, are exported for markup
+  and links assembled outside a tree (#899).
 
 ## 1.1.2
 

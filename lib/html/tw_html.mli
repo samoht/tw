@@ -19,6 +19,11 @@ module At : sig
   val id : string -> attr
   (** [id "my-id"] creates an [id] attribute. *)
 
+  val class' : string -> attr
+  (** [class' names] is a [class] attribute. The names in [names] that are
+      utilities join the element's [~tw] ones, and the others are rendered as
+      given and reported by {!unknown_classes}. *)
+
   (** {1 Global attributes} *)
 
   val title : string -> attr
@@ -315,6 +320,12 @@ val rawf : string list -> t
 val empty : t
 (** [empty] is the empty element, equivalent to no content. *)
 
+val escape : string -> string
+(** [escape s] is [s] with the ampersand, the angle brackets and both quote
+    marks replaced by character references, as {!txt} and attribute values are
+    written. It is for markup assembled outside the tree, before it is given to
+    {!raw}. *)
+
 (** {1 Aria module}
 
     Accessibility attributes following ARIA standards. *)
@@ -418,6 +429,12 @@ val page :
 
     Use {!html} to get the HTML string and {!css} to get the CSS filename and
     stylesheet. *)
+
+val versioned : string -> contents:string -> string
+(** [versioned path ~contents] is [path?v=h], where [h] is the first eight hex
+    digits of the MD5 digest of [contents]. A [<link>] or [<script>] that names
+    a file this way is fetched again whenever the file changes, as a {!page}
+    names its stylesheet. *)
 
 val html : page -> string
 (** [html page] extracts the HTML string from a page result. *)

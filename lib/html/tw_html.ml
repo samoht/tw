@@ -224,6 +224,11 @@ let to_tw t = collect_tree (fun node -> node.own) t.tw
 let unknown_classes t = collect_tree (fun node -> node.unknown) t.tw
 let has_forms t = t.forms
 
+let escape s =
+  let b = Buffer.create (String.length s) in
+  El.add_escaped b s;
+  Buffer.contents b
+
 (* Text helpers *)
 let txt s = { el = El.txt s; tw = no_tw; forms = false }
 let txtf segments = txt (str segments)
@@ -456,6 +461,11 @@ let desc ?at ?tw children = el_with_tw "desc" ?at ?tw children
 let defs ?at ?tw children = el_with_tw "defs" ?at ?tw children
 let pattern ?at ?tw children = el_with_tw "pattern" ?at ?tw children
 
+(* The first 8 hex digits of the MD5 digest of [contents]. *)
+let versioned path ~contents =
+  let hash = String.sub (Digest.to_hex (Digest.string contents)) 0 8 in
+  String.concat "" [ path; "?v="; hash ]
+
 (* CSS delivery strategy: link to an external stylesheet (with cache busting) or
    inline the stylesheet directly into the document. *)
 type tw_css = Link of string | Inline
@@ -519,14 +529,12 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
     match tw_css with
     | Inline -> style css_string
     | Link file ->
-        (* Compute MD5 hash of the CSS content for cache busting *)
-        let css_hash =
-          let digest = Digest.string css_string in
-          (* Use the first 8 hex chars of the MD5 digest *)
-          String.sub (Digest.to_hex digest) 0 8
-        in
-        let css_url_with_hash = String.concat "" [ file; "?v="; css_hash ] in
-        link ~at:[ At.rel "stylesheet"; At.href css_url_with_hash ] ()
+        link
+          ~at:
+            [
+              At.rel "stylesheet"; At.href (versioned file ~contents:css_string);
+            ]
+          ()
   in
   let head_children =
     meta_tags
