@@ -397,6 +397,34 @@ let test_caption () =
     {|<table><caption class="sr-only">Shares</caption></table>|}
     (to_string (table [ caption ~tw:Tw.[ sr_only ] [ txt "Shares" ] ]))
 
+(* Markup assembled outside the tree escapes its text as the tree does. *)
+let test_escape () =
+  check string "the five characters text and attribute values escape"
+    "&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&#x27;s&lt;/a&gt;"
+    (escape {|<a href="x">Tom & Jerry's</a>|});
+  check string "as a text node is written"
+    (to_string (txt {|<a href="x">Tom & Jerry's</a>|}))
+    (escape {|<a href="x">Tom & Jerry's</a>|})
+
+let test_class_attribute () =
+  let elem = div ~at:[ At.class' "flex js-hook" ] ~tw:Tw.[ p 4 ] [] in
+  check string "one class attribute, utilities first"
+    {|<div class="p-4 flex js-hook"></div>|} (to_string elem);
+  check (list string) "its utilities join the element's" [ "p-4"; "flex" ]
+    (List.map Tw.pp (to_tw elem));
+  check (list string) "its other names are reported" [ "js-hook" ]
+    (unknown_classes elem)
+
+(* MD5 of "abc" is 900150983cd24fb0d6963f7d28e17f72 (RFC 1321, appendix A.5). *)
+let test_versioned () =
+  check string "the path, then the first eight hex digits of the MD5"
+    "client.js?v=90015098"
+    (versioned "client.js" ~contents:"abc");
+  let p = page ~tw_css:(Link "s.css") [] [ div ~tw:Tw.[ p 4 ] [] ] in
+  let href = {|href="|} ^ versioned "s.css" ~contents:(sheet p) ^ {|"|} in
+  check bool "a page links its stylesheet the same way" true
+    (Option.is_some (Astring.String.find_sub ~sub:href (html p)))
+
 let suite =
   ( "tw_html",
     [
@@ -430,4 +458,7 @@ let suite =
       test_case "el" `Quick test_el;
       test_case "svg text" `Quick test_svg_text;
       test_case "caption" `Quick test_caption;
+      test_case "escape" `Quick test_escape;
+      test_case "class attribute" `Quick test_class_attribute;
+      test_case "versioned" `Quick test_versioned;
     ] )
