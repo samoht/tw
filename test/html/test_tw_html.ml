@@ -324,6 +324,203 @@ let test_unknown_classes_document_order () =
     [ "outer-hook"; "a-hook"; "b-hook"; "c-hook" ]
     (unknown_classes tree)
 
+(* A content security policy covers only what follows it, and a script that sets
+   the theme before the stylesheet loads avoids a flash of the wrong one: the
+   prelude goes right after the character set, before the other meta tags, the
+   title and the stylesheet. *)
+let test_page_prelude () =
+  let csp =
+    meta
+      ~at:
+        [
+          At.v "http-equiv" "Content-Security-Policy";
+          At.content "default-src 'self'";
+        ]
+      ()
+  in
+  let theme = script [ raw "document.documentElement.dataset.theme='dark'" ] in
+  let p =
+    page ~title:"T"
+      ~meta:[ ("description", "d") ]
+      ~prelude:[ csp; theme ] ~tw_css:Inline
+      [ link ~at:[ At.rel "icon"; At.href "i.png" ] () ]
+      [ div [ txt "b" ] ]
+  in
+  check string "prelude after the character set, before everything else"
+    ({|<!DOCTYPE html>|} ^ "\n"
+   ^ {|<html lang="en"><head><meta charset="utf-8" /><meta http-equiv="Content-Security-Policy" content="default-src &#x27;self&#x27;" /><script>document.documentElement.dataset.theme='dark'</script><meta name="description" content="d" /><title>T</title><style>|}
+   ^ sheet p
+   ^ {|</style><link rel="icon" href="i.png" /></head><body><div>b</div></body></html>|}
+    )
+    (html p)
+
+(* [<style>] is a raw-text element: its CSS is written as given. *)
+let test_style () =
+  check string "the stylesheet unescaped, the attributes as given"
+    {|<style media="print">ol>li::marker{content:"\2022"}</style>|}
+    (to_string
+       (style ~at:[ At.media "print" ] {|ol>li::marker{content:"\2022"}|}))
+
+(* [el] builds what the named constructors build, for a tag they do not name. *)
+let test_el () =
+  check string "the tag as given, the class attribute first"
+    {|<foreignObject class="p-2" width="10"><p>x</p></foreignObject>|}
+    (to_string
+       (el "foreignObject"
+          ~at:[ At.v "width" "10" ]
+          ~tw:Tw.[ p 2 ]
+          [ p [ txt "x" ] ]));
+  check (list string) "its utilities are collected" [ "p-2"; "font-bold" ]
+    (List.map Tw.pp
+       (to_tw (el "g" ~tw:Tw.[ p 2 ] [ span ~tw:Tw.[ font_bold ] [] ])))
+
+let test_svg_text () =
+  check string "a chart's description, definitions and text"
+    {|<svg><desc>Two bars</desc><defs><pattern id="h" width="4" height="4"><path d="M0,4L4,0"></path></pattern></defs><text x="1" y="2">A <tspan class="font-bold">&amp; B</tspan></text></svg>|}
+    (to_string
+       (svg
+          [
+            desc [ txt "Two bars" ];
+            defs
+              [
+                pattern
+                  ~at:[ At.id "h"; At.width 4; At.height 4 ]
+                  [ path ~at:[ At.d "M0,4L4,0" ] [] ];
+              ];
+            text
+              ~at:[ At.x "1"; At.y "2" ]
+              [ txt "A "; tspan ~tw:Tw.[ font_bold ] [ txt "& B" ] ];
+          ]))
+
+let test_caption () =
+  check string "a table's caption"
+    {|<table><caption class="sr-only">Shares</caption></table>|}
+    (to_string (table [ caption ~tw:Tw.[ sr_only ] [ txt "Shares" ] ]))
+
+(* Markup assembled outside the tree escapes its text as the tree does. *)
+let test_escape () =
+  check string "the five characters text and attribute values escape"
+    "&lt;a href=&quot;x&quot;&gt;Tom &amp; Jerry&#x27;s&lt;/a&gt;"
+    (escape {|<a href="x">Tom & Jerry's</a>|});
+  check string "as a text node is written"
+    (to_string (txt {|<a href="x">Tom & Jerry's</a>|}))
+    (escape {|<a href="x">Tom & Jerry's</a>|})
+
+let test_class_attribute () =
+  let elem = div ~at:[ At.class' "flex js-hook" ] ~tw:Tw.[ p 4 ] [] in
+  check string "one class attribute, utilities first"
+    {|<div class="p-4 flex js-hook"></div>|} (to_string elem);
+  check (list string) "its utilities join the element's" [ "p-4"; "flex" ]
+    (List.map Tw.pp (to_tw elem));
+  check (list string) "its other names are reported" [ "js-hook" ]
+    (unknown_classes elem)
+
+(* MD5 of "abc" is 900150983cd24fb0d6963f7d28e17f72 (RFC 1321, appendix A.5). *)
+let test_versioned () =
+  check string "the path, then the first eight hex digits of the MD5"
+    "client.js?v=90015098"
+    (versioned "client.js" ~contents:"abc");
+  let p = page ~tw_css:(Link "s.css") [] [ div ~tw:Tw.[ p 4 ] [] ] in
+  let href = {|href="|} ^ versioned "s.css" ~contents:(sheet p) ^ {|"|} in
+  check bool "a page links its stylesheet the same way" true
+    (Option.is_some (Astring.String.find_sub ~sub:href (html p)))
+
+(* Each element is visited once, before its children, with the attributes it
+   renders: the class attribute its utilities became included, [At.void] left
+   out. Raw markup is text to the tree and is not visited. *)
+let test_fold_attrs () =
+  let tree =
+    div
+      ~at:[ At.id "a" ]
+      ~tw:Tw.[ flex ]
+      [
+        section
+          ~at:[ At.id "b"; At.void ]
+          [ a ~at:[ At.href "/x.html#c-1" ] [ txt "x" ] ];
+        raw {|<section id="hidden"></section>|};
+        img ~at:[ At.src "i.png" ] ();
+      ]
+  in
+  let visit name attrs acc = (name, List.map At.to_pair attrs) :: acc in
+  check
+    (list (pair string (list (pair string string))))
+    "elements in document order, with their attributes"
+    [
+      ("div", [ ("class", "flex"); ("id", "a") ]);
+      ("section", [ ("id", "b") ]);
+      ("a", [ ("href", "/x.html#c-1") ]);
+      ("img", [ ("src", "i.png") ]);
+    ]
+    (List.rev (fold_attrs visit tree []))
+
+let relink name attrs =
+  if name <> "a" then attrs
+  else
+    List.map
+      (fun at ->
+        match At.to_pair at with
+        | "href", h -> At.href ("part-2.html" ^ h)
+        | _ -> at)
+      attrs
+
+let test_map_attrs () =
+  let tree =
+    div
+      ~tw:Tw.[ p 4 ]
+      [ a ~at:[ At.href "#x" ] [ txt "x" ]; raw {|<a href="#y">y</a>|} ]
+  in
+  check string "the element's link is rewritten, the raw one is not"
+    {|<div class="p-4"><a href="part-2.html#x">x</a><a href="#y">y</a></div>|}
+    (to_string (map_attrs relink tree))
+
+(* A class attribute the function returns is read as one given through [~at] is:
+   its utilities are the element's, and the other names are reported. *)
+let test_map_attrs_class () =
+  let restyle name attrs =
+    if name <> "span" then attrs
+    else
+      List.map
+        (fun at ->
+          match At.to_pair at with
+          | "class", _ -> At.v "class" "m-2 js-hook"
+          | _ -> at)
+        attrs
+  in
+  let tree =
+    map_attrs restyle (div ~tw:Tw.[ flex ] [ span ~tw:Tw.[ p 1 ] [] ])
+  in
+  check string "the new class is rendered"
+    {|<div class="flex"><span class="m-2 js-hook"></span></div>|}
+    (to_string tree);
+  check (list string) "its utilities replace the old ones" [ "flex"; "m-2" ]
+    (List.map Tw.pp (to_tw tree));
+  check (list string) "its other names are reported" [ "js-hook" ]
+    (unknown_classes tree)
+
+(* A theme that redeclares [dark] reaches the page's sheet: the selector it adds
+   is what lets [Tw.dark] follow a reader's [data-theme] choice. *)
+let test_page_theme () =
+  let theme =
+    {
+      Tw.Scheme.default with
+      dark =
+        Some
+          [
+            {
+              media = None;
+              selector =
+                Tw.Css.Selector.of_string
+                  "&:where([data-theme=dark], [data-theme=dark] *)";
+            };
+          ];
+    }
+  in
+  let utilities = Tw.[ dark [ bg black ] ] in
+  let themed = page ~theme ~tw_css:Inline [] [ div ~tw:utilities [] ] in
+  check string "the sheet is the theme's"
+    (Tw.Css.to_string ~minify:true (Tw.to_css ~theme utilities))
+    (sheet themed)
+
 let suite =
   ( "tw_html",
     [
@@ -352,4 +549,16 @@ let suite =
         test_unknown_class_passes_through;
       test_case "unknown classes document order" `Quick
         test_unknown_classes_document_order;
+      test_case "page prelude" `Quick test_page_prelude;
+      test_case "style" `Quick test_style;
+      test_case "el" `Quick test_el;
+      test_case "svg text" `Quick test_svg_text;
+      test_case "caption" `Quick test_caption;
+      test_case "escape" `Quick test_escape;
+      test_case "class attribute" `Quick test_class_attribute;
+      test_case "versioned" `Quick test_versioned;
+      test_case "fold attributes" `Quick test_fold_attrs;
+      test_case "map attributes" `Quick test_map_attrs;
+      test_case "map the class attribute" `Quick test_map_attrs_class;
+      test_case "page theme" `Quick test_page_theme;
     ] )

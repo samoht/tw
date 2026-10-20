@@ -224,6 +224,11 @@ let to_tw t = collect_tree (fun node -> node.own) t.tw
 let unknown_classes t = collect_tree (fun node -> node.unknown) t.tw
 let has_forms t = t.forms
 
+let escape s =
+  let b = Buffer.create (String.length s) in
+  El.add_escaped b s;
+  Buffer.contents b
+
 (* Text helpers *)
 let txt s = { el = El.txt s; tw = no_tw; forms = false }
 let txtf segments = txt (str segments)
@@ -259,6 +264,54 @@ let extract_class_attrs atts =
         (tw_parsed @ tw_extra, raw @ raw_cls, rest)
       else (tw_extra, raw_cls, att :: rest))
     ([], [], []) atts
+
+(* An element's attributes as it renders them: [At.void] writes nothing. *)
+let rendered_attrs atts = List.filter (fun at -> not (At.is_void at)) atts
+
+let fold_attrs f t acc =
+  let rec go acc = function
+    | El.Element (name, atts, children) ->
+        List.fold_left go (f name (rendered_attrs atts) acc) children
+    | El.Void_element (name, atts) -> f name (rendered_attrs atts) acc
+    | El.Text _ | El.Void | El.Raw _ -> acc
+  in
+  go acc t.el
+
+let class_names atts =
+  String.concat " "
+    (List.filter_map (fun (k, v) -> if k = "class" then Some v else None) atts)
+
+(* A class attribute [map_attrs] changed is read again, as [el_with_tw] reads
+   one given through [~at]. *)
+let reclass before after node =
+  let names = class_names after in
+  if String.equal (class_names before) names then node
+  else
+    let own, unknown = Tw.of_classes names in
+    { node with own; unknown }
+
+(* [t.el] and [t.tw] are built together, so an element's children line up with
+   its [kids]. A [<style>] element is the exception: its CSS is a child with no
+   utilities of its own, and it has no [kids]. *)
+let map_attrs f t =
+  let rec go el node =
+    match el with
+    | El.Element (name, atts, children) ->
+        let atts' = f name (rendered_attrs atts) in
+        let children, kids =
+          if List.compare_lengths children node.kids = 0 then
+            List.split (List.map2 go children node.kids)
+          else (List.map (fun c -> fst (go c no_tw)) children, node.kids)
+        in
+        ( El.Element (name, atts', children),
+          { (reclass atts atts' node) with kids } )
+    | El.Void_element (name, atts) ->
+        let atts' = f name (rendered_attrs atts) in
+        (El.Void_element (name, atts'), reclass atts atts' node)
+    | El.Text _ | El.Void | El.Raw _ -> (el, node)
+  in
+  let el, tw = go t.el t.tw in
+  { t with el; tw }
 
 (* Helper to create elements - applies tw classes immediately *)
 let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
@@ -312,6 +365,8 @@ module Livereload = struct
            ])
     else empty
 end
+
+let el name ?at ?tw children = el_with_tw name ?at ?tw children
 
 (* HTML Elements with optional Tailwind classes *)
 let div ?at ?tw children = el_with_tw "div" ?at ?tw children
@@ -417,6 +472,7 @@ let tfoot ?at ?tw children = el_with_tw "tfoot" ?at ?tw children
 let tr ?at ?tw children = el_with_tw "tr" ?at ?tw children
 let th ?at ?tw children = el_with_tw "th" ?at ?tw children
 let td ?at ?tw children = el_with_tw "td" ?at ?tw children
+let caption ?at ?tw children = el_with_tw "caption" ?at ?tw children
 
 (* Lists *)
 let ol ?at ?tw children = el_with_tw "ol" ?at ?tw children
@@ -447,6 +503,16 @@ let circle ?at ?tw children = el_with_tw "circle" ?at ?tw children
 let rect ?at ?tw children = el_with_tw "rect" ?at ?tw children
 let path ?at ?tw children = el_with_tw "path" ?at ?tw children
 let line ?at ?tw children = el_with_tw "line" ?at ?tw children
+let text ?at ?tw children = el_with_tw "text" ?at ?tw children
+let tspan ?at ?tw children = el_with_tw "tspan" ?at ?tw children
+let desc ?at ?tw children = el_with_tw "desc" ?at ?tw children
+let defs ?at ?tw children = el_with_tw "defs" ?at ?tw children
+let pattern ?at ?tw children = el_with_tw "pattern" ?at ?tw children
+
+(* The first 8 hex digits of the MD5 digest of [contents]. *)
+let versioned path ~contents =
+  let hash = String.sub (Digest.to_hex (Digest.string contents)) 0 8 in
+  String.concat "" [ path; "?v="; hash ]
 
 (* CSS delivery strategy: link to an external stylesheet (with cache busting) or
    inline the stylesheet directly into the document. *)
@@ -472,24 +538,26 @@ let dedup_by_class utilities =
         true))
     utilities
 
-let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
-    body_content =
+let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
+    ?theme head_content body_content =
   (* Build HTML tree with placeholder for CSS link *)
   let meta_charset = meta ~at:[ At.charset charset ] () in
   let meta_tags =
-    meta_charset
-    :: List.map
-         (fun (name, content) ->
-           meta ~at:[ At.name name; At.content content ] ())
-         meta_list
+    (meta_charset :: prelude)
+    @ List.map
+        (fun (name, content) ->
+          meta ~at:[ At.name name; At.content content ] ())
+        meta_list
   in
 
   (* Create the body and collect all Tw styles *)
   let body_element = body body_content in
   let all_tw = to_tw body_element in
 
-  (* Add styles from head content *)
-  let all_tw = dedup_by_class (all_tw @ List.concat_map to_tw head_content) in
+  (* Add styles from the prelude and head content *)
+  let all_tw =
+    dedup_by_class (all_tw @ List.concat_map to_tw (prelude @ head_content))
+  in
 
   (* The forms plugin base layer follows Tailwind's [\@plugin] model: it is
      emitted only when the plugin is explicitly enabled ([~forms:true]), since a
@@ -498,8 +566,8 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
      same way prose styling is driven by the [prose] utility. *)
   let css_stylesheet =
     match forms with
-    | Some forms -> Tw.to_css ~forms all_tw
-    | None -> Tw.to_css all_tw
+    | Some forms -> Tw.to_css ?theme ~forms all_tw
+    | None -> Tw.to_css ?theme all_tw
   in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
 
@@ -509,14 +577,12 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
     match tw_css with
     | Inline -> style css_string
     | Link file ->
-        (* Compute MD5 hash of the CSS content for cache busting *)
-        let css_hash =
-          let digest = Digest.string css_string in
-          (* Use the first 8 hex chars of the MD5 digest *)
-          String.sub (Digest.to_hex digest) 0 8
-        in
-        let css_url_with_hash = String.concat "" [ file; "?v="; css_hash ] in
-        link ~at:[ At.rel "stylesheet"; At.href css_url_with_hash ] ()
+        link
+          ~at:
+            [
+              At.rel "stylesheet"; At.href (versioned file ~contents:css_string);
+            ]
+          ()
   in
   let head_children =
     meta_tags
@@ -531,9 +597,10 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms head_content
 
 (* Page generation with CSS - use renamed parameters to avoid shadowing *)
 let page ?(lang = "en") ?(meta = []) ?title ?(charset = "utf-8")
-    ?(tw_css = Link "tw.css") ?forms head_content body_content =
+    ?(tw_css = Link "tw.css") ?forms ?(prelude = []) ?theme head_content
+    body_content =
   page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css ?forms
-    head_content body_content
+    ~prelude ?theme head_content body_content
 
 (* Page accessor functions *)
 let html page = page.html

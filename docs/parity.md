@@ -140,7 +140,10 @@ or a sheet could not be read.
 
 An entry in the canonical diff is a lead, not yet a bug. Cut it down to the
 classes involved, render them over a page that contains them (and the markup
-their variants look for), and file it according to the table above.
+their variants look for), and file it according to the table above. Run the
+reduced case once more before trusting it: shrinking the input can drop the
+thing under test while keeping its syntax, and a reduction that no longer shows
+the original difference answers a different question.
 
 A few things regularly mislead:
 
@@ -160,6 +163,13 @@ A few things regularly mislead:
 - **A reorder the canonical diff lists may paint nothing.** The diff flags two
   rules that set the same property and might match the same element, without
   checking whether they do. The browser decides.
+- **The canonical diff dedupes `@property`.** A sheet that emits one
+  `@property` many times compares equal to one that emits it once. Count them
+  in the raw sheets, `grep -o '@property [^{ ]*' SHEET | sort | uniq -c`, and
+  compare the top-level statement kinds of both sheets.
+- **A block of reordered `@property` rules is not a target.** Their order has
+  no cascade effect, and Tailwind's emission order is neither first-usage order
+  nor source order. Read past such a block to the difference underneath it.
 - **Use the cascade built in this workspace.** `%{bin:cascade}` and
   `measure.sh` do; an older cascade from an opam switch reports differences
   that are not there.

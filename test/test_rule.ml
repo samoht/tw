@@ -615,6 +615,109 @@ let test_not_bracket_pseudo () =
   check_utilities "not-[:wibble]:flex"
     {|.not-\[\:wibble\]\:flex:not(.\:wibble){display:flex}|}
 
+(* Tailwind's dark mode with a reader's choice on top of the system one: the
+   media query unless the root says light, or [data-theme=dark] whatever the
+   system says. Tailwind 4.3.3 writes this body's two rules in order, media
+   first, for every candidate below. *)
+let dark_entry =
+  {|@import "tailwindcss";
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme=light]) *) { @slot; }
+  }
+  &:where([data-theme=dark], [data-theme=dark] *) { @slot; }
+}
+|}
+
+let dark_theme =
+  {
+    Tw.Scheme.default with
+    dark =
+      Some
+        [
+          {
+            media = Some (Css.Media.of_string "(prefers-color-scheme: dark)");
+            selector =
+              Css.Selector.of_string "&:where(:root:not([data-theme=light]) *)";
+          };
+          {
+            media = None;
+            selector =
+              Css.Selector.of_string
+                "&:where([data-theme=dark], [data-theme=dark] *)";
+          };
+        ];
+  }
+
+let dark_utilities utilities =
+  let sheet =
+    Tw.to_css ~base:false ~theme:dark_theme utilities
+    |> Tw.Css.to_string ~minify:true
+  in
+  match Astring.String.cut ~sep:"@layer utilities" sheet with
+  | Some (_, utilities) -> utilities
+  | None -> Alcotest.failf "no utilities layer in %s" sheet
+
+let test_dark_redeclared () =
+  check string "one rule per branch, the media one first"
+    "{@media(prefers-color-scheme:dark){.dark\\:bg-black:where(:root:not([data-theme=light]) \
+     *){background-color:var(--color-black)}}.dark\\:bg-black:where([data-theme=dark],[data-theme=dark] \
+     *){background-color:var(--color-black)}}"
+    (dark_utilities Tw.[ dark [ bg black ] ])
+
+(* An inner variant's pseudo-class stays after the branch's selector, and its
+   hover gate goes inside the branch's media query. *)
+let test_dark_redeclared_over_hover () =
+  check string "the hover gate inside the branch's media query"
+    "{@media(prefers-color-scheme:dark){@media(hover:hover){.dark\\:hover\\:bg-black:where(:root:not([data-theme=light]) \
+     *):hover{background-color:var(--color-black)}}}@media(hover:hover){.dark\\:hover\\:bg-black:where([data-theme=dark],[data-theme=dark] \
+     *):hover{background-color:var(--color-black)}}}"
+    (dark_utilities Tw.[ dark [ hover [ bg black ] ] ])
+
+let test_dark_redeclared_parses () =
+  let parsed =
+    match Tw.of_string ~theme:dark_theme "dark:bg-black" with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.fail m
+  in
+  check string "dark:bg-black is Tw.dark [ bg black ]"
+    (dark_utilities Tw.[ dark [ bg black ] ])
+    (dark_utilities [ parsed ])
+
+let test_dark_redeclared_matches_tailwind () =
+  Test_helpers.require_tailwind_cli ();
+  let classes =
+    [
+      "dark:bg-black";
+      "dark:text-white";
+      "dark:hover:underline";
+      "hover:dark:bg-white";
+      "md:dark:p-4";
+      "dark:md:m-2";
+      "dark:before:bg-black";
+      "dark:group-hover:text-black";
+    ]
+  in
+  let utilities =
+    List.map
+      (fun cls ->
+        match Tw.of_string ~theme:dark_theme cls with
+        | Ok u -> u
+        | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
+      classes
+  in
+  let tailwind =
+    Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true
+      ~input_css:dark_entry classes
+  in
+  let tw =
+    Tw.to_css ~theme:dark_theme utilities |> Tw.Css.to_string ~minify:true
+  in
+  let diff = Test_helpers.sheet_diff ~tailwind ~tw in
+  match diff.Cascade_diff.Css_compare.result with
+  | Cascade_diff.Css_compare.No_diff -> ()
+  | _ -> Alcotest.fail (Test_helpers.describe_diff diff)
+
 let tests =
   [
     test_case "not-[:pseudo] negates the pseudo-class" `Quick
@@ -685,6 +788,13 @@ let tests =
     test_case "modifier_to_rule" `Quick test_modifier_to_rule;
     test_case "a variant outside starting-style survives" `Quick
       test_variant_outside_starting_style;
+    test_case "a redeclared dark writes a rule per branch" `Quick
+      test_dark_redeclared;
+    test_case "a redeclared dark over hover" `Quick
+      test_dark_redeclared_over_hover;
+    test_case "a redeclared dark parses" `Quick test_dark_redeclared_parses;
+    test_case "a redeclared dark matches Tailwind" `Quick
+      test_dark_redeclared_matches_tailwind;
   ]
 
 let suite = ("rule", tests)

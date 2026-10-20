@@ -1,3 +1,31 @@
+## Unreleased
+
+### Breaking changes
+
+- `Scheme.t` has a new field, `dark`: a scheme written as a full record
+  literal has to set it, one built with `{ Scheme.default with ... }` does not
+  (#901).
+
+### OCaml API
+
+- `Tw_html.page ?prelude` puts nodes first in the head, after the character
+  set and ahead of the stylesheet, where a content security policy or a theme
+  script has to stand (#897).
+- `Tw_html.style` builds a `<style>` element, its CSS written unescaped (#897).
+- `Tw_html.el` builds an element of any tag as the named constructors do, and
+  the SVG `text`, `tspan`, `desc`, `defs` and `pattern` and the table
+  `caption` have constructors of their own (#898).
+- `Tw_html.escape`, `Tw_html.At.class'` and `Tw_html.versioned`, the MD5
+  cache-buster a page puts on its stylesheet link, are exported for markup
+  and links assembled outside a tree (#899).
+- `Tw_html.fold_attrs` and `Tw_html.map_attrs` read and rewrite the attributes
+  of every element in a tree, so links and ids change before rendering rather
+  than in the HTML after it; a class the map changes is read again (#900).
+- `Scheme.dark` redeclares the `dark` variant with a block body, as
+  `@custom-variant dark { ... }` does in an entrypoint, so `Tw.dark` can follow
+  a `data-theme` choice as well as `prefers-color-scheme` (#901).
+- `Tw_html.page ?theme` generates a page's CSS with the given theme (#901).
+
 ## 1.1.2
 
 ### OCaml API

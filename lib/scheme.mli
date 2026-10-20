@@ -17,6 +17,12 @@ type custom_variant = { values : (string * string) list; template : string }
     key [""]) and a selector template with [{}] where the value is substituted.
     [&] in the template denotes the element's own class. *)
 
+type variant_branch = { media : Css.Media.t option; selector : Css.Selector.t }
+(** One rule of a variant's block body: the element's [selector], where [&]
+    ({!Css.Selector.Nesting}) stands for the element, inside [\@media media]
+    when [media] is [Some]. The branch [{ media = Some m; selector = s }] is the
+    body [\@media m { s { \@slot; } }] of a Tailwind [\@custom-variant]. *)
+
 type t = {
   colors : (string * color_value) list;
       (** Color overrides. Key is color name like "red-500". When a color is
@@ -89,6 +95,20 @@ type t = {
           body (e.g. [has-a] -> [\@container style(--a)]). Kept apart from
           {!custom_variants} because the condition is structural, so the [not-]
           prefix negates it soundly. *)
+  dark : variant_branch list option;
+      (** The body of the [dark] variant when the project redeclares it, as
+          Tailwind's [\@custom-variant dark { ... }] does: [Tw.dark] and the
+          [dark:] prefix then write one rule per branch, in order, each under
+          the class [dark:] names. [None], the default, is the built-in
+          [\@media (prefers-color-scheme: dark)].
+
+          A dark theme that follows the reader's choice as well as the system
+          one is two branches: the media query with a selector that a
+          [data-theme=light] root turns off, and a selector for
+          [data-theme=dark].
+          @see <https://tailwindcss.com/docs/dark-mode> Dark mode
+          @see <https://tailwindcss.com/docs/adding-custom-styles#adding-custom-variants>
+            Adding custom variants *)
 }
 (** Theme scheme configuration *)
 

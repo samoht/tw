@@ -1227,7 +1227,9 @@ let to_name color =
     | Css Css.Transparent -> "transparent"
     | Css Css.Inherit -> "inherit"
     | Css c ->
-        (* Serialize CSS color to bracket string for class names *)
+        (* Serialize CSS color to bracket string for class names. Only spaces
+           map to [_]: Tailwind reads an [_] inside a [var()] name as itself,
+           which {!Parse.encode_underscores} would escape. *)
         let s = Css.Pp.to_string ~minify:true Css.pp_color c in
         let s = String.map (fun c -> if c = ' ' then '_' else c) s in
         "[" ^ s ^ "]"
@@ -1571,6 +1573,7 @@ let color_to_string (c : color) : string =
   | Css Css.Transparent -> "transparent"
   | Css Css.Inherit -> "inherit"
   | Css c ->
+      (* Only spaces map to [_], as in [to_name]. *)
       let s = Css.Pp.to_string ~minify:true Css.pp_color c in
       let s = String.map (fun ch -> if ch = ' ' then '_' else ch) s in
       "[" ^ s ^ "]"

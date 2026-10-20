@@ -4340,7 +4340,9 @@ val peer_has : ?name:string -> string -> t list -> t
 (** {2 Theme/Motion/Contrast} *)
 
 val dark : t list -> t
-(** [dark styles] applies [styles] when user prefers dark mode.
+(** [dark styles] applies [styles] when user prefers dark mode, or under the
+    rules of {!Scheme.dark} when the theme the CSS is generated with redeclares
+    the variant.
     @see <https://tailwindcss.com/docs/dark-mode> Dark Mode. *)
 
 val motion_safe : t list -> t

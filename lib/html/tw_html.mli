@@ -19,6 +19,11 @@ module At : sig
   val id : string -> attr
   (** [id "my-id"] creates an [id] attribute. *)
 
+  val class' : string -> attr
+  (** [class' names] is a [class] attribute. The names in [names] that are
+      utilities join the element's [~tw] ones, and the others are rendered as
+      given and reported by {!unknown_classes}. *)
+
   (** {1 Global attributes} *)
 
   val title : string -> attr
@@ -315,6 +320,12 @@ val rawf : string list -> t
 val empty : t
 (** [empty] is the empty element, equivalent to no content. *)
 
+val escape : string -> string
+(** [escape s] is [s] with the ampersand, the angle brackets and both quote
+    marks replaced by character references, as {!txt} and attribute values are
+    written. It is for markup assembled outside the tree, before it is given to
+    {!raw}. *)
+
 (** {1 Aria module}
 
     Accessibility attributes following ARIA standards. *)
@@ -362,6 +373,21 @@ val has_forms : t -> bool
 (** [has_forms t] returns true if the HTML tree contains form elements (input,
     select, textarea) that benefit from the forms plugin base styles. *)
 
+(** {1:attrs Attributes over a tree} *)
+
+val fold_attrs : (string -> attr list -> 'a -> 'a) -> t -> 'a -> 'a
+(** [fold_attrs f t acc] folds [f name attrs] over the elements of [t] in
+    document order, an element before its children. [name] is the element's tag
+    and [attrs] the attributes it renders, its [class] attribute included and
+    {!At.void} left out. Markup given to {!raw} is not visited. *)
+
+val map_attrs : (string -> attr list -> attr list) -> t -> t
+(** [map_attrs f t] is [t] with the attributes of each element replaced by
+    [f name attrs], [name] and [attrs] as {!fold_attrs} gives them. A [class]
+    attribute [f] changes is read as one given through [~at] is: {!to_tw} and
+    {!unknown_classes} report the names it carries. Markup given to {!raw} is
+    left as it is. *)
+
 (** {1 Page generation} *)
 
 (** How a {!page} delivers its generated CSS. *)
@@ -391,11 +417,13 @@ val page :
   ?charset:string ->
   ?tw_css:tw_css ->
   ?forms:bool ->
+  ?prelude:t list ->
+  ?theme:Tw.Scheme.t ->
   t list ->
   t list ->
   page
-(** [page ?lang ?meta ?title ?charset ?tw_css ?forms head body] generates a
-    complete HTML page and its corresponding CSS.
+(** [page ?lang ?meta ?title ?charset ?tw_css ?forms ?prelude ?theme head body]
+    generates a complete HTML page and its corresponding CSS.
 
     - [lang] defaults to ["en"]
     - [charset] defaults to ["utf-8"]
@@ -408,11 +436,24 @@ val page :
     - [forms] explicitly enables the [\@tailwindcss/forms] plugin base layer,
       mirroring Tailwind's [\@plugin] opt-in. When omitted, the forms base is
       auto-detected from forms utility usage (like prose styling).
+    - [prelude] (default [[]]) goes first in the head, right after the character
+      set and before the [meta] tags, the title and the stylesheet: where a
+      content security policy has to stand to cover them, and where a script
+      that sets the theme runs before the stylesheet applies.
+    - [theme] (default {!Tw.Scheme.default}) is the theme the CSS is generated
+      with, as {!Tw.to_css} takes it: its {!Tw.Scheme.dark}, for one, decides
+      what [Tw.dark] writes.
     - [head] is additional content for the head section
     - [body] is the body content
 
     Use {!html} to get the HTML string and {!css} to get the CSS filename and
     stylesheet. *)
+
+val versioned : string -> contents:string -> string
+(** [versioned path ~contents] is [path?v=h], where [h] is the first eight hex
+    digits of the MD5 digest of [contents]. A [<link>] or [<script>] that names
+    a file this way is fetched again whenever the file changes, as a {!page}
+    names its stylesheet. *)
 
 val html : page -> string
 (** [html page] extracts the HTML string from a page result. *)
@@ -439,6 +480,11 @@ module Livereload : sig
 end
 
 (** {1 HTML Elements} *)
+
+val el : string -> ?at:attr list -> ?tw:tw list -> t list -> t
+(** [el name ?at ?tw children] is the element [name], built as the named
+    constructors below build theirs, for a tag they do not cover. It always has
+    an end tag: a void element such as {!val-br} has its own constructor. *)
 
 val div : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [div ?at ?tw children] is a div element. *)
@@ -496,6 +542,10 @@ val img : ?at:attr list -> ?tw:tw list -> unit -> t
 
 val script : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [script ?at ?tw children] is a script element. *)
+
+val style : ?at:attr list -> ?tw:tw list -> string -> t
+(** [style ?at ?tw css] is a style element holding [css]. [<style>] is a
+    raw-text element, so [css] is written as given, unescaped. *)
 
 val meta : ?at:attr list -> ?tw:tw list -> unit -> t
 (** [meta ?at ?tw ()] is a meta element. *)
@@ -623,6 +673,9 @@ val th : ?at:attr list -> ?tw:tw list -> t list -> t
 val td : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [td ?at ?tw children] is a table data cell element. *)
 
+val caption : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [caption ?at ?tw children] is a table caption element. *)
+
 val ol : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [ol ?at ?tw children] is an ordered list element. *)
 
@@ -680,6 +733,25 @@ val path : ?at:attr list -> ?tw:tw list -> t list -> t
 
 val line : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [line ?at ?tw children] creates a line element. *)
+
+val text : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [text ?at ?tw children] creates a text element. *)
+
+val tspan : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [tspan ?at ?tw children] creates a tspan element, a run of text inside
+    {!val-text}. *)
+
+val desc : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [desc ?at ?tw children] creates a desc element, the text description of its
+    parent. *)
+
+val defs : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [defs ?at ?tw children] creates a defs element, holding elements drawn only
+    where they are referenced. *)
+
+val pattern : ?at:attr list -> ?tw:tw list -> t list -> t
+(** [pattern ?at ?tw children] creates a pattern element, a tile a fill or a
+    stroke can repeat. *)
 
 val pp : t -> string
 (** [pp t] pretty-prints HTML element [t]. *)
