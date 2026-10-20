@@ -497,6 +497,30 @@ let test_map_attrs_class () =
   check (list string) "its other names are reported" [ "js-hook" ]
     (unknown_classes tree)
 
+(* A theme that redeclares [dark] reaches the page's sheet: the selector it adds
+   is what lets [Tw.dark] follow a reader's [data-theme] choice. *)
+let test_page_theme () =
+  let theme =
+    {
+      Tw.Scheme.default with
+      dark =
+        Some
+          [
+            {
+              media = None;
+              selector =
+                Tw.Css.Selector.of_string
+                  "&:where([data-theme=dark], [data-theme=dark] *)";
+            };
+          ];
+    }
+  in
+  let utilities = Tw.[ dark [ bg black ] ] in
+  let themed = page ~theme ~tw_css:Inline [] [ div ~tw:utilities [] ] in
+  check string "the sheet is the theme's"
+    (Tw.Css.to_string ~minify:true (Tw.to_css ~theme utilities))
+    (sheet themed)
+
 let suite =
   ( "tw_html",
     [
@@ -536,4 +560,5 @@ let suite =
       test_case "fold attributes" `Quick test_fold_attrs;
       test_case "map attributes" `Quick test_map_attrs;
       test_case "map the class attribute" `Quick test_map_attrs_class;
+      test_case "page theme" `Quick test_page_theme;
     ] )
