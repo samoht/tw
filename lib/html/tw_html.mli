@@ -418,10 +418,11 @@ val page :
   ?tw_css:tw_css ->
   ?forms:bool ->
   ?prelude:t list ->
+  ?theme:Tw.Scheme.t ->
   t list ->
   t list ->
   page
-(** [page ?lang ?meta ?title ?charset ?tw_css ?forms ?prelude head body]
+(** [page ?lang ?meta ?title ?charset ?tw_css ?forms ?prelude ?theme head body]
     generates a complete HTML page and its corresponding CSS.
 
     - [lang] defaults to ["en"]
@@ -439,6 +440,9 @@ val page :
       set and before the [meta] tags, the title and the stylesheet: where a
       content security policy has to stand to cover them, and where a script
       that sets the theme runs before the stylesheet applies.
+    - [theme] (default {!Tw.Scheme.default}) is the theme the CSS is generated
+      with, as {!Tw.to_css} takes it: its {!Tw.Scheme.dark}, for one, decides
+      what [Tw.dark] writes.
     - [head] is additional content for the head section
     - [body] is the body content
 

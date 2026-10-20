@@ -1,5 +1,11 @@
 ## Unreleased
 
+### Breaking changes
+
+- `Scheme.t` has a new field, `dark`: a scheme written as a full record
+  literal has to set it, one built with `{ Scheme.default with ... }` does not
+  (#901).
+
 ### OCaml API
 
 - `Tw_html.page ?prelude` puts nodes first in the head, after the character
@@ -15,6 +21,10 @@
 - `Tw_html.fold_attrs` and `Tw_html.map_attrs` read and rewrite the attributes
   of every element in a tree, so links and ids change before rendering rather
   than in the HTML after it; a class the map changes is read again (#900).
+- `Scheme.dark` redeclares the `dark` variant with a block body, as
+  `@custom-variant dark { ... }` does in an entrypoint, so `Tw.dark` can follow
+  a `data-theme` choice as well as `prefers-color-scheme` (#901).
+- `Tw_html.page ?theme` generates a page's CSS with the given theme (#901).
 
 ## 1.1.2
 

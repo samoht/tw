@@ -17,6 +17,10 @@ type custom_variant = { values : (string * string) list; template : string }
     entry under the key [""]) and a selector template containing [{}] where the
     resolved value is substituted. *)
 
+type variant_branch = { media : Css.Media.t option; selector : Css.Selector.t }
+(** One rule of a variant's block body: [selector], with [&] for the element,
+    inside [\@media media] when there is one. *)
+
 type t = {
   colors : (string * color_value) list;
       (** Color overrides. Key is color name like "red-500". When a color is
@@ -64,6 +68,9 @@ type t = {
       (** The [@custom-variant]s this [@theme] declared with a container-query
           body. Kept apart from {!custom_variants} because the condition is
           structural, so the [not-] prefix can negate it soundly. *)
+  dark : variant_branch list option;
+      (** The body of a redeclared [dark] variant, one rule per branch; [None]
+          is the built-in [\@media (prefers-color-scheme: dark)]. *)
 }
 (** Theme scheme configuration *)
 
@@ -104,6 +111,7 @@ let default : t =
     prefix = None;
     custom_variants = [];
     container_variants = [];
+    dark = None;
   }
 
 let pp t =

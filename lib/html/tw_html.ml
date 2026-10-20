@@ -539,7 +539,7 @@ let dedup_by_class utilities =
     utilities
 
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
-    head_content body_content =
+    ?theme head_content body_content =
   (* Build HTML tree with placeholder for CSS link *)
   let meta_charset = meta ~at:[ At.charset charset ] () in
   let meta_tags =
@@ -566,8 +566,8 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
      same way prose styling is driven by the [prose] utility. *)
   let css_stylesheet =
     match forms with
-    | Some forms -> Tw.to_css ~forms all_tw
-    | None -> Tw.to_css all_tw
+    | Some forms -> Tw.to_css ?theme ~forms all_tw
+    | None -> Tw.to_css ?theme all_tw
   in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
 
@@ -597,9 +597,10 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
 
 (* Page generation with CSS - use renamed parameters to avoid shadowing *)
 let page ?(lang = "en") ?(meta = []) ?title ?(charset = "utf-8")
-    ?(tw_css = Link "tw.css") ?forms ?(prelude = []) head_content body_content =
+    ?(tw_css = Link "tw.css") ?forms ?(prelude = []) ?theme head_content
+    body_content =
   page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css ?forms
-    ~prelude head_content body_content
+    ~prelude ?theme head_content body_content
 
 (* Page accessor functions *)
 let html page = page.html

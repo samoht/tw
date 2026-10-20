@@ -2177,7 +2177,83 @@ let wrapped_media ~inner_condition ~selector ~props ~bc ~nested wrapper =
   in
   nest_inside_at_rule inner_media wrapper
 
-let rec apply_modifier_to_rule ?theme modifier = function
+(* A redeclared [dark] puts the element's selector under each branch's: the
+   class becomes [dark:<class>] followed by the branch's selector, where an
+   inner variant's pseudo-class or pseudo-element stays after it, as Tailwind
+   writes [.dark\:hover\:x:where(...):hover]. *)
+let under_dark_branch selector output =
+  let bc = Option.value (Output.base_class output) ~default:"" in
+  let modified_class = "dark:" ^ bc in
+  let replacement =
+    Cascade.Nest.substitute ~parent:(Css.Selector.Class modified_class) selector
+  in
+  let move = Rules_selector.replace_class_with ~old_class:bc ~replacement in
+  let moved sel nested =
+    (move sel, List.map (map_selectors_in_stmt move) nested)
+  in
+  let base_class = Some modified_class in
+  match output with
+  | Output.Regular r ->
+      let selector, nested = moved r.selector r.nested in
+      Output.Regular { r with selector; nested; base_class }
+  | Output.Media_query r ->
+      let selector, nested = moved r.selector r.nested in
+      Output.Media_query { r with selector; nested; base_class }
+  | Output.Container_query r ->
+      let selector, nested = moved r.selector r.nested in
+      Output.Container_query { r with selector; nested; base_class }
+  | Output.Starting_style r ->
+      let selector, nested = moved r.selector r.nested in
+      Output.Starting_style { r with selector; nested; base_class }
+  | Output.Supports_query r ->
+      let selector, nested = moved r.selector r.nested in
+      Output.Supports_query { r with selector; nested; base_class }
+
+(* A branch's media query goes around the whole rule, an inner query or hover
+   gate included, as [\@media (prefers-color-scheme: dark) { \@media (hover:
+   hover) { ... } }]. *)
+let in_branch_media condition output =
+  let around ?base_class ~selector inner =
+    media_query ~condition ~selector ~props:[] ?base_class ~nested:[ inner ] ()
+  in
+  match output with
+  | Output.Regular { selector; props; base_class; has_hover = true; nested; _ }
+    ->
+      around ?base_class ~selector
+        (rebuilt_media ~condition:hover_media ~selector ~props nested)
+  | Output.Regular { selector; props; base_class; nested; _ } ->
+      media_query ~condition ~selector ~props ?base_class ~nested ()
+  | Output.Media_query
+      { condition = inner; selector; props; base_class; nested } ->
+      around ?base_class ~selector
+        (rebuilt_media ~condition:inner ~selector ~props nested)
+  | Output.Container_query
+      { condition = inner; selector; props; base_class; nested } ->
+      around ?base_class ~selector
+        (Css.container ~condition:inner (Css.rule ~selector props :: nested))
+  | Output.Supports_query
+      { condition = inner; selector; props; base_class; nested; _ } ->
+      around ?base_class ~selector
+        (Css.supports ~condition:inner (Css.rule ~selector props :: nested))
+  | Output.Starting_style { selector; props; base_class; nested } ->
+      around ?base_class ~selector
+        (Css.starting_style (Css.rule ~selector props :: nested))
+
+let dark_branch output (branch : Scheme.variant_branch) =
+  let output = under_dark_branch branch.selector output in
+  match branch.media with
+  | None -> output
+  | Some condition -> in_branch_media condition output
+
+(* [dark] redeclared in the theme answers with one rule per branch of its body;
+   every other modifier, and the built-in [dark], go through
+   [apply_builtin_modifier]. *)
+let rec apply_modifier_to_rule ?theme modifier rule =
+  match (modifier, Option.bind theme (fun t -> t.Scheme.dark)) with
+  | Style.Dark, Some branches -> List.map (dark_branch rule) branches
+  | _ -> apply_builtin_modifier ?theme modifier rule
+
+and apply_builtin_modifier ?theme modifier = function
   (* The content rule stays outside the inner's hover gate, so it goes out
      without the gate the arm below preserves on every rule. *)
   | Regular { selector; props; base_class; has_hover; _ }
