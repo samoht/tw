@@ -62,7 +62,7 @@ do not exist.
 
 11. **Changelog + version.** A `CHANGES.md` entry for the version, every `#N`
     resolving to a merged PR, and the tag on the current `main` lineage.
-12. **Cascade bound.** `dune-project` and `tw.opam` name a cascade version CI
-    can resolve. CI pins cascade's `main` branch; a local build compiles the
-    sibling checkout from source, so confirm both are on the same revision
-    before reading a difference as a tw regression.
+12. **Cascade bound.** `dune-project` and `tw.opam` name a released cascade:
+    CI installs the dependencies `tw.opam` declares from opam-repository. A
+    local build compiles the sibling checkout from source, so confirm it is
+    on that release before reading a difference as a tw regression.

@@ -40,11 +40,6 @@ jobs:
         with:
           ocaml-compiler: ${{ matrix.ocaml-compiler }}
 
-      # cascade 1.2.0 is not released yet. Follow main rather than freezing CI
-      # to one development commit, so upstream API changes are caught here.
-      - name: Pin cascade main
-        run: opam pin add --no-action -y cascade.1.2.0 git+https://github.com/samoht/cascade.git#main
-
       - name: Install dependencies
         run: opam install . --deps-only --with-test -y
 
