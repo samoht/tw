@@ -1,4 +1,4 @@
-## Unreleased
+## 1.2.0 (27/10/2026)
 
 ### Breaking changes
 
