@@ -1,3 +1,19 @@
+## Unreleased
+
+### Utilities
+
+- A spacing scale of 2^53 or more names no utility: `p-100000000000000000000`
+  wrapped round to a second `.p-1` with a negative padding that overrode the
+  real one. The margin, gap, scroll-margin, sizing and `leading` families
+  share the reader (#902).
+
+### Project stylesheets
+
+- A brace range in `@source inline` stops at the int limits:
+  `p-{4611686018427387902..4611686018427387903}` counted on for ever, and a
+  step too large for an int, which named nothing or stepped by one, now names
+  the first value as any step longer than the range does (#902).
+
 ## 1.2.0 (27/10/2026)
 
 ### Breaking changes
