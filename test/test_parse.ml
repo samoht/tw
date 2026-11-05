@@ -219,6 +219,32 @@ let test_family_suffixes_round_trip () =
       "translate-x-1/2";
     ]
 
+(* A spacing suffix is read as a float and its scale printed back as an int.
+   Past 2^53 the float no longer holds the integer written, and past 2^62 the
+   int wraps round: [p-100000000000000000000] emitted [.p-1] with a negative
+   padding, overriding the real [p-1]. Such a suffix names nothing. *)
+let test_huge_spacing_suffixes_are_rejected () =
+  List.iter unknown
+    [
+      "p-100000000000000000000";
+      "p-4611686018427387904";
+      "p-4611686018427387903";
+      "p-9007199254740993";
+      "p-9007199254740992";
+      "m-100000000000000000000";
+      "-m-100000000000000000000";
+      "gap-100000000000000000000";
+      "scroll-m-100000000000000000000";
+      "border-spacing-100000000000000000000";
+      "leading-100000000000000000000";
+      "leading-4611686018427387904";
+      "mask-x-from-100000000000000000000";
+      "w-100000000000000000000";
+      "h-100000000000000000000";
+      "size-100000000000000000000";
+    ];
+  List.iter round_trips [ "p-9007199254740991"; "m-9007199254740991" ]
+
 (* [Parse.split_class] remembers the split of the last class name it was given,
    because every handler in turn splits the same one. A parse must therefore not
    depend on what was parsed before it, nor on whether two equal class names are
@@ -618,6 +644,8 @@ let tests =
         test_decimal_class_suffixes_round_trip;
       test_case "redundant zero suffixes are rejected" `Quick
         test_redundant_zero_spellings_are_rejected;
+      test_case "huge spacing suffixes are rejected" `Quick
+        test_huge_spacing_suffixes_are_rejected;
       test_case "family int suffixes reject non-decimal spellings" `Quick
         test_family_int_suffixes_reject_non_decimal_spellings;
       test_case "family decimal suffixes reject non-decimal spellings" `Quick

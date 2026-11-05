@@ -9,4 +9,5 @@
   cascade.browser
   astring
   re
+  unix
   test_helpers))
