@@ -310,20 +310,33 @@ let brace_range_re =
 (* [{from..to..step}] counts from [from] to [to] inclusive. The step defaults to
    one, and a step pointing away from [to] is turned round rather than never
    arriving, as the bundle does. A zero step is an error there, so the pattern
-   names nothing here. *)
+   names nothing here. A step too large for an int outruns the range, as the
+   bundle's does, and a step that would carry past [max_int] or [min_int] ends
+   the count rather than wrapping round. *)
 let brace_range inner =
   let bound g k = Option.bind (Re.Group.get_opt g k) int_of_string_opt in
+  let magnitude = function
+    | None -> 1
+    | Some s -> (
+        match int_of_string_opt s with
+        | Some n when n <> min_int -> abs n
+        | Some _ | None -> max_int)
+  in
   match Re.exec_opt brace_range_re inner with
   | None -> None
   | Some g -> (
       match (bound g 1, bound g 2) with
       | Some first, Some last ->
-          let step = Option.fold ~none:1 ~some:abs (bound g 3) in
+          let step = magnitude (Re.Group.get_opt g 3) in
           let step = if first <= last then step else -step in
-          let past n = if step > 0 then n > last else n < last in
           let rec count n acc =
-            if past n then List.rev acc
-            else count (n + step) (string_of_int n :: acc)
+            let acc = string_of_int n :: acc in
+            let next = n + step in
+            let ended =
+              if step > 0 then next < n || next > last
+              else next > n || next < last
+            in
+            if ended then List.rev acc else count next acc
           in
           Some (if step = 0 then [] else count first [])
       | _ -> None)

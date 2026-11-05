@@ -12,8 +12,9 @@ val decimal_int : string -> int option
 
 val decimal_float : string -> float option
 (** [decimal_float s] reads a canonical plain-decimal integer or fraction.
-    Exponents, digit separators, redundant leading or trailing zeroes, and
-    missing digits around the decimal point are rejected. *)
+    Exponents, digit separators, redundant leading or trailing zeroes, missing
+    digits around the decimal point, and magnitudes of [2{^53}] or more, which a
+    float no longer holds exactly, are rejected. *)
 
 val fraction : string -> (int * int) option
 (** [fraction s] reads a fraction suffix such as ["1/2"] or ["13/17"] as its
@@ -62,7 +63,8 @@ val int_any : string -> (int, [> `Msg of string ]) result
 
 val spacing_value : name:string -> string -> (float, [> `Msg of string ]) result
 (** [spacing_value ~name s] parses spacing values, handling both integers and
-    decimals like "0.5", "1.5". *)
+    decimals like "0.5", "1.5". A value of [2{^53}] or more is an error, as in
+    {!decimal_float}. *)
 
 val is_valid_theme_name : string -> bool
 (** [is_valid_theme_name s] returns [true] if [s] is a valid theme variable

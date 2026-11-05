@@ -71,6 +71,57 @@ let test_source_inline_braces () =
       ]
     ~absent:[ ".p-1{"; ".p-3{" ]
 
+(* A range whose next step would pass [max_int] or [min_int] ends there rather
+   than wrapping round and counting on for ever; the alarm turns a range that
+   never ends into a failure instead of a hung suite. *)
+let test_source_inline_braces_at_int_limits () =
+  let exception Timeout in
+  let previous =
+    Sys.signal Sys.sigalrm (Sys.Signal_handle (fun _ -> raise Timeout))
+  in
+  ignore (Unix.alarm 2);
+  let css =
+    Fun.protect
+      ~finally:(fun () ->
+        ignore (Unix.alarm 0);
+        Sys.set_signal Sys.sigalrm previous)
+      (fun () ->
+        try
+          compiled "brace-limits"
+            "@source inline(\"z-{4611686018427387902..4611686018427387903} \
+             -z{-4611686018427387903..-4611686018427387904}\");\n"
+        with Timeout -> fail "the range never ends")
+  in
+  check_rules css
+    ~present:
+      [
+        ".z-4611686018427387902{";
+        ".z-4611686018427387903{";
+        ".-z-4611686018427387903{";
+      ]
+    ~absent:[]
+
+(* A step too large for an int outruns the range, as the bundle's does: only the
+   first value is named, whichever way the step points. *)
+let test_source_inline_braces_huge_step () =
+  check_rules
+    (compiled "brace-step"
+       "@source inline(\"z-{0..10..-4611686018427387904} \
+        order-{0..10..4611686018427387904}\");\n")
+    ~present:[ ".z-0{"; ".order-0{" ]
+    ~absent:[ ".z-1{"; ".z-10{"; ".order-1{"; ".order-10{" ]
+
+(* A spacing scale too large for an int is not a class, so it cannot emit a rule
+   under the name of a smaller one: [p-100000000000000000000] wrapped round to a
+   second [.p-1] with a negative padding. *)
+let test_huge_spacing_names_nothing () =
+  let css =
+    compiled ~classes:[ "p-1"; "p-100000000000000000000" ] "huge-spacing" ""
+  in
+  check int "one .p-1 rule" 1
+    (List.length (Astring.String.cuts ~sep:".p-1{" css) - 1);
+  check_rules css ~present:[] ~absent:[ "-1)"; "-.25rem" ]
+
 (* [@source not inline] takes a class out of the build wherever it came from:
    the safelist beside it and the markup alike. *)
 let test_source_not_inline () =
@@ -486,6 +537,12 @@ let suite =
     [
       test_case "@source inline" `Quick test_source_inline;
       test_case "@source inline braces" `Quick test_source_inline_braces;
+      test_case "@source inline braces at the int limits" `Quick
+        test_source_inline_braces_at_int_limits;
+      test_case "@source inline braces with a huge step" `Quick
+        test_source_inline_braces_huge_step;
+      test_case "a huge spacing scale names nothing" `Quick
+        test_huge_spacing_names_nothing;
       test_case "@source not inline" `Quick test_source_not_inline;
       test_case "@source inline scope" `Quick test_source_inline_scope;
       test_case "important on the import" `Quick test_import_important;

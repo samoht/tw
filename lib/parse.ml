@@ -14,6 +14,11 @@ let is_canonical_digits s = is_digits s && (String.length s = 1 || s.[0] <> '0')
 let decimal_int s =
   if is_canonical_digits (without_sign s) then int_of_string_opt s else None
 
+(* A suffix read as a float has its scale printed back as an int. Past 2^53 the
+   float no longer holds the integer written, and past 2^62 [int_of_float] wraps
+   round: [p-100000000000000000000] would emit a second [.p-1]. *)
+let exact f = Float.abs f < 0x1p53
+
 (* Plain decimal: digits, then at most one fractional part with digits of its
    own. [.5], [1.] and [1e2] are not spellings of a class suffix. *)
 let decimal_float s =
@@ -29,7 +34,9 @@ let decimal_float s =
         is_canonical_digits whole && is_digits fraction
         && fraction.[String.length fraction - 1] <> '0'
   in
-  if plain then float_of_string_opt s else None
+  if plain then
+    match float_of_string_opt s with Some f when exact f -> Some f | _ -> None
+  else None
 
 (* A fraction suffix is two plain decimals around one [/]: [w-1/2], [top-3/8],
    [basis-13/17]. Neither side carries a sign, neither takes a redundant leading
@@ -104,7 +111,8 @@ let decimal_pos ~name s =
 (* Parse spacing values - handles both integers and decimals *)
 let spacing_value ~name s =
   match nonnegative_int ~name s with
-  | Some (Ok n) -> Ok (float_of_int n)
+  | Some (Ok n) when exact (float_of_int n) -> Ok (float_of_int n)
+  | Some (Ok _) -> Error (`Msg (name ^ " is too large: " ^ s))
   | Some (Error _ as error) -> error
   | None -> decimal_pos ~name s
 
