@@ -73,7 +73,10 @@ jobs:
       - uses: ocaml/setup-ocaml/lint-fmt@v3
 
       # The pre-commit hook lints staged files only; this lints the whole tree.
-      - run: opam repo add samoht https://tangled.org/gazagnaire.org/opam-overlay.git
+      # tw's dependencies come first, from opam.ocaml.org: the overlay merlint
+      # comes from also carries a cascade dev build that opam would prefer to
+      # the release tw is built against.
       - run: opam install . --deps-only --with-test
+      - run: opam repo add samoht https://tangled.org/gazagnaire.org/opam-overlay.git
       - run: opam install merlint
       - run: opam exec -- merlint --build
