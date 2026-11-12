@@ -3,13 +3,16 @@
     A project's CSS entrypoint is not plain CSS. It carries Tailwind's own
     at-rules - [@theme], [@custom-variant], [@utility], [@apply], [@variant] -
     and value shorthands - [theme()], [--spacing()] - none of which mean
-    anything to a browser. This module reads them, expands them against a
-    {!Tw.Scheme.t}, and splices the generated stylesheet in at the
-    [@import "tailwindcss"] that asked for it.
+    anything to a browser. This module compiles the entrypoint and splices the
+    generated stylesheet in at the [@import "tailwindcss"] that asked for it.
 
-    Most of it is text passes over the source. A directive is input for the
-    generator, not CSS, so it is read and taken out before the file reaches
-    cascade's parser. *)
+    The dialect is read by the modules beside it: {!Tailwind_import},
+    {!Entry_theme} and {!Source_directive} for what the entrypoint asks of the
+    package, {!Custom_variant} and {!Custom_utility} for its declarations,
+    {!Author_css} for the expansion of its own rules, {!Routing} for the
+    candidates its declarations govern and {!Sheet_shape} for the shape of the
+    result. A directive is input for the generator, not CSS, so it is read and
+    taken out before the file reaches cascade's parser. *)
 
 val read_file : string -> string
 (** [read_file path] is the whole contents of [path]. Raises [Sys_error] when
