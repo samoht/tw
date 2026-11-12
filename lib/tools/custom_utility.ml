@@ -269,10 +269,10 @@ let normalize_value_arg arg =
    fallback of its own reference because nothing declares it in the generated
    sheet, and any other token is a plain reference the theme layer declares.
 
-   Written as text, like the [--spacing()] expansion above and for the same
-   reason: this pass runs over the dialect before cascade parses any of it, and
-   the token's value is whatever the [@theme] block wrote, with no value type to
-   build a typed reference at. What comes out is read back by cascade. *)
+   Written as text, like [Value_fn.expand_spacing] and for the same reason: this
+   pass runs over the dialect before cascade parses any of it, and the token's
+   value is whatever the [@theme] block wrote, with no value type to build a
+   typed reference at. What comes out is read back by cascade. *)
 let theme_token_css ~theme name =
   Option.map
     (fun value ->

@@ -40,19 +40,6 @@ let test_nest_on_ampersand_keeps_nested_mentions () =
     ":where(&>:not(:last-child))"
     (nested ~classes:[ "divide-x" ] ":where(.divide-x > :not(:last-child))")
 
-(* [--spacing(N)] is a reference to the spacing scale, except under an [@theme
-   inline] [--spacing]: there the token has no declaration to reference, so the
-   step is multiplied out. *)
-let test_spacing_shorthand () =
-  let scheme inline =
-    Tw.Scheme.with_overrides ~inline Tw.Scheme.default [ ("spacing", "4px") ]
-  in
-  check string "a declared token is referenced"
-    ".a { margin: calc(var(--spacing) * 12) }"
-    (apply_variants ~theme:(scheme []) ".a { margin: --spacing(12) }");
-  check string "an inline token is worked out" ".a { margin: 48px }"
-    (apply_variants ~theme:(scheme [ "spacing" ]) ".a { margin: --spacing(12) }")
-
 let test_drop_directives () =
   check string "directives gone, author CSS kept" "\n\n.a { color: red }\n"
     (drop_directives
@@ -890,7 +877,6 @@ let tests =
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
     test_case "nest on ampersand keeps nested mentions" `Quick
       test_nest_on_ampersand_keeps_nested_mentions;
-    test_case "spacing shorthand" `Quick test_spacing_shorthand;
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
     test_case "authored color-mix fallbacks" `Quick

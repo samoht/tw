@@ -11,6 +11,7 @@ let () =
       Test_custom_utility.suite;
       Test_custom_variant.suite;
       Test_negated_variant.suite;
+      Test_value_fn.suite;
       Test_project.suite;
       Test_tailwind_gen.suite;
       Test_parity_compare.suite;
