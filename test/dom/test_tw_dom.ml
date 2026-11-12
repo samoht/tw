@@ -70,10 +70,12 @@ let dom_dedup () =
 
 (* A newly discovered batch injects as its own small element rather than by
    rewriting one growing element, so [data-tw="runtime"] can match several
-   elements at once; concatenate them all in document order. *)
+   elements at once; concatenate them all in document order. [textContent] is
+   read through [Jv] because [Brr.El.text_content] needs brr 0.0.8. *)
 let style_el_text () =
   Brr.El.fold_find_by_selector
-    (fun el acc -> acc ^ Jstr.to_string (Brr.El.text_content el))
+    (fun el acc ->
+      acc ^ Jstr.to_string (Jv.Jstr.get (Brr.El.to_jv el) "textContent"))
     (Jstr.v "style[data-tw=\"runtime\"]")
     ""
 
