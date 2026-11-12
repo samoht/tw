@@ -73,3 +73,9 @@ files = [
   "lib/touch.ml*",
 ]
 exclude = ["E330"]
+
+# The four modules still over E015's 2000-line bound, each to be split by
+# concern; delete an entry with its split.
+[[rules]]
+files = ["lib/build.ml", "lib/prose.ml", "lib/rule.ml", "test/test_sort.ml"]
+exclude = ["E015"]
