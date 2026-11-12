@@ -112,44 +112,6 @@ val text_start : t
 val text_end : t
 (** [text_end] aligns text to the end (right in LTR, left in RTL). *)
 
-val underline : t
-(** [underline] underlines text. *)
-
-val overline : t
-(** [overline] applies an overline decoration. *)
-
-val line_through : t
-(** [line_through] applies a line-through decoration. *)
-
-val no_underline : t
-(** [no_underline] removes text decoration. *)
-
-val decoration_solid : t
-(** [decoration_solid] sets text-decoration-style to solid. *)
-
-val decoration_double : t
-(** [decoration_double] sets text-decoration-style to double. *)
-
-val decoration_dotted : t
-(** [decoration_dotted] sets text-decoration-style to dotted. *)
-
-val decoration_dashed : t
-(** [decoration_dashed] sets text-decoration-style to dashed. *)
-
-val decoration_wavy : t
-(** [decoration_wavy] sets text-decoration-style to wavy. *)
-
-(** {1 Text Decoration Color & Thickness} *)
-
-val decoration_color : ?shade:int -> Color.color -> t
-(** [decoration_color ?shade color] sets text-decoration color. *)
-
-val decoration_thickness : int -> t
-(** [decoration_thickness n] sets text-decoration thickness to [n]px. *)
-
-val decoration_from_font : t
-(** [decoration_from_font] uses the font's default decoration thickness. *)
-
 val leading_none : t
 (** [leading_none] sets line-height to none. *)
 
@@ -174,29 +136,6 @@ val leading : int -> t
 val leading' : float -> t
 (** [leading' n] is {!leading} for a half-step scale value (e.g. [leading' 1.5]
     for [leading-1.5]). *)
-
-(** {1 Text Underline Offset} *)
-
-val underline_offset : int -> t
-(** [underline_offset n] sets underline offset to [n]px. *)
-
-val underline_offset_auto : t
-(** [underline_offset_auto] sets underline offset to auto. *)
-
-val underline_offset_0 : t
-(** [underline_offset_0] sets underline offset to 0. *)
-
-val underline_offset_1 : t
-(** [underline_offset_1] sets underline offset to 1px. *)
-
-val underline_offset_2 : t
-(** [underline_offset_2] sets underline offset to 2px. *)
-
-val underline_offset_4 : t
-(** [underline_offset_4] sets underline offset to 4px. *)
-
-val underline_offset_8 : t
-(** [underline_offset_8] sets underline offset to 8px. *)
 
 val default_font_family_var : Css.font_family Var.theme
 (** [default_font_family_var] is the CSS variable for the default font family,
@@ -240,7 +179,3 @@ module Typography_early : Utility.Handler
 (** Typography handler - text sizes, font weights, font families, font style,
     text alignment and leading. Most sort at priority 24; font style joins the
     late text families at priority 26. *)
-
-module Typography_late : Utility.Handler
-(** Late typography handler - text decoration line, colour, style and thickness,
-    and the underline offset. *)

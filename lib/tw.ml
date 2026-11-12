@@ -22,6 +22,7 @@ include Gap
 include Padding
 include Sizing
 include Typography
+include Text_decoration
 include Letter_spacing
 include Text_transform
 include Font_smoothing
@@ -553,6 +554,7 @@ module Grid = Grid
 module Grid_item = Grid_item
 module Grid_template = Grid_template
 module Typography = Typography
+module Text_decoration = Text_decoration
 module Letter_spacing = Letter_spacing
 module Text_transform = Text_transform
 module Font_smoothing = Font_smoothing

@@ -256,6 +256,14 @@ module Handler = struct
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
+    (* Tailwind reads a [text-[...]] bracket as a font size when its value is a
+       size, and as a colour otherwise, so a class the font-size reader takes is
+       not a colour. Refusing it here keeps the two handlers from both claiming
+       it, which would leave the answer to the dune link order. *)
+    | "text" :: _
+      when Result.is_ok (Typography.Typography_early.of_class theme class_name)
+      ->
+        Error (`Msg ("Not a text colour: " ^ class_name))
     | [ "text"; "transparent" ] -> Ok Text_transparent
     | [ "text"; "inherit" ] -> Ok Text_inherit
     | [ "text"; current_str ]

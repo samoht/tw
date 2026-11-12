@@ -53,6 +53,7 @@ let () =
       Test_sizing.suite;
       Test_layout.suite;
       Test_typography.suite;
+      Test_text_decoration.suite;
       Test_letter_spacing.suite;
       Test_text_transform.suite;
       Test_font_smoothing.suite;

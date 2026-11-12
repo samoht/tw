@@ -1389,6 +1389,15 @@ let pool_families () =
         [
           "border-collapse"; "border-spacing-2"; "table-fixed"; "caption-bottom";
         ] );
+    ( "text_decoration",
+      c
+        [
+          "underline";
+          "line-through";
+          "decoration-2";
+          "decoration-sky-400";
+          "underline-offset-4";
+        ] );
     ("text_indent", c [ "indent-4" ]);
     ("text_overflow", c [ "text-ellipsis" ]);
     ("text_shadow", c [ "text-shadow-sm"; "text-shadow-lg"; "text-shadow-none" ]);
@@ -1428,11 +1437,6 @@ let pool_families () =
           "font-sans";
           "leading-relaxed";
           "italic";
-          "underline";
-          "line-through";
-          "decoration-2";
-          "decoration-sky-400";
-          "underline-offset-4";
         ] );
     ("vertical_align", c [ "align-middle" ]);
     ("zoom", c [ "zoom-50"; "zoom-100" ]);

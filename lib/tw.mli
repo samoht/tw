@@ -4551,6 +4551,7 @@ module Sizing = Sizing
 module Layout = Layout
 module Overflow = Overflow
 module Typography = Typography
+module Text_decoration = Text_decoration
 module Letter_spacing = Letter_spacing
 module Text_transform = Text_transform
 module Font_smoothing = Font_smoothing
