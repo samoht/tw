@@ -70,16 +70,9 @@ let run_case ~tw ~render ~work dir name =
   | Some page ->
       let out = work // (name ^ ".out") in
       let cmd =
-        String.concat " "
-          ([
-             Filename.quote tw;
-             "--input-css";
-             Filename.quote css_path;
-             Filename.quote page;
-             "--diff";
-           ]
-          @ (if render then [ "--html"; Filename.quote page ] else [])
-          @ [ ">"; Filename.quote out; "2>&1" ])
+        Filename.quote_command tw ~stdout:out ~stderr:out
+          ([ "--input-css"; css_path; page; "--diff" ]
+          @ if render then [ "--html"; page ] else [])
       in
       let status = Sys.command cmd in
       let report = read_file out in

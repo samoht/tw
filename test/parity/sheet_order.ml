@@ -56,8 +56,8 @@ let tw_sheet tw_bin =
   let remove () = try Sys.remove out with Sys_error _ -> () in
   Fun.protect ~finally:remove @@ fun () ->
   let cmd =
-    Fmt.str "%s --input-css globals.css --minify classlist.txt > %s"
-      (Filename.quote tw_bin) (Filename.quote out)
+    Filename.quote_command tw_bin ~stdout:out
+      [ "--input-css"; "globals.css"; "--minify"; "classlist.txt" ]
   in
   if Sys.command cmd <> 0 then failwith ("failed to run " ^ tw_bin);
   read_file out

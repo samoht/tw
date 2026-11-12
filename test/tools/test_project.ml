@@ -71,26 +71,28 @@ let test_source_inline_braces () =
       ]
     ~absent:[ ".p-1{"; ".p-3{" ]
 
-(* A range whose next step would pass [max_int] or [min_int] ends there rather
-   than wrapping round and counting on for ever; the alarm turns a range that
-   never ends into a failure instead of a hung suite. *)
-let test_source_inline_braces_at_int_limits () =
+(* [f ()], failed rather than left to hang when it runs past two seconds.
+   SIGALRM is POSIX: where the platform has none, [f] runs unguarded. *)
+let within_two_seconds ~why f =
   let exception Timeout in
-  let previous =
-    Sys.signal Sys.sigalrm (Sys.Signal_handle (fun _ -> raise Timeout))
-  in
-  ignore (Unix.alarm 2);
+  match Sys.signal Sys.sigalrm (Sys.Signal_handle (fun _ -> raise Timeout)) with
+  | exception Invalid_argument _ -> f ()
+  | previous ->
+      ignore (Unix.alarm 2);
+      Fun.protect
+        ~finally:(fun () ->
+          ignore (Unix.alarm 0);
+          Sys.set_signal Sys.sigalrm previous)
+        (fun () -> try f () with Timeout -> fail why)
+
+(* A range whose next step would pass [max_int] or [min_int] ends there rather
+   than wrapping round and counting on for ever. *)
+let test_source_inline_braces_at_int_limits () =
   let css =
-    Fun.protect
-      ~finally:(fun () ->
-        ignore (Unix.alarm 0);
-        Sys.set_signal Sys.sigalrm previous)
-      (fun () ->
-        try
-          compiled "brace-limits"
-            "@source inline(\"z-{4611686018427387902..4611686018427387903} \
-             -z{-4611686018427387903..-4611686018427387904}\");\n"
-        with Timeout -> fail "the range never ends")
+    within_two_seconds ~why:"the range never ends" (fun () ->
+        compiled "brace-limits"
+          "@source inline(\"z-{4611686018427387902..4611686018427387903} \
+           -z{-4611686018427387903..-4611686018427387904}\");\n")
   in
   check_rules css
     ~present:

@@ -23,7 +23,7 @@ it usually means the wrong files were scanned:
 `-q` (`--quiet`, `--silent`) suppresses that note, and its help says so:
 
   $ tw -q --minify --no-base prose.html 2>&1 >/dev/null
-  $ tw --help=plain | grep -A4 -- '--quiet$'
+  $ tw --help=plain | grep -A4 -- ', --quiet'
          -q, --silent, --quiet
              Suppress the note printed when a scan finds candidate tokens but
              none of them is a class. A scan does not report unknown tokens one
