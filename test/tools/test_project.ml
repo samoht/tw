@@ -18,7 +18,7 @@ let compiled_with ?(base = false) ?(classes = []) ~import name body =
       (* The theme is the one the entrypoint asks for, as the CLI builds it: an
          option on the import is part of what is being compiled. *)
       let theme =
-        Tw_tools.Entrypoint.theme_of_css (Tw_tools.Entrypoint.read_file path)
+        Tw_tools.Entry_theme.of_css (Tw_tools.Entrypoint.read_file path)
       in
       let _, sheet =
         Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base classes

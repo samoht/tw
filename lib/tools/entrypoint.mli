@@ -15,19 +15,6 @@ val read_file : string -> string
 (** [read_file path] is the whole contents of [path]. Raises [Sys_error] when
     the file cannot be read. *)
 
-(** {1 The project theme} *)
-
-val theme_of_css : string -> Tw.Scheme.t
-(** [theme_of_css css] is the theme the entrypoint [css] asks for: its [\@theme]
-    overrides, [theme(static)] and [prefix()]. The CLI builds its theme with
-    this, so a measurement against the CLI can build the same one. *)
-
-val theme_overrides_of_css : string -> (string * string) list * string list
-(** [theme_overrides_of_css css] is the [(bare-name, value)] pairs the [@theme]
-    blocks of [css] declare, together with the names among them that came from
-    an [@theme inline] block. Both feed {!Tw.Scheme.with_overrides}, so tw
-    renders with the tokens Tailwind reads from the same file. *)
-
 (** {1 Declared variants and utilities} *)
 
 val take_custom_variants : string -> string * (string * string) list
@@ -104,12 +91,6 @@ val place_routed : Cascade.Css.statement list -> Cascade.Css.t -> Cascade.Css.t
     puts its own, and the rest follows. *)
 
 (** {1 Text passes} *)
-
-val hoist_theme_keyframes : string -> string
-(** [hoist_theme_keyframes css] lifts a [@keyframes] written inside a [@theme]
-    block, beside the [--animate-*] token that names it, to the top level. The
-    theme block itself does not reach the output, so a nested one would go with
-    it. *)
 
 val drop_directives : string -> string
 (** [drop_directives css] removes Tailwind's own at-rules. A build-time

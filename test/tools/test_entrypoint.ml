@@ -24,53 +24,6 @@ let test_split_declared_variants () =
   check (pair string_list string) "nothing declared" ([], "lg:hover:flex")
     (split_declared_variants defs "lg:hover:flex")
 
-(* Theme extraction. *)
-
-let theme_src =
-  "@import \"tailwindcss\" theme(static);\n\
-   @theme {\n\
-  \  --color-*: initial;\n\
-  \  --color-brand: red;\n\
-  \  --animate-flash: flash 2s;\n\
-  \  @keyframes flash { to { opacity: 0 } }\n\
-  \  --spacing: 0.3rem;\n\
-   }\n\
-   @theme inline {\n\
-  \  --font-x: var(--font-ext), system-ui;\n\
-   }\n"
-
-let test_theme_overrides () =
-  let tokens, inline = theme_overrides_of_css theme_src in
-  check pair_list "every token each block declares, in source order"
-    [
-      ("color-*", "initial");
-      ("color-brand", "red");
-      ("animate-flash", "flash 2s");
-      ("spacing", "0.3rem");
-      ("font-x", "var(--font-ext), system-ui");
-    ]
-    tokens;
-  check string_list "only the inline block's names" [ "font-x" ] inline
-
-(* [--<ns>-*: initial] takes a whole namespace out of the theme. The name is not
-   a <dashed-ident>, so no CSS parser can build a declaration from it and the
-   reset has to be read off the token stream; without it a project's reset never
-   reaches the renderer, which then keeps the built-in scale. *)
-let test_theme_namespace_reset () =
-  let tokens, _ =
-    theme_overrides_of_css
-      "@theme {\n  --breakpoint-*: initial;\n  --breakpoint-tablet: 800px;\n}"
-  in
-  check pair_list "the reset stands among the tokens beside it"
-    [ ("breakpoint-*", "initial"); ("breakpoint-tablet", "800px") ]
-    tokens;
-  let tokens, _ =
-    theme_overrides_of_css "@theme { --example-*: [x); y]; --example-one: ok; }"
-  in
-  check pair_list "a mismatched closer does not end the open square block"
-    [ ("example-*", "[x); y]"); ("example-one", "ok") ]
-    tokens
-
 (* Nesting a utility under the rule that applied it. *)
 
 let nested ~classes s =
@@ -179,19 +132,6 @@ let test_drop_directives () =
   check string "directives gone, author CSS kept" "\n\n.a { color: red }\n"
     (drop_directives
        "@tailwind utilities;\n@theme { --x: 1 }\n.a { color: red }\n")
-
-let test_hoist_theme_keyframes () =
-  check string "keyframes lifted out of the theme block"
-    "@theme {\n\
-    \  --animate-flash: flash 2s;\n\
-    \  \n\
-     }\n\
-     @keyframes flash { to { opacity: 0 } }"
-    (hoist_theme_keyframes
-       "@theme {\n\
-       \  --animate-flash: flash 2s;\n\
-       \  @keyframes flash { to { opacity: 0 } }\n\
-        }\n")
 
 (* One [@apply] pulls in a rule per utility, each decorating the same [&]. They
    are merged on selector equality, so the author's rule comes back once holding
@@ -980,7 +920,7 @@ let inline_source = function
    always rendered it. *)
 let tw_sheet ~path classes =
   let theme =
-    Tw_tools.Entrypoint.theme_of_css (Tw_tools.Entrypoint.read_file path)
+    Tw_tools.Entry_theme.of_css (Tw_tools.Entrypoint.read_file path)
   in
   let _, sheet =
     Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base:true classes
@@ -1126,8 +1066,6 @@ let tests =
   [
     test_case "variant segments" `Quick test_variant_segments;
     test_case "declared variants split out" `Quick test_split_declared_variants;
-    test_case "theme overrides" `Quick test_theme_overrides;
-    test_case "theme namespace reset" `Quick test_theme_namespace_reset;
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
     test_case "nest on ampersand keeps nested mentions" `Quick
       test_nest_on_ampersand_keeps_nested_mentions;
@@ -1137,7 +1075,6 @@ let tests =
     test_case "custom utilities taken" `Quick test_take_custom_utilities;
     test_case "spacing shorthand" `Quick test_spacing_shorthand;
     test_case "directives dropped" `Quick test_drop_directives;
-    test_case "theme keyframes hoisted" `Quick test_hoist_theme_keyframes;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
     test_case "authored color-mix fallbacks" `Quick
       test_authored_color_mix_fallbacks;

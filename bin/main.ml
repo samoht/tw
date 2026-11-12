@@ -588,7 +588,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     let theme =
       match css_content with
       | None -> Tw.Scheme.default
-      | Some css -> Entrypoint.theme_of_css css
+      | Some css -> Tw_tools.Entry_theme.of_css css
     in
     let opts : gen_opts =
       {
