@@ -160,6 +160,26 @@ let check_declarations_match cls patterns =
           (String.concat "; " actual))
     patterns
 
+(* A variant decides the selector and the at-rules wrapped around it, and
+   neither is a declaration, so a variant test has to compare the sheet itself.
+   Comparing it whole is what a substring cannot do: [:has(:focus)] is an infix
+   of [:has(:focus-visible)], and a [check bool] failure prints neither the
+   class nor the CSS. *)
+let sheet cls =
+  match Tw.of_string cls with
+  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
+
+(* Most variant classes draw on no theme token, so the layers ahead of
+   [utilities] are empty and only the utilities layer is worth spelling out. The
+   comparison is still against the whole sheet. *)
+let check_utilities cls expected =
+  check_sheet cls
+    ("@layer theme,components,utilities;@layer theme;@layer components;@layer \
+      utilities{" ^ expected ^ "}")
+
 (* What a class writes on an element carrying it, as one rule. The theme
    bindings it drags in are left out - every class reading the spacing scale
    writes [--spacing], which says nothing about what two of them do to each

@@ -391,11 +391,11 @@ let container_rule ?theme ?(inner_has_hover = false) ?(negated = false)
   let condition = Containers.container_query_to_condition ?theme query in
   (* [not-@md] negates the size condition, inside the container's name. *)
   let condition =
-    if negated then Modifiers.negate_container condition else condition
+    if negated then Variant_parse.negate_container condition else condition
   in
   (* A [theme()] the query read still owes the sheet its binding; carried on the
      rule's own properties, where the theme layer collects it. *)
-  let theme_decls = Modifiers.container_query_theme_decls query in
+  let theme_decls = Variant_parse.container_query_theme_decls query in
   if inner_has_hover then
     container_query ~condition ~selector:new_selector ~props:theme_decls
       ~base_class:modified_class
@@ -643,7 +643,7 @@ let route_data_bracket_modifier modifier ~selector base_class props =
       String.sub raw_str 1 (n - 2)
     else raw_str
   in
-  let attr_name, attr_match, attr_flag = Modifiers.parse_data_expr expr in
+  let attr_name, attr_match, attr_flag = Variant_parse.parse_data_expr expr in
   let open Css.Selector in
   let class_part = raw_str in
   match kind with
@@ -741,7 +741,7 @@ let route_aria_modifier modifier ~selector base_class props =
     | _ -> failwith "Invalid aria modifier"
   in
   let open Css.Selector in
-  let is_shorthand = Modifiers.is_aria_shorthand raw_str in
+  let is_shorthand = Variant_parse.is_aria_shorthand raw_str in
   let aria_attr, aria_match =
     if is_shorthand then ("aria-" ^ raw_str, Exact "true")
     else parse_aria_expr raw_str
@@ -826,7 +826,7 @@ let handle_pseudo_element_modifier modifier base_class props =
   in
   regular ~selector:sel ~props ~base_class:modified_class ()
 
-let normalize_supports_condition = Modifiers.normalize_supports_condition
+let normalize_supports_condition = Variant_parse.normalize_supports_condition
 
 (** Handle [supports-<property>] modifier: builds the shorthand class name and
     emits [\@supports (prop: var(--tw))] directly, typed. *)
@@ -910,7 +910,7 @@ let compute_variant_order ?theme ~selector base_class =
     let modifiers, _ = Modifiers.of_string c in
     List.fold_left
       (fun order modifier ->
-        Int.max order (Modifiers.variant_order_of_prefix ?theme modifier))
+        Int.max order (Variant_order.of_prefix ?theme modifier))
       0 modifiers
   in
   let vo =
@@ -1016,11 +1016,11 @@ let attribute_condition = function
   | Style.Data_custom (attr, value) ->
       Some [ Css.Selector.attribute ("data-" ^ attr) (Exact value) ]
   | Style.Data_bracket expr ->
-      let name, matcher, flag = Modifiers.parse_data_expr expr in
+      let name, matcher, flag = Variant_parse.parse_data_expr expr in
       Some [ Css.Selector.attribute ?flag name matcher ]
   | Style.Aria_bracket expr ->
       let name, matcher =
-        if Modifiers.is_aria_shorthand expr then
+        if Variant_parse.is_aria_shorthand expr then
           ("aria-" ^ expr, Css.Selector.Exact "true")
         else parse_aria_expr expr
       in
@@ -1156,7 +1156,7 @@ let not_supports_rule ~condition ~selector ~has_hover modified_class props =
 
 (* Negating a hover-gated variant negates the gate as well: Tailwind pairs
    [.x:not(<rel>)] with [\@media not (hover: hover) { .x }]. *)
-let involves_hover = Modifiers.involves_hover
+let involves_hover = Variant_parse.involves_hover
 
 (* A container variant under one or more negations: the query, and whether the
    negations leave it negated. *)
@@ -1182,7 +1182,7 @@ let rec media_pair ?theme = function
   | Style.Not_bracket content ->
       Option.map
         (fun c -> (negate_media c, c))
-        (Modifiers.bracket_media_condition content)
+        (Variant_parse.bracket_media_condition content)
   | Style.Responsive bp | Style.Min_responsive bp ->
       Some (breakpoint_condition ?theme bp, breakpoint_not_condition ?theme bp)
   | Style.Max_responsive bp ->
@@ -1215,7 +1215,7 @@ let rec supports_pair = function
         (function
           | Css.Supports.Not c -> (c, Css.Supports.Not c)
           | c -> (Css.Supports.Not c, c))
-        (Modifiers.bracket_supports_condition content)
+        (Variant_parse.bracket_supports_condition content)
   | Style.Supports_property prop ->
       let c = Css.Supports.property prop "var(--tw)" in
       Some (c, Css.Supports.Not c)
@@ -1379,7 +1379,7 @@ let handle_not_bracket content base_class props =
       supports_query ~condition ~selector:(Css.Selector.Class modified_class)
         ~props ~base_class:modified_class ()
     in
-    match Modifiers.bracket_supports_condition content with
+    match Variant_parse.bracket_supports_condition content with
     | Some (Css.Supports.Not condition) -> [ rule condition ]
     | Some condition -> [ rule (Css.Supports.Not condition) ]
     | None -> []
@@ -1631,7 +1631,7 @@ let at_rule_variant ?(inner_has_hover = false) content ~selector base_class
   if content = "@starting-style" then
     starting_style ~selector ~props ~nested ~base_class:modified_class ()
   else
-    match Modifiers.bracket_media_condition content with
+    match Variant_parse.bracket_media_condition content with
     | Some condition ->
         media_query ~condition ~selector ~props ~nested
           ~base_class:modified_class ()

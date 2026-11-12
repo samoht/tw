@@ -69,6 +69,8 @@ let () =
       Test_transforms.suite;
       Test_var.suite;
       Test_modifiers.suite;
+      Test_variant_parse.suite;
+      Test_variant_order.suite;
       Test_pp.suite;
       Test_prose.suite;
       Test_theme.suite;
