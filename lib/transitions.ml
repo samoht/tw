@@ -147,11 +147,9 @@ module Handler = struct
 
   let transition ?theme () =
     (* Use typed variable names for gradient properties *)
-    let gradient_from_name =
-      Var.css_name Backgrounds.Handler.gradient_from_var
-    in
-    let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
-    let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
+    let gradient_from_name = Var.css_name Gradients.Handler.gradient_from_var in
+    let gradient_via_name = Var.css_name Gradients.Handler.gradient_via_var in
+    let gradient_to_name = Var.css_name Gradients.Handler.gradient_to_var in
     style
       (default_theme_decls ?theme ()
       @ [
@@ -200,11 +198,9 @@ module Handler = struct
       ~order:(8, 33)
 
   let transition_colors ?theme () =
-    let gradient_from_name =
-      Var.css_name Backgrounds.Handler.gradient_from_var
-    in
-    let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
-    let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
+    let gradient_from_name = Var.css_name Gradients.Handler.gradient_from_var in
+    let gradient_via_name = Var.css_name Gradients.Handler.gradient_via_var in
+    let gradient_to_name = Var.css_name Gradients.Handler.gradient_to_var in
     (* When --transition-property-colors is set in theme, use the var reference;
        otherwise inline the full property list *)
     let has_theme_var =

@@ -4546,6 +4546,7 @@ module Flex_layout = Flex_layout
 module Alignment = Alignment
 module Borders = Borders
 module Backgrounds = Backgrounds
+module Gradients = Gradients
 module Sizing = Sizing
 module Layout = Layout
 module Overflow = Overflow

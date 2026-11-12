@@ -55,6 +55,7 @@ let () =
       Test_clipping.suite;
       Test_animations.suite;
       Test_backgrounds.suite;
+      Test_gradients.suite;
       Test_containers.suite;
       Test_style.suite;
       Test_filters.suite;

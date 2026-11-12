@@ -1173,10 +1173,6 @@ let pool_families () =
           "bg-fixed";
           "bg-clip-text";
           "bg-origin-content";
-          "bg-linear-to-r";
-          "from-blue-500";
-          "via-purple-500";
-          "to-pink-500";
         ] );
     ("blend", c [ "mix-blend-multiply"; "bg-blend-multiply" ]);
     ( "borders",
@@ -1256,6 +1252,9 @@ let pool_families () =
           "order-first";
         ] );
     ("gap", c [ "gap-4"; "gap-x-2"; "gap-y-8" ]);
+    ( "gradients",
+      c [ "bg-linear-to-r"; "from-blue-500"; "via-purple-500"; "to-pink-500" ]
+    );
     ("grid", c [ "grid"; "inline-grid" ]);
     ( "grid_item",
       c [ "col-span-2"; "row-span-3"; "col-start-2"; "row-end-4"; "col-auto" ]
