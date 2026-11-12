@@ -1,4 +1,5 @@
 module Css = Cascade.Css
+module Index = Cascade.Source_index
 
 (* The patterns are literal, so they are compiled once here rather than per
    call. [Re.str] quotes its argument, which matters for the wildcard ones: [-*]
@@ -22,59 +23,6 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-module Components = struct
-  open Cascade
-
-  let array css =
-    Parser.list_of_component_values (Reader.of_string css)
-    |> (fun out -> out.Parser.value)
-    |> Array.of_list
-
-  let start component = (Component.source_loc component).Loc.start_pos
-  let stop component = (Component.source_loc component).Loc.end_pos
-
-  let rec after_whitespace components i =
-    if i >= Array.length components then i
-    else
-      match components.(i) with
-      | Component.Preserved { kind = Token.Whitespace _; _ } ->
-          after_whitespace components (i + 1)
-      | _ -> i
-
-  (* Component values already group every function and bracket block, so only a
-     top-level semicolon can close this declaration. Mismatched closers stay
-     inside the group whose matching closer is still outstanding. *)
-  let rec semicolon_from components i =
-    if i >= Array.length components then i
-    else
-      match components.(i) with
-      | Component.Preserved { kind = Token.Semicolon; _ } -> i
-      | _ -> semicolon_from components (i + 1)
-
-  (* Source ranges of punctuation that separates declarations. Curly blocks are
-     walked because a nested rule may itself contain functional utility
-     declarations; parentheses, square blocks and functions remain atomic. *)
-  let punctuation components =
-    let rec add acc = function
-      | [] -> acc
-      | Component.Preserved
-          { kind = Token.Semicolon | Token.Close Token.Curly; loc; _ }
-        :: rest ->
-          add ((loc.Loc.start_pos, loc.Loc.end_pos) :: acc) rest
-      | Component.Block { node = { opening = Token.Curly; value; closed }; loc }
-        :: rest ->
-          let acc = (loc.Loc.start_pos, loc.Loc.start_pos + 1) :: acc in
-          let acc = add acc value in
-          let acc =
-            if closed then (loc.Loc.end_pos - 1, loc.Loc.end_pos) :: acc
-            else acc
-          in
-          add acc rest
-      | _ :: rest -> add acc rest
-    in
-    List.rev (add [] components)
-end
-
 (* [--<ns>-*: initial] takes a whole [@theme] namespace out of the theme, and
    [--<ns>-*] is not a custom-property name: the [*] ends the ident, so "consume
    a declaration" (CSS Syntax 3 sec. 5.5.15) finds no [:] where it wants one and
@@ -82,12 +30,12 @@ end
    there, keyed by where it starts so it can go back among the declarations in
    the order the block wrote them. *)
 let namespace_resets body =
-  let components = Components.array body in
+  let components = Text_pass.Components.array body in
   let text from upto = String.trim (String.sub body from (upto - from)) in
   (* The reset an ident at [i] opens, and the index to carry on from. *)
   let reset i name acc =
-    let star = Components.after_whitespace components (i + 1) in
-    let colon = Components.after_whitespace components (star + 1) in
+    let star = Text_pass.Components.after_whitespace components (i + 1) in
+    let colon = Text_pass.Components.after_whitespace components (star + 1) in
     if
       colon < Array.length components
       && (match components.(star) with
@@ -99,16 +47,17 @@ let namespace_resets body =
       | Cascade.Component.Preserved { kind = Cascade.Token.Colon; _ } -> true
       | _ -> false
     then
-      let last = Components.semicolon_from components (colon + 1) in
+      let last = Text_pass.Components.semicolon_from components (colon + 1) in
       let upto =
         if last < Array.length components then
-          Components.start components.(last)
+          Text_pass.Components.start components.(last)
         else String.length body
       in
       let namespace = String.sub name 2 (String.length name - 2) ^ "*" in
       ( last + 1,
-        ( Components.start components.(i),
-          (namespace, text (Components.stop components.(colon)) upto) )
+        ( Text_pass.Components.start components.(i),
+          (namespace, text (Text_pass.Components.stop components.(colon)) upto)
+        )
         :: acc )
     else (i + 1, acc)
   in
@@ -217,49 +166,6 @@ let is_tailwind_import url = Option.is_some (tailwind_import_part url)
 
 let builtin_variants =
   [ ("dark", "@media (prefers-color-scheme: dark) { @slot; }") ]
-
-(* Where the entrypoint's blocks, at-rule headers and function calls start and
-   end, keyed by the offset each one starts at.
-
-   The Tailwind at-rules below are not CSS, so a stylesheet parser drops them
-   and they have to be located in the text first -- but counting braces over the
-   raw bytes counts the ones inside a string, a comment or an escape too. The
-   block then ends in the wrong place and everything after it is silently
-   dropped. cascade's component values come out of CSS Syntax 3 sec. 5.4 already
-   matched, and each carries the range of source it was parsed from, so the
-   offsets are read off those. *)
-(* Offsets into the entrypoint source, so a rewrite hands back the author's own
-   bytes. cascade owns the index; the callers below are the Tailwind-specific
-   part. *)
-module Index = Cascade.Source_index
-
-(* Whether [css] spells [name] anywhere. *)
-let mentions name css = Re.execp (Re.compile (Re.str name)) css
-
-(* [css] copied with [step] rewriting it. [step index buf i] runs at each offset
-   nothing has been copied from yet: it writes to [buf] what stands for the
-   source at [i] and answers where to resume, or [None] to have the byte at [i]
-   copied. [names] is what the pass matches; the index finds a name only as the
-   source spells it, so a source spelling none of them is handed back before the
-   parse the index costs. *)
-let rewrite ~names css step =
-  if not (List.exists (fun name -> mentions name css) names) then css
-  else
-    let index = Index.v css in
-    let len = String.length css in
-    let buf = Buffer.create len in
-    let step = step index buf in
-    let rec go i =
-      if i >= len then ()
-      else
-        match step i with
-        | Some next -> go next
-        | None ->
-            Buffer.add_char buf css.[i];
-            go (i + 1)
-    in
-    go 0;
-    Buffer.contents buf
 
 (* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
    variables a utility used. The option is not CSS, so it is read off the
@@ -376,19 +282,6 @@ let rec expand_braces pattern =
                 alternatives)
             (expand_braces suffix))
 
-(* [s] without the matching quotes around it, when it has them. *)
-let strip_quotes s =
-  let n = String.length s in
-  if n >= 2 && (s.[0] = '"' || s.[0] = '\'') && s.[n - 1] = s.[0] then
-    Some (String.sub s 1 (n - 2))
-  else None
-
-(* [s] unquoted when it is quoted, else as it is. *)
-let unquote s = Option.value ~default:s (strip_quotes s)
-
-(* The text of a quoted argument. The bundle refuses an unquoted one. *)
-let quoted_contents body = strip_quotes (String.trim body)
-
 (* [@source inline("...")] is the safelist and [@source not inline("...")] the
    blocklist. The argument is read off the [inline()] call inside the statement,
    and what stands between the at-keyword and that call says which of the two it
@@ -416,7 +309,7 @@ let source_inline css =
          match argument at source with
          | None -> (safelist, blocklist)
          | Some (negated, body) -> (
-             match quoted_contents body with
+             match Text_pass.quoted_contents body with
              | None -> (safelist, blocklist)
              | Some patterns ->
                  let candidates =
@@ -448,7 +341,7 @@ let source_paths css =
            then (true, String.sub prelude 3 (n - 3))
            else (false, prelude)
          in
-         match quoted_contents argument with
+         match Text_pass.quoted_contents argument with
          | None -> (included, excluded)
          | Some path when negated -> (included, excluded @ [ path ])
          | Some path -> (included @ [ path ], excluded))
@@ -527,7 +420,8 @@ let source_root css =
         if at < i && i < statement.next then
           match String.trim block.body with
           | "none" -> Some `None
-          | body -> Option.map (fun dir -> `Dir dir) (quoted_contents body)
+          | body ->
+              Option.map (fun dir -> `Dir dir) (Text_pass.quoted_contents body)
         else None)
       sources
   in
@@ -560,7 +454,7 @@ let references_tailwind css =
    "class"] leaves the controls alone and styles only the [form-*] classes. *)
 let forms_base css =
   let index = Index.v css in
-  let unquote s = unquote (String.trim s) in
+  let unquote s = Text_pass.unquote (String.trim s) in
   let names_forms prelude =
     String.equal (unquote prelude) "@tailwindcss/forms"
   in
@@ -606,7 +500,7 @@ let config_directives css =
 let hoist_theme_keyframes css =
   let lifted = Buffer.create 0 in
   let css =
-    rewrite ~names:[ "@theme" ] css (fun index buf i ->
+    Text_pass.rewrite ~names:[ "@theme" ] css (fun index buf i ->
         match Index.at_rule index ~name:"@theme" i with
         | Some { brace; block = { next = stop; _ }; _ } ->
             Buffer.add_string buf (String.sub css i (brace + 1 - i));
@@ -632,7 +526,7 @@ let hoist_theme_keyframes css =
    tokens from actual import statements so quoted parentheses and comments do
    not alter their boundaries. *)
 let strip_tailwind_import_options css =
-  rewrite ~names:[ "@import" ] css (fun index buf i ->
+  Text_pass.rewrite ~names:[ "@import" ] css (fun index buf i ->
       let option_at i =
         List.find_map
           (fun name -> Index.call index ~name i)
@@ -659,7 +553,7 @@ let strip_tailwind_import_options css =
 let take_named_defs keyword css =
   let defs = ref [] in
   let css =
-    rewrite ~names:[ keyword ] css (fun index _ i ->
+    Text_pass.rewrite ~names:[ keyword ] css (fun index _ i ->
         match Index.at_rule index ~name:keyword i with
         | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
             defs := (prelude, body) :: !defs;
@@ -695,7 +589,7 @@ let shorthand_variant prelude =
 let take_custom_variants css =
   let defs = ref [] in
   let css =
-    rewrite ~names:[ "@custom-variant" ] css (fun index _ i ->
+    Text_pass.rewrite ~names:[ "@custom-variant" ] css (fun index _ i ->
         match Index.at_rule index ~name:"@custom-variant" i with
         | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
             defs := (prelude, body) :: !defs;
@@ -1334,8 +1228,8 @@ let body_pieces body =
       :: !pieces;
     from := next
   in
-  Components.array body |> Array.to_list |> Components.punctuation
-  |> List.iter cut;
+  Text_pass.Components.array body
+  |> Array.to_list |> Text_pass.Components.punctuation |> List.iter cut;
   List.rev
     (Declaration (String.sub body !from (String.length body - !from)) :: !pieces)
 
@@ -1440,7 +1334,7 @@ let tailwind_directives =
    tw cannot expand -- or names something outside the stylesheet, so there is
    nothing to salvage from the text either. *)
 let drop_directives css =
-  rewrite ~names:tailwind_directives css (fun index _ i ->
+  Text_pass.rewrite ~names:tailwind_directives css (fun index _ i ->
       List.find_map
         (fun name ->
           match Index.at_rule index ~name i with
@@ -1452,7 +1346,7 @@ let drop_directives css =
         tailwind_directives)
 
 let fill_slots template body =
-  rewrite ~names:[ "@slot" ] template (fun index buf i ->
+  Text_pass.rewrite ~names:[ "@slot" ] template (fun index buf i ->
       match Index.at_statement index ~name:"@slot" i with
       | Some { next; _ } ->
           Buffer.add_string buf body;
@@ -1467,7 +1361,7 @@ let rec expand_variants ~depth defs css =
   else
     let changed = ref false in
     let out =
-      rewrite ~names:[ "@variant" ] css (fun index buf i ->
+      Text_pass.rewrite ~names:[ "@variant" ] css (fun index buf i ->
           match Index.at_rule index ~name:"@variant" i with
           | Some { prelude; block = { body; next }; _ }
             when List.mem_assoc prelude defs ->
@@ -1679,7 +1573,7 @@ let inline_spacing ~theme multiple =
 (* Tailwind's [--spacing(N)] is shorthand for the spacing scale. It is not CSS,
    so a parser rejects the declaration and it drops out of the output. *)
 let expand_spacing_fn ~theme css =
-  rewrite ~names:[ "--spacing(" ] css (fun index buf i ->
+  Text_pass.rewrite ~names:[ "--spacing(" ] css (fun index buf i ->
       match Index.call index ~name:"--spacing" i with
       | Some { body; next } ->
           Buffer.add_string buf
@@ -1709,7 +1603,7 @@ let theme_token_value theme name =
    [authored_color_mix_fallbacks] then gives a legacy fallback and an
    [@supports] arm - the shape the reference emits. *)
 let expand_alpha_fn css =
-  rewrite ~names:[ "--alpha(" ] css (fun index buf i ->
+  Text_pass.rewrite ~names:[ "--alpha(" ] css (fun index buf i ->
       match Index.call index ~name:"--alpha" i with
       | Some { body; next } -> (
           match String.index_opt body '/' with
@@ -1753,7 +1647,7 @@ let v3_theme_namespaces =
   ]
 
 let v3_theme_token theme path =
-  match String.split_on_char '.' (unquote path) with
+  match String.split_on_char '.' (Text_pass.unquote path) with
   | [] | [ _ ] -> None
   | ns :: rest -> (
       match List.assoc_opt ns v3_theme_namespaces with
@@ -1771,7 +1665,7 @@ let v3_theme_token theme path =
    appears in places a [var()] could not stand anyway, such as a media query
    condition. An unknown token is left alone rather than guessed at. *)
 let resolve_theme_fn ~theme css =
-  rewrite ~names:[ "theme(" ] css (fun index buf i ->
+  Text_pass.rewrite ~names:[ "theme(" ] css (fun index buf i ->
       match Index.call index ~name:"theme" i with
       | None -> None
       | Some { body; next } -> (
@@ -1839,7 +1733,7 @@ let dashed_theme_value ~theme ~in_prelude body =
           | None -> Some fallback))
 
 let resolve_dashed_theme_fn ~theme css =
-  rewrite ~names:[ "--theme(" ] css (fun index buf ->
+  Text_pass.rewrite ~names:[ "--theme(" ] css (fun index buf ->
       let preludes = at_rule_preludes index css in
       fun i ->
         match Index.call index ~name:"--theme" i with
@@ -2107,7 +2001,7 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
   let hoisted = Buffer.create 0 in
   let seen = Hashtbl.create 64 in
   let css =
-    rewrite ~names:[ "@apply" ] css (fun index buf i ->
+    Text_pass.rewrite ~names:[ "@apply" ] css (fun index buf i ->
         match Index.at_statement index ~name:"@apply" i with
         | Some { prelude; next } ->
             (* A utility with no declared variant and no body of its own
@@ -2126,7 +2020,7 @@ let expand_apply ~theme ~defs ?(udefs = []) css =
 
 (* The names an [@variant NAME {] header uses inside a body. *)
 let variant_names_in css =
-  if not (mentions "@variant" css) then []
+  if not (Text_pass.mentions "@variant" css) then []
   else
     let index = Index.v css in
     let len = String.length css in
