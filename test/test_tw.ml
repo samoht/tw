@@ -326,10 +326,10 @@ let check_upstream_positive_fixture_parse filename () =
         (* A class the case's own [@utility] declares is CSS the case brought
            with it, not a utility [of_string] is meant to know: the fixture
            carries the declaration and the upstream runner compiles it through
-           [Entrypoint]. *)
+           [Routing]. *)
         |> List.filter (fun cls ->
             not
-              (Tw_tools.Entrypoint.is_custom_routed ~theme ~defs:[]
+              (Tw_tools.Routing.is_custom_routed ~theme ~defs:[]
                  ~udefs:c.utility_defs cls))
         |> List.filter_map (fun cls ->
             match Tw.of_string ~theme cls with

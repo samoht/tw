@@ -25,8 +25,7 @@ let test_take () =
    absent entry rather than an empty one. *)
 let routed_css ~theme ~udefs candidates =
   let _, entries, _ =
-    Tw_tools.Entrypoint.custom_routed_utilities ~theme ~defs:[] ~udefs
-      candidates
+    Tw_tools.Routing.custom_routed_utilities ~theme ~defs:[] ~udefs candidates
   in
   List.map
     (fun (cls, _, statements) ->

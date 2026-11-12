@@ -73,11 +73,11 @@ let utilities ~theme ?entrypoint ~base classes =
   in
   let classes = List.filter (fun cls -> not (names_refused cls)) classes in
   let routed, normal =
-    List.partition (Entrypoint.is_custom_routed ~theme ~defs ~udefs) classes
+    List.partition (Routing.is_custom_routed ~theme ~defs ~udefs) classes
   in
   let known = parse_known_candidates ~theme ?input_css normal in
   let routed_count, routed_extra, routed_stmts =
-    Entrypoint.custom_routed_utilities ~theme ~defs ~udefs routed
+    Routing.custom_routed_utilities ~theme ~defs ~udefs routed
   in
   (* Routed custom variants no longer pass through the typed modifier parser,
      but the sorter still needs their exact names so a declaration such as
@@ -107,7 +107,7 @@ let utilities ~theme ?entrypoint ~base classes =
           (List.map snd known))
       known
   in
-  (List.length known + routed_count, Entrypoint.place_routed routed_stmts sheet)
+  (List.length known + routed_count, Routing.place_routed routed_stmts sheet)
 
 let stylesheet ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in

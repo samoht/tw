@@ -38,7 +38,7 @@
     extra indentation. *)
 
 module Css = Cascade.Css
-module Entrypoint = Tw_tools.Entrypoint
+module Routing = Tw_tools.Routing
 open Cascade_diff
 open Alcotest
 open Upstream_fixture
@@ -715,14 +715,14 @@ let run_test_case test expected () =
     let resolve_theme = theme_resolution ~declared test.config expected in
     (* A class the case's own [@utility] declares means nothing to
        [Tw.of_string]: the declaration is CSS, and it reaches the sheet the way
-       a project entrypoint's does, through [Entrypoint]. The rest of the case
+       a project entrypoint's does, through [Routing]. The rest of the case
        still compiles class by class, so the two sets are generated separately
        and sorted together by [~extra]. With no declarations the partition is
        empty and this is the plain per-class path. *)
     let udefs = test.utility_defs in
     let routed, direct =
       List.partition
-        (Entrypoint.is_custom_routed ~theme:scheme ~defs:[] ~udefs)
+        (Routing.is_custom_routed ~theme:scheme ~defs:[] ~udefs)
         test.classes
     in
     let parsed, rejected =
@@ -737,8 +737,7 @@ let run_test_case test expected () =
     let rejected = List.rev rejected in
     let routed_count, routed_extra, routed_stmts =
       if routed = [] then (0, [], [])
-      else
-        Entrypoint.custom_routed_utilities ~theme:scheme ~defs:[] ~udefs routed
+      else Routing.custom_routed_utilities ~theme:scheme ~defs:[] ~udefs routed
     in
     stat_total_classes := !stat_total_classes + List.length test.classes;
     stat_parsed := !stat_parsed + List.length utilities;
@@ -750,7 +749,7 @@ let run_test_case test expected () =
       else
         let layers = Option.is_some test.layer_wrap in
         let sheet =
-          Entrypoint.place_routed routed_stmts
+          Routing.place_routed routed_stmts
             (Tw.to_css ~theme:scheme ~base:false ~layers ~extra:routed_extra
                utilities)
         in
@@ -1044,7 +1043,7 @@ let print_parity_report () =
   Fmt.epr "cases with empty expected CSS: %d@." !stat_expected_empty_cases;
   Fmt.epr
     "(a routed class is one the case's own @utility declares, compiled through \
-     Entrypoint rather than of_string)@.";
+     Routing rather than of_string)@.";
   Fmt.epr
     "(a rejection is harmless when the case's CSS still matches; one that \
      breaks parity fails the CSS diff and names the rejected classes)@.";

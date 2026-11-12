@@ -533,7 +533,7 @@ let variant_prefixes cls =
 let unreplayable ~defs ~config ~theme_vars ~classes expected =
   let routed =
     List.filter
-      (Tw_tools.Entrypoint.is_custom_routed ~theme:Tw.Scheme.default ~defs:[]
+      (Tw_tools.Routing.is_custom_routed ~theme:Tw.Scheme.default ~defs:[]
          ~udefs:defs)
       classes
   in
