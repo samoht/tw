@@ -464,7 +464,7 @@ let check_tailwindcss_available () =
         try
           tailwind_command := Some (tailwindcss_command ());
           Ok ()
-        with e -> Error e
+        with (Failure _ | Sys_error _) as e -> Error e
       in
       availability_result := Some result;
       match result with Ok () -> () | Error e -> raise e)

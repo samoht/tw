@@ -34,6 +34,8 @@ lib/           core (utilities, class parsing, layer assembly)
 test/          Alcotest suites, one test_<module>.ml per lib/<module>.ml
   upstream/    replay of Tailwind's own fixture corpus
 cascade/       sibling repo, symlinked in: CSS AST, printer, optimizer, differ
+scripts/       pre-commit (format and lint hook), bench.sh (tw against
+               tailwindcss on a source tree)
 docs/          adding-a-new-utility.md (start here for new utils)
                parity.md (how Tailwind parity is measured and read)
 ```

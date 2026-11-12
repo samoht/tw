@@ -71,3 +71,9 @@ jobs:
 
       # Reads the pinned version from .ocamlformat and runs dune build @fmt.
       - uses: ocaml/setup-ocaml/lint-fmt@v3
+
+      # The pre-commit hook lints staged files only; this lints the whole tree.
+      - run: opam repo add samoht https://tangled.org/gazagnaire.org/opam-overlay.git
+      - run: opam install . --deps-only --with-test
+      - run: opam install merlint
+      - run: opam exec -- merlint --build

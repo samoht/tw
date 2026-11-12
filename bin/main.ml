@@ -140,12 +140,12 @@ let print_diff_result label diff =
       | Css_compare.Both_errors _ | Expected_error _ | Actual_error _ -> 2
       | Tree_diff _ | String_diff _ | No_diff -> 1)
 
-(* The generator reports a missing or unusable CLI as a [Failure] carrying the
-   whole diagnosis, and [Printexc] would print that as a quoted literal with its
-   newlines escaped. *)
-let tailwind_error = function
-  | Failure reason | Sys_error reason -> reason
-  | e -> Printexc.to_string e
+(* What a run reports as an error: a [Failure] carrying the whole diagnosis, as
+   the generator raises for a missing or unusable CLI, or a filesystem error.
+   [f]'s other exceptions are defects and propagate. *)
+let reporting_errors ~what f =
+  try f ()
+  with Failure reason | Sys_error reason -> `Error (false, what ^ reason)
 
 let calc_re = Re.compile (Re.str "calc(")
 
@@ -265,17 +265,11 @@ let reference_css ~(opts : gen_opts) classes =
 (* [classes ()] runs under the same handler as the CLI, so a source that cannot
    be scanned reports as a generation error, as it did. *)
 let tailwind_backend ~opts classes =
-  try
-    emit ~opts (reference_css ~opts (classes ()));
-    `Ok 0
-  with e ->
-    `Error
-      (false, Fmt.str "Error generating with Tailwind: %s" (tailwind_error e))
+  reporting_errors ~what:"Error generating with Tailwind: " (fun () ->
+      emit ~opts (reference_css ~opts (classes ()));
+      `Ok 0)
 
-let comparison f =
-  try f ()
-  with e ->
-    `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
+let comparison f = reporting_errors ~what:"Error during comparison: " f
 
 (* What both diff modes end in: tw's sheet against the reference, [report]
    printing the structural diff and answering its exit status, and the browser
@@ -453,16 +447,15 @@ let diff_files paths ~(opts : gen_opts) =
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
-  try
-    let all_classes = scanned_classes ~opts paths in
-    let known_count, stylesheet =
-      native_stylesheet ~opts ~include_base all_classes
-    in
-    emit ~opts (render_css ~opts stylesheet);
-    print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
-      ~known_count;
-    `Ok 0
-  with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
+  reporting_errors ~what:"Error: " (fun () ->
+      let all_classes = scanned_classes ~opts paths in
+      let known_count, stylesheet =
+        native_stylesheet ~opts ~include_base all_classes
+      in
+      emit ~opts (render_css ~opts stylesheet);
+      print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
+        ~known_count;
+      `Ok 0)
 
 let process_files paths flag ~(opts : gen_opts) =
   match opts.backend with
