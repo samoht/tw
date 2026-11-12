@@ -25,9 +25,6 @@ type direction =
   | Bottom_left
 
 module Handler = struct
-  (* Helper to check if a string contains an opacity modifier *)
-  let has_opacity s = String.contains s '/'
-
   (* Gradient color source - shared by from/via/to *)
   module Color_source = struct
     (* A colour that spells itself out, with no palette behind it. *)
@@ -354,14 +351,12 @@ module Handler = struct
 
   (* A palette colour's value with the theme token it reads, or the value alone
      for an arbitrary colour, which has no token. *)
-  let color_binding ?theme ~shade color =
-    let value = Color.to_css ?theme color shade in
-    if Color.is_custom_color color then ([], value)
-    else Color.bound ?theme (Color.color_var color shade) value
 
   (** Common helper for gradient color utilities *)
   let gradient_color ?theme ~prefix ~set_var ?(shade = 500) color =
-    let theme_decls, gradient_color_value = color_binding ?theme ~shade color in
+    let theme_decls, gradient_color_value =
+      Color.bound_color ?theme ~shade color
+    in
 
     (* Set the appropriate gradient variable *)
     let d_var = Var.set set_var gradient_color_value in
@@ -1072,14 +1067,6 @@ module Handler = struct
   (* A [color:] hint says how to read the value written after it; only a var()
      reference there names a custom property, so any other spelling has to be a
      colour the reader takes. *)
-  let is_bracket_color_hint value =
-    Parse.is_var value || Color.parse_bracket_color value <> None
-
-  (* The value after a [color:] hint, when there is one and it reads. *)
-  let bracket_color_hint inner =
-    match Parse.data_type_hint inner with
-    | Some ("color", v) when is_bracket_color_hint v -> Some v
-    | Some _ | None -> None
 
   (** Convert a plain colour source to a Css.color *)
   let css_color_of_plain : Color_source.plain -> Css.color = function
@@ -1192,7 +1179,7 @@ module Handler = struct
         | Some p -> gp (Percent (float_of_int p))
         | None -> Error (`Msg "Invalid gradient position"))
     (* Bracket with opacity: [#0088cc]/50, [#0088cc]/[0.5], [var(--x)]/50 *)
-    | [ bracket_opacity ] when has_opacity bracket_opacity -> (
+    | [ bracket_opacity ] when Color.has_opacity bracket_opacity -> (
         let base, opacity_opt =
           Color.parse_opacity_modifier ?theme bracket_opacity
         in
@@ -1200,7 +1187,7 @@ module Handler = struct
         | Color.No_opacity when Parse.is_bracket_value bracket_opacity -> (
             (* No valid opacity found — treat as plain bracket *)
             let inner = Parse.bracket_inner bracket_opacity in
-            match bracket_color_hint inner with
+            match Color.bracket_color_hint inner with
             | Some var_str -> plain (Color_source.Bracket_color_var var_str)
             | None -> (
                 if is_bracket_hex inner then
@@ -1221,7 +1208,7 @@ module Handler = struct
             Error (`Msg "Invalid gradient bracket with opacity")
         | opacity when Parse.is_bracket_value base -> (
             let inner = Parse.bracket_inner base in
-            match bracket_color_hint inner with
+            match Color.bracket_color_hint inner with
             | Some var_str ->
                 plain ~opacity (Color_source.Bracket_color_var var_str)
             | None -> (
@@ -1251,7 +1238,7 @@ module Handler = struct
     (* Bracket notation without opacity *)
     | [ bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        match bracket_color_hint inner with
+        match Color.bracket_color_hint inner with
         | Some var_str -> plain (Color_source.Bracket_color_var var_str)
         | None -> (
             if is_bracket_hex inner then
@@ -1269,8 +1256,8 @@ module Handler = struct
                   match Parse.arbitrary_declaration_value inner with
                   | Some value -> Ok (Gradient_raw (target, inner, value, None))
                   | None -> Error (`Msg "Invalid gradient stop value"))))
-    (* Named color with opacity via has_opacity on rest *)
-    | _ when List.exists has_opacity rest -> (
+    (* Named color with opacity via Color.has_opacity on rest *)
+    | _ when List.exists Color.has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ?theme rest with
         | Ok (color, shade, opacity) -> palette ~opacity color shade
         | Error e -> Error e)

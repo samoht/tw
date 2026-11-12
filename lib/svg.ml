@@ -305,7 +305,6 @@ module Handler = struct
     | Stroke_width_typed_var v -> "stroke-[" ^ v ^ "]"
     | Stroke_width_raw (v, _) -> "stroke-[" ^ v ^ "]"
 
-  let has_opacity s = String.contains s '/'
   let starts prefix s = String.starts_with ~prefix s
 
   (* Parse bracket value for fill/stroke: determine if it's a color or typed
@@ -419,7 +418,7 @@ module Handler = struct
            && Parse.is_bracket_value
                 (fst (Color.parse_opacity_modifier ~theme v)) ->
         parse_bracket_fill ~theme v
-    | "fill" :: color_parts when List.exists has_opacity color_parts -> (
+    | "fill" :: color_parts when List.exists Color.has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Fill_color_opacity (color, shade, opacity))
@@ -465,7 +464,8 @@ module Handler = struct
     | [ "stroke"; "2" ] -> Ok Stroke_2
     | [ "stroke"; n ] when Parse.decimal_int n <> None ->
         Ok (Stroke_width (int_of_string n))
-    | "stroke" :: color_parts when List.exists has_opacity color_parts -> (
+    | "stroke" :: color_parts when List.exists Color.has_opacity color_parts
+      -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Stroke_color_opacity (color, shade, opacity))

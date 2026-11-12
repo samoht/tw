@@ -820,6 +820,11 @@ let token_value ?theme (c : color) shade =
 let color_binding ?theme c shade =
   Var.binding (color_var c shade) (token_value ?theme c shade)
 
+let bound_color ?theme ~shade color =
+  let value = to_css ?theme color shade in
+  if is_custom_color color then ([], value)
+  else bound ?theme (color_var color shade) value
+
 (* [\@import "tailwindcss" theme(static)] emits the whole theme rather than only
    the tokens a utility used, so the sheet needs every palette colour.
    [transparent] is not one: Tailwind declares no token for it. *)
@@ -970,6 +975,14 @@ let parse_bracket_hint inner =
     match parse_bracket_color inner with
     | Some c -> Some (Plain_color c)
     | None -> None
+
+let is_bracket_color value =
+  Parse.is_var value || parse_bracket_color value <> None
+
+let bracket_color_hint inner =
+  match Parse.data_type_hint inner with
+  | Some ("color", v) when is_bracket_color v -> Some v
+  | Some _ | None -> None
 
 (* The registry holds the tokens a theme declares; the palette is a table of its
    own, so a colour token is spelled out from it. A removed token binds nothing,

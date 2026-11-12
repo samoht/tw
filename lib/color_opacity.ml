@@ -109,6 +109,8 @@ let modifier_slash s =
     s;
   !last
 
+let has_opacity s = String.contains s '/'
+
 let parse_opacity_modifier ?theme s =
   match modifier_slash s with
   | None -> (s, No_opacity)

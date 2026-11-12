@@ -37,6 +37,9 @@ val opacity_of_string : ?theme:Scheme.t -> string -> opacity_modifier option
     colour class: a percentage, a bracket value, the [(--x)] shorthand, or a
     theme-defined name. *)
 
+val has_opacity : string -> bool
+(** [has_opacity s] is [true] when [s] carries a [/] opacity modifier. *)
+
 val parse_opacity_modifier :
   ?theme:Scheme.t -> string -> string * opacity_modifier
 (** [parse_opacity_modifier ?theme s] parses an opacity modifier from a string.
