@@ -39,6 +39,8 @@ include Flex_layout
 include Alignment
 include Borders
 include Effects
+include Ring
+include Blend
 include Text_shadow
 include Transforms
 include Cursor
@@ -539,6 +541,8 @@ module Grid_template = Grid_template
 module Typography = Typography
 module Divide = Divide
 module Effects = Effects
+module Ring = Ring
+module Blend = Blend
 module Text_shadow = Text_shadow
 module Transforms = Transforms
 module Interactivity = Interactivity

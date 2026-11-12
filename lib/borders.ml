@@ -1105,7 +1105,7 @@ module Handler = struct
           match Parse.decimal_int value with
           | Some i when i > 0 -> Ok (Neg_outline_offset i)
           | _ -> err_not_utility)
-    (* ring* handled in Effects *)
+    (* ring* handled in Ring *)
     | _ -> err_not_utility
 
   let to_class = function

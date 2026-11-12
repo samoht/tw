@@ -941,9 +941,9 @@ let typed_utility_surface () =
       outline_current;
       outline_inherit;
     ];
-  check_module (Effects.ring_offset_width 0);
+  check_module (Ring.ring_offset_width 0);
   check_list [ ring_offset_width 0; ring_offset_width 2 ];
-  check_module (Effects.ring_offset_color blue);
+  check_module (Ring.ring_offset_color blue);
   check_list
     [
       ring_offset_color blue;
@@ -952,7 +952,7 @@ let typed_utility_surface () =
       ring_offset_current;
       ring_offset_inherit;
     ];
-  check_module Effects.bg_blend_normal;
+  check_module Blend.bg_blend_normal;
   check_list
     [
       bg_blend_normal;

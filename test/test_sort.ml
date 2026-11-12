@@ -1178,6 +1178,7 @@ let pool_families () =
           "via-purple-500";
           "to-pink-500";
         ] );
+    ("blend", c [ "mix-blend-multiply"; "bg-blend-multiply" ]);
     ( "borders",
       c
         [
@@ -1217,18 +1218,7 @@ let pool_families () =
           "divide-x-reverse";
         ] );
     ( "effects",
-      c
-        [
-          "shadow-md";
-          "shadow-none";
-          "opacity-50";
-          "mix-blend-multiply";
-          "bg-blend-multiply";
-          "inset-shadow-sm";
-          "ring-2";
-          "ring-offset-4";
-          "inset-ring-2";
-        ] );
+      c [ "shadow-md"; "shadow-none"; "opacity-50"; "inset-shadow-sm" ] );
     ("field_sizing", c [ "field-sizing-content"; "field-sizing-fixed" ]);
     ( "filters",
       c
@@ -1359,6 +1349,7 @@ let pool_families () =
           "start-0";
           "inset-0";
         ] );
+    ("ring", c [ "ring-2"; "ring-offset-4"; "inset-ring-2" ]);
     ("scroll", c [ "scroll-m-4"; "scroll-px-2"; "scroll-mt-8"; "scroll-pb-6" ]);
     ( "scrollbar",
       c
