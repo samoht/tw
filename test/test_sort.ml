@@ -341,13 +341,13 @@ let test_gap_before_self_alignment () =
 (* Tailwind's property table sorts letter-spacing, text-wrap, overflow-wrap,
    hyphens and white-space in that order (289, 290, 291, 294, 295): tracking
    opens the late-typography band, text-wrap and the word-wrapping families come
-   next, and white-space is last of the five. [wrap-break-word] lives in
-   [Overflow_wrap]'s own handler, a separate priority band from
-   [Typography_late]'s default 26 - both have to land between tracking and
-   whitespace for this to hold. None of these utilities write on a shared
-   property, so [check_ordering_matches]'s canonical diff would call any reorder
-   among them cascade-neutral and miss it; [check_class_order] reads sheet
-   positions directly instead. *)
+   next, and white-space is last of the five. Tracking, text-wrap, hyphens and
+   white-space live in [Letter_spacing] and [Line_breaking], [wrap-break-word]
+   in [Overflow_wrap]: three handlers sharing priority 26, and all of them have
+   to land between tracking and whitespace for this to hold. None of these
+   utilities write on a shared property, so [check_ordering_matches]'s canonical
+   diff would call any reorder among them cascade-neutral and miss it;
+   [check_class_order] reads sheet positions directly instead. *)
 let test_late_typography_before_whitespace () =
   Test_helpers.check_class_order
     ~test_name:"text-wrap, wrap-break-word, hyphens before white-space"
@@ -1201,6 +1201,7 @@ let pool_families () =
           "placeholder-gray-400";
         ] );
     ("columns", c [ "columns-3"; "columns-md"; "columns-auto" ]);
+    ("content", c [ "content-none" ]);
     ("contain", c [ "contain-layout"; "contain-strict"; "contain-content" ]);
     ("containers", c [ "container"; "@container" ]);
     ("cursor", c [ "cursor-pointer"; "cursor-not-allowed"; "cursor-grab" ]);
@@ -1229,6 +1230,9 @@ let pool_families () =
           "backdrop-saturate-150";
           "drop-shadow-lg";
         ] );
+    ("font_smoothing", c [ "antialiased" ]);
+    ("font_stretch", c [ "font-stretch-condensed" ]);
+    ("font_variant_numeric", c [ "tabular-nums" ]);
     ("flex", c [ "flex"; "inline-flex" ]);
     ( "flex_layout",
       c
@@ -1304,6 +1308,10 @@ let pool_families () =
           "sr-only";
           "not-sr-only";
         ] );
+    ("letter_spacing", c [ "tracking-wide" ]);
+    ("line_breaking", c [ "whitespace-nowrap"; "hyphens-auto" ]);
+    ("line_clamp", c [ "line-clamp-3" ]);
+    ("list_style", c [ "list-disc" ]);
     ( "margin",
       c [ "m-4"; "mx-2"; "my-8"; "mt-1"; "mb-6"; "ml-auto"; "-mt-4"; "ms-2" ] );
     ( "mask_gradient",
@@ -1381,7 +1389,10 @@ let pool_families () =
         [
           "border-collapse"; "border-spacing-2"; "table-fixed"; "caption-bottom";
         ] );
+    ("text_indent", c [ "indent-4" ]);
+    ("text_overflow", c [ "text-ellipsis" ]);
     ("text_shadow", c [ "text-shadow-sm"; "text-shadow-lg"; "text-shadow-none" ]);
+    ("text_transform", c [ "uppercase" ]);
     ("touch", c [ "touch-pan-x"; "touch-manipulation"; "touch-none" ]);
     ( "transforms",
       c
@@ -1416,24 +1427,14 @@ let pool_families () =
           "font-bold";
           "font-sans";
           "leading-relaxed";
-          "tracking-wide";
           "italic";
-          "uppercase";
           "underline";
           "line-through";
-          "text-ellipsis";
-          "indent-4";
-          "align-middle";
-          "whitespace-nowrap";
-          "list-disc";
-          "line-clamp-3";
-          "antialiased";
-          "tabular-nums";
-          "hyphens-auto";
           "decoration-2";
           "decoration-sky-400";
           "underline-offset-4";
         ] );
+    ("vertical_align", c [ "align-middle" ]);
     ("zoom", c [ "zoom-50"; "zoom-100" ]);
   ]
 
@@ -1675,8 +1676,7 @@ type entry = {
 }
 
 (* Which handler a class resolves to. Finer than the lib/ module a family is
-   keyed by: typography answers early or late, borders answers outline_style for
-   its outline utilities. *)
+   keyed by: borders answers outline_style for its outline utilities. *)
 let handler_of cls =
   match Tw.Utility.base_of_class Tw.Scheme.default cls with
   | Ok base -> Some (Tw.Utility.name_of_base base)

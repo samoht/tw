@@ -53,6 +53,18 @@ let () =
       Test_sizing.suite;
       Test_layout.suite;
       Test_typography.suite;
+      Test_letter_spacing.suite;
+      Test_text_transform.suite;
+      Test_font_smoothing.suite;
+      Test_line_breaking.suite;
+      Test_text_overflow.suite;
+      Test_line_clamp.suite;
+      Test_vertical_align.suite;
+      Test_text_indent.suite;
+      Test_list_style.suite;
+      Test_content.suite;
+      Test_font_stretch.suite;
+      Test_font_variant_numeric.suite;
       Test_effects.suite;
       Test_ring.suite;
       Test_blend.suite;
