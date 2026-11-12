@@ -116,8 +116,9 @@ let overrides_of_css css =
 
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
-   [drop_directives] takes the whole block out of the emitted CSS; lift actual
-   keyframe at-rules to the top level first, where Tailwind emits them. *)
+   [Author_css.drop_directives] takes the whole block out of the emitted CSS;
+   lift actual keyframe at-rules to the top level first, where Tailwind emits
+   them. *)
 let hoist_keyframes css =
   let lifted = Buffer.create 0 in
   let css =

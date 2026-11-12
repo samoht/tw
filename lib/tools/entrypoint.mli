@@ -58,32 +58,6 @@ val place_routed : Cascade.Css.statement list -> Cascade.Css.t -> Cascade.Css.t
     fallback block a declared utility hoists leads, where the generated sheet
     puts its own, and the rest follows. *)
 
-(** {1 Text passes} *)
-
-val drop_directives : string -> string
-(** [drop_directives css] removes Tailwind's own at-rules. A build-time
-    directive has no meaning in a browser, and Tailwind emits none of them;
-    anything else is the author's CSS and passes through. *)
-
-val apply_variants :
-  ?extra_defs:(string * string) list ->
-  ?udefs:(string * string) list ->
-  theme:Tw.Scheme.t ->
-  string ->
-  string
-(** [apply_variants ?extra_defs ?udefs ~theme css] runs the whole expansion over
-    author CSS: [@apply] pulls in utilities, [@variant] and the declared
-    variants wrap them, [--spacing()], [theme()] and [--theme()] resolve against
-    [theme], and the directives themselves are dropped. [extra_defs] adds
-    variant declarations from outside [css], [udefs] the [@utility] ones. *)
-
-val nest_on_ampersand :
-  classes:string list -> Cascade.Selector.t -> Cascade.Selector.t
-(** [nest_on_ampersand ~classes sel] swaps the utility's own class in [sel] -
-    the one named in [classes] - for the nesting selector [&], so the rule can
-    be hosted by whatever selector applied it. A selector naming none of
-    [classes] gives up its leftmost class instead. *)
-
 (** {1 Splicing} *)
 
 val splice_into_entrypoint :
