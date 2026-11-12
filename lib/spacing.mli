@@ -36,7 +36,7 @@ val margin_to_length : Css.length Css.var -> Style.margin -> Css.length
 
     Extends {!to_length} with auto support:
     - [`Auto] becomes [Css.Auto]
-    - All spacing values use {!to_length}
+    - All spacing values use {!to_length}.
 
     @param spacing_ref
       Reference to the spacing theme variable (from Var.binding)
@@ -50,7 +50,7 @@ val margin_to_length_neg : Css.length Css.var -> Style.spacing -> Css.length
     Similar to {!to_length} but negates the value:
     - [`Px] becomes [Css.Px (-1.)]
     - [`Full] becomes [Css.Pct (-100.0)]
-    - [`Rem f] creates [calc(var(--spacing) * -n)] where n = f / 0.25
+    - [`Rem f] creates [calc(var(--spacing) * -n)] where n = f / 0.25.
 
     @param spacing_ref
       Reference to the spacing theme variable (from Var.binding)
@@ -126,7 +126,7 @@ val axis_of_prefix : string -> axis option
     Examples:
     - "p" or "m" -> [`All]
     - "px" or "mx" -> [`X]
-    - "pt" or "mt" -> [`T]
+    - "pt" or "mt" -> [`T].
 
     @param prefix The class prefix (e.g., "p", "px", "m", "ml")
     @return The corresponding axis, or None if invalid. *)
@@ -145,7 +145,7 @@ val parse_class_parts : string list -> (bool * string * string) option
     Handles both positive and negative values:
     - [["p"; "4"]] -> [Some (false, "p", "4")]
     - [[""; "m"; "4"]] -> [Some (true, "m", "4")] (negative margin)
-    - Other patterns -> [None]
+    - Other patterns -> [None].
 
     @param parts List of strings from [String.split_on_char '-']
     @return [(is_negative, prefix, value)] tuple or None if invalid. *)
