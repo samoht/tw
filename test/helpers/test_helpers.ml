@@ -1564,15 +1564,22 @@ type sweep_verdict =
   | Mismatched of string
       (** parsed, and emitted a rule the class cannot match *)
 
-let sweep_one cls =
-  match Tw.of_string cls with
+(* [f ()], naming [cls] and [stage] before an exception it raises propagates: a
+   sweep runs thousands of classes and the backtrace alone does not say
+   which. *)
+let naming cls stage f =
+  match f () with
+  | v -> v
   | exception e ->
-      Alcotest.failf "%s: of_string raised %s" cls (Printexc.to_string e)
+      let bt = Printexc.get_raw_backtrace () in
+      Fmt.epr "%s: %s raised@." cls stage;
+      Printexc.raise_with_backtrace e bt
+
+let sweep_one cls =
+  match naming cls "of_string" (fun () -> Tw.of_string cls) with
   | Error (`Msg _) -> Rejected
   | Ok u -> (
-      match selectors_of_utility u with
-      | exception e ->
-          Alcotest.failf "%s: to_css raised %s" cls (Printexc.to_string e)
+      match naming cls "to_css" (fun () -> selectors_of_utility u) with
       | [] -> Emitted_nothing
       | selectors ->
           let printed = Tw.pp u in

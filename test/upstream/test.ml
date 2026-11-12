@@ -949,7 +949,7 @@ let test_reader_rejects_a_stray_line () =
         <<<>>>\n")
   in
   match read path with
-  | exception _ -> ()
+  | exception Malformed _ -> ()
   | cases ->
       Alcotest.failf "read %d cases instead of rejecting the stray line"
         (List.length cases)

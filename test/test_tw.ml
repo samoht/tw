@@ -165,12 +165,6 @@ let check_exact_match tw_styles =
       show_window "Our TW" !tw_css_raw err.position;
       show_window "Tailwind" !tailwind_css_raw err.position;
       fail ("CSS parse error: " ^ details)
-  | exn ->
-      (* Fallback: print full exception type/name if it's not a CSS parse
-         error. *)
-      let exn_str = Printexc.to_string exn in
-      Fmt.epr "Unexpected exception: %s@." exn_str;
-      fail ("Unexpected error: " ^ exn_str)
 
 let check tw_style = check_exact_match [ tw_style ]
 let check_list tw_styles = check_exact_match tw_styles
