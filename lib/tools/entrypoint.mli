@@ -17,36 +17,10 @@ val read_file : string -> string
 
 (** {1 The project theme} *)
 
-val imports_static_theme : string -> bool
-(** [imports_static_theme css] is [true] when [css] asks for the whole theme
-    with [@import "tailwindcss" theme(static)], rather than only the variables
-    its utilities read. *)
-
 val theme_of_css : string -> Tw.Scheme.t
 (** [theme_of_css css] is the theme the entrypoint [css] asks for: its [\@theme]
     overrides, [theme(static)] and [prefix()]. The CLI builds its theme with
     this, so a measurement against the CLI can build the same one. *)
-
-val import_prefix : string -> string option
-(** [import_prefix css] is the name [prefix(tw)] on the [\@import] asks for, and
-    [None] when the import carries no such option. Every candidate is then
-    spelled [tw:p-4] and every theme token declared as [--tw-spacing]. *)
-
-val imports_important : string -> bool
-(** [imports_important css] is [true] when [css] imports the package with
-    [@import "tailwindcss" important], which marks every declaration a utility
-    emits [!important]. *)
-
-val forms_base : string -> bool
-(** [forms_base css] is [true] when [css] loads [@tailwindcss/forms] with its
-    default strategy, which resets native form controls in the base layer, and
-    [false] when it names no such plugin or its options ask for
-    [strategy: "class"]. *)
-
-val config_directives : string -> string list
-(** [config_directives css] is what each [\@config] directive in [css] names, as
-    written and in source order: a v3 JavaScript config, which tw does not
-    evaluate. The CLI refuses an entrypoint for which this is not empty. *)
 
 val theme_overrides_of_css : string -> (string * string) list * string list
 (** [theme_overrides_of_css css] is the [(bare-name, value)] pairs the [@theme]
@@ -55,11 +29,6 @@ val theme_overrides_of_css : string -> (string * string) list * string list
     renders with the tokens Tailwind reads from the same file. *)
 
 (** {1 Declared variants and utilities} *)
-
-val strip_tailwind_import_options : string -> string
-(** [strip_tailwind_import_options css] drops the option functions Tailwind adds
-    to [@import] - [theme(static)], [source(none)], [prefix(tw)] - which CSS has
-    no grammar for. *)
 
 val take_custom_variants : string -> string * (string * string) list
 (** [take_custom_variants css] is [css] without its [@custom-variant]
@@ -171,13 +140,6 @@ val nest_on_ampersand :
     [classes] gives up its leftmost class instead. *)
 
 (** {1 Splicing} *)
-
-val imports_preflight : string -> bool
-(** [imports_preflight css] is [true] unless [css] imports Tailwind only in
-    parts that leave the reset out: [tailwindcss/theme.css] and
-    [tailwindcss/utilities.css] (or [\@tailwind utilities]) without
-    [tailwindcss/preflight.css]. An entrypoint that does not import Tailwind at
-    all is [true], as nothing it splices depends on it. *)
 
 val splice_into_entrypoint :
   theme:Tw.Scheme.t -> path:string -> Cascade.Css.t -> Cascade.Css.t

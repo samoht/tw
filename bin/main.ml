@@ -470,7 +470,7 @@ let process_files paths flag ~(opts : gen_opts) =
 let js_config_refusal ~backend ~input_css css_content =
   match (backend, input_css, css_content) with
   | (Native | Diff), Some path, Some css -> (
-      match Entrypoint.config_directives css with
+      match Tw_tools.Tailwind_import.config_directives css with
       | [] -> None
       | config :: _ ->
           Some

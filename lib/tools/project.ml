@@ -97,7 +97,9 @@ let utilities ~theme ?entrypoint ~base classes =
   in
   (* The forms plugin's reset belongs to the base layer, which [to_css] writes
      only when it is asked for. *)
-  let forms = Option.fold ~none:false ~some:Entrypoint.forms_base input_css in
+  let forms =
+    Option.fold ~none:false ~some:Tailwind_import.forms_base input_css
+  in
   let known, sheet =
     render_known
       (fun known ->
@@ -112,7 +114,8 @@ let stylesheet ~theme ?entrypoint ~base classes =
   (* An entrypoint importing Tailwind in parts asks for the reset only through
      [tailwindcss/preflight.css]. *)
   let base =
-    base && Option.fold ~none:true ~some:Entrypoint.imports_preflight input_css
+    base
+    && Option.fold ~none:true ~some:Tailwind_import.imports_preflight input_css
   in
   (* The entrypoint's safelist joins the markup's classes, and its blocklist
      takes a class out whichever of the two it came from. *)

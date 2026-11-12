@@ -71,11 +71,6 @@ let test_theme_namespace_reset () =
     [ ("example-*", "[x); y]"); ("example-one", "ok") ]
     tokens
 
-let test_imports_static_theme () =
-  check bool "declared" true (imports_static_theme theme_src);
-  check bool "plain import" false
-    (imports_static_theme "@import \"tailwindcss\";")
-
 (* Nesting a utility under the rule that applied it. *)
 
 let nested ~classes s =
@@ -114,10 +109,6 @@ let test_nest_on_ampersand_keeps_nested_mentions () =
     (nested ~classes:[ "divide-x" ] ":where(.divide-x > :not(:last-child))")
 
 (* Text passes over the source. *)
-
-let test_strip_tailwind_import_options () =
-  check string "options dropped from the import" "@import \"tailwindcss\" ;"
-    (strip_tailwind_import_options "@import \"tailwindcss\" theme(static);")
 
 let test_fill_slots () =
   check string "slot replaced by the body"
@@ -769,21 +760,6 @@ let test_author_css_declares_every_token_it_reads () =
       ".btn { color: theme(colors.red.500); }";
     ]
 
-(* [prefix(tw)] is read off the import the way [theme(static)] is. A [prefix()]
-   outside an import statement is not the option, and neither is one in a later
-   import that the first did not carry. *)
-let test_import_prefix () =
-  let prefix s = import_prefix s in
-  check (option string) "the option on the import" (Some "tw")
-    (prefix "@import \"tailwindcss\" prefix(tw);");
-  check (option string) "beside other options" (Some "app")
-    (prefix "@import \"tailwindcss\" source(none) prefix(app) theme(static);");
-  check (option string) "no option" None (prefix "@import \"tailwindcss\";");
-  check (option string) "a call outside an import" None
-    (prefix ".a { width: prefix(tw) }");
-  check (option string) "an empty option names nothing" None
-    (prefix "@import \"tailwindcss\" prefix();")
-
 let test_apply_keeps_the_keyframes () =
   let css = applied_sheet ".card { @apply animate-spin; }" in
   check bool "the @keyframes the animation names survives" true
@@ -1152,12 +1128,9 @@ let tests =
     test_case "declared variants split out" `Quick test_split_declared_variants;
     test_case "theme overrides" `Quick test_theme_overrides;
     test_case "theme namespace reset" `Quick test_theme_namespace_reset;
-    test_case "static theme import" `Quick test_imports_static_theme;
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
     test_case "nest on ampersand keeps nested mentions" `Quick
       test_nest_on_ampersand_keeps_nested_mentions;
-    test_case "import options stripped" `Quick
-      test_strip_tailwind_import_options;
     test_case "slots filled" `Quick test_fill_slots;
     test_case "custom variants taken" `Quick test_take_custom_variants;
     test_case "negated variant spelling" `Quick test_negated_variant_spelling;
@@ -1193,7 +1166,6 @@ let tests =
       test_apply_declares_every_token_it_reads;
     test_case "@apply keeps the keyframes" `Quick test_apply_keeps_the_keyframes;
     test_case "@apply of a declared utility" `Quick test_apply_declared_utility;
-    test_case "prefix() on the import" `Quick test_import_prefix;
     test_case "dialect sweep against the CLI" `Slow test_dialect_sweep;
     test_case "dialect surface is covered" `Quick
       test_dialect_surface_is_covered;

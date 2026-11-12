@@ -136,25 +136,6 @@ let theme_overrides_of_css css =
   let blocks = theme_blocks css in
   (List.concat_map snd blocks, theme_tokens_with "inline" blocks)
 
-(* [@import "tailwindcss"] and its subpath forms are the package, not a file on
-   disk: each marks where part of the generated sheet belongs. The package's own
-   [index.css] imports [theme.css], [preflight.css] and [utilities.css] in turn,
-   so the bare import is all three, each file is its own part, and any other
-   subpath is read as the package. *)
-type tailwind_part = Whole | Theme_part | Preflight_part | Utilities_part
-
-let tailwind_import_part url =
-  let u = Css.decode_import_url url in
-  match Filename.remove_extension u with
-  | "tailwindcss" -> Some Whole
-  | "tailwindcss/theme" -> Some Theme_part
-  | "tailwindcss/preflight" -> Some Preflight_part
-  | "tailwindcss/utilities" -> Some Utilities_part
-  | _ when String.starts_with ~prefix:"tailwindcss/" u -> Some Whole
-  | _ -> None
-
-let is_tailwind_import url = Option.is_some (tailwind_import_part url)
-
 (* Tailwind's [@custom-variant NAME { ... @slot; ... }] and selector shorthand
    [@custom-variant NAME (...);] declare variants, and [@variant NAME { decls }]
    applies one inside author CSS. These are Tailwind syntax, so a CSS parser
@@ -167,102 +148,7 @@ let is_tailwind_import url = Option.is_some (tailwind_import_part url)
 let builtin_variants =
   [ ("dark", "@media (prefers-color-scheme: dark) { @slot; }") ]
 
-(* [@import "tailwindcss" theme(static)] asks for the whole theme, not only the
-   variables a utility used. The option is not CSS, so it is read off the
-   import's own [theme()] call rather than from a parsed stylesheet. *)
-let imports_static_theme css =
-  let index = Index.v css in
-  let static =
-    Index.calls index ~name:"theme"
-    |> List.filter (fun (_, (block : Index.block)) ->
-        String.trim block.body = "static")
-  in
-  Index.at_statements index ~name:"@import"
-  |> List.exists (fun (at, (import : Index.statement)) ->
-      List.exists (fun (i, _) -> at < i && i < import.next) static)
-
-(* [@import "tailwindcss" prefix(tw)] asks for [tw:] in front of every candidate
-   and [--tw-] in front of every theme token. Read the same way [theme(static)]
-   is: the option function sits inside the import statement. *)
-let import_prefix css =
-  let index = Index.v css in
-  let prefixes = Index.calls index ~name:"prefix" in
-  Index.at_statements index ~name:"@import"
-  |> List.filter_map (fun (at, (import : Index.statement)) ->
-      List.find_map
-        (fun (i, (block : Index.block)) ->
-          if at < i && i < import.next then
-            match String.trim block.body with "" -> None | name -> Some name
-          else None)
-        prefixes)
-  |> function
-  | name :: _ -> Some name
-  | [] -> None
-
 let split_top_level = Tw.Parse.split_top_level
-
-(* [@import "tailwindcss" important] marks every utility declaration
-   [!important]. The option is a bare word in the import's prelude rather than a
-   call, so it is read off the prelude's top-level words. *)
-let imports_important css =
-  let index = Index.v css in
-  let blank = function '\n' | '\t' | '\r' | '\012' -> ' ' | c -> c in
-  Index.at_statements index ~name:"@import"
-  |> List.exists (fun (_, (import : Index.statement)) ->
-      List.mem "important"
-        (split_top_level ' ' (String.map blank import.prelude)))
-
-(* [@reference "tailwindcss"] brings the theme into scope for [@apply] without
-   emitting any of it. The prelude is the URL alone. *)
-let references_tailwind css =
-  let index = Index.v css in
-  Index.at_statements index ~name:"@reference"
-  |> List.exists (fun (_, (statement : Index.statement)) ->
-      is_tailwind_import (String.trim statement.prelude))
-
-(* [@plugin "@tailwindcss/forms"] resets native form controls in the base layer,
-   which is the plugin's default strategy. An options block naming [strategy:
-   "class"] leaves the controls alone and styles only the [form-*] classes. *)
-let forms_base css =
-  let index = Index.v css in
-  let unquote s = Text_pass.unquote (String.trim s) in
-  let names_forms prelude =
-    String.equal (unquote prelude) "@tailwindcss/forms"
-  in
-  let class_strategy body =
-    split_top_level ';' body
-    |> List.exists (fun option ->
-        match String.index_opt option ':' with
-        | None -> false
-        | Some i ->
-            let value =
-              String.sub option (i + 1) (String.length option - i - 1)
-            in
-            String.equal (String.trim (String.sub option 0 i)) "strategy"
-            && String.equal (unquote value) "class")
-  in
-  let len = String.length css in
-  let rec block i =
-    if i >= len then false
-    else
-      match Index.at_rule index ~name:"@plugin" i with
-      | Some { prelude; block = { body; next }; _ } when names_forms prelude ->
-          (not (class_strategy body)) || block next
-      | _ -> block (i + 1)
-  in
-  Index.at_statements index ~name:"@plugin"
-  |> List.exists (fun (_, (statement : Index.statement)) ->
-      names_forms statement.prelude)
-  || block 0
-
-(* The JavaScript configs the entrypoint's [@config] directives name, as written
-   and in source order. *)
-let config_directives css =
-  let index = Index.v css in
-  Index.at_statements index ~name:"@config"
-  |> List.sort (fun (a, _) (b, _) -> Int.compare a b)
-  |> List.map (fun (_, (statement : Index.statement)) ->
-      String.trim statement.prelude)
 
 (* A project can declare [@keyframes] inside its [@theme] block, beside the
    [--animate-*] token that names it. [@theme] is a build-time directive, so
@@ -291,32 +177,6 @@ let hoist_theme_keyframes css =
         | None -> None)
   in
   css ^ Buffer.contents lifted
-
-(* Tailwind extends [@import] with options CSS has no grammar for
-   ([theme(static)], [source(none)], [prefix(tw)]). Strip actual option function
-   tokens from actual import statements so quoted parentheses and comments do
-   not alter their boundaries. *)
-let strip_tailwind_import_options css =
-  Text_pass.rewrite ~names:[ "@import" ] css (fun index buf i ->
-      let option_at i =
-        List.find_map
-          (fun name -> Index.call index ~name i)
-          [ "theme"; "source"; "prefix" ]
-      in
-      let rec copy_import i stop =
-        if i >= stop then ()
-        else
-          match option_at i with
-          | Some { next; _ } when next <= stop -> copy_import next stop
-          | Some _ | None ->
-              Buffer.add_char buf css.[i];
-              copy_import (i + 1) stop
-      in
-      match Index.at_statement index ~name:"@import" i with
-      | Some { next; _ } ->
-          copy_import i next;
-          Some next
-      | None -> None)
 
 (* Pull out the [@KEYWORD NAME { ... }] declarations, dropping them from the
    CSS: they declare something for the generator, and Tailwind does not emit
@@ -1902,7 +1762,7 @@ let preload_imports ~transform ~base_url stylesheet =
     Css.fold (scan_stmt loader) () sheet
   and scan_stmt loader () stmt =
     match Css.as_import stmt with
-    | Some ir when not (is_tailwind_import ir.url) ->
+    | Some ir when not (Tailwind_import.is_package_url ir.url) ->
         handle loader (Css.decode_import_url ir.url)
     | _ -> ()
   and handle loader url =
@@ -2331,55 +2191,6 @@ let add_author_property_fallbacks author stmts =
   | [] -> stmts
   | rules -> stmts @ Tw.property_fallbacks rules
 
-(* [@tailwind utilities] is all [tailwindcss/utilities.css] holds, so it is read
-   as that import, where the directive stands. *)
-let tailwind_utilities_as_import css =
-  let index = Index.v css in
-  let len = String.length css in
-  let buf = Buffer.create len in
-  let asks_for_utilities (statement : Index.statement) =
-    match split_top_level ' ' (String.trim statement.prelude) with
-    | "utilities" :: _ -> true
-    | _ -> false
-  in
-  let rec go i =
-    if i >= len then ()
-    else
-      match Index.at_statement index ~name:"@tailwind" i with
-      | Some statement when asks_for_utilities statement ->
-          Buffer.add_string buf "@import \"tailwindcss/utilities\";";
-          go statement.next
-      | _ ->
-          Buffer.add_char buf css.[i];
-          go (i + 1)
-  in
-  go 0;
-  Buffer.contents buf
-
-let tailwind_parts css =
-  match
-    Css.of_string
-      (strip_tailwind_import_options (tailwind_utilities_as_import css))
-  with
-  | Error _ -> []
-  | Ok parse ->
-      List.filter_map
-        (fun stmt ->
-          Option.bind (Css.as_import stmt)
-            (fun (ir : Css.Stylesheet.import_rule) ->
-              tailwind_import_part ir.url))
-        (Css.statements parse.Css.stylesheet)
-
-let imports_preflight css =
-  match tailwind_parts css with
-  | [] -> true
-  | parts ->
-      List.exists
-        (function
-          | Whole | Preflight_part -> true
-          | Theme_part | Utilities_part -> false)
-        parts
-
 (* The statements of [generated] one import asks for, in the layer its [layer()]
    names or unlayered without one. The utilities bring what their rules need
    beside them: the [@layer properties] fallbacks and the [@property] and
@@ -2405,10 +2216,10 @@ let generated_part ?(with_base = false) part ~layer generated =
     || Option.is_some (Css.layer_statement_name_list stmt)
   in
   match part with
-  | Whole -> stmts
-  | Theme_part -> place (contents "theme")
-  | Preflight_part -> place (contents "base")
-  | Utilities_part ->
+  | Tailwind_import.Whole -> stmts
+  | Tailwind_import.Theme_part -> place (contents "theme")
+  | Tailwind_import.Preflight_part -> place (contents "base")
+  | Tailwind_import.Utilities_part ->
       (* Without a preflight import the generated base layer holds only what a
          plugin adds, the forms reset, and Tailwind writes that in [@layer base]
          whichever part the entrypoint imports. *)
@@ -2452,11 +2263,11 @@ let splice_into_entrypoint ~theme ~path generated =
   match read_file path with
   | exception Sys_error _ -> generated
   | raw -> (
-      let raw = tailwind_utilities_as_import raw in
-      let with_base = not (imports_preflight raw) in
+      let raw = Tailwind_import.utilities_as_import raw in
+      let with_base = not (Tailwind_import.imports_preflight raw) in
       let css =
         apply_variants ~theme
-          (hoist_theme_keyframes (strip_tailwind_import_options raw))
+          (hoist_theme_keyframes (Tailwind_import.strip_options raw))
       in
       match Css.of_string css with
       | Error _ -> generated
@@ -2465,12 +2276,12 @@ let splice_into_entrypoint ~theme ~path generated =
              may be declared in the entrypoint, so it gets the same treatment
              with those declarations in scope. *)
           let _, entry_defs =
-            take_custom_variants (strip_tailwind_import_options raw)
+            take_custom_variants (Tailwind_import.strip_options raw)
           in
           let transform body =
             apply_variants ~extra_defs:entry_defs ~theme
-              (strip_tailwind_import_options
-                 (tailwind_utilities_as_import body))
+              (Tailwind_import.strip_options
+                 (Tailwind_import.utilities_as_import body))
           in
           let imports =
             preload_imports ~transform ~base_url:path p.Css.stylesheet
@@ -2486,7 +2297,7 @@ let splice_into_entrypoint ~theme ~path generated =
           |> List.concat_map (fun stmt ->
               match stmt with
               | Cascade.Stylesheet.Import { url; layer; _ } as s -> (
-                  match tailwind_import_part url with
+                  match Tailwind_import.part_of_url url with
                   | Some part -> generated_part ~with_base part ~layer generated
                   | None -> [ s ])
               | s -> [ s ])
@@ -2511,7 +2322,7 @@ let entry_defs take = function
   | Some path -> (
       match read_file path with
       | exception Sys_error _ -> []
-      | raw -> snd (take (strip_tailwind_import_options raw)))
+      | raw -> snd (take (Tailwind_import.strip_options raw)))
 
 (* The theme a project's entrypoint asks for: its [\@theme] overrides, whether
    it imported [theme(static)], and the prefix it named. One function so the CLI
@@ -2520,16 +2331,18 @@ let entry_defs take = function
 let theme_of_css css =
   let overrides, inline = theme_overrides_of_css css in
   let base =
-    if imports_static_theme css then
+    if Tailwind_import.imports_static_theme css then
       { Tw.Scheme.default with static_theme = true }
     else Tw.Scheme.default
   in
   let base =
     {
       base with
-      prefix = import_prefix css;
-      important = imports_important css;
-      reference_theme = references_tailwind css && tailwind_parts css = [];
+      prefix = Tailwind_import.import_prefix css;
+      important = Tailwind_import.imports_important css;
+      reference_theme =
+        Tailwind_import.references_tailwind css
+        && Tailwind_import.parts css = [];
     }
   in
   let blocks = theme_blocks css in
