@@ -66,7 +66,7 @@ let parse_known_candidates ~theme ?input_css candidates =
 let utilities ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
   let declared = Entrypoint.entry_variant_defs entrypoint in
-  let defs, refused = Entrypoint.with_negated_variants declared in
+  let defs, refused = Negated_variant.add declared in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
   let names_refused cls =
     List.exists (fun v -> List.mem v refused) (Custom_variant.segments cls)

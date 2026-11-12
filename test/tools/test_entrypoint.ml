@@ -40,26 +40,6 @@ let test_nest_on_ampersand_keeps_nested_mentions () =
     ":where(&>:not(:last-child))"
     (nested ~classes:[ "divide-x" ] ":where(.divide-x > :not(:last-child))")
 
-(* Tailwind writes the negated arm with [&] read as a universal, and its
-   minifier drops that universal where the compound already has a simple
-   selector, so the CLI's sheet spells [:not(:where(...))]. Kept, it is bytes
-   the CLI's sheet does not carry. A universal standing on its own stays. *)
-let test_negated_variant_spelling () =
-  let defs, refused =
-    with_negated_variants
-      [
-        ("dark", "&:where(.dark, .dark *) { @slot; }");
-        ("inside", ".box & { @slot; }");
-      ]
-  in
-  check (option string) "the implied universal is dropped"
-    (Some "&:not(:where(.dark, .dark *)) { @slot; }")
-    (List.assoc_opt "not-dark" defs);
-  check (option string) "a lone universal stays"
-    (Some "&:not(.box *) { @slot; }")
-    (List.assoc_opt "not-inside" defs);
-  check string_list "nothing refused" [] refused
-
 (* [--spacing(N)] is a reference to the spacing scale, except under an [@theme
    inline] [--spacing]: there the token has no declaration to reference, so the
    step is multiplied out. *)
@@ -910,7 +890,6 @@ let tests =
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
     test_case "nest on ampersand keeps nested mentions" `Quick
       test_nest_on_ampersand_keeps_nested_mentions;
-    test_case "negated variant spelling" `Quick test_negated_variant_spelling;
     test_case "spacing shorthand" `Quick test_spacing_shorthand;
     test_case "directives dropped" `Quick test_drop_directives;
     test_case "@apply merges into one rule" `Quick test_apply_merges_one_rule;
