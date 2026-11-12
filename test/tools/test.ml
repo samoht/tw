@@ -9,6 +9,7 @@ let () =
       Test_tailwind_import.suite;
       Test_entry_theme.suite;
       Test_custom_utility.suite;
+      Test_custom_variant.suite;
       Test_project.suite;
       Test_tailwind_gen.suite;
       Test_parity_compare.suite;

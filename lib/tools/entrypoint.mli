@@ -17,11 +17,6 @@ val read_file : string -> string
 
 (** {1 Declared variants and utilities} *)
 
-val take_custom_variants : string -> string * (string * string) list
-(** [take_custom_variants css] is [css] without its [@custom-variant]
-    declarations, and those declarations as [(name, template)] pairs. A template
-    is the variant's body, with [@slot] where the utility goes. *)
-
 val entry_variant_defs : string option -> (string * string) list
 (** [entry_variant_defs path] is the [@custom-variant] declarations of the
     entrypoint at [path], or none when there is no entrypoint or it cannot be
@@ -39,17 +34,6 @@ val with_negated_variants :
 val entry_utility_defs : string option -> (string * string) list
 (** [entry_utility_defs path] is the [@utility] declarations of the entrypoint
     at [path], the same way. *)
-
-val variant_segments : string -> string list
-(** [variant_segments name] splits a class name on its variant separators. A [:]
-    inside [[&>*]] or [(--x)] belongs to the segment, not between two. *)
-
-val split_declared_variants :
-  (string * string) list -> string -> string list * string
-(** [split_declared_variants defs name] separates the variants [defs] declares
-    from the rest of [name]. A declared variant is picked out wherever it sits
-    in the chain, and the built-in prefixes stay attached to the utility so
-    their media queries keep wrapping the declared variant's selector. *)
 
 val is_custom_routed :
   theme:Tw.Scheme.t ->
@@ -89,10 +73,6 @@ val drop_directives : string -> string
 (** [drop_directives css] removes Tailwind's own at-rules. A build-time
     directive has no meaning in a browser, and Tailwind emits none of them;
     anything else is the author's CSS and passes through. *)
-
-val fill_slots : string -> string -> string
-(** [fill_slots template body] is [template] with each [@slot] replaced by
-    [body], which is how a [@custom-variant] wraps the utility it decorates. *)
 
 val apply_variants :
   ?extra_defs:(string * string) list ->

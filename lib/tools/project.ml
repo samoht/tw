@@ -69,7 +69,7 @@ let utilities ~theme ?entrypoint ~base classes =
   let defs, refused = Entrypoint.with_negated_variants declared in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
   let names_refused cls =
-    List.exists (fun v -> List.mem v refused) (Entrypoint.variant_segments cls)
+    List.exists (fun v -> List.mem v refused) (Custom_variant.segments cls)
   in
   let classes = List.filter (fun cls -> not (names_refused cls)) classes in
   let routed, normal =

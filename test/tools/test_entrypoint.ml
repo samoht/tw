@@ -2,27 +2,6 @@ open Alcotest
 open Tw_tools.Entrypoint
 
 let string_list = list string
-let pair_list = list (pair string string)
-
-(* Class-name scanners. *)
-
-let test_variant_segments () =
-  check string_list "plain class" [ "flex" ] (variant_segments "flex");
-  check string_list "stacked variants" [ "lg"; "dark"; "flex" ]
-    (variant_segments "lg:dark:flex");
-  check string_list "colon inside brackets" [ "[&>*]"; "flex" ]
-    (variant_segments "[&>*]:flex");
-  check string_list "colon inside parens"
-    [ "supports-(--x)"; "flex" ]
-    (variant_segments "supports-(--x):flex")
-
-let test_split_declared_variants () =
-  let defs = [ ("dark", "&:where(.dark, .dark *) { @slot; }") ] in
-  check (pair string_list string) "declared variant taken from the middle"
-    ([ "dark" ], "lg:flex")
-    (split_declared_variants defs "lg:dark:flex");
-  check (pair string_list string) "nothing declared" ([], "lg:hover:flex")
-    (split_declared_variants defs "lg:hover:flex")
 
 (* Nesting a utility under the rule that applied it. *)
 
@@ -60,24 +39,6 @@ let test_nest_on_ampersand_keeps_nested_mentions () =
   check string "an argument-only occurrence is still swapped"
     ":where(&>:not(:last-child))"
     (nested ~classes:[ "divide-x" ] ":where(.divide-x > :not(:last-child))")
-
-(* Text passes over the source. *)
-
-let test_fill_slots () =
-  check string "slot replaced by the body"
-    "&:where(.dark, .dark *) { color: red }"
-    (fill_slots "&:where(.dark, .dark *) { @slot; }" "color: red")
-
-let test_take_custom_variants () =
-  let css, defs =
-    take_custom_variants
-      "@custom-variant dark { &:where(.dark, .dark *) { @slot; } }\n\
-       .a { color: red }\n"
-  in
-  check string "declaration removed" "\n.a { color: red }\n" css;
-  check pair_list "name and template"
-    [ ("dark", " &:where(.dark, .dark *) { @slot; } ") ]
-    defs
 
 (* Tailwind writes the negated arm with [&] read as a universal, and its
    minifier drops that universal where the compound already has a simple
@@ -946,13 +907,9 @@ let test_dialect_surface_is_covered () =
 
 let tests =
   [
-    test_case "variant segments" `Quick test_variant_segments;
-    test_case "declared variants split out" `Quick test_split_declared_variants;
     test_case "nest on ampersand" `Quick test_nest_on_ampersand;
     test_case "nest on ampersand keeps nested mentions" `Quick
       test_nest_on_ampersand_keeps_nested_mentions;
-    test_case "slots filled" `Quick test_fill_slots;
-    test_case "custom variants taken" `Quick test_take_custom_variants;
     test_case "negated variant spelling" `Quick test_negated_variant_spelling;
     test_case "spacing shorthand" `Quick test_spacing_shorthand;
     test_case "directives dropped" `Quick test_drop_directives;

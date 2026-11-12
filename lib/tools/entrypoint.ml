@@ -7,63 +7,7 @@ let read_file path =
     ~finally:(fun () -> close_in ic)
     (fun () -> really_input_string ic (in_channel_length ic))
 
-(* Tailwind's [@custom-variant NAME { ... @slot; ... }] and selector shorthand
-   [@custom-variant NAME (...);] declare variants, and [@variant NAME { decls }]
-   applies one inside author CSS. These are Tailwind syntax, so a CSS parser
-   drops them and the declarations they guard vanish. Expanding here keeps the
-   [&] nesting for cascade to flatten.
-
-   Only the built-in [dark] is known without a declaration; other names need one
-   in the entrypoint. *)
-
-let builtin_variants =
-  [ ("dark", "@media (prefers-color-scheme: dark) { @slot; }") ]
-
 let split_top_level = Tw.Parse.split_top_level
-
-let shorthand_variant prelude =
-  let prelude = String.trim prelude in
-  let len = String.length prelude in
-  let whitespace = function
-    | ' ' | '\t' | '\n' | '\r' | '\012' -> true
-    | _ -> false
-  in
-  let rec name_end i =
-    if i >= len || prelude.[i] = '(' || whitespace prelude.[i] then i
-    else name_end (i + 1)
-  in
-  let i = name_end 0 in
-  let name = String.sub prelude 0 i in
-  let selector = String.trim (String.sub prelude i (len - i)) in
-  if
-    name = ""
-    || String.length selector < 2
-    || selector.[0] <> '('
-    || selector.[String.length selector - 1] <> ')'
-  then None
-  else
-    let selector = String.sub selector 1 (String.length selector - 2) in
-    Some (name, selector ^ " { @slot; }")
-
-let take_custom_variants css =
-  let defs = ref [] in
-  let css =
-    Text_pass.rewrite ~names:[ "@custom-variant" ] css (fun index _ i ->
-        match Index.at_rule index ~name:"@custom-variant" i with
-        | Some { prelude; block = { body; next }; _ } when prelude <> "" ->
-            defs := (prelude, body) :: !defs;
-            Some next
-        | _ -> (
-            match Index.at_statement index ~name:"@custom-variant" i with
-            | Some { prelude; next } -> (
-                match shorthand_variant prelude with
-                | Some def ->
-                    defs := def :: !defs;
-                    Some next
-                | None -> None)
-            | None -> None))
-  in
-  (css, !defs)
 
 (* The at-keywords Tailwind's dialect adds to CSS. They are input for the
    generator, which reads each of them above -- for a definition, for an
@@ -101,34 +45,6 @@ let drop_directives css =
                 (fun ({ next; _ } : Index.statement) -> next)
                 (Index.at_statement index ~name i))
         tailwind_directives)
-
-let fill_slots template body =
-  Text_pass.rewrite ~names:[ "@slot" ] template (fun index buf i ->
-      match Index.at_statement index ~name:"@slot" i with
-      | Some { next; _ } ->
-          Buffer.add_string buf body;
-          Some next
-      | None -> None)
-
-(* Replace [@variant NAME { decls }] with the variant's body, substituting the
-   declarations at each [@slot]. Nested [@variant]s expand outermost-first, so
-   the recursion re-runs over the result. *)
-let rec expand_variants ~depth defs css =
-  if depth > 8 then css
-  else
-    let changed = ref false in
-    let out =
-      Text_pass.rewrite ~names:[ "@variant" ] css (fun index buf i ->
-          match Index.at_rule index ~name:"@variant" i with
-          | Some { prelude; block = { body; next }; _ }
-            when List.mem_assoc prelude defs ->
-              let template = List.assoc prelude defs in
-              changed := true;
-              Buffer.add_string buf (fill_slots template body);
-              Some next
-          | _ -> None)
-    in
-    if !changed then expand_variants ~depth:(depth + 1) defs out else out
 
 (* {2 [not-] over a declared variant}
 
@@ -286,7 +202,7 @@ let negated_path path =
       | _ -> None)
 
 let negated_variant ~defs template =
-  match body_rules (expand_variants ~depth:0 defs template) with
+  match body_rules (Custom_variant.expand defs template) with
   | false, [ node ] -> (
       match Option.bind (first_leaf [] node) negated_path with
       | negation -> negation
@@ -555,44 +471,6 @@ let nest_on_ampersand ~classes sel =
   | Some arms -> Cascade.Selector.list (List.map arm arms)
   | None -> arm sel
 
-(* Split a class name on its variant separators. A [:] inside [[&>*]] or [(--x)]
-   is part of the segment, not a separator. *)
-let variant_segments name =
-  let len = String.length name in
-  let rec seg_end i depth =
-    if i >= len then i
-    else
-      match name.[i] with
-      | '[' | '(' -> seg_end (i + 1) (depth + 1)
-      | ']' | ')' -> seg_end (i + 1) (depth - 1)
-      | ':' when depth = 0 -> i
-      | _ -> seg_end (i + 1) depth
-  in
-  let rec go i acc =
-    let stop = seg_end i 0 in
-    let seg = String.sub name i (stop - i) in
-    if stop >= len then List.rev (seg :: acc) else go (stop + 1) (seg :: acc)
-  in
-  go 0 []
-
-(* Separate the variants a project declared with [@custom-variant] from the rest
-   of the class. They cannot go through [Tw.of_string], which only knows the
-   built-in variants, so they are re-emitted as [@variant] blocks for
-   [expand_variants] to expand. A declared variant is picked out wherever it
-   sits in the chain — [lg:dark:flex] as much as [dark:lg:flex] — and the
-   built-in prefixes stay attached to the utility, which keeps their media
-   queries wrapped around the declared variant's selector. *)
-let split_declared_variants defs name =
-  match variant_segments name with
-  | [] | [ _ ] -> ([], name)
-  | segs ->
-      let bare = List.nth segs (List.length segs - 1) in
-      let prefix = List.filteri (fun i _ -> i < List.length segs - 1) segs in
-      let declared, builtin =
-        List.partition (fun s -> List.mem_assoc s defs) prefix
-      in
-      (declared, String.concat ":" (builtin @ [ bare ]))
-
 (* Whether [seen] already holds [stmt], recording it when it does not.
    [Css.hash_statement] buckets a statement and [Css.equal_statement] settles
    the bucket, so identity is decided on the statement rather than on the CSS
@@ -702,7 +580,7 @@ let apply_names css start stop =
   Tw.split_whitespace (String.sub css start (stop - start))
 
 let emit_apply_name ~theme ~defs ~udefs ~buf ~hoisted ~seen name =
-  let variants, bare = split_declared_variants defs name in
+  let variants, bare = Custom_variant.split_declared defs name in
   (* [@apply line-t] names a utility the project declared, whose body is author
      CSS in its own right. *)
   let body, top =
@@ -724,7 +602,7 @@ let emit_apply_name ~theme ~defs ~udefs ~buf ~hoisted ~seen name =
   end
 
 let plain_apply_name ~defs ~udefs name =
-  match split_declared_variants defs name with
+  match Custom_variant.split_declared defs name with
   | [], bare
     when (not (List.mem_assoc bare udefs))
          && not (Custom_utility.is_functional_candidate udefs bare) ->
@@ -850,7 +728,7 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
      [@apply] that names nothing is not an error. *)
   let css, own_udefs = Custom_utility.take css in
   let udefs = udefs @ own_udefs in
-  let css, defs = take_custom_variants css in
+  let css, defs = Custom_variant.take css in
   let defs = defs @ extra_defs in
   (* A project declaration wins over the built-in of the same name. Any other
      built-in the CSS names has its template derived from tw's own output for a
@@ -863,7 +741,7 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
     |> List.filter_map (fun n ->
         Option.map (fun t -> (n, t)) (builtin_variant_template ~theme n))
   in
-  let defs = defs @ builtin_variants @ derived in
+  let defs = defs @ Custom_variant.builtins @ derived in
   (* A declared utility's body may [@apply] another one, so keep expanding until
      nothing is left (bounded, in case two reference each other). *)
   let rec expand depth css =
@@ -875,7 +753,7 @@ let apply_variants ?(extra_defs = []) ?(udefs = []) ~theme css =
        (expand_alpha_fn
           (resolve_dashed_theme_fn ~theme
              (expand_spacing_fn ~theme
-                (expand_variants ~depth:0 defs (expand 0 css))))))
+                (Custom_variant.expand defs (expand 0 css))))))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's
@@ -1402,7 +1280,7 @@ let splice_into_entrypoint ~theme ~path generated =
              may be declared in the entrypoint, so it gets the same treatment
              with those declarations in scope. *)
           let _, entry_defs =
-            take_custom_variants (Tailwind_import.strip_options raw)
+            Custom_variant.take (Tailwind_import.strip_options raw)
           in
           let transform body =
             apply_variants ~extra_defs:entry_defs ~theme
@@ -1450,7 +1328,7 @@ let entry_defs take = function
       | exception Sys_error _ -> []
       | raw -> snd (take (Tailwind_import.strip_options raw)))
 
-let entry_variant_defs = entry_defs take_custom_variants
+let entry_variant_defs = entry_defs Custom_variant.take
 let entry_utility_defs = entry_defs Custom_utility.take
 
 (* The escaped class with its declarations under the [@variant]s that wrap
@@ -1476,8 +1354,8 @@ let importance name =
   else (false, name)
 
 let is_custom_routed ~theme ~defs ~udefs cls =
-  let variants, bare = split_declared_variants defs cls in
-  let segs = variant_segments bare in
+  let variants, bare = Custom_variant.split_declared defs cls in
+  let segs = Custom_variant.segments bare in
   let _, name = importance (List.nth segs (List.length segs - 1)) in
   variants <> [] || List.mem_assoc name udefs
   (* A functional declaration claims a candidate its value reads resolve for and
@@ -1550,16 +1428,16 @@ let routed_body ~theme ~ordered ~name ~bare =
   else nested_utilities ~theme [ bare ]
 
 let routed_block ~theme ~defs ~udefs ~hoisted ~seen ~derived ~own_order cls =
-  let variants, bare = split_declared_variants defs cls in
+  let variants, bare = Custom_variant.split_declared defs cls in
   (* [bare] still carries the built-in prefixes; the utility itself is its last
      segment. *)
-  let segments = variant_segments bare in
+  let segments = Custom_variant.segments bare in
   let last = List.length segments - 1 in
   let _, name = importance (List.nth segments last) in
   let builtin = List.filteri (fun index _ -> index < last) segments in
   (* Every prefix of the candidate, declared and built-in, as written. *)
   let prefixes =
-    let all = variant_segments cls in
+    let all = Custom_variant.segments cls in
     List.filteri (fun index _ -> index < List.length all - 1) all
   in
   (* Every body declared for the name, in the order they were written: Tailwind
@@ -1751,7 +1629,7 @@ let parse_routed_block css =
    [!important], as Tailwind marks them; a declared utility's body is author CSS
    the parse above reads, so the mark goes on once the block is typed. *)
 let important_block cls stmts =
-  let segments = variant_segments cls in
+  let segments = Custom_variant.segments cls in
   let important, _ =
     importance (List.nth segments (List.length segments - 1))
   in
