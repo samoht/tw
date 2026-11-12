@@ -22,13 +22,6 @@ val take_custom_variants : string -> string * (string * string) list
     declarations, and those declarations as [(name, template)] pairs. A template
     is the variant's body, with [@slot] where the utility goes. *)
 
-val take_custom_utilities : string -> string * (string * string) list
-(** [take_custom_utilities css] is [css] without its [@utility] declarations,
-    and those declarations as [(name, body)] pairs. Both forms are read: the
-    static [@utility NAME], and the functional [@utility NAME-*] whose body
-    reads the candidate's own value with [--value()] and its modifier with
-    [--modifier()]. A functional declaration keeps the [-*] in its name. *)
-
 val entry_variant_defs : string option -> (string * string) list
 (** [entry_variant_defs path] is the [@custom-variant] declarations of the
     entrypoint at [path], or none when there is no entrypoint or it cannot be
