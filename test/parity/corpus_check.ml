@@ -21,7 +21,7 @@
 
    Usage: corpus_check TW_BINARY DIR *)
 
-module Entrypoint = Tw_tools.Entrypoint
+module Source_directive = Tw_tools.Source_directive
 
 let ( // ) = Filename.concat
 let required name = Sys.getenv_opt name = Some "1"
@@ -41,7 +41,7 @@ let page_of_case dir name css =
   let own = dir // (Filename.chop_suffix name ".css" ^ ".html") in
   if Sys.file_exists own then `Own own
   else
-    match Entrypoint.source_inline css with
+    match Source_directive.inline css with
     | [], _ -> `None
     | classes, _ -> `Built (Test_helpers.classes_page classes)
 

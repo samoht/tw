@@ -54,37 +54,6 @@ val theme_overrides_of_css : string -> (string * string) list * string list
     an [@theme inline] block. Both feed {!Tw.Scheme.with_overrides}, so tw
     renders with the tokens Tailwind reads from the same file. *)
 
-(** {1 Sources} *)
-
-val source_paths : string -> string list * string list
-(** [source_paths css] is the paths the [@source "<path>"] directives of [css]
-    name for scanning, and those its [@source not "<path>"] directives take back
-    out, each as written and in source order. A path is relative to the
-    stylesheet and may be a glob; the [inline()] forms are {!source_inline}'s.
-*)
-
-val source_root : string -> [ `Detect | `None | `Dir of string ]
-(** [source_root css] is where the automatic source detection of [css] starts:
-    [`None] when its [\@import] (or [\@tailwind utilities]) says [source(none)],
-    [`Dir dir] when it says [source("dir")], a path relative to the stylesheet,
-    and [`Detect] otherwise, which starts at the working directory. *)
-
-val rooted : dir:string -> string -> string
-(** [rooted ~dir css] is [css] with the relative path of each [\@import],
-    [\@source], [\@plugin], [\@config] and [\@reference] resolved against [dir],
-    the directory [css] was read from, so the text compiles from another
-    directory. A path is relative when it starts [./] or [../]; a package name
-    such as [tailwindcss] is left as written, and so is an
-    [\@source inline(...)] argument, which names candidates. *)
-
-val source_inline : string -> string list * string list
-(** [source_inline css] is the candidates the [@source inline("...")] directives
-    of [css] safelist, and those its [@source not inline("...")] directives
-    block. Each argument is a space-separated list of patterns, expanded the way
-    Tailwind expands braces: [{hover:,}bg-red-{500,600}] is four candidates and
-    [p-{0..8..4}] three. A blocked candidate is left out wherever it comes from,
-    the markup included. *)
-
 (** {1 Declared variants and utilities} *)
 
 val strip_tailwind_import_options : string -> string

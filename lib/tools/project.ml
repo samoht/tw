@@ -120,7 +120,7 @@ let stylesheet ~theme ?entrypoint ~base classes =
     match input_css with
     | None -> classes
     | Some css ->
-        let safelist, blocklist = Entrypoint.source_inline css in
+        let safelist, blocklist = Source_directive.inline css in
         List.sort_uniq String.compare (classes @ safelist)
         |> List.filter (fun cls -> not (List.mem cls blocklist))
   in
