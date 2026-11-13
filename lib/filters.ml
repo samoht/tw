@@ -8,45 +8,49 @@ module Handler = struct
   open Css
   module Option = Stdlib.Option
 
+  (* [filter] and [backdrop-filter] take the same functions, so a utility names
+     its target and the function. What differs between the two targets is stated
+     once each: the class prefix ([prefix]), the functions it chains
+     ([functions]), the properties it writes ([declarations]), its variable
+     family ([make_vars]) and its suborders ([slot]). *)
+  type target = Filter | Backdrop
+
+  (* The functions both targets scale by a <number-percentage>. *)
+  type amount =
+    [ `Brightness | `Contrast | `Grayscale | `Invert | `Saturate | `Sepia ]
+
+  (* The amounts and [backdrop-filter]'s opacity, which scales the same way. *)
+  type scaled = [ amount | `Opacity ]
+
+  (* Every function a [--tw-*] variable carries. *)
+  type func = [ scaled | `Blur | `Hue_rotate ]
+  type blur_size = Xs | Sm | Md | Lg | Xl | Two_xl | Three_xl
+
   type t =
-    | Filter
-    | Filter_none
-    | Filter_arbitrary of string * Css.filter
-    | Filter_raw of string * string
+    | Chain of target
+    | Chain_none of target
+    | Chain_arbitrary of target * string * Css.filter
+    | Chain_raw of target * string * string
       (* filter-[foo]: the family writes one longhand, so a bracket no reader
          took still names it and the value is forwarded verbatim. *)
-    | Blur_none
-    | Blur_xs
-    | Blur_sm
-    | Blur
-    | Blur_md
-    | Blur_lg
-    | Blur_xl
-    | Blur_2xl
-    | Blur_3xl
+    | Blur of target
+    | Blur_none of target
+    | Blur_size of target * blur_size
     (* The author's bracket text travels with the length it denotes, so the
        class name is spelled exactly as it was written. *)
-    | Blur_arbitrary of string * Css.length
-    | Blur_raw of string * string
-    | Blur_theme of string (* radius from a --blur-* token *)
-    | Brightness of int
-    | Brightness_arbitrary of string
-    | Contrast of int
-    | Contrast_arbitrary of string
-    | Grayscale of int
-    | Grayscale_arbitrary of string
-    | Saturate of int
-    | Saturate_arbitrary of string
-    | Sepia of int
-    | Sepia_arbitrary of string
-    | Invert of int
-    | Invert_arbitrary of string
-    | Hue_rotate of int
+    | Blur_arbitrary of target * string * Css.length
+    | Blur_raw of target * string * string
+    | Blur_theme of string (* filter only: radius from a --blur-* token *)
+    | Amount of target * amount * int
+    | Amount_arbitrary of target * amount * string
+    | Backdrop_opacity of float
+    | Backdrop_opacity_arbitrary of string
+    | Hue_rotate of target * int
     (* The author's bracket text travels with the angle it denotes, so the class
        name is spelled exactly as it was written. *)
-    | Hue_rotate_arbitrary of string * Css.angle
-    | Hue_rotate_raw of string * string
-    | Neg_hue_rotate_arbitrary of string * Css.angle
+    | Hue_rotate_arbitrary of target * string * Css.angle
+    | Hue_rotate_raw of target * string * string
+    | Neg_hue_rotate_arbitrary of target * string * Css.angle
     | Drop_shadow
     | Drop_shadow_xs
     | Drop_shadow_sm
@@ -78,79 +82,70 @@ module Handler = struct
         string * Css.color * Color.opacity_modifier
     | Drop_shadow_bracket_cvar of string (* [color:var(--c)], the var() text *)
     | Drop_shadow_bracket_cvar_opacity of string * Color.opacity_modifier
-    | Backdrop_filter
-    | Backdrop_filter_none
-    | Backdrop_filter_arbitrary of string * Css.filter
-    | Backdrop_filter_raw of string * string
-    | Backdrop_blur_none
-    | Backdrop_blur_xs
-    | Backdrop_blur_sm
-    | Backdrop_blur
-    | Backdrop_blur_md
-    | Backdrop_blur_lg
-    | Backdrop_blur_xl
-    | Backdrop_blur_2xl
-    | Backdrop_blur_3xl
-    | Backdrop_blur_arbitrary of string * Css.length
-    | Backdrop_blur_raw of string * string
-    | Backdrop_brightness of int
-    | Backdrop_brightness_arbitrary of string
-    | Backdrop_contrast of int
-    | Backdrop_contrast_arbitrary of string
-    | Backdrop_opacity of float
-    | Backdrop_opacity_arbitrary of string
-    | Backdrop_saturate of int
-    | Backdrop_saturate_arbitrary of string
-    | Backdrop_grayscale of int
-    | Backdrop_grayscale_arbitrary of string
-    | Backdrop_invert of int
-    | Backdrop_invert_arbitrary of string
-    | Backdrop_sepia of int
-    | Backdrop_sepia_arbitrary of string
-    | Backdrop_hue_rotate of int
-    | Backdrop_hue_rotate_arbitrary of string * Css.angle
-    | Backdrop_hue_rotate_raw of string * string
-    | Neg_backdrop_hue_rotate_arbitrary of string * Css.angle
 
   let name = "filters"
   let priority _ = 30
+  let prefix = function Filter -> "" | Backdrop -> "backdrop-"
 
-  (* Register filter variables in the Var system for @property generation *)
-  let blur_var =
-    Var.channel ~needs_property:true ~property_order:60 ~family:`Filter
-      Css.Filter "tw-blur"
+  let func_name : func -> string = function
+    | `Blur -> "blur"
+    | `Brightness -> "brightness"
+    | `Contrast -> "contrast"
+    | `Grayscale -> "grayscale"
+    | `Hue_rotate -> "hue-rotate"
+    | `Invert -> "invert"
+    | `Opacity -> "opacity"
+    | `Saturate -> "saturate"
+    | `Sepia -> "sepia"
 
-  let brightness_var =
-    Var.channel ~needs_property:true ~property_order:61 ~family:`Filter
-      Css.Filter "tw-brightness"
+  let amounts : amount list =
+    [ `Brightness; `Contrast; `Grayscale; `Invert; `Saturate; `Sepia ]
 
-  let contrast_var =
-    Var.channel ~needs_property:true ~property_order:62 ~family:`Filter
-      Css.Filter "tw-contrast"
+  (* Every function in chain order, which is also the [@property] order. *)
+  let all_functions : func list =
+    [
+      `Blur;
+      `Brightness;
+      `Contrast;
+      `Grayscale;
+      `Hue_rotate;
+      `Invert;
+      `Opacity;
+      `Saturate;
+      `Sepia;
+    ]
 
-  let grayscale_var =
-    Var.channel ~needs_property:true ~property_order:63 ~family:`Filter
-      Css.Filter "tw-grayscale"
+  (* The functions a target chains: Tailwind's [filter] chain has no opacity,
+     its [backdrop-filter] chain has. *)
+  let functions target =
+    List.filter
+      (fun f -> match (target, f) with Filter, `Opacity -> false | _ -> true)
+      all_functions
 
-  let hue_rotate_var =
-    Var.channel ~needs_property:true ~property_order:64 ~family:`Filter
-      Css.Filter "tw-hue-rotate"
+  (* Register the [--tw-<fn>] and [--tw-backdrop-<fn>] variables in the Var
+     system for @property generation. Both targets register every function:
+     Tailwind's filter properties include [--tw-opacity], which its chain does
+     not read. *)
+  let make_vars target =
+    let base, family =
+      match target with
+      | Filter -> (60, `Filter)
+      | Backdrop -> (80, `Backdrop_filter)
+    in
+    List.mapi
+      (fun i f ->
+        ( f,
+          Var.channel ~needs_property:true ~property_order:(base + i) ~family
+            Css.Filter
+            ("tw-" ^ prefix target ^ func_name f) ))
+      all_functions
 
-  let invert_var =
-    Var.channel ~needs_property:true ~property_order:65 ~family:`Filter
-      Css.Filter "tw-invert"
+  let vars =
+    let filter_vars = make_vars Filter in
+    let backdrop_vars = make_vars Backdrop in
+    function Filter -> filter_vars | Backdrop -> backdrop_vars
 
-  let opacity_var =
-    Var.channel ~needs_property:true ~property_order:66 ~family:`Filter
-      Css.Filter "tw-opacity"
-
-  let saturate_var =
-    Var.channel ~needs_property:true ~property_order:67 ~family:`Filter
-      Css.Filter "tw-saturate"
-
-  let sepia_var =
-    Var.channel ~needs_property:true ~property_order:68 ~family:`Filter
-      Css.Filter "tw-sepia"
+  let var target (f : func) = List.assoc f (vars target)
 
   let drop_shadow_var =
     Var.channel ~needs_property:true ~property_order:69 ~family:`Drop_shadow
@@ -171,152 +166,98 @@ module Handler = struct
     Var.channel ~needs_property:true ~property_order:72 ~family:`Drop_shadow
       Css.Filter "tw-drop-shadow-size"
 
-  (* Register backdrop-filter variables in the Var system *)
-  let backdrop_blur_var =
-    Var.channel ~needs_property:true ~property_order:80 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-blur"
-
-  let backdrop_brightness_var =
-    Var.channel ~needs_property:true ~property_order:81 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-brightness"
-
-  let backdrop_contrast_var =
-    Var.channel ~needs_property:true ~property_order:82 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-contrast"
-
-  let backdrop_grayscale_var =
-    Var.channel ~needs_property:true ~property_order:83 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-grayscale"
-
-  let backdrop_hue_rotate_var =
-    Var.channel ~needs_property:true ~property_order:84 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-hue-rotate"
-
-  let backdrop_invert_var =
-    Var.channel ~needs_property:true ~property_order:85 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-invert"
-
-  let backdrop_opacity_var =
-    Var.channel ~needs_property:true ~property_order:86 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-opacity"
-
-  let backdrop_saturate_var =
-    Var.channel ~needs_property:true ~property_order:87 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-saturate"
-
-  let backdrop_sepia_var =
-    Var.channel ~needs_property:true ~property_order:88 ~family:`Backdrop_filter
-      Css.Filter "tw-backdrop-sepia"
-
   let property_rule_or_empty var =
     match Var.property_rule var with None -> Css.empty | Some r -> r
 
-  (* Property rules for all filter variables *)
+  (* The drop-shadow variables ride on the filter chain. *)
   let filter_property_rules =
     Css.concat
-      [
-        property_rule_or_empty blur_var;
-        property_rule_or_empty brightness_var;
-        property_rule_or_empty contrast_var;
-        property_rule_or_empty grayscale_var;
-        property_rule_or_empty hue_rotate_var;
-        property_rule_or_empty invert_var;
-        property_rule_or_empty opacity_var;
-        property_rule_or_empty saturate_var;
-        property_rule_or_empty sepia_var;
-        property_rule_or_empty drop_shadow_var;
-        property_rule_or_empty drop_shadow_color_var;
-        Var.property_rules drop_shadow_alpha_var;
-        property_rule_or_empty drop_shadow_size_var;
-      ]
+      (List.map (fun (_, v) -> property_rule_or_empty v) (vars Filter)
+      @ [
+          property_rule_or_empty drop_shadow_var;
+          property_rule_or_empty drop_shadow_color_var;
+          Var.property_rules drop_shadow_alpha_var;
+          property_rule_or_empty drop_shadow_size_var;
+        ])
 
   let filter_property_metadata =
-    [
-      Var.metadata blur_var;
-      Var.metadata brightness_var;
-      Var.metadata contrast_var;
-      Var.metadata grayscale_var;
-      Var.metadata hue_rotate_var;
-      Var.metadata invert_var;
-      Var.metadata opacity_var;
-      Var.metadata saturate_var;
-      Var.metadata sepia_var;
-      Var.metadata drop_shadow_var;
-      Var.metadata drop_shadow_color_var;
-      Var.metadata drop_shadow_alpha_var;
-      Var.metadata drop_shadow_size_var;
-    ]
+    List.map (fun (_, v) -> Var.metadata v) (vars Filter)
+    @ [
+        Var.metadata drop_shadow_var;
+        Var.metadata drop_shadow_color_var;
+        Var.metadata drop_shadow_alpha_var;
+        Var.metadata drop_shadow_size_var;
+      ]
 
-  (* Property rules for all backdrop-filter variables *)
-  let backdrop_filter_property_rules =
+  let backdrop_property_rules =
     Css.concat
-      [
-        property_rule_or_empty backdrop_blur_var;
-        property_rule_or_empty backdrop_brightness_var;
-        property_rule_or_empty backdrop_contrast_var;
-        property_rule_or_empty backdrop_grayscale_var;
-        property_rule_or_empty backdrop_hue_rotate_var;
-        property_rule_or_empty backdrop_invert_var;
-        property_rule_or_empty backdrop_opacity_var;
-        property_rule_or_empty backdrop_saturate_var;
-        property_rule_or_empty backdrop_sepia_var;
-      ]
+      (List.map (fun (_, v) -> property_rule_or_empty v) (vars Backdrop))
 
-  let backdrop_filter_property_metadata =
-    [
-      Var.metadata backdrop_blur_var;
-      Var.metadata backdrop_brightness_var;
-      Var.metadata backdrop_contrast_var;
-      Var.metadata backdrop_grayscale_var;
-      Var.metadata backdrop_hue_rotate_var;
-      Var.metadata backdrop_invert_var;
-      Var.metadata backdrop_opacity_var;
-      Var.metadata backdrop_saturate_var;
-      Var.metadata backdrop_sepia_var;
-    ]
+  let backdrop_property_metadata =
+    List.map (fun (_, v) -> Var.metadata v) (vars Backdrop)
 
-  (* Composable filter chain: filter: var(--tw-blur, ) var(--tw-brightness, )
-     ... *)
-  let composable_filter_chain : Css.filter =
-    List
-      [
-        Css.filter_var_empty "tw-blur";
-        Css.filter_var_empty "tw-brightness";
-        Css.filter_var_empty "tw-contrast";
-        Css.filter_var_empty "tw-grayscale";
-        Css.filter_var_empty "tw-hue-rotate";
-        Css.filter_var_empty "tw-invert";
-        Css.filter_var_empty "tw-saturate";
-        Css.filter_var_empty "tw-sepia";
-        Css.filter_var_empty "tw-drop-shadow";
-      ]
+  let property_rules = function
+    | Filter -> filter_property_rules
+    | Backdrop -> backdrop_property_rules
 
-  (* Helper: set a --tw-<name> filter var and output composable chain *)
-  let filter_var_decl var_name value =
-    let name =
-      if String.starts_with ~prefix:"--" var_name then
-        String.sub var_name 2 (String.length var_name - 2)
-      else var_name
+  let metadata = function
+    | Filter -> filter_property_metadata
+    | Backdrop -> backdrop_property_metadata
+
+  (* The composable chain, [var(--tw-blur,) var(--tw-brightness,) ...]: every
+     function the target has, then the drop shadow on [filter]. *)
+  let chain =
+    let make target : Css.filter =
+      let refs =
+        List.map
+          (fun f -> Css.filter_var_empty (Var.name (var target f)))
+          (functions target)
+      in
+      match target with
+      | Filter ->
+          Css.List (refs @ [ Css.filter_var_empty (Var.name drop_shadow_var) ])
+      | Backdrop -> Css.List refs
     in
-    fst (Css.var ~layer:"utilities" name Css.Filter value)
+    let filter_chain = make Filter in
+    let backdrop_chain = make Backdrop in
+    function Filter -> filter_chain | Backdrop -> backdrop_chain
 
-  let set_filter_var var_name (value : Css.filter) =
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      [ filter_var_decl var_name value; filter composable_filter_chain ]
+  let filter_chain = chain Filter
 
-  let set_raw_filter_var var function_name value =
+  (* The properties a target writes; the backdrop family aliases its property
+     for WebKit. *)
+  let declarations target (value : Css.filter) =
+    match target with
+    | Filter -> [ filter value ]
+    | Backdrop -> [ Css.webkit_backdrop_filter value; backdrop_filter value ]
+
+  let property_names = function
+    | Filter -> [ "filter" ]
+    | Backdrop -> [ "-webkit-backdrop-filter"; "backdrop-filter" ]
+
+  (* [decls], then the target's property reading the chain. *)
+  let with_chain target decls =
+    style ~metadata:(metadata target) ~property_rules:(property_rules target)
+      (decls @ declarations target (chain target))
+
+  let var_decl var value =
+    fst (Css.var ~layer:"utilities" (Var.name var) Css.Filter value)
+
+  (* Set a function's variable and output the composable chain. *)
+  let set target f (value : Css.filter) =
+    with_chain target [ var_decl (var target f) value ]
+
+  let set_raw target f value =
     match
-      Parse.wrap_declaration_value ~before:(function_name ^ "(") ~after:")"
-        value
+      Parse.wrap_declaration_value ~before:(func_name f ^ "(") ~after:")" value
     with
     | None -> style []
     | Some wrapped ->
-        style ~metadata:filter_property_metadata
-          ~property_rules:filter_property_rules
+        with_chain target
           [
-            Css.custom_property ~layer:"utilities" (Var.css_name var) wrapped;
-            filter composable_filter_chain;
+            Css.custom_property ~layer:"utilities"
+              (Var.css_name (var target f))
+              wrapped;
           ]
 
   (* Generate a theme-layer declaration for a theme variable if its value is
@@ -326,32 +267,37 @@ module Handler = struct
     | Some value -> [ Css.custom_property ~layer:"theme" ("--" ^ name) value ]
     | None -> []
 
-  (* Helper: set a --tw-<name> filter var using a theme var reference. Creates
-     var(--theme-name) without fallback since the theme defines it. Also
-     generates a theme-layer declaration for the theme variable. Returns a
-     function (unit -> Style.t) so that theme_decl_if_set is evaluated lazily at
-     utility evaluation time, not at module init time. *)
-  let set_filter_var_theme ?theme var_name theme_name
-      (make_filter : Css.length -> Css.filter) () =
-    let ref_ : Css.length Css.var = Var.theme_ref theme_name in
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      (theme_decl_if_set ?theme theme_name
-      @ [
-          filter_var_decl var_name (make_filter (Var ref_));
-          filter composable_filter_chain;
-        ])
-
-  let blur_none ?theme () =
-    match Scheme.theme_value theme "blur-none" with
-    | Some _ ->
-        set_filter_var_theme ?theme "--tw-blur" "blur-none" (fun l -> Blur l) ()
-    | None ->
-        style
-          [
-            Css.custom_property ~layer:"utilities" "--tw-blur" " ";
-            filter composable_filter_chain;
-          ]
+  (* Tailwind reads [backdrop-blur-none] from [--backdrop-blur-none], then
+     [--blur-none] (themeKeys [--backdrop-blur], [--blur]). Without a token the
+     radius is emptied; [blur-none] then writes no [@property] for the chain,
+     unlike [backdrop-blur-none]. *)
+  let blur_none theme target =
+    let tokens =
+      match target with
+      | Filter -> [ "blur-none" ]
+      | Backdrop -> [ "backdrop-blur-none"; "blur-none" ]
+    in
+    let blur = var target `Blur in
+    match
+      List.find_opt
+        (fun token -> Scheme.theme_value (Some theme) token <> None)
+        tokens
+    with
+    | Some token ->
+        let ref_ : Css.length Css.var = Var.theme_ref token in
+        with_chain target
+          (theme_decl_if_set ~theme token
+          @ [ var_decl blur (Css.Blur (Var ref_)) ])
+    | None -> (
+        let decls =
+          Css.custom_property ~layer:"utilities" (Var.css_name blur) " "
+          :: declarations target (chain target)
+        in
+        match target with
+        | Filter -> style decls
+        | Backdrop ->
+            style ~metadata:(metadata target)
+              ~property_rules:(property_rules target) decls)
 
   (* Tailwind v4 default blur theme tokens (in px). Each [.blur-<size>] utility
      binds its theme token and references it in [--tw-blur]; the [.blur] keyword
@@ -373,32 +319,43 @@ module Handler = struct
   let blur_xl_var = Var.theme Css.Length "blur-xl" ~order:(8, 4)
   let blur_2xl_var = Var.theme Css.Length "blur-2xl" ~order:(8, 5)
   let blur_3xl_var = Var.theme Css.Length "blur-3xl" ~order:(8, 6)
+  let blur_sizes = [ Xs; Sm; Md; Lg; Xl; Two_xl; Three_xl ]
+
+  (* A size's class suffix, theme token and default radius in px. *)
+  let blur_size = function
+    | Xs -> ("xs", blur_xs_var, 4.)
+    | Sm -> ("sm", blur_sm_var, 8.)
+    | Md -> ("md", blur_md_var, 12.)
+    | Lg -> ("lg", blur_lg_var, 16.)
+    | Xl -> ("xl", blur_xl_var, 24.)
+    | Two_xl -> ("2xl", blur_2xl_var, 40.)
+    | Three_xl -> ("3xl", blur_3xl_var, 64.)
+
+  let blur_size_name size =
+    let name, _, _ = blur_size size in
+    name
+
+  let blur_size_of_name n =
+    List.find_opt (fun size -> String.equal (blur_size_name size) n) blur_sizes
 
   (* Publish the scale through the theme-token registry, the way rule.ml
      publishes the breakpoints, so [blur-[theme(--blur-sm)]] resolves and
      [theme(static)] emits it. *)
   let () =
     List.iter
-      (fun (var, px) -> Theme.register_default var (Css.Px px : Css.length))
-      [
-        (blur_xs_var, 4.);
-        (blur_sm_var, 8.);
-        (blur_md_var, 12.);
-        (blur_lg_var, 16.);
-        (blur_xl_var, 24.);
-        (blur_2xl_var, 40.);
-        (blur_3xl_var, 64.);
-      ]
+      (fun size ->
+        let _, var, px = blur_size size in
+        Theme.register_default var (Css.Px px : Css.length))
+      blur_sizes
 
-  let blur_size_utility (theme_var : Css.length Var.theme) default_px () =
+  (* Both targets bind the unified v4 [--blur-<size>] token and reference it;
+     Tailwind dropped the separate [--backdrop-blur-*] tokens, so the default
+     theme ships only [--blur-*]. *)
+  let blur_sized target size =
+    let _, theme_var, default_px = blur_size size in
     let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      [
-        decl;
-        filter_var_decl "--tw-blur" (Blur (Var ref_));
-        filter composable_filter_chain;
-      ]
+    with_chain target
+      [ decl; var_decl (var target `Blur) (Css.Blur (Var ref_)) ]
 
   let is_theme_blur theme n =
     Scheme.theme_value (Some theme) ("blur-" ^ n) <> None
@@ -411,32 +368,9 @@ module Handler = struct
         | None -> style []
         | Some len ->
             let decl, ref_ = Var.binding (blur_named_var name) len in
-            style ~metadata:filter_property_metadata
-              ~property_rules:filter_property_rules
-              [
-                decl;
-                filter_var_decl "--tw-blur" (Blur (Var ref_));
-                filter composable_filter_chain;
-              ])
+            with_chain Filter
+              [ decl; var_decl (var Filter `Blur) (Css.Blur (Var ref_)) ])
 
-  let blur_xs = blur_size_utility blur_xs_var 4.
-  let blur_sm = blur_size_utility blur_sm_var 8.
-  let blur_md = blur_size_utility blur_md_var 12.
-  let blur_lg = blur_size_utility blur_lg_var 16.
-  let blur_xl = blur_size_utility blur_xl_var 24.
-  let blur_2xl = blur_size_utility blur_2xl_var 40.
-  let blur_3xl = blur_size_utility blur_3xl_var 64.
-
-  (* [.blur] (no suffix) is the keyword utility - inline literal blur(8px). *)
-  let blur () =
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      [
-        filter_var_decl "--tw-blur" (Blur (Px 8.));
-        filter composable_filter_chain;
-      ]
-
-  (* Parse bracket content for length values (e.g., "4px", "0.5rem") *)
   (* The length a [blur-[...]] bracket denotes, read with cascade's own grammar
      so calc() and every unit come for free. A var bracket keeps the tw-side
      reference the variable system tracks. [None] is a bracket no length reads
@@ -494,89 +428,32 @@ module Handler = struct
           (fun f : Css.number_percentage -> Num f)
           (Float.of_string_opt inner)
 
-  let blur_arbitrary len = set_filter_var "--tw-blur" (Blur len)
-  let blur_raw value = set_raw_filter_var blur_var "blur" value
+  let amount_filter (f : scaled) np : Css.filter =
+    match f with
+    | `Brightness -> Css.Brightness np
+    | `Contrast -> Css.Contrast np
+    | `Grayscale -> Css.Grayscale np
+    | `Invert -> Css.Invert np
+    | `Opacity -> Css.Opacity np
+    | `Saturate -> Css.Saturate np
+    | `Sepia -> Css.Sepia np
 
-  let brightness_arbitrary s =
+  (* A bracket amount: a number or percentage, else forwarded verbatim. *)
+  let amount_arbitrary target (f : scaled) s =
     let inner = Parse.bracket_inner s in
     match parse_bracket_numpct_opt inner with
-    | Some np -> set_filter_var "--tw-brightness" (Brightness np)
-    | None ->
-        set_raw_filter_var brightness_var "brightness"
-          (Parse.decode_arbitrary_value inner)
+    | Some np -> set target (f :> func) (amount_filter f np)
+    | None -> set_raw target (f :> func) (Parse.decode_arbitrary_value inner)
 
-  let contrast_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_filter_var "--tw-contrast" (Contrast np)
-    | None ->
-        set_raw_filter_var contrast_var "contrast"
-          (Parse.decode_arbitrary_value inner)
-
-  let grayscale_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_filter_var "--tw-grayscale" (Grayscale np)
-    | None ->
-        set_raw_filter_var grayscale_var "grayscale"
-          (Parse.decode_arbitrary_value inner)
-
-  let saturate_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_filter_var "--tw-saturate" (Saturate np)
-    | None ->
-        set_raw_filter_var saturate_var "saturate"
-          (Parse.decode_arbitrary_value inner)
-
-  let sepia_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_filter_var "--tw-sepia" (Sepia np)
-    | None ->
-        set_raw_filter_var sepia_var "sepia"
-          (Parse.decode_arbitrary_value inner)
-
-  let invert_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_filter_var "--tw-invert" (Invert np)
-    | None ->
-        set_raw_filter_var invert_var "invert"
-          (Parse.decode_arbitrary_value inner)
-
-  let brightness n =
-    set_filter_var "--tw-brightness" (Brightness (Pct (float_of_int n)))
-
-  let contrast n =
-    set_filter_var "--tw-contrast" (Contrast (Pct (float_of_int n)))
-
-  let grayscale n =
-    set_filter_var "--tw-grayscale" (Grayscale (Pct (float_of_int n)))
-
-  let saturate n =
-    set_filter_var "--tw-saturate" (Saturate (Pct (float_of_int n)))
-
-  let sepia n = set_filter_var "--tw-sepia" (Sepia (Pct (float_of_int n)))
-  let invert n = set_filter_var "--tw-invert" (Invert (Pct (float_of_int n)))
+  let amount target (f : scaled) pct =
+    set target (f :> func) (amount_filter f (Pct pct))
 
   (* Helper to create an angle with calc for negative values *)
   let make_angle n =
     if n >= 0 then Deg (float_of_int n)
     else Calc (Expr (Val (Deg (float_of_int (abs n))), Mul, Num (-1.)))
 
-  let hue_rotate n =
-    set_filter_var "--tw-hue-rotate" (Hue_rotate (make_angle n))
-
-  let hue_rotate_arbitrary angle =
-    set_filter_var "--tw-hue-rotate" (Hue_rotate angle)
-
-  let hue_rotate_raw value =
-    set_raw_filter_var hue_rotate_var "hue-rotate" value
-
-  let neg_hue_rotate_arbitrary angle =
-    let neg : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.))) in
-    set_filter_var "--tw-hue-rotate" (Hue_rotate neg)
+  let neg_angle angle : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.)))
 
   (* Drop-shadow utilities *)
   let bind_drop_shadow value = Var.set drop_shadow_var value
@@ -652,7 +529,7 @@ module Handler = struct
       ~property_rules:filter_property_rules
       [
         Css.custom_property ~layer:"utilities" "--tw-drop-shadow" " ";
-        filter composable_filter_chain;
+        filter filter_chain;
       ]
 
   (* Build the [--tw-drop-shadow-size] filter from a parsed theme shadow body,
@@ -707,7 +584,7 @@ module Handler = struct
       @ [
           bind_drop_shadow_size (drop_shadow_size_of_bodies bodies);
           bind_drop_shadow (drop_shadow_theme_ref "drop-shadow");
-          filter composable_filter_chain;
+          filter filter_chain;
         ])
 
   (* The default [--drop-shadow] is a two-shadow stack. [size_fallback] is what
@@ -745,7 +622,7 @@ module Handler = struct
       [
         bind_drop_shadow_size (drop_shadow_default_size None);
         bind_drop_shadow drop_shadow_default_literal;
-        filter composable_filter_chain;
+        filter filter_chain;
       ]
 
   let drop_shadow_ ?theme () =
@@ -783,7 +660,7 @@ module Handler = struct
             theme_decl;
             bind_drop_shadow_size (drop_shadow_size_of_bodies bodies);
             bind_drop_shadow (drop_shadow_theme_ref ("drop-shadow-" ^ size));
-            filter composable_filter_chain;
+            filter filter_chain;
           ]
 
   (* A theme-token drop-shadow such as [drop-shadow-calc] backed by a custom
@@ -810,7 +687,7 @@ module Handler = struct
             Css.custom_property ~layer:"theme" ("--" ^ theme_name) value;
             bind_drop_shadow_size size;
             bind_drop_shadow (drop_shadow_theme_ref theme_name);
-            filter composable_filter_chain;
+            filter filter_chain;
           ]
 
   let drop_shadow_multi_ =
@@ -839,7 +716,7 @@ module Handler = struct
       [
         bind_drop_shadow_size size;
         bind_drop_shadow literal;
-        filter composable_filter_chain;
+        filter filter_chain;
       ]
 
   (* The [--tw-drop-shadow-size] filter behind [drop-shadow-[...]]: a bracket
@@ -900,7 +777,7 @@ module Handler = struct
       @ [
           bind_drop_shadow_size size;
           bind_drop_shadow drop_shadow_size_ref;
-          filter composable_filter_chain;
+          filter filter_chain;
         ])
 
   let drop_shadow_raw value =
@@ -916,7 +793,7 @@ module Handler = struct
               (Var.css_name drop_shadow_size_var)
               wrapped;
             bind_drop_shadow drop_shadow_size_ref;
-            filter composable_filter_chain;
+            filter filter_chain;
           ]
 
   let drop_shadow_inherit_ =
@@ -1113,9 +990,7 @@ module Handler = struct
         ~rebuild
     in
     let alpha_decl = drop_shadow_alpha_decl opacity in
-    let tail_decls =
-      lead @ [ bind_drop_shadow shadow; filter composable_filter_chain ]
-    in
+    let tail_decls = lead @ [ bind_drop_shadow shadow; filter filter_chain ] in
     match supports with
     | Option.None ->
         style ~metadata:filter_property_metadata
@@ -1183,273 +1058,11 @@ module Handler = struct
       | Ok value -> Some value
       | Error _ -> None
 
-  let filter_arbitrary value = style [ filter value ]
-
-  (* Composable backdrop-filter chain *)
-  let composable_backdrop_filter_chain : Css.filter =
-    List
-      [
-        Css.filter_var_empty "tw-backdrop-blur";
-        Css.filter_var_empty "tw-backdrop-brightness";
-        Css.filter_var_empty "tw-backdrop-contrast";
-        Css.filter_var_empty "tw-backdrop-grayscale";
-        Css.filter_var_empty "tw-backdrop-hue-rotate";
-        Css.filter_var_empty "tw-backdrop-invert";
-        Css.filter_var_empty "tw-backdrop-opacity";
-        Css.filter_var_empty "tw-backdrop-saturate";
-        Css.filter_var_empty "tw-backdrop-sepia";
-      ]
-
-  (* Helper: set a --tw-backdrop-<name> var and output composable backdrop
-     chain *)
-  let set_backdrop_var var_name (value : Css.filter) =
-    style ~metadata:backdrop_filter_property_metadata
-      ~property_rules:backdrop_filter_property_rules
-      [
-        filter_var_decl var_name value;
-        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-        backdrop_filter composable_backdrop_filter_chain;
-      ]
-
-  let set_raw_backdrop_var var function_name value =
-    match
-      Parse.wrap_declaration_value ~before:(function_name ^ "(") ~after:")"
-        value
-    with
-    | None -> style []
-    | Some wrapped ->
-        style ~metadata:backdrop_filter_property_metadata
-          ~property_rules:backdrop_filter_property_rules
-          [
-            Css.custom_property ~layer:"utilities" (Var.css_name var) wrapped;
-            Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-            backdrop_filter composable_backdrop_filter_chain;
-          ]
-
-  let set_backdrop_var_theme ?theme var_name theme_name
-      (make_filter : Css.length -> Css.filter) () =
-    (* Tailwind uses themeKeys: ['--backdrop-X', '--X'] fallback. Check
-       backdrop-specific theme first, then base theme. *)
-    let fallback_name =
-      let prefix = "backdrop-" in
-      let plen = String.length prefix in
-      if
-        String.length theme_name > plen && String.sub theme_name 0 plen = prefix
-      then Some (String.sub theme_name plen (String.length theme_name - plen))
-      else None
-    in
-    let actual_theme_name =
-      match Scheme.theme_value theme theme_name with
-      | Some _ -> theme_name
-      | None -> (
-          match fallback_name with
-          | Some fb -> (
-              match Scheme.theme_value theme fb with
-              | Some _ -> fb
-              | None -> theme_name)
-          | None -> theme_name)
-    in
-    let ref_ : Css.length Css.var = Var.theme_ref actual_theme_name in
-    style ~metadata:backdrop_filter_property_metadata
-      ~property_rules:backdrop_filter_property_rules
-      (theme_decl_if_set ?theme actual_theme_name
-      @ [
-          filter_var_decl var_name (make_filter (Var ref_));
-          Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-          backdrop_filter composable_backdrop_filter_chain;
-        ])
-
-  let backdrop_blur_none ?theme () =
-    match Scheme.theme_value theme "backdrop-blur-none" with
-    | Some _ ->
-        set_backdrop_var_theme ?theme "--tw-backdrop-blur" "backdrop-blur-none"
-          (fun l -> Blur l)
-          ()
-    | None -> (
-        match Scheme.theme_value theme "blur-none" with
-        | Some _ ->
-            set_backdrop_var_theme ?theme "--tw-backdrop-blur"
-              "backdrop-blur-none"
-              (fun l -> Blur l)
-              ()
-        | None ->
-            style ~metadata:backdrop_filter_property_metadata
-              ~property_rules:backdrop_filter_property_rules
-              [
-                Css.custom_property ~layer:"utilities" "--tw-backdrop-blur" " ";
-                Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-                backdrop_filter composable_backdrop_filter_chain;
-              ])
-
-  (* Each backdrop-blur-<size> binds the unified v4 --blur-<size> token and
-     references it; Tailwind dropped the separate --backdrop-blur-* tokens, so
-     the default theme ships only --blur-*. *)
-  let backdrop_blur_size (theme_var : Css.length Var.theme) default_px () =
-    let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
-    style ~metadata:backdrop_filter_property_metadata
-      ~property_rules:backdrop_filter_property_rules
-      [
-        decl;
-        filter_var_decl "--tw-backdrop-blur" (Blur (Var ref_));
-        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-        backdrop_filter composable_backdrop_filter_chain;
-      ]
-
-  let backdrop_blur_xs = backdrop_blur_size blur_xs_var 4.
-  let backdrop_blur_sm = backdrop_blur_size blur_sm_var 8.
-
-  (* [.backdrop-blur] (no suffix) emits literal [blur(8px)] in v4. *)
-  let backdrop_blur () =
-    style ~metadata:backdrop_filter_property_metadata
-      ~property_rules:backdrop_filter_property_rules
-      [
-        filter_var_decl "--tw-backdrop-blur" (Blur (Px 8.));
-        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-        backdrop_filter composable_backdrop_filter_chain;
-      ]
-
-  let backdrop_blur_md = backdrop_blur_size blur_md_var 12.
-  let backdrop_blur_lg = backdrop_blur_size blur_lg_var 16.
-  let backdrop_blur_xl = backdrop_blur_size blur_xl_var 24.
-  let backdrop_blur_2xl = backdrop_blur_size blur_2xl_var 40.
-  let backdrop_blur_3xl = backdrop_blur_size blur_3xl_var 64.
-
-  let backdrop_blur_arbitrary len =
-    set_backdrop_var "--tw-backdrop-blur" (Blur len)
-
-  let backdrop_blur_raw value =
-    set_raw_backdrop_var backdrop_blur_var "blur" value
-
-  let backdrop_brightness n =
-    set_backdrop_var "--tw-backdrop-brightness"
-      (Brightness (Pct (float_of_int n)))
-
-  let backdrop_brightness_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_backdrop_var "--tw-backdrop-brightness" (Brightness np)
-    | None ->
-        set_raw_backdrop_var backdrop_brightness_var "brightness"
-          (Parse.decode_arbitrary_value inner)
-
-  let backdrop_contrast n =
-    set_backdrop_var "--tw-backdrop-contrast" (Contrast (Pct (float_of_int n)))
-
-  let backdrop_contrast_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_backdrop_var "--tw-backdrop-contrast" (Contrast np)
-    | None ->
-        set_raw_backdrop_var backdrop_contrast_var "contrast"
-          (Parse.decode_arbitrary_value inner)
-
-  let backdrop_opacity n =
-    set_backdrop_var "--tw-backdrop-opacity" (Opacity (Pct n))
-
-  let backdrop_opacity_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_backdrop_var "--tw-backdrop-opacity" (Opacity np)
-    | None ->
-        set_raw_backdrop_var backdrop_opacity_var "opacity"
-          (Parse.decode_arbitrary_value inner)
-
-  let backdrop_saturate n =
-    set_backdrop_var "--tw-backdrop-saturate" (Saturate (Pct (float_of_int n)))
-
-  let backdrop_saturate_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_backdrop_var "--tw-backdrop-saturate" (Saturate np)
-    | None ->
-        set_raw_backdrop_var backdrop_saturate_var "saturate"
-          (Parse.decode_arbitrary_value inner)
-
-  let backdrop_grayscale_default =
-    set_backdrop_var "--tw-backdrop-grayscale" (Grayscale (Pct 100.))
-
-  let backdrop_grayscale n =
-    set_backdrop_var "--tw-backdrop-grayscale"
-      (Grayscale (Pct (float_of_int n)))
-
-  let backdrop_grayscale_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_backdrop_var "--tw-backdrop-grayscale" (Grayscale np)
-    | None ->
-        set_raw_backdrop_var backdrop_grayscale_var "grayscale"
-          (Parse.decode_arbitrary_value inner)
-
-  let backdrop_invert_default =
-    set_backdrop_var "--tw-backdrop-invert" (Invert (Pct 100.))
-
-  let backdrop_invert n =
-    set_backdrop_var "--tw-backdrop-invert" (Invert (Pct (float_of_int n)))
-
-  let backdrop_invert_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_backdrop_var "--tw-backdrop-invert" (Invert np)
-    | None ->
-        set_raw_backdrop_var backdrop_invert_var "invert"
-          (Parse.decode_arbitrary_value inner)
-
-  let backdrop_sepia_default =
-    set_backdrop_var "--tw-backdrop-sepia" (Sepia (Pct 100.))
-
-  let backdrop_sepia n =
-    set_backdrop_var "--tw-backdrop-sepia" (Sepia (Pct (float_of_int n)))
-
-  let backdrop_sepia_arbitrary s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
-    | Some np -> set_backdrop_var "--tw-backdrop-sepia" (Sepia np)
-    | None ->
-        set_raw_backdrop_var backdrop_sepia_var "sepia"
-          (Parse.decode_arbitrary_value inner)
-
-  let backdrop_hue_rotate n =
-    set_backdrop_var "--tw-backdrop-hue-rotate" (Hue_rotate (make_angle n))
-
-  let backdrop_hue_rotate_arbitrary angle =
-    set_backdrop_var "--tw-backdrop-hue-rotate" (Hue_rotate angle)
-
-  let backdrop_hue_rotate_raw value =
-    set_raw_backdrop_var backdrop_hue_rotate_var "hue-rotate" value
-
-  let neg_backdrop_hue_rotate_arbitrary angle =
-    let neg : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.))) in
-    set_backdrop_var "--tw-backdrop-hue-rotate" (Hue_rotate neg)
-
-  (* Composable filter using all the filter variables *)
-  let filter_ =
-    style ~metadata:filter_property_metadata
-      ~property_rules:filter_property_rules
-      [ filter composable_filter_chain ]
-
-  let filter_none = style [ filter None ]
-
-  (* Composable backdrop-filter using all the backdrop-filter variables *)
-  let backdrop_filter_ =
-    style ~metadata:backdrop_filter_property_metadata
-      ~property_rules:backdrop_filter_property_rules
-      [
-        Css.webkit_backdrop_filter composable_backdrop_filter_chain;
-        backdrop_filter composable_backdrop_filter_chain;
-      ]
-
-  let backdrop_filter_none =
-    style [ Css.webkit_backdrop_filter None; backdrop_filter None ]
-
-  let backdrop_filter_arbitrary value =
-    style [ Css.webkit_backdrop_filter value; backdrop_filter value ]
-
   let to_style theme =
     let drop_shadow_color c shade = drop_shadow_color ~theme c shade in
     let drop_shadow_color_opacity c shade opacity =
       drop_shadow_color_opacity ~theme c shade opacity
     in
-    let blur_none () = blur_none ~theme () in
     let drop_shadow_ () = drop_shadow_ ~theme () in
     let drop_shadow_named name = drop_shadow_named ~theme name in
     let drop_shadow_named_opacity name op =
@@ -1459,41 +1072,36 @@ module Handler = struct
       drop_shadow_size_opacity ~theme size op
     in
     let drop_shadow_opacity op = drop_shadow_opacity ~theme op in
-    let backdrop_blur_none () = backdrop_blur_none ~theme () in
     function
-    | Filter -> filter_
-    | Filter_none -> filter_none
-    | Filter_arbitrary (_, value) -> filter_arbitrary value
-    | Filter_raw (_, v) ->
-        style (Option.to_list (Parse.opaque_declaration "filter" v))
-    | Blur_none -> blur_none ()
-    | Blur_xs -> blur_xs ()
-    | Blur_sm -> blur_sm ()
+    (* The chain on its own, every function variable it reads. *)
+    | Chain target ->
+        style ~metadata:(metadata target)
+          ~property_rules:(property_rules target)
+          (declarations target (chain target))
+    | Chain_none target -> style (declarations target (None : Css.filter))
+    | Chain_arbitrary (target, _, value) -> style (declarations target value)
+    | Chain_raw (target, _, v) ->
+        style
+          (List.filter_map
+             (fun property -> Parse.opaque_declaration property v)
+             (property_names target))
+    | Blur target -> set target `Blur (Css.Blur (Px 8.))
+    | Blur_none target -> blur_none theme target
+    | Blur_size (target, size) -> blur_sized target size
     | Blur_theme name -> blur_theme theme name
-    | Blur -> blur ()
-    | Blur_md -> blur_md ()
-    | Blur_lg -> blur_lg ()
-    | Blur_xl -> blur_xl ()
-    | Blur_2xl -> blur_2xl ()
-    | Blur_3xl -> blur_3xl ()
-    | Blur_arbitrary (_, len) -> blur_arbitrary len
-    | Blur_raw (_, value) -> blur_raw value
-    | Brightness n -> brightness n
-    | Brightness_arbitrary s -> brightness_arbitrary s
-    | Contrast n -> contrast n
-    | Contrast_arbitrary s -> contrast_arbitrary s
-    | Grayscale n -> grayscale n
-    | Grayscale_arbitrary s -> grayscale_arbitrary s
-    | Saturate n -> saturate n
-    | Saturate_arbitrary s -> saturate_arbitrary s
-    | Sepia n -> sepia n
-    | Sepia_arbitrary s -> sepia_arbitrary s
-    | Invert n -> invert n
-    | Invert_arbitrary s -> invert_arbitrary s
-    | Hue_rotate n -> hue_rotate n
-    | Hue_rotate_arbitrary (_, angle) -> hue_rotate_arbitrary angle
-    | Hue_rotate_raw (_, value) -> hue_rotate_raw value
-    | Neg_hue_rotate_arbitrary (_, angle) -> neg_hue_rotate_arbitrary angle
+    | Blur_arbitrary (target, _, len) -> set target `Blur (Css.Blur len)
+    | Blur_raw (target, _, value) -> set_raw target `Blur value
+    | Amount (target, f, n) -> amount target (f :> scaled) (float_of_int n)
+    | Amount_arbitrary (target, f, s) -> amount_arbitrary target (f :> scaled) s
+    | Backdrop_opacity n -> amount Backdrop `Opacity n
+    | Backdrop_opacity_arbitrary s -> amount_arbitrary Backdrop `Opacity s
+    | Hue_rotate (target, n) ->
+        set target `Hue_rotate (Css.Hue_rotate (make_angle n))
+    | Hue_rotate_arbitrary (target, _, angle) ->
+        set target `Hue_rotate (Css.Hue_rotate angle)
+    | Hue_rotate_raw (target, _, value) -> set_raw target `Hue_rotate value
+    | Neg_hue_rotate_arbitrary (target, _, angle) ->
+        set target `Hue_rotate (Css.Hue_rotate (neg_angle angle))
     | Drop_shadow -> drop_shadow_ ()
     | Drop_shadow_xs -> drop_shadow_sized ~theme "xs"
     | Drop_shadow_sm -> drop_shadow_sized ~theme "sm"
@@ -1529,50 +1137,6 @@ module Handler = struct
     | Drop_shadow_bracket_cvar v -> drop_shadow_bracket_var v
     | Drop_shadow_bracket_cvar_opacity (v, op) ->
         drop_shadow_bracket_var_opacity v op
-    | Backdrop_blur_none -> backdrop_blur_none ()
-    | Backdrop_blur_xs -> backdrop_blur_xs ()
-    | Backdrop_blur_sm -> backdrop_blur_sm ()
-    | Backdrop_blur -> backdrop_blur ()
-    | Backdrop_blur_md -> backdrop_blur_md ()
-    | Backdrop_blur_lg -> backdrop_blur_lg ()
-    | Backdrop_blur_xl -> backdrop_blur_xl ()
-    | Backdrop_blur_2xl -> backdrop_blur_2xl ()
-    | Backdrop_blur_3xl -> backdrop_blur_3xl ()
-    | Backdrop_blur_arbitrary (_, len) -> backdrop_blur_arbitrary len
-    | Backdrop_blur_raw (_, value) -> backdrop_blur_raw value
-    | Backdrop_brightness n -> backdrop_brightness n
-    | Backdrop_brightness_arbitrary s -> backdrop_brightness_arbitrary s
-    | Backdrop_contrast n -> backdrop_contrast n
-    | Backdrop_contrast_arbitrary s -> backdrop_contrast_arbitrary s
-    | Backdrop_opacity n -> backdrop_opacity n
-    | Backdrop_opacity_arbitrary s -> backdrop_opacity_arbitrary s
-    | Backdrop_saturate n -> backdrop_saturate n
-    | Backdrop_saturate_arbitrary s -> backdrop_saturate_arbitrary s
-    | Backdrop_grayscale n ->
-        if n = 100 then backdrop_grayscale_default else backdrop_grayscale n
-    | Backdrop_grayscale_arbitrary s -> backdrop_grayscale_arbitrary s
-    | Backdrop_invert n ->
-        if n = 100 then backdrop_invert_default else backdrop_invert n
-    | Backdrop_invert_arbitrary s -> backdrop_invert_arbitrary s
-    | Backdrop_sepia n ->
-        if n = 100 then backdrop_sepia_default else backdrop_sepia n
-    | Backdrop_sepia_arbitrary s -> backdrop_sepia_arbitrary s
-    | Backdrop_hue_rotate n -> backdrop_hue_rotate n
-    | Backdrop_hue_rotate_arbitrary (_, angle) ->
-        backdrop_hue_rotate_arbitrary angle
-    | Backdrop_hue_rotate_raw (_, value) -> backdrop_hue_rotate_raw value
-    | Neg_backdrop_hue_rotate_arbitrary (_, angle) ->
-        neg_backdrop_hue_rotate_arbitrary angle
-    | Backdrop_filter -> backdrop_filter_
-    | Backdrop_filter_none -> backdrop_filter_none
-    | Backdrop_filter_arbitrary (_, value) -> backdrop_filter_arbitrary value
-    | Backdrop_filter_raw (_, v) ->
-        (* The backdrop family aliases its property for WebKit, so the raw form
-           writes both, as the CLI does. *)
-        style
-          (List.filter_map
-             (fun property -> Parse.opaque_declaration property v)
-             [ "-webkit-backdrop-filter"; "backdrop-filter" ])
 
   let ( >|= ) = Parse.( >|= )
   let err_not_utility = Error (`Msg "Not a filter utility")
@@ -1623,15 +1187,46 @@ module Handler = struct
         | op -> Ok (Drop_shadow_bracket_color_opacity (inner, c, op)))
     | Some (Color.Bare_var _) | None -> parse_drop_shadow_size base opacity
 
+  (* Tailwind orders a target's functions by name, the order [functions] lists
+     them in, and the bare property after them; every backdrop utility follows
+     every filter one. Each function is one slot a thousand wide, inside which
+     Tailwind uses the natural candidate spelling, which handles bare defaults,
+     numeric values, arbitrary values and negative angles without per-value
+     keys. On [filter], the drop-shadow suborders (2690-2710) fall between
+     contrast and grayscale. *)
+  let slot_base = function Filter -> 0 | Backdrop -> 10_000
+
+  let slot target f =
+    let functions = functions target in
+    let rank =
+      match f with
+      | `Chain -> List.length functions
+      | #func as f -> (
+          match List.find_index (( = ) f) functions with
+          | Some rank -> rank
+          | None -> invalid_arg (prefix target ^ func_name f ^ ": no slot"))
+    in
+    slot_base target + (1000 * rank)
+
   let suborder = function
-    (* Each filter kind is one property slot. Tailwind uses the natural
-       candidate spelling inside it, which handles bare defaults, numeric
-       values, arbitrary values and negative angles without per-value keys. *)
-    | Blur | Blur_2xl | Blur_3xl | Blur_arbitrary _ | Blur_raw _ | Blur_lg
-    | Blur_md | Blur_none | Blur_sm | Blur_theme _ | Blur_xl | Blur_xs ->
-        0
-    | Brightness _ | Brightness_arbitrary _ -> 1000
-    | Contrast _ | Contrast_arbitrary _ -> 2000
+    | Chain t | Chain_none t | Chain_arbitrary (t, _, _) | Chain_raw (t, _, _)
+      ->
+        slot t `Chain
+    | Blur t
+    | Blur_none t
+    | Blur_size (t, _)
+    | Blur_arbitrary (t, _, _)
+    | Blur_raw (t, _, _) ->
+        slot t `Blur
+    | Blur_theme _ -> slot Filter `Blur
+    | Amount (t, f, _) | Amount_arbitrary (t, f, _) -> slot t (f :> func)
+    | Backdrop_opacity _ | Backdrop_opacity_arbitrary _ ->
+        slot Backdrop `Opacity
+    | Hue_rotate (t, _)
+    | Hue_rotate_arbitrary (t, _, _)
+    | Hue_rotate_raw (t, _, _)
+    | Neg_hue_rotate_arbitrary (t, _, _) ->
+        slot t `Hue_rotate
     | Drop_shadow_opacity _ -> 2690
     | Drop_shadow_size_opacity _ -> 2692
     | Drop_shadow -> 2700
@@ -1652,44 +1247,55 @@ module Handler = struct
     | Drop_shadow_bracket_color _ | Drop_shadow_bracket_color_opacity _
     | Drop_shadow_bracket_cvar _ | Drop_shadow_bracket_cvar_opacity _ ->
         2710
-    | Grayscale _ | Grayscale_arbitrary _ -> 4000
-    | Hue_rotate _ | Hue_rotate_arbitrary _ | Hue_rotate_raw _
-    | Neg_hue_rotate_arbitrary _ ->
-        5000
-    | Invert _ | Invert_arbitrary _ -> 6000
-    | Saturate _ | Saturate_arbitrary _ -> 7000
-    | Sepia _ | Sepia_arbitrary _ -> 8000
-    | Filter | Filter_arbitrary _ | Filter_raw _ | Filter_none -> 9000
-    (* Backdrop filters follow the same one-slot-per-kind rule. *)
-    | Backdrop_blur_arbitrary _ | Backdrop_blur_raw _ | Backdrop_blur_none
-    | Backdrop_blur_xs | Backdrop_blur_sm | Backdrop_blur | Backdrop_blur_md
-    | Backdrop_blur_lg | Backdrop_blur_xl | Backdrop_blur_2xl
-    | Backdrop_blur_3xl ->
-        10000
-    | Backdrop_brightness _ | Backdrop_brightness_arbitrary _ -> 11000
-    | Backdrop_contrast _ | Backdrop_contrast_arbitrary _ -> 12000
-    | Backdrop_grayscale _ | Backdrop_grayscale_arbitrary _ -> 14000
-    | Neg_backdrop_hue_rotate_arbitrary _ | Backdrop_hue_rotate _
-    | Backdrop_hue_rotate_arbitrary _ | Backdrop_hue_rotate_raw _ ->
-        15000
-    | Backdrop_invert _ | Backdrop_invert_arbitrary _ -> 16000
-    | Backdrop_opacity _ | Backdrop_opacity_arbitrary _ -> 17000
-    | Backdrop_saturate _ | Backdrop_saturate_arbitrary _ -> 19000
-    | Backdrop_sepia _ | Backdrop_sepia_arbitrary _ -> 20000
-    | Backdrop_filter | Backdrop_filter_arbitrary _ | Backdrop_filter_raw _
-    | Backdrop_filter_none ->
-        21000
 
-  let of_class theme class_name =
-    let parts = Parse.split_class class_name in
-    match parts with
-    (* The bare [blur], [backdrop-blur] and [drop-shadow] inline the deprecated
-       [--blur] and [--drop-shadow] tokens, and a sized drop shadow under an
-       opacity inlines its own, so a token the [@theme] block removed is refused
-       here rather than read through a [var()] the theme layer drops. *)
-    | ([ "blur" ] | [ "backdrop"; "blur" ]) when Scheme.is_removed theme "blur"
-      ->
-        err_not_utility
+  (* The bare [blur] and [backdrop-blur] inline the deprecated [--blur] token,
+     so a token the [@theme] block removed is refused here rather than read
+     through a [var()] the theme layer drops. A project [--blur-<name>] token
+     names a [filter] radius only. *)
+  let parse_blur theme target rest =
+    let name = String.concat "-" rest in
+    match (rest, blur_size_of_name name) with
+    | [], _ when Scheme.is_removed theme "blur" -> err_not_utility
+    | [], _ -> Ok (Blur target)
+    | [ "none" ], _ -> Ok (Blur_none target)
+    | [ _ ], Some size -> Ok (Blur_size (target, size))
+    | _ :: _, None when target = Filter && is_theme_blur theme name ->
+        Ok (Blur_theme name)
+    | [ s ], None when Parse.is_bracket_value s -> (
+        match arbitrary_blur s with
+        | Option.Some len -> Ok (Blur_arbitrary (target, s, len))
+        | Option.None -> (
+            match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
+            | Some value -> Ok (Blur_raw (target, s, value))
+            | None ->
+                Error (`Msg ("Invalid " ^ prefix target ^ "blur value: " ^ s))))
+    | _ -> err_not_utility
+
+  (* [hue-rotate-N], [-hue-rotate-N] and their bracket forms. *)
+  let parse_hue_rotate target ~neg rest =
+    match rest with
+    | [ s ] when Parse.is_bracket_value s -> (
+        let spelling = Parse.bracket_inner s in
+        match (parse_bracket_angle s, neg) with
+        | Option.Some angle, false ->
+            Ok (Hue_rotate_arbitrary (target, spelling, angle))
+        | Option.Some angle, true ->
+            Ok (Neg_hue_rotate_arbitrary (target, spelling, angle))
+        | Option.None, false -> (
+            match Parse.arbitrary_declaration_value spelling with
+            | Some value -> Ok (Hue_rotate_raw (target, spelling, value))
+            | None -> err_not_utility)
+        | Option.None, true -> err_not_utility)
+    | [ n ] when neg ->
+        Parse.int_pos ~name:(prefix target ^ "hue-rotate") n >|= fun x ->
+        Hue_rotate (target, -x)
+    | [ n ] -> Parse.int_any n >|= fun x -> Hue_rotate (target, x)
+    | _ -> err_not_utility
+
+  let parse_drop_shadow theme = function
+    (* The bare [drop-shadow] inlines the deprecated [--drop-shadow] token, and
+       a sized drop shadow under an opacity inlines its own, so a token the
+       [@theme] block removed is refused. *)
     | [ "drop"; "shadow" ] when Scheme.is_removed theme "drop-shadow" ->
         err_not_utility
     | [ "drop"; "shadow"; n ]
@@ -1698,104 +1304,6 @@ module Handler = struct
                Scheme.is_removed theme ("drop-shadow-" ^ size)
            | _ -> false ->
         err_not_utility
-    | [ "filter" ] -> Ok Filter
-    | [ "filter"; "none" ] -> Ok Filter_none
-    | [ "filter"; s ] when Parse.is_bracket_value s -> (
-        match filter_arbitrary_value s with
-        | Option.Some value -> Ok (Filter_arbitrary (s, value))
-        | Option.None -> (
-            match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-            | Some raw -> Ok (Filter_raw (s, raw))
-            | None -> err_not_utility))
-    | [ "backdrop"; "filter" ] -> Ok Backdrop_filter
-    | [ "backdrop"; "filter"; "none" ] -> Ok Backdrop_filter_none
-    | [ "backdrop"; "filter"; s ] when Parse.is_bracket_value s -> (
-        match filter_arbitrary_value s with
-        | Option.Some value -> Ok (Backdrop_filter_arbitrary (s, value))
-        | Option.None
-          when Parse.arbitrary_declaration_value (Parse.bracket_inner s) <> None
-          ->
-            Ok
-              (Backdrop_filter_raw
-                 ( s,
-                   Option.get
-                     (Parse.arbitrary_declaration_value (Parse.bracket_inner s))
-                 ))
-        | Option.None -> err_not_utility)
-    | [ "blur"; "none" ] -> Ok Blur_none
-    | [ "blur"; "xs" ] -> Ok Blur_xs
-    | [ "blur"; "sm" ] -> Ok Blur_sm
-    | [ "blur" ] -> Ok Blur
-    | [ "blur"; "md" ] -> Ok Blur_md
-    | [ "blur"; "lg" ] -> Ok Blur_lg
-    | [ "blur"; "xl" ] -> Ok Blur_xl
-    | [ "blur"; "2xl" ] -> Ok Blur_2xl
-    | [ "blur"; "3xl" ] -> Ok Blur_3xl
-    | "blur" :: (_ :: _ as rest)
-      when is_theme_blur theme (String.concat "-" rest) ->
-        Ok (Blur_theme (String.concat "-" rest))
-    | [ "blur"; s ] when Parse.is_bracket_value s -> (
-        match arbitrary_blur s with
-        | Option.Some len -> Ok (Blur_arbitrary (s, len))
-        | Option.None -> (
-            match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-            | Some value -> Ok (Blur_raw (s, value))
-            | None -> Error (`Msg ("Invalid blur value: " ^ s))))
-    | [ "brightness"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Brightness_arbitrary s)
-        | None -> err_not_utility)
-    | [ "brightness"; n ] ->
-        Parse.int_pos ~name:"brightness" n >|= fun x -> Brightness x
-    | [ "contrast"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Contrast_arbitrary s)
-        | None -> err_not_utility)
-    | [ "contrast"; n ] ->
-        Parse.int_pos ~name:"contrast" n >|= fun x -> Contrast x
-    | [ "grayscale"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Grayscale_arbitrary s)
-        | None -> err_not_utility)
-    | [ "grayscale"; n ] ->
-        Parse.int_pos ~name:"grayscale" n >|= fun x -> Grayscale x
-    | [ "grayscale" ] -> Ok (Grayscale 100)
-    | [ "saturate"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Saturate_arbitrary s)
-        | None -> err_not_utility)
-    | [ "saturate"; n ] ->
-        Parse.int_pos ~name:"saturate" n >|= fun x -> Saturate x
-    | [ "sepia"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Sepia_arbitrary s)
-        | None -> err_not_utility)
-    | [ "sepia"; n ] -> Parse.int_pos ~name:"sepia" n >|= fun x -> Sepia x
-    | [ "sepia" ] -> Ok (Sepia 100)
-    | [ "invert"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Invert_arbitrary s)
-        | None -> err_not_utility)
-    | [ "invert"; n ] -> Parse.int_pos ~name:"invert" n >|= fun x -> Invert x
-    | [ "invert" ] -> Ok (Invert 100)
-    | [ "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
-        match parse_bracket_angle s with
-        | Option.Some angle ->
-            Ok (Hue_rotate_arbitrary (Parse.bracket_inner s, angle))
-        | Option.None -> (
-            let spelling = Parse.bracket_inner s in
-            match Parse.arbitrary_declaration_value spelling with
-            | Some value -> Ok (Hue_rotate_raw (spelling, value))
-            | None -> err_not_utility))
-    | [ "hue"; "rotate"; n ] -> Parse.int_any n >|= fun x -> Hue_rotate x
-    (* Negative hue-rotate: -hue-rotate-N or -hue-rotate-[Ndeg] *)
-    | [ ""; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
-        match parse_bracket_angle s with
-        | Option.Some angle ->
-            Ok (Neg_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
-        | Option.None -> err_not_utility)
-    | [ ""; "hue"; "rotate"; n ] ->
-        Parse.int_pos ~name:"hue-rotate" n >|= fun x -> Hue_rotate (-x)
     (* Drop shadow with opacity modifier on the base: drop-shadow/25 *)
     | [ "drop"; s ]
       when String.starts_with ~prefix:"shadow/" s && String.length s > 7 -> (
@@ -1867,140 +1375,91 @@ module Handler = struct
                   | Ok (c, shade, _) ->
                       Ok (Drop_shadow_color_opacity (c, shade, op))
                   | Error _ -> err_not_utility)))
-    | [ "backdrop"; "blur"; "none" ] -> Ok Backdrop_blur_none
-    | [ "backdrop"; "blur"; "xs" ] -> Ok Backdrop_blur_xs
-    | [ "backdrop"; "blur"; "sm" ] -> Ok Backdrop_blur_sm
-    | [ "backdrop"; "blur" ] -> Ok Backdrop_blur
-    | [ "backdrop"; "blur"; "md" ] -> Ok Backdrop_blur_md
-    | [ "backdrop"; "blur"; "lg" ] -> Ok Backdrop_blur_lg
-    | [ "backdrop"; "blur"; "xl" ] -> Ok Backdrop_blur_xl
-    | [ "backdrop"; "blur"; "2xl" ] -> Ok Backdrop_blur_2xl
-    | [ "backdrop"; "blur"; "3xl" ] -> Ok Backdrop_blur_3xl
-    | [ "backdrop"; "blur"; s ] when Parse.is_bracket_value s -> (
-        match arbitrary_blur s with
-        | Option.Some len -> Ok (Backdrop_blur_arbitrary (s, len))
+    | _ -> err_not_utility
+
+  let amount_of_name n =
+    List.find_opt (fun f -> String.equal (func_name (f :> func)) n) amounts
+
+  (* [grayscale], [invert] and [sepia] are their own [-100]. *)
+  let has_bare_form : amount -> bool = function
+    | `Grayscale | `Invert | `Sepia -> true
+    | `Brightness | `Contrast | `Saturate -> false
+
+  (* A class with its target's prefix taken off. *)
+  let parse_function theme target parts =
+    let declaration s =
+      Parse.arbitrary_declaration_value (Parse.bracket_inner s)
+    in
+    match parts with
+    | [ "filter" ] -> Ok (Chain target)
+    | [ "filter"; "none" ] -> Ok (Chain_none target)
+    | [ "filter"; s ] when Parse.is_bracket_value s -> (
+        match filter_arbitrary_value s with
+        | Option.Some value -> Ok (Chain_arbitrary (target, s, value))
         | Option.None -> (
-            match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-            | Some value -> Ok (Backdrop_blur_raw (s, value))
-            | None -> Error (`Msg ("Invalid backdrop-blur value: " ^ s))))
-    | [ "backdrop"; "brightness"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Backdrop_brightness_arbitrary s)
-        | None -> err_not_utility)
-    | [ "backdrop"; "brightness"; n ] ->
-        Parse.int_pos ~name:"backdrop-brightness" n >|= fun x ->
-        Backdrop_brightness x
-    | [ "backdrop"; "contrast"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Backdrop_contrast_arbitrary s)
-        | None -> err_not_utility)
-    | [ "backdrop"; "contrast"; n ] ->
-        Parse.int_pos ~name:"backdrop-contrast" n >|= fun x ->
-        Backdrop_contrast x
-    | [ "backdrop"; "opacity"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
+            match declaration s with
+            | Some raw -> Ok (Chain_raw (target, s, raw))
+            | None -> err_not_utility))
+    | "blur" :: rest -> parse_blur theme target rest
+    | "hue" :: "rotate" :: rest -> parse_hue_rotate target ~neg:false rest
+    | "drop" :: _ when target = Filter -> parse_drop_shadow theme parts
+    | [ "opacity"; s ] when target = Backdrop && Parse.is_bracket_value s -> (
+        match declaration s with
         | Some _ -> Ok (Backdrop_opacity_arbitrary s)
         | None -> err_not_utility)
-    | [ "backdrop"; "opacity"; n ] -> (
+    | [ "opacity"; n ] when target = Backdrop -> (
         match Parse.decimal_float n with
         | Some f when f >= 0. -> Ok (Backdrop_opacity f)
         | _ -> err_not_utility)
-    | [ "backdrop"; "saturate"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Backdrop_saturate_arbitrary s)
-        | None -> err_not_utility)
-    | [ "backdrop"; "saturate"; n ] ->
-        Parse.int_pos ~name:"backdrop-saturate" n >|= fun x ->
-        Backdrop_saturate x
-    | [ "backdrop"; "grayscale"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Backdrop_grayscale_arbitrary s)
-        | None -> err_not_utility)
-    | [ "backdrop"; "grayscale"; n ] ->
-        Parse.int_pos ~name:"backdrop-grayscale" n >|= fun x ->
-        Backdrop_grayscale x
-    | [ "backdrop"; "grayscale" ] -> Ok (Backdrop_grayscale 100)
-    | [ "backdrop"; "invert"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Backdrop_invert_arbitrary s)
-        | None -> err_not_utility)
-    | [ "backdrop"; "invert"; n ] ->
-        Parse.int_pos ~name:"backdrop-invert" n >|= fun x -> Backdrop_invert x
-    | [ "backdrop"; "invert" ] -> Ok (Backdrop_invert 100)
-    | [ "backdrop"; "sepia"; s ] when Parse.is_bracket_value s -> (
-        match Parse.arbitrary_declaration_value (Parse.bracket_inner s) with
-        | Some _ -> Ok (Backdrop_sepia_arbitrary s)
-        | None -> err_not_utility)
-    | [ "backdrop"; "sepia"; n ] ->
-        Parse.int_pos ~name:"backdrop-sepia" n >|= fun x -> Backdrop_sepia x
-    | [ "backdrop"; "sepia" ] -> Ok (Backdrop_sepia 100)
-    | [ "backdrop"; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
-        match parse_bracket_angle s with
-        | Option.Some angle ->
-            Ok (Backdrop_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
-        | Option.None -> (
-            let spelling = Parse.bracket_inner s in
-            match Parse.arbitrary_declaration_value spelling with
-            | Some value -> Ok (Backdrop_hue_rotate_raw (spelling, value))
-            | None -> err_not_utility))
-    | [ "backdrop"; "hue"; "rotate"; n ] ->
-        Parse.int_any n >|= fun x -> Backdrop_hue_rotate x
-    (* Negative backdrop hue-rotate *)
-    | [ ""; "backdrop"; "hue"; "rotate"; s ] when Parse.is_bracket_value s -> (
-        match parse_bracket_angle s with
-        | Option.Some angle ->
-            Ok
-              (Neg_backdrop_hue_rotate_arbitrary (Parse.bracket_inner s, angle))
-        | Option.None -> err_not_utility)
-    | [ ""; "backdrop"; "hue"; "rotate"; n ] ->
-        Parse.int_pos ~name:"backdrop-hue-rotate" n >|= fun x ->
-        Backdrop_hue_rotate (-x)
-    | _ -> err_not_utility
+    | name :: rest -> (
+        match (amount_of_name name, rest) with
+        | Some f, [ s ] when Parse.is_bracket_value s -> (
+            match declaration s with
+            | Some _ -> Ok (Amount_arbitrary (target, f, s))
+            | None -> err_not_utility)
+        | Some f, [ n ] ->
+            Parse.int_pos ~name:(prefix target ^ name) n >|= fun x ->
+            Amount (target, f, x)
+        | Some f, [] when has_bare_form f -> Ok (Amount (target, f, 100))
+        | _ -> err_not_utility)
+    | [] -> err_not_utility
+
+  let of_class theme class_name =
+    match Parse.split_class class_name with
+    | "" :: "backdrop" :: "hue" :: "rotate" :: rest ->
+        parse_hue_rotate Backdrop ~neg:true rest
+    | "" :: "hue" :: "rotate" :: rest -> parse_hue_rotate Filter ~neg:true rest
+    | "backdrop" :: parts -> parse_function theme Backdrop parts
+    | parts -> parse_function theme Filter parts
 
   let to_class = function
-    | Filter -> "filter"
-    | Filter_none -> "filter-none"
-    | Filter_arbitrary (s, _) | Filter_raw (s, _) -> "filter-" ^ s
-    | Backdrop_filter -> "backdrop-filter"
-    | Backdrop_filter_none -> "backdrop-filter-none"
-    | Backdrop_filter_arbitrary (s, _) | Backdrop_filter_raw (s, _) ->
-        "backdrop-filter-" ^ s
-    | Blur_none -> "blur-none"
-    | Blur_xs -> "blur-xs"
-    | Blur_sm -> "blur-sm"
+    | Chain t -> prefix t ^ "filter"
+    | Chain_none t -> prefix t ^ "filter-none"
+    | Chain_arbitrary (t, s, _) | Chain_raw (t, s, _) ->
+        prefix t ^ "filter-" ^ s
+    | Blur t -> prefix t ^ "blur"
+    | Blur_none t -> prefix t ^ "blur-none"
+    | Blur_size (t, size) -> prefix t ^ "blur-" ^ blur_size_name size
+    | Blur_arbitrary (t, s, _) | Blur_raw (t, s, _) -> prefix t ^ "blur-" ^ s
     | Blur_theme name -> "blur-" ^ name
-    | Blur -> "blur"
-    | Blur_md -> "blur-md"
-    | Blur_lg -> "blur-lg"
-    | Blur_xl -> "blur-xl"
-    | Blur_2xl -> "blur-2xl"
-    | Blur_3xl -> "blur-3xl"
-    | Blur_arbitrary (s, _) -> "blur-" ^ s
-    | Blur_raw (s, _) -> "blur-" ^ s
-    | Brightness n -> "brightness-" ^ string_of_int n
-    | Brightness_arbitrary s -> "brightness-" ^ s
-    | Contrast n -> "contrast-" ^ string_of_int n
-    | Contrast_arbitrary s -> "contrast-" ^ s
-    | Grayscale 0 -> "grayscale-0"
-    | Grayscale 100 -> "grayscale"
-    | Grayscale n -> "grayscale-" ^ string_of_int n
-    | Grayscale_arbitrary s -> "grayscale-" ^ s
-    | Saturate n -> "saturate-" ^ string_of_int n
-    | Saturate_arbitrary s -> "saturate-" ^ s
-    | Sepia 0 -> "sepia-0"
-    | Sepia 100 -> "sepia"
-    | Sepia n -> "sepia-" ^ string_of_int n
-    | Sepia_arbitrary s -> "sepia-" ^ s
-    | Invert 0 -> "invert-0"
-    | Invert 100 -> "invert"
-    | Invert n -> "invert-" ^ string_of_int n
-    | Invert_arbitrary s -> "invert-" ^ s
-    | Hue_rotate n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "hue-rotate-" ^ string_of_int (abs n)
-    | Hue_rotate_arbitrary (spelling, _) -> "hue-rotate-[" ^ spelling ^ "]"
-    | Hue_rotate_raw (spelling, _) -> "hue-rotate-[" ^ spelling ^ "]"
-    | Neg_hue_rotate_arbitrary (spelling, _) -> "-hue-rotate-[" ^ spelling ^ "]"
+    | Amount (t, f, 100) when has_bare_form f ->
+        prefix t ^ func_name (f :> func)
+    | Amount (t, f, n) ->
+        prefix t ^ func_name (f :> func) ^ "-" ^ string_of_int n
+    | Amount_arbitrary (t, f, s) -> prefix t ^ func_name (f :> func) ^ "-" ^ s
+    | Backdrop_opacity n ->
+        "backdrop-opacity-"
+        ^
+        if Float.is_integer n then string_of_int (Float.to_int n)
+        else Css.Pp.string_of_float n
+    | Backdrop_opacity_arbitrary s -> "backdrop-opacity-" ^ s
+    | Hue_rotate (t, n) ->
+        let sign = if n < 0 then "-" else "" in
+        sign ^ prefix t ^ "hue-rotate-" ^ string_of_int (abs n)
+    | Hue_rotate_arbitrary (t, spelling, _) | Hue_rotate_raw (t, spelling, _) ->
+        prefix t ^ "hue-rotate-[" ^ spelling ^ "]"
+    | Neg_hue_rotate_arbitrary (t, spelling, _) ->
+        "-" ^ prefix t ^ "hue-rotate-[" ^ spelling ^ "]"
     | Drop_shadow -> "drop-shadow"
     | Drop_shadow_xs -> "drop-shadow-xs"
     | Drop_shadow_sm -> "drop-shadow-sm"
@@ -2038,52 +1497,8 @@ module Handler = struct
     | Drop_shadow_bracket_cvar v -> "drop-shadow-[color:" ^ v ^ "]"
     | Drop_shadow_bracket_cvar_opacity (v, op) ->
         "drop-shadow-[color:" ^ v ^ "]" ^ Color.opacity_suffix op
-    | Backdrop_blur_none -> "backdrop-blur-none"
-    | Backdrop_blur_xs -> "backdrop-blur-xs"
-    | Backdrop_blur_sm -> "backdrop-blur-sm"
-    | Backdrop_blur -> "backdrop-blur"
-    | Backdrop_blur_md -> "backdrop-blur-md"
-    | Backdrop_blur_lg -> "backdrop-blur-lg"
-    | Backdrop_blur_xl -> "backdrop-blur-xl"
-    | Backdrop_blur_2xl -> "backdrop-blur-2xl"
-    | Backdrop_blur_3xl -> "backdrop-blur-3xl"
-    | Backdrop_blur_arbitrary (s, _) -> "backdrop-blur-" ^ s
-    | Backdrop_blur_raw (s, _) -> "backdrop-blur-" ^ s
-    | Backdrop_brightness n -> "backdrop-brightness-" ^ string_of_int n
-    | Backdrop_brightness_arbitrary s -> "backdrop-brightness-" ^ s
-    | Backdrop_contrast n -> "backdrop-contrast-" ^ string_of_int n
-    | Backdrop_contrast_arbitrary s -> "backdrop-contrast-" ^ s
-    | Backdrop_opacity n ->
-        "backdrop-opacity-"
-        ^
-        if Float.is_integer n then string_of_int (Float.to_int n)
-        else Css.Pp.string_of_float n
-    | Backdrop_opacity_arbitrary s -> "backdrop-opacity-" ^ s
-    | Backdrop_saturate n -> "backdrop-saturate-" ^ string_of_int n
-    | Backdrop_saturate_arbitrary s -> "backdrop-saturate-" ^ s
-    | Backdrop_grayscale 0 -> "backdrop-grayscale-0"
-    | Backdrop_grayscale 100 -> "backdrop-grayscale"
-    | Backdrop_grayscale n -> "backdrop-grayscale-" ^ string_of_int n
-    | Backdrop_grayscale_arbitrary s -> "backdrop-grayscale-" ^ s
-    | Backdrop_invert 0 -> "backdrop-invert-0"
-    | Backdrop_invert 100 -> "backdrop-invert"
-    | Backdrop_invert n -> "backdrop-invert-" ^ string_of_int n
-    | Backdrop_invert_arbitrary s -> "backdrop-invert-" ^ s
-    | Backdrop_sepia 0 -> "backdrop-sepia-0"
-    | Backdrop_sepia 100 -> "backdrop-sepia"
-    | Backdrop_sepia n -> "backdrop-sepia-" ^ string_of_int n
-    | Backdrop_sepia_arbitrary s -> "backdrop-sepia-" ^ s
-    | Backdrop_hue_rotate n ->
-        let prefix = if n < 0 then "-" else "" in
-        prefix ^ "backdrop-hue-rotate-" ^ string_of_int (abs n)
-    | Backdrop_hue_rotate_arbitrary (spelling, _) ->
-        "backdrop-hue-rotate-[" ^ spelling ^ "]"
-    | Backdrop_hue_rotate_raw (spelling, _) ->
-        "backdrop-hue-rotate-[" ^ spelling ^ "]"
-    | Neg_backdrop_hue_rotate_arbitrary (spelling, _) ->
-        "-backdrop-hue-rotate-[" ^ spelling ^ "]"
 
-  let examples = [ Filter_none; Backdrop_filter_none ]
+  let examples = [ Chain_none Filter; Chain_none Backdrop ]
 end
 
 open Handler
@@ -2092,36 +1507,39 @@ module Utility_factory = Utility.Make (Handler)
 (** {1 Public API - Utility Values} *)
 
 let utility = Utility_factory.v
-let blur_none = utility Blur_none
-let blur_xs = utility Blur_xs
-let blur_sm = utility Blur_sm
-let blur = utility Blur
-let blur_md = utility Blur_md
-let blur_lg = utility Blur_lg
-let blur_xl = utility Blur_xl
-let blur_2xl = utility Blur_2xl
-let blur_3xl = utility Blur_3xl
-let brightness n = utility (Brightness n)
-let contrast n = utility (Contrast n)
-let grayscale n = utility (Grayscale n)
-let saturate n = utility (Saturate n)
-let sepia n = utility (Sepia n)
-let invert n = utility (Invert n)
-let hue_rotate n = utility (Hue_rotate n)
-let backdrop_blur_none = utility Backdrop_blur_none
-let backdrop_blur_xs = utility Backdrop_blur_xs
-let backdrop_blur_sm = utility Backdrop_blur_sm
-let backdrop_blur = utility Backdrop_blur
-let backdrop_blur_md = utility Backdrop_blur_md
-let backdrop_blur_lg = utility Backdrop_blur_lg
-let backdrop_blur_xl = utility Backdrop_blur_xl
-let backdrop_blur_2xl = utility Backdrop_blur_2xl
-let backdrop_blur_3xl = utility Backdrop_blur_3xl
-let backdrop_brightness n = utility (Backdrop_brightness n)
-let backdrop_contrast n = utility (Backdrop_contrast n)
+let blur_none = utility (Blur_none Filter)
+let blur_xs = utility (Blur_size (Filter, Xs))
+let blur_sm = utility (Blur_size (Filter, Sm))
+let blur = utility (Blur Filter)
+let blur_md = utility (Blur_size (Filter, Md))
+let blur_lg = utility (Blur_size (Filter, Lg))
+let blur_xl = utility (Blur_size (Filter, Xl))
+let blur_2xl = utility (Blur_size (Filter, Two_xl))
+let blur_3xl = utility (Blur_size (Filter, Three_xl))
+let brightness n = utility (Amount (Filter, `Brightness, n))
+let contrast n = utility (Amount (Filter, `Contrast, n))
+let grayscale n = utility (Amount (Filter, `Grayscale, n))
+let saturate n = utility (Amount (Filter, `Saturate, n))
+let sepia n = utility (Amount (Filter, `Sepia, n))
+let invert n = utility (Amount (Filter, `Invert, n))
+let hue_rotate n = utility (Hue_rotate (Filter, n))
+let backdrop_blur_none = utility (Blur_none Backdrop)
+let backdrop_blur_xs = utility (Blur_size (Backdrop, Xs))
+let backdrop_blur_sm = utility (Blur_size (Backdrop, Sm))
+let backdrop_blur = utility (Blur Backdrop)
+let backdrop_blur_md = utility (Blur_size (Backdrop, Md))
+let backdrop_blur_lg = utility (Blur_size (Backdrop, Lg))
+let backdrop_blur_xl = utility (Blur_size (Backdrop, Xl))
+let backdrop_blur_2xl = utility (Blur_size (Backdrop, Two_xl))
+let backdrop_blur_3xl = utility (Blur_size (Backdrop, Three_xl))
+let backdrop_brightness n = utility (Amount (Backdrop, `Brightness, n))
+let backdrop_contrast n = utility (Amount (Backdrop, `Contrast, n))
 let backdrop_opacity n = utility (Backdrop_opacity n)
-let backdrop_saturate n = utility (Backdrop_saturate n)
-let backdrop_grayscale ?(n = 100) () = utility (Backdrop_grayscale n)
-let backdrop_invert ?(n = 100) () = utility (Backdrop_invert n)
-let backdrop_sepia ?(n = 100) () = utility (Backdrop_sepia n)
-let backdrop_hue_rotate n = utility (Backdrop_hue_rotate n)
+let backdrop_saturate n = utility (Amount (Backdrop, `Saturate, n))
+
+let backdrop_grayscale ?(n = 100) () =
+  utility (Amount (Backdrop, `Grayscale, n))
+
+let backdrop_invert ?(n = 100) () = utility (Amount (Backdrop, `Invert, n))
+let backdrop_sepia ?(n = 100) () = utility (Amount (Backdrop, `Sepia, n))
+let backdrop_hue_rotate n = utility (Hue_rotate (Backdrop, n))
