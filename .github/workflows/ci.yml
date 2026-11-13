@@ -79,6 +79,4 @@ jobs:
       - run: opam install . --deps-only --with-test
       - run: opam repo add samoht https://tangled.org/gazagnaire.org/opam-overlay.git
       - run: opam install merlint
-      # E015 (long modules) stays off until the twelve modules over its bound
-      # are split; the backlog is in TODO.md.
-      - run: opam exec -- merlint --build --rules all-E015
+      - run: opam exec -- merlint --build
