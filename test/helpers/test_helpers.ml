@@ -571,7 +571,7 @@ let scope_names prefix classes =
                 if not (String.contains name ']') then
                   Hashtbl.replace names name ()
             | _ -> ())
-        (Tw_tools.Entrypoint.variant_segments cls))
+        (Tw_tools.Custom_variant.segments cls))
     classes;
   Hashtbl.fold (fun name () acc -> name :: acc) names [] |> List.sort compare
 
@@ -585,7 +585,7 @@ let reads_descendants cls =
       || String.starts_with ~prefix:"group-has-" segment
       || String.starts_with ~prefix:"peer-has-" segment
       || String.equal segment "*" || String.equal segment "**")
-    (Tw_tools.Entrypoint.variant_segments cls)
+    (Tw_tools.Custom_variant.segments cls)
 
 (* The children a descendant-reading variant needs, each holding the marker
    every element gets, so their boxes paint too. *)

@@ -86,7 +86,7 @@ let reference_entrypoint ~(opts : gen_opts) =
         if Filename.is_relative dir then Filename.concat (Sys.getcwd ()) dir
         else dir
       in
-      Some (Entrypoint.rooted ~dir css)
+      Some (Tw_tools.Source_directive.rooted ~dir css)
   | _, css -> css
 
 let eval_flag flag ~default =
@@ -406,7 +406,7 @@ let entrypoint_files ~(opts : gen_opts) =
   match (opts.input_css_path, opts.input_css) with
   | Some path, Some css ->
       let base = Filename.dirname path in
-      let included, excluded = Tw_tools.Entrypoint.source_paths css in
+      let included, excluded = Tw_tools.Source_directive.paths css in
       let dropped = List.concat_map (source_files ~base) excluded in
       List.concat_map (source_files ~base) included
       |> List.filter (fun file -> not (List.exists (String.equal file) dropped))
@@ -470,7 +470,7 @@ let process_files paths flag ~(opts : gen_opts) =
 let js_config_refusal ~backend ~input_css css_content =
   match (backend, input_css, css_content) with
   | (Native | Diff), Some path, Some css -> (
-      match Entrypoint.config_directives css with
+      match Tw_tools.Tailwind_import.config_directives css with
       | [] -> None
       | config :: _ ->
           Some
@@ -492,7 +492,7 @@ let js_config_refusal ~backend ~input_css css_content =
 let detected_roots ~input_css css_content =
   match (input_css, css_content) with
   | Some path, Some css -> (
-      match Entrypoint.source_root css with
+      match Tw_tools.Source_directive.root css with
       | `None -> []
       | `Detect -> [ Filename.current_dir_name ]
       | `Dir dir when Filename.is_relative dir ->
@@ -588,7 +588,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     let theme =
       match css_content with
       | None -> Tw.Scheme.default
-      | Some css -> Entrypoint.theme_of_css css
+      | Some css -> Tw_tools.Entry_theme.of_css css
     in
     let opts : gen_opts =
       {

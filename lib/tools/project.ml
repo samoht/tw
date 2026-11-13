@@ -66,18 +66,18 @@ let parse_known_candidates ~theme ?input_css candidates =
 let utilities ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
   let declared = Entrypoint.entry_variant_defs entrypoint in
-  let defs, refused = Entrypoint.with_negated_variants declared in
+  let defs, refused = Negated_variant.add declared in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
   let names_refused cls =
-    List.exists (fun v -> List.mem v refused) (Entrypoint.variant_segments cls)
+    List.exists (fun v -> List.mem v refused) (Custom_variant.segments cls)
   in
   let classes = List.filter (fun cls -> not (names_refused cls)) classes in
   let routed, normal =
-    List.partition (Entrypoint.is_custom_routed ~theme ~defs ~udefs) classes
+    List.partition (Routing.is_custom_routed ~theme ~defs ~udefs) classes
   in
   let known = parse_known_candidates ~theme ?input_css normal in
   let routed_count, routed_extra, routed_stmts =
-    Entrypoint.custom_routed_utilities ~theme ~defs ~udefs routed
+    Routing.custom_routed_utilities ~theme ~defs ~udefs routed
   in
   (* Routed custom variants no longer pass through the typed modifier parser,
      but the sorter still needs their exact names so a declaration such as
@@ -97,7 +97,9 @@ let utilities ~theme ?entrypoint ~base classes =
   in
   (* The forms plugin's reset belongs to the base layer, which [to_css] writes
      only when it is asked for. *)
-  let forms = Option.fold ~none:false ~some:Entrypoint.forms_base input_css in
+  let forms =
+    Option.fold ~none:false ~some:Tailwind_import.forms_base input_css
+  in
   let known, sheet =
     render_known
       (fun known ->
@@ -105,14 +107,15 @@ let utilities ~theme ?entrypoint ~base classes =
           (List.map snd known))
       known
   in
-  (List.length known + routed_count, Entrypoint.place_routed routed_stmts sheet)
+  (List.length known + routed_count, Routing.place_routed routed_stmts sheet)
 
 let stylesheet ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
   (* An entrypoint importing Tailwind in parts asks for the reset only through
      [tailwindcss/preflight.css]. *)
   let base =
-    base && Option.fold ~none:true ~some:Entrypoint.imports_preflight input_css
+    base
+    && Option.fold ~none:true ~some:Tailwind_import.imports_preflight input_css
   in
   (* The entrypoint's safelist joins the markup's classes, and its blocklist
      takes a class out whichever of the two it came from. *)
@@ -120,7 +123,7 @@ let stylesheet ~theme ?entrypoint ~base classes =
     match input_css with
     | None -> classes
     | Some css ->
-        let safelist, blocklist = Entrypoint.source_inline css in
+        let safelist, blocklist = Source_directive.inline css in
         List.sort_uniq String.compare (classes @ safelist)
         |> List.filter (fun cls -> not (List.mem cls blocklist))
   in

@@ -2533,7 +2533,7 @@ let test_custom_variant_supports_companion_order () =
   in
   let classes = [ "dark:border-black/10"; "dark:border-fuchsia-500" ] in
   let _, extra, _ =
-    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+    Tw_tools.Routing.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
       ~udefs:[] classes
   in
   let css =
@@ -2558,7 +2558,7 @@ let test_custom_dark_keeps_builtin_slot () =
   let defs = [ ("dark", "&:where(.dark,.dark *){@slot;}") ] in
   let classes = [ "dark:hidden"; "starting:hidden"; "print:hidden" ] in
   let _, extra, _ =
-    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+    Tw_tools.Routing.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
       ~udefs:[] [ "dark:hidden" ]
   in
   let utilities =
@@ -2603,7 +2603,7 @@ let test_custom_variant_supports_twin_keeps_family_order () =
     ]
   in
   let _, extra, _ =
-    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+    Tw_tools.Routing.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
       ~udefs:[] classes
   in
   let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in

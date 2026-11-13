@@ -3,212 +3,33 @@
     A project's CSS entrypoint is not plain CSS. It carries Tailwind's own
     at-rules - [@theme], [@custom-variant], [@utility], [@apply], [@variant] -
     and value shorthands - [theme()], [--spacing()] - none of which mean
-    anything to a browser. This module reads them, expands them against a
-    {!Tw.Scheme.t}, and splices the generated stylesheet in at the
-    [@import "tailwindcss"] that asked for it.
+    anything to a browser. This module compiles the entrypoint and splices the
+    generated stylesheet in at the [@import "tailwindcss"] that asked for it.
 
-    Most of it is text passes over the source. A directive is input for the
-    generator, not CSS, so it is read and taken out before the file reaches
-    cascade's parser. *)
+    The dialect is read by the modules beside it: {!Tailwind_import},
+    {!Entry_theme} and {!Source_directive} for what the entrypoint asks of the
+    package, {!Custom_variant} and {!Custom_utility} for its declarations,
+    {!Author_css} for the expansion of its own rules, {!Routing} for the
+    candidates its declarations govern and {!Sheet_shape} for the shape of the
+    result. A directive is input for the generator, not CSS, so it is read and
+    taken out before the file reaches cascade's parser. *)
 
 val read_file : string -> string
 (** [read_file path] is the whole contents of [path]. Raises [Sys_error] when
     the file cannot be read. *)
 
-(** {1 The project theme} *)
-
-val imports_static_theme : string -> bool
-(** [imports_static_theme css] is [true] when [css] asks for the whole theme
-    with [@import "tailwindcss" theme(static)], rather than only the variables
-    its utilities read. *)
-
-val theme_of_css : string -> Tw.Scheme.t
-(** [theme_of_css css] is the theme the entrypoint [css] asks for: its [\@theme]
-    overrides, [theme(static)] and [prefix()]. The CLI builds its theme with
-    this, so a measurement against the CLI can build the same one. *)
-
-val import_prefix : string -> string option
-(** [import_prefix css] is the name [prefix(tw)] on the [\@import] asks for, and
-    [None] when the import carries no such option. Every candidate is then
-    spelled [tw:p-4] and every theme token declared as [--tw-spacing]. *)
-
-val imports_important : string -> bool
-(** [imports_important css] is [true] when [css] imports the package with
-    [@import "tailwindcss" important], which marks every declaration a utility
-    emits [!important]. *)
-
-val forms_base : string -> bool
-(** [forms_base css] is [true] when [css] loads [@tailwindcss/forms] with its
-    default strategy, which resets native form controls in the base layer, and
-    [false] when it names no such plugin or its options ask for
-    [strategy: "class"]. *)
-
-val config_directives : string -> string list
-(** [config_directives css] is what each [\@config] directive in [css] names, as
-    written and in source order: a v3 JavaScript config, which tw does not
-    evaluate. The CLI refuses an entrypoint for which this is not empty. *)
-
-val theme_overrides_of_css : string -> (string * string) list * string list
-(** [theme_overrides_of_css css] is the [(bare-name, value)] pairs the [@theme]
-    blocks of [css] declare, together with the names among them that came from
-    an [@theme inline] block. Both feed {!Tw.Scheme.with_overrides}, so tw
-    renders with the tokens Tailwind reads from the same file. *)
-
-(** {1 Sources} *)
-
-val source_paths : string -> string list * string list
-(** [source_paths css] is the paths the [@source "<path>"] directives of [css]
-    name for scanning, and those its [@source not "<path>"] directives take back
-    out, each as written and in source order. A path is relative to the
-    stylesheet and may be a glob; the [inline()] forms are {!source_inline}'s.
-*)
-
-val source_root : string -> [ `Detect | `None | `Dir of string ]
-(** [source_root css] is where the automatic source detection of [css] starts:
-    [`None] when its [\@import] (or [\@tailwind utilities]) says [source(none)],
-    [`Dir dir] when it says [source("dir")], a path relative to the stylesheet,
-    and [`Detect] otherwise, which starts at the working directory. *)
-
-val rooted : dir:string -> string -> string
-(** [rooted ~dir css] is [css] with the relative path of each [\@import],
-    [\@source], [\@plugin], [\@config] and [\@reference] resolved against [dir],
-    the directory [css] was read from, so the text compiles from another
-    directory. A path is relative when it starts [./] or [../]; a package name
-    such as [tailwindcss] is left as written, and so is an
-    [\@source inline(...)] argument, which names candidates. *)
-
-val source_inline : string -> string list * string list
-(** [source_inline css] is the candidates the [@source inline("...")] directives
-    of [css] safelist, and those its [@source not inline("...")] directives
-    block. Each argument is a space-separated list of patterns, expanded the way
-    Tailwind expands braces: [{hover:,}bg-red-{500,600}] is four candidates and
-    [p-{0..8..4}] three. A blocked candidate is left out wherever it comes from,
-    the markup included. *)
-
 (** {1 Declared variants and utilities} *)
-
-val strip_tailwind_import_options : string -> string
-(** [strip_tailwind_import_options css] drops the option functions Tailwind adds
-    to [@import] - [theme(static)], [source(none)], [prefix(tw)] - which CSS has
-    no grammar for. *)
-
-val take_custom_variants : string -> string * (string * string) list
-(** [take_custom_variants css] is [css] without its [@custom-variant]
-    declarations, and those declarations as [(name, template)] pairs. A template
-    is the variant's body, with [@slot] where the utility goes. *)
-
-val take_custom_utilities : string -> string * (string * string) list
-(** [take_custom_utilities css] is [css] without its [@utility] declarations,
-    and those declarations as [(name, body)] pairs. Both forms are read: the
-    static [@utility NAME], and the functional [@utility NAME-*] whose body
-    reads the candidate's own value with [--value()] and its modifier with
-    [--modifier()]. A functional declaration keeps the [-*] in its name. *)
 
 val entry_variant_defs : string option -> (string * string) list
 (** [entry_variant_defs path] is the [@custom-variant] declarations of the
     entrypoint at [path], or none when there is no entrypoint or it cannot be
     read. *)
 
-val with_negated_variants :
-  (string * string) list -> (string * string) list * string list
-(** [with_negated_variants defs] is [defs] with a [not-NAME] template for every
-    declared [NAME] whose body Tailwind negates, and the [not-NAME]s it refuses.
-    Tailwind negates a body in place, one node at a time, so a body of sibling
-    branches is refused, as are a pseudo-element, a compound condition and an
-    at-rule other than [\@media], [\@supports] and [\@container]. A [not-NAME]
-    the project declared itself is left as declared. *)
-
 val entry_utility_defs : string option -> (string * string) list
 (** [entry_utility_defs path] is the [@utility] declarations of the entrypoint
     at [path], the same way. *)
 
-val variant_segments : string -> string list
-(** [variant_segments name] splits a class name on its variant separators. A [:]
-    inside [[&>*]] or [(--x)] belongs to the segment, not between two. *)
-
-val split_declared_variants :
-  (string * string) list -> string -> string list * string
-(** [split_declared_variants defs name] separates the variants [defs] declares
-    from the rest of [name]. A declared variant is picked out wherever it sits
-    in the chain, and the built-in prefixes stay attached to the utility so
-    their media queries keep wrapping the declared variant's selector. *)
-
-val is_custom_routed :
-  theme:Tw.Scheme.t ->
-  defs:(string * string) list ->
-  udefs:(string * string) list ->
-  string ->
-  bool
-(** [is_custom_routed ~theme ~defs ~udefs cls] is [true] when [cls] names a
-    variant or a utility the project declared - a functional one included, whose
-    value reads resolve for [cls] - which {!Tw.of_string} cannot produce and
-    {!custom_routed_utilities} generates instead. A candidate a functional
-    declaration declines falls to the built-in utility of its root, as it does
-    in Tailwind. *)
-
-val custom_routed_utilities :
-  theme:Tw.Scheme.t ->
-  defs:(string * string) list ->
-  udefs:(string * string) list ->
-  string list ->
-  int
-  * (string * (int * int) * Cascade.Css.statement list) list
-  * Cascade.Css.statement list
-(** [custom_routed_utilities ~theme ~defs ~udefs candidates] generates the
-    classes {!is_custom_routed} claimed: how many it produced, the rules to hand
-    {!Tw.to_css} as [~extra] so they sort among the built-in utilities, and the
-    statements that belong beside the utilities layer rather than in it. *)
-
-val place_routed : Cascade.Css.statement list -> Cascade.Css.t -> Cascade.Css.t
-(** [place_routed stmts sheet] puts the statements {!custom_routed_utilities}
-    left beside the utilities layer around [sheet]: the [@layer properties]
-    fallback block a declared utility hoists leads, where the generated sheet
-    puts its own, and the rest follows. *)
-
-(** {1 Text passes} *)
-
-val hoist_theme_keyframes : string -> string
-(** [hoist_theme_keyframes css] lifts a [@keyframes] written inside a [@theme]
-    block, beside the [--animate-*] token that names it, to the top level. The
-    theme block itself does not reach the output, so a nested one would go with
-    it. *)
-
-val drop_directives : string -> string
-(** [drop_directives css] removes Tailwind's own at-rules. A build-time
-    directive has no meaning in a browser, and Tailwind emits none of them;
-    anything else is the author's CSS and passes through. *)
-
-val fill_slots : string -> string -> string
-(** [fill_slots template body] is [template] with each [@slot] replaced by
-    [body], which is how a [@custom-variant] wraps the utility it decorates. *)
-
-val apply_variants :
-  ?extra_defs:(string * string) list ->
-  ?udefs:(string * string) list ->
-  theme:Tw.Scheme.t ->
-  string ->
-  string
-(** [apply_variants ?extra_defs ?udefs ~theme css] runs the whole expansion over
-    author CSS: [@apply] pulls in utilities, [@variant] and the declared
-    variants wrap them, [--spacing()], [theme()] and [--theme()] resolve against
-    [theme], and the directives themselves are dropped. [extra_defs] adds
-    variant declarations from outside [css], [udefs] the [@utility] ones. *)
-
-val nest_on_ampersand :
-  classes:string list -> Cascade.Selector.t -> Cascade.Selector.t
-(** [nest_on_ampersand ~classes sel] swaps the utility's own class in [sel] -
-    the one named in [classes] - for the nesting selector [&], so the rule can
-    be hosted by whatever selector applied it. A selector naming none of
-    [classes] gives up its leftmost class instead. *)
-
 (** {1 Splicing} *)
-
-val imports_preflight : string -> bool
-(** [imports_preflight css] is [true] unless [css] imports Tailwind only in
-    parts that leave the reset out: [tailwindcss/theme.css] and
-    [tailwindcss/utilities.css] (or [\@tailwind utilities]) without
-    [tailwindcss/preflight.css]. An entrypoint that does not import Tailwind at
-    all is [true], as nothing it splices depends on it. *)
 
 val splice_into_entrypoint :
   theme:Tw.Scheme.t -> path:string -> Cascade.Css.t -> Cascade.Css.t
