@@ -16,6 +16,7 @@ type t = Utility.t
 
 include Color
 include Backgrounds
+include Gradients
 include Margin
 include Gap
 include Padding
@@ -525,6 +526,7 @@ module Alignment = Alignment
 module Cursor = Cursor
 module Borders = Borders
 module Backgrounds = Backgrounds
+module Gradients = Gradients
 module Sizing = Sizing
 module Layout = Layout
 module Overflow = Overflow

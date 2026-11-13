@@ -3,165 +3,41 @@ open Test_helpers
 
 let check = check_handler_roundtrip (module Tw.Backgrounds.Handler)
 
-(* The stop list a from- or to- colour writes beside its own channel: the via
-   slot is left to its fallback, which is the whole list without it. *)
-let stops =
-  "--tw-gradient-stops: var(--tw-gradient-via-stops, \
-   var(--tw-gradient-position), var(--tw-gradient-from) \
-   var(--tw-gradient-from-position), var(--tw-gradient-to) \
-   var(--tw-gradient-to-position))"
-
-(* A via- colour fills that slot instead, so it writes the list out and points
-   --tw-gradient-stops at it. *)
-let via_stops =
-  "--tw-gradient-via-stops: var(--tw-gradient-position), \
-   var(--tw-gradient-from) var(--tw-gradient-from-position), \
-   var(--tw-gradient-via) var(--tw-gradient-via-position), \
-   var(--tw-gradient-to) var(--tw-gradient-to-position)"
-
 let test_bg_colors () =
   check "bg-red-500";
   check "bg-blue-600";
   check "bg-green-700"
-
-let test_gradient_direction () =
-  let u = Tw.Backgrounds.bg_gradient_to Tw.Backgrounds.Bottom in
-  Alcotest.check string "bg-gradient-to-b" "bg-gradient-to-b"
-    (Tw.Utility.to_class u)
-
-let test_gradient_colors () =
-  let open Tw in
-  let from = Backgrounds.from_color Color.red in
-  let via = Backgrounds.via_color Color.blue ~shade:600 in
-  let to_ = Backgrounds.to_color Color.green in
-  Alcotest.check string "from-red-500" "from-red-500" (Utility.to_class from);
-  Alcotest.check string "via-blue-600" "via-blue-600" (Utility.to_class via);
-  Alcotest.check string "to-green-500" "to-green-500" (Utility.to_class to_)
-
-(* A theme token keeps the palette's value whichever utility references it. A
-   gradient stop with an opacity used to register [--color-gray-950] as the hex
-   its fallback is built from, so one [to-gray-950/40] on a page moved every
-   other use of the token off the palette's oklch. *)
-let test_gradient_stop_opacity_theme_colour () =
-  let key = "--color-gray-950:" in
-  let theme_value cls =
-    match Tw.of_string cls with
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-    | Ok u -> (
-        let css =
-          Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-        in
-        match Astring.String.find_sub ~sub:key css with
-        | None -> Alcotest.failf "%s declares no %s" cls key
-        | Some i ->
-            let start = i + String.length key in
-            let ends =
-              List.filter_map
-                (fun c -> String.index_from_opt css start c)
-                [ ';'; '}' ]
-            in
-            String.sub css start (List.fold_left min max_int ends - start))
-  in
-  let palette = theme_value "bg-gray-950" in
-  List.iter
-    (fun cls -> Alcotest.check string cls palette (theme_value cls))
-    [
-      "from-gray-950/40";
-      "via-gray-950/40";
-      "to-gray-950/40";
-      "dark:to-gray-950/40";
-      "to-gray-950/[37%]";
-      "to-gray-950/(--my-alpha)";
-    ]
-
-(* via-none clears the gradient's via stops by resetting the channel var to the
-   CSS initial keyword. *)
-let test_via_none () =
-  Alcotest.check string "via-none round-trips" "via-none"
-    (Tw.pp (Result.get_ok (Tw.of_string "via-none")));
-  (* The whole list: clearing the via stops is all the utility does, so a second
-     declaration beside it would be the regression. *)
-  Test_helpers.check_declarations ~minify:false "via-none"
-    [ "--tw-gradient-via-stops: initial" ]
-
-(* Bare bg-radial / bg-conic (and bg-conic-{angle}) set --tw-gradient-position
-   to the default oklab interpolation and the matching gradient image; they used
-   to be unknown classes (only the /interp and bracket forms were handled). *)
-let test_radial_conic () =
-  (* Each writes the position channel and the image, in that order, and nothing
-     else. The affixes these replace checked one declaration each, so bg-radial
-     was never held to emitting only a radial gradient. *)
-  Test_helpers.check_declarations ~minify:false "bg-radial"
-    [
-      "--tw-gradient-position: in oklab";
-      "background-image: radial-gradient(var(--tw-gradient-stops))";
-    ];
-  Test_helpers.check_declarations ~minify:false "bg-conic"
-    [
-      "--tw-gradient-position: in oklab";
-      "background-image: conic-gradient(var(--tw-gradient-stops))";
-    ];
-  Test_helpers.check_declarations ~minify:false "bg-conic-180"
-    [
-      "--tw-gradient-position: from 180deg in oklab";
-      "background-image: conic-gradient(var(--tw-gradient-stops))";
-    ]
 
 let test_of_string_invalid () =
   (* Invalid background utilities *)
   let test_invalid =
     Test_helpers.check_invalid_parts (module Tw.Backgrounds.Handler)
   in
-
-  (* Invalid gradient direction *)
-  test_invalid [ "bg"; "gradient"; "to" ];
-  (* Missing direction *)
-  test_invalid [ "bg"; "gradient"; "to"; "invalid" ];
-  (* Invalid direction *)
-  test_invalid [ "bg"; "gradient"; "to"; "x" ];
-
-  (* Invalid direction *)
-
-  (* Invalid from/via/to colors *)
-  test_invalid [ "from" ];
-  (* Missing color *)
-  test_invalid [ "from"; "invalid" ];
-  (* Invalid color *)
-  test_invalid [ "via" ];
-  (* Missing color *)
-  test_invalid [ "via"; "notacolor" ];
-  (* Invalid color *)
-  test_invalid [ "to" ];
-  (* Missing color *)
-  test_invalid [ "to"; "xyz" ];
-
-  (* Gradient positions, gradient angles and the opacity modifier are all plain
-     decimal: read as OCaml literals, [from-0x50%] named itself [.from-80%] and
-     [bg-red-500/0x50] mixed at 80%. *)
   let invalid =
     Test_helpers.check_invalid_input (module Tw.Backgrounds.Handler)
   in
-  invalid "from-0x50%";
-  invalid "from-050%";
-  invalid "via-1_0%";
-  invalid "bg-linear-0x45";
-  invalid "bg-linear-045";
-  invalid "bg-conic-0x45";
+  (* The opacity modifier is plain decimal: read as an OCaml literal,
+     [bg-red-500/0x50] mixed at 80%. *)
   invalid "bg-red-500/0x50";
   invalid "bg-red-500/1_0";
   invalid "bg-red-500/04";
   invalid "bg-red-500/1.50";
   invalid "bg-red-0500";
-
-  (* Invalid color *)
-
-  (* Invalid prefixes *)
+  (* Incomplete *)
   test_invalid [ "bg" ];
-  (* Incomplete *)
   test_invalid [ "bg"; "gradient" ];
-  (* Incomplete *)
-  test_invalid [ "unknown"; "red" ]
-(* Unknown prefix *)
+  (* Unknown prefix *)
+  test_invalid [ "unknown"; "red" ];
+  (* A gradient shape is the gradients' to read, whether its value reads or not,
+     and a gradient stop is theirs too. *)
+  let gradient =
+    Test_helpers.check_invalid_input ~why:Another_handler
+      (module Tw.Backgrounds.Handler)
+  in
+  gradient "bg-linear-to-r";
+  gradient "bg-conic";
+  gradient "from-red-500";
+  invalid "bg-linear-0x45"
 
 (* bg-[image:<gradient>] emits the literal background-image; it used to wrap the
    value in a bogus var(--radial-gradient(...)). var() and url() image values
@@ -297,51 +173,6 @@ let test_bracket_image_literal () =
   Test_helpers.check_declarations ~minify:false "bg-[image:var(--x)]"
     [ "background-image: var(--x)" ]
 
-(* An arbitrary gradient angle in radians is converted to degrees. A negative
-   angle used to come out as its floor plus a positive fraction, so
-   bg-linear-[-0.5rad] rendered -29.3521deg instead of -28.6479deg. *)
-let test_bracket_gradient_radians () =
-  let writes cls angle =
-    Test_helpers.check_declarations ~minify:false cls
-      [
-        "--tw-gradient-position: " ^ angle;
-        "background-image: linear-gradient(var(--tw-gradient-stops, " ^ angle
-        ^ "))";
-      ]
-  in
-  writes "bg-linear-[-0.5rad]" "-28.6479deg";
-  writes "bg-linear-[1.3rad]" "74.4845deg"
-
-(* [-bg-linear-[value]] accepts only angles, gated by a check that used to spell
-   "is this an angle" as [String.ends_with ~suffix:"rad" value]. That suffix
-   also matches "grad" (gradians end in "rad" too), so it stripped "100grad"
-   down to "100g", failed to read it as a number, and rejected the class
-   outright where Tailwind accepts it and negates the value as calc(100grad *
-   -1). Reading the bracket as a real CSS angle tells grad and rad apart; a
-   non-angle bracket like [to_bottom] still has to be rejected. *)
-let test_bracket_gradient_negated_angle_units () =
-  Test_helpers.check_declarations ~minify:false "-bg-linear-[100grad]"
-    [
-      "--tw-gradient-position: calc(100grad * -1)";
-      "background-image: linear-gradient(var(--tw-gradient-stops, calc(100grad \
-       * -1)))";
-    ];
-  match Tw.of_string "-bg-linear-[to_bottom]" with
-  | Ok _ -> Alcotest.fail "expected -bg-linear-[to_bottom] to be rejected"
-  | Error _ -> ()
-
-(* The positive (non-negated) [bg-linear-[<value>]] bracket shares the same "is
-   this a rad value" question as the negated form: a [String.ends_with
-   ~suffix:"rad"] test also matches "grad", since gradians end in "rad" too.
-   bg-linear-[100grad] must keep its gradian unit rather than being read as a
-   radian value with a stray "g" prefix. *)
-let test_bracket_gradient_grad_unit () =
-  Test_helpers.check_declarations ~minify:false "bg-linear-[100grad]"
-    [
-      "--tw-gradient-position: 100grad";
-      "background-image: linear-gradient(var(--tw-gradient-stops, 100grad))";
-    ]
-
 let suborder_matches_tailwind () =
   let open Tw in
   let colors = [ red; blue; green; yellow; purple; pink ] in
@@ -390,22 +221,6 @@ let order_matches_tailwind () =
   in
   Test_helpers.check_class_order
     ~test_name:"background and mask order matches Tailwind" classes
-
-(* The v3 bg-gradient-to-* spellings are compatibility aliases in the modern
-   linear-gradient band, after the native direction candidates. *)
-let legacy_gradient_alias_order_matches_tailwind () =
-  Test_helpers.check_class_order ~test_name:"legacy gradient alias order"
-    [
-      "bg-gradient-to-r";
-      "bg-linear-to-b";
-      "bg-linear-45";
-      "bg-gradient-to-t";
-      "bg-linear-to-r";
-      "bg-linear-to-t";
-      "bg-conic";
-      "bg-radial";
-      "bg-linear-[45deg]";
-    ]
 
 (* A gradient and a background colour both end up in background-image and
    background-color, and the gradient stops share the --tw-gradient-* slots.
@@ -458,52 +273,6 @@ let test_bg_arbitrary_url () =
       "bg-[image:url(/img/x.png)]";
     ]
 
-(* Arbitrary rgb()/rgba() gradient stops set the gradient colour rather than
-   being silently dropped as a position (they used to produce no
-   --tw-gradient-from). *)
-let test_gradient_rgba_stop () =
-  (* The whole list. The affixes these replace were prefixes of the [-position]
-     channels, so either would have passed on a utility that set only a position
-     - the very thing the test was written to rule out. *)
-  Test_helpers.check_declarations ~minify:false "from-[rgba(5,74,218,0.60)]"
-    [
-      "--tw-gradient-from: #054ada99";
-      "--tw-gradient-stops: var(--tw-gradient-via-stops, \
-       var(--tw-gradient-position), var(--tw-gradient-from) \
-       var(--tw-gradient-from-position), var(--tw-gradient-to) \
-       var(--tw-gradient-to-position))";
-    ];
-  Test_helpers.check_declarations ~minify:false "to-[rgb(16,26,50,0.60)]"
-    [
-      "--tw-gradient-to: #101a3299";
-      "--tw-gradient-stops: var(--tw-gradient-via-stops, \
-       var(--tw-gradient-position), var(--tw-gradient-from) \
-       var(--tw-gradient-from-position), var(--tw-gradient-to) \
-       var(--tw-gradient-to-position))";
-    ]
-
-(* A gradient stop-position utility (from-10%) registers the whole
-   --tw-gradient-* @property family, like the colour utilities, matching the
-   CLI. It used to register only the three *-position properties. *)
-let test_gradient_stop_position_properties () =
-  let css =
-    match Tw.of_string "from-10%" with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string
-    | Error _ -> Alcotest.fail "could not parse from-10%"
-  in
-  (* A stop position writes only its own channel; the rest of the family is
-     registered rather than set, which is what the @property checks below read.
-     An @property rule is not a declaration, so those two stay on a
-     substring. *)
-  Test_helpers.check_declarations ~minify:false "from-10%"
-    [ "--tw-gradient-from-position: 10%" ];
-  Alcotest.(check bool)
-    "from-10% registers @property --tw-gradient-from" true
-    (Astring.String.is_infix ~affix:"@property --tw-gradient-from" css);
-  Alcotest.(check bool)
-    "from-10% registers @property --tw-gradient-stops" true
-    (Astring.String.is_infix ~affix:"@property --tw-gradient-stops" css)
-
 (* A var() background colour with an alpha modifier defers the alpha to
    color-mix: the variable's value is unknown at build time, so it cannot be
    folded into a literal colour. *)
@@ -516,147 +285,12 @@ let test_bg_var_opacity () =
       "background-color: color-mix(in oklab, var(--x) 50%, transparent)";
     ]
 
-(* Tailwind forwards a declaration-safe arbitrary stop even when it is neither a
-   valid colour nor a valid stop position. *)
-let test_gradient_stop_token_stream () =
-  let accepted cls =
-    match Tw.of_string cls with
-    | Ok _ -> ()
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  accepted "from-[<value>]";
-  accepted "via-[<value>]";
-  accepted "to-[<value>]";
-  accepted "from-[25%]";
-  accepted "from-[var(--x)]";
-  accepted "from-[#0088cc]"
-
-(* A malformed colour can still be one safe declaration value, so Tailwind
-   forwards it and leaves rejection to the browser. *)
-let test_arbitrary_bracket_color_token_stream () =
-  let accepted cls =
-    match Tw.of_string cls with
-    | Ok u -> ignore (Tw.to_css ~base:false [ u ])
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  List.iter
-    (fun prefix ->
-      accepted (prefix ^ "-[#zz]");
-      accepted (prefix ^ "-[#]");
-      accepted (prefix ^ "-[#12345]");
-      accepted (prefix ^ "-[#zz]/50"))
-    [ "from"; "via"; "to" ];
-  (* The malformed value reaches the sheet verbatim, and the stop list it is
-     spliced into comes with it. *)
-  Test_helpers.check_declarations ~minify:false "from-[#fff]"
-    [ "--tw-gradient-from: #fff"; stops ];
-  Test_helpers.check_declarations ~minify:false "via-[#abc]"
-    [
-      "--tw-gradient-via: #abc";
-      via_stops;
-      "--tw-gradient-stops: var(--tw-gradient-via-stops)";
-    ];
-  Test_helpers.check_declarations ~minify:false "to-[#123456]"
-    [ "--tw-gradient-to: #123456"; stops ]
-
-(* A bracket stop position is read with the CSS length-percentage grammar, so a
-   unit the reader does not name is not rendered as a zero position. *)
-let test_gradient_stop_position_units () =
-  let emits cls decl =
-    Test_helpers.check_declarations ~minify:false cls [ decl ]
-  in
-  (* One declaration each: a stop position leaves the colour channels alone. *)
-  emits "from-[1rem]" "--tw-gradient-from-position: 1rem";
-  emits "via-[10vw]" "--tw-gradient-via-position: 10vw";
-  emits "to-[2em]" "--tw-gradient-to-position: 2em";
-  emits "from-[calc(10%_+_2px)]" "--tw-gradient-from-position: calc(10% + 2px)";
-  (* the spellings the reader already named keep their value *)
-  emits "from-[50%]" "--tw-gradient-from-position: 50%";
-  emits "from-[50px]" "--tw-gradient-from-position: 50px";
-  emits "from-[length:var(--my-position)]"
-    "--tw-gradient-from-position: var(--my-position)";
-  (* the class name is spelled as it was written *)
-  Alcotest.(check string)
-    "from-[1rem] round-trips" "from-[1rem]"
-    (Tw.pp (Result.get_ok (Tw.of_string "from-[1rem]")))
-
-(* A bracket that is not a length-percentage is forwarded through the colour
-   channel, matching Tailwind's arbitrary token-stream behavior. *)
-let test_gradient_stop_position_token_stream () =
-  let accepted cls =
-    match Tw.of_string cls with
-    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  accepted "from-[fit-content]";
-  accepted "from-[none]";
-  accepted "to-[max-content]";
-  accepted "from-[0]";
-  accepted "from-[1zz]";
-  accepted "via-[12px3]"
-
-(* A gradient interpolation modifier names a colour space. Tailwind writes an
-   unknown one through as [in <space>], so only the shapes it refuses are
-   refused here; the ones it took used to raise out of [to_css], and the linear
-   forms silently dropped the modifier instead. *)
-let test_gradient_interpolation () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
-  in
-  let has cls shape position =
-    Test_helpers.check_declarations ~minify:false cls
-      [
-        "--tw-gradient-position: " ^ position;
-        "background-image: " ^ shape ^ "-gradient(var(--tw-gradient-stops))";
-      ]
-  in
-  (* A second modifier, a function, a leading dot or sign, and the empty
-     modifier: Tailwind emits nothing for any of them. *)
-  rejected "bg-conic-45/oklab/foo";
-  rejected "bg-conic/foo(1)";
-  rejected "bg-conic/.5";
-  rejected "bg-conic/[]";
-  rejected "bg-radial/foo(1)";
-  (* An unknown colour space still names one. *)
-  has "bg-conic/foo" "conic" "in foo";
-  has "bg-conic-45/999" "conic" "from 45deg in 999";
-  has "bg-radial/foo" "radial" "in foo";
-  has "bg-conic/oklab" "conic" "in oklab";
-  has "bg-conic/shorter" "conic" "in oklch shorter hue";
-  has "bg-conic/[in_hsl_longer_hue]" "conic" "in hsl longer hue";
-  (* The linear forms carry the modifier into the @supports rule rather than
-     dropping it, so they write the channel twice: the angle alone for a browser
-     without interpolation, then the interpolated form. The affixes these
-     replace named only the second, and so never said what the fallback a
-     browser actually reaches is. *)
-  let has_linear cls angle =
-    Test_helpers.check_declarations ~minify:false cls
-      [
-        "--tw-gradient-position: " ^ angle;
-        "--tw-gradient-position: " ^ angle ^ " in foo";
-        "background-image: linear-gradient(var(--tw-gradient-stops))";
-      ]
-  in
-  has_linear "bg-linear-45/foo" "45deg";
-  has_linear "bg-linear-to-r/foo" "to right"
-
 (* An arbitrary value writes a space as [_] and a literal underscore as [\_], so
-   a file name or a gradient position carrying an underscore is written with the
-   escape rather than losing the character. *)
+   a file name carrying an underscore is written with the escape rather than
+   losing the character. *)
 let test_arbitrary_underscore_escape () =
   Test_helpers.check_declarations ~minify:false {|bg-[url('a\_b.png')]|}
-    [ "background-image: url(a_b.png)" ];
-  (* The gradient carries the same value into its image, which is where an
-     escape lost in one of the two readings would show. *)
-  Test_helpers.check_declarations ~minify:false {|bg-linear-[to\_bottom]|}
-    [
-      "--tw-gradient-position: to_bottom";
-      "background-image: linear-gradient(var(--tw-gradient-stops, to_bottom))";
-    ]
+    [ "background-image: url(a_b.png)" ]
 
 (* A [url()] is CSS source, so a [\]] in it is one character of the URL, not a
    backslash of its own: [url(a\]b)] and [url(a]b)] name the same file, and
@@ -681,15 +315,6 @@ let test_bracket_url_escape () =
 let test_bracket_data_type_hint_reads_the_value () =
   check_declarations "bg-[color:red]" [ "background-color:red" ];
   check_declarations "bg-[url:url(a.png)]" [ "background-image:url(a.png)" ];
-  check_declarations "from-[color:red]"
-    [
-      "--tw-gradient-from:red";
-      "--tw-gradient-stops:var(--tw-gradient-via-stops,var(--tw-gradient-position),var(--tw-gradient-from) \
-       var(--tw-gradient-from-position),var(--tw-gradient-to) \
-       var(--tw-gradient-to-position))";
-    ];
-  check_declarations "from-[percentage:40%]"
-    [ "--tw-gradient-from-position:40%" ];
   (* a var() reference after the hint still names a custom property *)
   check_declarations "bg-[color:var(--my-color)]"
     [ "background-color:var(--my-color)" ];
@@ -721,86 +346,8 @@ let test_percentage_hint_names_a_position () =
   check_declarations "bg-[position:notaposition]"
     [ "background-position:notaposition" ]
 
-(* A stop written as a length or a percentage sets the stop's position, and a
-   position takes no modifier: Tailwind names no utility for [from-[10px]/50],
-   hinted or not, and for the var() a hint types as one. tw read the bracket as
-   a colour once a modifier followed it and mixed the length. *)
-let test_gradient_position_refuses_modifier () =
-  let invalid =
-    Test_helpers.check_invalid_input (module Tw.Backgrounds.Handler)
-  in
-  invalid "from-[10px]/50";
-  invalid "from-[length:10px]/50";
-  invalid "via-[10px]/50";
-  invalid "to-[length:10px]/50";
-  invalid "from-[10%]/50";
-  invalid "from-[percentage:10%]/50";
-  invalid "from-[length:var(--x)]/50";
-  invalid "from-[calc(1px+2px)]/50";
-  invalid "via-[percentage:var(--x)]/(--o)";
-  invalid "to-[10px]/[0.5]"
-
-(* A token-stream stop takes a modifier the way a colour does. A percentage
-   folds into the mix. A modifier read from a custom property is the pair
-   Tailwind's polyfill writes: the bare value in the open, for a browser with no
-   [color-mix()], and the mix behind the colour-mix guard, reading the property
-   the class named. A named token reads the theme's percentage into an sRGB mix
-   in the open and the token itself behind the guard. tw folded every modifier
-   it could not read to [100%] and wrote nothing beside it. *)
-let test_gradient_raw_stop_modifier () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
-  in
-  let pair cls channel ~open_ ~mixed rest =
-    Test_helpers.check_declarations ~theme ~minify:false cls
-      ([ channel ^ ": " ^ open_; channel ^ ": " ^ mixed ] @ rest)
-  in
-  let mix colour alpha =
-    "color-mix(in oklab, " ^ colour ^ " " ^ alpha ^ ", transparent)"
-  in
-  let from_stops = [ stops ] in
-  let via_rest =
-    [ via_stops; "--tw-gradient-stops: var(--tw-gradient-via-stops)" ]
-  in
-  pair "from-[foo(1)]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
-    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
-  pair "from-[foo(1)]/[var(--o)]" "--tw-gradient-from" ~open_:"foo(1)"
-    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
-  pair "from-[color:foo(1)]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
-    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
-  pair "via-[foo(1)]/(--o)" "--tw-gradient-via" ~open_:"foo(1)"
-    ~mixed:(mix "foo(1)" "var(--o)") via_rest;
-  pair "to-[foo(1)]/(--o)" "--tw-gradient-to" ~open_:"foo(1)"
-    ~mixed:(mix "foo(1)" "var(--o)") from_stops;
-  (* The open form is the mix's first colour, the one token after its comma, so
-     a value of several tokens keeps only its first there. *)
-  pair "from-[foo(1)_bar]/(--o)" "--tw-gradient-from" ~open_:"foo(1)"
-    ~mixed:(mix "foo(1) bar" "var(--o)")
-    from_stops;
-  pair "from-[foo(1)]/half" "--tw-gradient-from"
-    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
-    ~mixed:(mix "foo(1)" "var(--opacity-half)")
-    from_stops;
-  pair "via-[foo(1)]/half" "--tw-gradient-via"
-    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
-    ~mixed:(mix "foo(1)" "var(--opacity-half)")
-    via_rest;
-  pair "to-[foo(1)]/half" "--tw-gradient-to"
-    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
-    ~mixed:(mix "foo(1)" "var(--opacity-half)")
-    from_stops;
-  (* A percentage needs no guard: the mix holds nothing a browser resolves. *)
-  Test_helpers.check_declarations ~minify:false "from-[foo(1)]/50"
-    (("--tw-gradient-from: " ^ mix "foo(1)" "50%") :: from_stops);
-  Test_helpers.check_declarations ~minify:false "to-[foo(1)]/[0.5]"
-    (("--tw-gradient-to: " ^ mix "foo(1)" "50%") :: from_stops)
-
 let tests =
   [
-    test_case "gradient position refuses a modifier" `Quick
-      test_gradient_position_refuses_modifier;
-    test_case "gradient token-stream stop under a modifier" `Quick
-      test_gradient_raw_stop_modifier;
     test_case "percentage hint names a position" `Quick
       test_percentage_hint_names_a_position;
     test_case "bracket data-type hint reads the value" `Quick
@@ -808,28 +355,9 @@ let tests =
     test_case "arbitrary underscore escape" `Quick
       test_arbitrary_underscore_escape;
     test_case "bracket url escape" `Quick test_bracket_url_escape;
-    test_case "gradient interpolation" `Quick test_gradient_interpolation;
-    test_case "gradient stop position units" `Quick
-      test_gradient_stop_position_units;
-    test_case "gradient stop position token stream" `Quick
-      test_gradient_stop_position_token_stream;
-    test_case "arbitrary bracket color token stream" `Quick
-      test_arbitrary_bracket_color_token_stream;
     test_case "bg colors" `Quick test_bg_colors;
-    test_case "gradient stop token stream" `Quick
-      test_gradient_stop_token_stream;
     test_case "bg var color with opacity" `Quick test_bg_var_opacity;
     test_case "bg arbitrary url quoting" `Quick test_bg_arbitrary_url;
-    test_case "arbitrary rgba gradient stop" `Quick test_gradient_rgba_stop;
-    test_case "gradient stop-position @property family" `Quick
-      test_gradient_stop_position_properties;
-    test_case "gradient direction" `Quick test_gradient_direction;
-    test_case "bracket gradient angle in radians" `Quick
-      test_bracket_gradient_radians;
-    test_case "negated bracket gradient angle units" `Quick
-      test_bracket_gradient_negated_angle_units;
-    test_case "bracket gradient grad unit" `Quick
-      test_bracket_gradient_grad_unit;
     test_case "bracket image literal" `Quick test_bracket_image_literal;
     test_case "bracket length keywords" `Quick test_bracket_length_keywords;
     test_case "bg-position bracket keyword+length" `Quick
@@ -841,18 +369,11 @@ let tests =
       test_bg_position_and_size_peel_a_hint;
     test_case "bracket position grammar" `Quick test_bracket_position_grammar;
     test_case "invalid bracket value" `Quick test_invalid_bracket_value;
-    test_case "bare radial and conic gradients" `Quick test_radial_conic;
-    test_case "gradient colors" `Quick test_gradient_colors;
-    test_case "gradient stop opacity keeps the theme colour" `Quick
-      test_gradient_stop_opacity_theme_colour;
-    test_case "via-none" `Quick test_via_none;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "backgrounds suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "background and mask order matches Tailwind" `Slow
       order_matches_tailwind;
-    test_case "legacy gradient alias order matches Tailwind" `Quick
-      legacy_gradient_alias_order_matches_tailwind;
     test_case "backgrounds render like Tailwind" `Slow
       rendering_matches_tailwind;
   ]
