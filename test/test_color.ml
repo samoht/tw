@@ -767,9 +767,8 @@ let test_shadeless_palette_name_rejected () =
   refused
     (module Tw.Backgrounds.Handler)
     [ "bg-red"; "bg-red/50"; "bg-gray"; "from-red"; "via-red"; "to-red" ];
-  refused
-    (module Tw.Effects.Handler)
-    [ "ring-red"; "ring-offset-red"; "shadow-red"; "inset-shadow-red" ];
+  refused (module Tw.Ring.Handler) [ "ring-red"; "ring-offset-red" ];
+  refused (module Tw.Effects.Handler) [ "shadow-red"; "inset-shadow-red" ];
   refused (module Tw.Svg.Handler) [ "fill-red"; "stroke-red" ];
   refused (module Tw.Divide.Handler) [ "divide-red" ];
   refused (module Tw.Typography.Typography_early) [ "decoration-red" ];

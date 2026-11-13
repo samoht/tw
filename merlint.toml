@@ -62,6 +62,7 @@ files = [
   "lib/overflow.ml*",
   "lib/overscroll.ml*",
   "lib/prose.ml*",
+  "lib/ring.ml*",
   "lib/scroll.ml*",
   "lib/style.ml*",
   "lib/tab.ml*",

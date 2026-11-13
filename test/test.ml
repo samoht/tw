@@ -50,6 +50,8 @@ let () =
       Test_layout.suite;
       Test_typography.suite;
       Test_effects.suite;
+      Test_ring.suite;
+      Test_blend.suite;
       Test_clipping.suite;
       Test_animations.suite;
       Test_backgrounds.suite;

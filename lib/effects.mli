@@ -1,12 +1,11 @@
-(** Visual effects utilities for shadows, opacity, and filters
+(** Box shadow, inset shadow and opacity utilities, and the ring and shadow
+    variables every [box-shadow] utility composes.
 
-    https://tailwindcss.com/docs/box-shadow https://tailwindcss.com/docs/opacity
-    https://tailwindcss.com/docs/ring-width
-    https://tailwindcss.com/docs/ring-color *)
+    See {{:https://tailwindcss.com/docs/box-shadow}box-shadow} and
+    {{:https://tailwindcss.com/docs/opacity}opacity}. *)
 
 open Cascade
 open Utility
-open Color
 
 val order : base -> (int * int) option
 (** [order u] returns the priority and suborder for the given effect utility. *)
@@ -65,68 +64,22 @@ val inset_shadow : t
     theme token. It has no default value: it is only a valid class when the
     active theme defines that token. *)
 
+(** {1 Opacity Utilities} *)
+
 val opacity : int -> t
 (** [opacity n] sets opacity to n%. *)
 
-(** {1 Ring Utilities} *)
-
-val ring : t
-(** [ring] applies the default ring outline. *)
-
-val ring_none : t
-(** [ring_none] removes the ring outline. *)
-
-val ring_xs : t
-(** [ring_xs] applies an extra-small ring. *)
-
-val ring_sm : t
-(** [ring_sm] applies a small ring. *)
-
-val ring_md : t
-(** [ring_md] applies a medium ring. *)
-
-val ring_lg : t
-(** [ring_lg] applies a large ring. *)
-
-val ring_xl : t
-(** [ring_xl] applies an extra-large ring. *)
-
-val inset_ring : t
-(** [inset_ring] applies a default (1px) inset ring. *)
-
-val ring_color : ?opacity:int -> ?shade:int -> color -> t
-(** [ring_color color] sets the ring color class, e.g., [ring_color blue]. Use
-    [~shade] to pick a shade (default 500) and [~opacity] to set opacity as a
-    percentage. *)
-
-val ring_inset : t
-(** [ring_inset] applies an inset ring. *)
-
-val ring_offset_width : int -> t
-(** [ring_offset_width n] sets the ring offset width to [n] pixels.
-
-    @raise Invalid_argument if [n] is negative. *)
-
-val ring_offset_color : ?opacity:int -> ?shade:int -> color -> t
-(** [ring_offset_color color] sets the ring offset color. [shade] defaults to
-    500 and [opacity] sets the alpha modifier (0-100). *)
-
-val ring_offset_transparent : t
-(** [ring_offset_transparent] makes the ring offset transparent. *)
-
-val ring_offset_current : t
-(** [ring_offset_current] uses [currentColor] for the ring offset. *)
-
-val ring_offset_inherit : t
-(** [ring_offset_inherit] inherits the ring offset color. *)
-
 (** {1 Ring/Shadow Variables}
 
-    These variables are used internally by ring and shadow utilities, and are
-    exported for use by the Forms utilities. *)
+    Every [box-shadow] utility sets one of these variables and composes them
+    all. They are declared once here and exported for the {!Ring} and Forms
+    utilities. *)
 
 val shadow_var : Css.shadow Var.property_default
 (** [shadow_var] is the --tw-shadow variable. *)
+
+val inset_shadow_var : Css.shadow Var.property_default
+(** [inset_shadow_var] is the --tw-inset-shadow variable. *)
 
 val ring_inset_var : Css.Variables.custom_value Var.channel
 (** [ring_inset_var] is the --tw-ring-inset variable. *)
@@ -146,108 +99,16 @@ val ring_offset_shadow_var : Css.shadow Var.property_default
 val ring_shadow_var : Css.shadow Var.property_default
 (** [ring_shadow_var] is the --tw-ring-shadow variable. *)
 
-(** {1 Mix Blend Mode Utilities} *)
+val inset_ring_color_var : Css.color Var.channel
+(** [inset_ring_color_var] is the --tw-inset-ring-color variable. *)
 
-val mix_blend_normal : t
-(** [mix_blend_normal] sets mix-blend-mode to normal. *)
+val inset_ring_shadow_var : Css.shadow Var.property_default
+(** [inset_ring_shadow_var] is the --tw-inset-ring-shadow variable. *)
 
-val mix_blend_multiply : t
-(** [mix_blend_multiply] sets mix-blend-mode to multiply. *)
+val shadow_property_rules : Css.t
+(** [shadow_property_rules] is the [@property] rule of every ring and shadow
+    variable, which each [box-shadow] utility registers. *)
 
-val mix_blend_screen : t
-(** [mix_blend_screen] sets mix-blend-mode to screen. *)
-
-val mix_blend_overlay : t
-(** [mix_blend_overlay] sets mix-blend-mode to overlay. *)
-
-val mix_blend_darken : t
-(** [mix_blend_darken] sets mix-blend-mode to darken. *)
-
-val mix_blend_lighten : t
-(** [mix_blend_lighten] sets mix-blend-mode to lighten. *)
-
-val mix_blend_color_dodge : t
-(** [mix_blend_color_dodge] sets mix-blend-mode to color-dodge. *)
-
-val mix_blend_color_burn : t
-(** [mix_blend_color_burn] sets mix-blend-mode to color-burn. *)
-
-val mix_blend_hard_light : t
-(** [mix_blend_hard_light] sets mix-blend-mode to hard-light. *)
-
-val mix_blend_soft_light : t
-(** [mix_blend_soft_light] sets mix-blend-mode to soft-light. *)
-
-val mix_blend_difference : t
-(** [mix_blend_difference] sets mix-blend-mode to difference. *)
-
-val mix_blend_exclusion : t
-(** [mix_blend_exclusion] sets mix-blend-mode to exclusion. *)
-
-val mix_blend_hue : t
-(** [mix_blend_hue] sets mix-blend-mode to hue. *)
-
-val mix_blend_saturation : t
-(** [mix_blend_saturation] sets mix-blend-mode to saturation. *)
-
-val mix_blend_color : t
-(** [mix_blend_color] sets mix-blend-mode to color. *)
-
-val mix_blend_luminosity : t
-(** [mix_blend_luminosity] sets mix-blend-mode to luminosity. *)
-
-val mix_blend_plus_darker : t
-(** [mix_blend_plus_darker] sets mix-blend-mode to plus-darker (Safari). *)
-
-val mix_blend_plus_lighter : t
-(** [mix_blend_plus_lighter] sets mix-blend-mode to plus-lighter (Safari). *)
-
-(** {1 Background Blend Mode Utilities} *)
-
-val bg_blend_normal : t
-(** [bg_blend_normal] uses normal background blending. *)
-
-val bg_blend_multiply : t
-(** [bg_blend_multiply] uses multiply background blending. *)
-
-val bg_blend_screen : t
-(** [bg_blend_screen] uses screen background blending. *)
-
-val bg_blend_overlay : t
-(** [bg_blend_overlay] uses overlay background blending. *)
-
-val bg_blend_darken : t
-(** [bg_blend_darken] uses darken background blending. *)
-
-val bg_blend_lighten : t
-(** [bg_blend_lighten] uses lighten background blending. *)
-
-val bg_blend_color_dodge : t
-(** [bg_blend_color_dodge] uses color-dodge background blending. *)
-
-val bg_blend_color_burn : t
-(** [bg_blend_color_burn] uses color-burn background blending. *)
-
-val bg_blend_hard_light : t
-(** [bg_blend_hard_light] uses hard-light background blending. *)
-
-val bg_blend_soft_light : t
-(** [bg_blend_soft_light] uses soft-light background blending. *)
-
-val bg_blend_difference : t
-(** [bg_blend_difference] uses difference background blending. *)
-
-val bg_blend_exclusion : t
-(** [bg_blend_exclusion] uses exclusion background blending. *)
-
-val bg_blend_hue : t
-(** [bg_blend_hue] uses hue background blending. *)
-
-val bg_blend_saturation : t
-(** [bg_blend_saturation] uses saturation background blending. *)
-
-val bg_blend_color : t
-(** [bg_blend_color] uses color background blending. *)
-
-val bg_blend_luminosity : t
-(** [bg_blend_luminosity] uses luminosity background blending. *)
+val shadow_property_metadata : Var.metadata list
+(** [shadow_property_metadata] is the build metadata of every ring and shadow
+    variable. *)
