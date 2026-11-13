@@ -4188,6 +4188,12 @@ module Color = Color
 
 module Modifiers = Modifiers
 
+module Variant_parse = Variant_parse
+(** Reading a variant token into a typed modifier. *)
+
+module Variant_order = Variant_order
+(** The order Tailwind v4 gives variants in the cascade. *)
+
 module Var = Var
 (** CSS variable tracking and generation *)
 

@@ -26,34 +26,6 @@ val to_selector : modifier -> string -> Css.Selector.t
 val is_hover : modifier -> bool
 (** [is_hover m] returns true if the modifier generates a :hover rule. *)
 
-val involves_hover : modifier -> bool
-(** [involves_hover m] is whether [m]'s rendering gates on
-    [\@media (hover: hover)]: the hover state itself and its group, peer, named,
-    ancestor and [has-] forms. *)
-
-val bracket_media_condition : string -> Css.Media.t option
-(** [bracket_media_condition inner] is the media query a bracket at-rule [inner]
-    names when it is an [@media] one, [@media_print] or [@media(width>=600px)],
-    with underscores read as spaces, and [None] when it is not or the query does
-    not parse. *)
-
-val bracket_supports_condition : string -> Css.Supports.t option
-(** [bracket_supports_condition content] is the condition a bracket [@supports]
-    at-rule names under [not-], [@supports(display:grid)] or
-    [@supports_not_(display:grid)], with underscores read as spaces, and [None]
-    when it is not one, when it does not parse, or when it is an [and]/[or]
-    compound with no single negation. *)
-
-val normalize_supports_condition : string -> Css.Supports.t
-(** [normalize_supports_condition cond] builds the [supports-[...]] bracket
-    content as a typed CSS [@supports] condition: underscores become spaces, and
-    a bare property or custom property expands to a [(prop: var(--tw))] test,
-    built directly through {!Css.Supports.property} rather than assembled as a
-    string and re-parsed. An already-parenthesised condition or a function call
-    is the text the author wrote, so it is parsed with {!Css.Supports.of_string}
-    instead. The modifier parser validates the result, so only conditions that
-    parse reach a rule. *)
-
 (** {1 State Variants} *)
 
 val hover : t list -> t
@@ -715,92 +687,6 @@ val pp_modifier : modifier -> string
 val apply : ?theme:Scheme.t -> string list -> t -> t option
 (** [apply ?theme modifiers style] applies a list of modifier strings to a base
     style, reading the custom breakpoints and [\@custom-variant]s from [theme].
-    Returns [None] if any modifier is unrecognized. Example:
-    [apply ["hover"; "sm"] (bg blue 500)] creates a hover:sm:bg-blue-500 style.
-*)
-
-(** {1 Container Query Helpers} *)
-
-val negate_container : Css.Container.t -> Css.Container.t
-(** [negate_container c] is [c] negated, a double negation cancelled and the
-    negation pushed inside a named container: [name (C)] is [name (not C)]. *)
-
-val container_query_of_token :
-  ?theme:Scheme.t -> string -> Style.container_query option
-(** [container_query_of_token ?theme token] reads the container query one
-    modifier token spells, [\@sm], [\@max-md], [\@min-[theme(--breakpoint-lg)]]
-    or [\@lg/main]; [None] for any other token. A size the project's [\@theme]
-    declared as [--container-<name>] is read through [theme] (default
-    {!Scheme.default}). *)
-
-val container_query_theme_decls : Style.container_query -> Css.declaration list
-(** [container_query_theme_decls q] is the theme-layer bindings [q] read through
-    [theme()], e.g. [--breakpoint-lg: 64rem] for
-    [\@min-[theme(--breakpoint-lg)]]. Resolving the reference into the query
-    does not consume the token: Tailwind writes its binding into [\@layer theme]
-    as well, so a consumer reading the token off the sheet still finds it. Empty
-    for a query naming no token. *)
-
-(** {1 ARIA Helpers} *)
-
-val is_aria_shorthand : string -> bool
-(** [is_aria_shorthand name] returns [true] if [name] is a known ARIA shorthand
-    attribute (e.g., "checked", "expanded", "hidden") that maps to
-    [aria-X=true]. *)
-
-(** {1 Data Helpers} *)
-
-val parse_data_expr :
-  string ->
-  string * Css.Selector.attribute_match * Css.Selector.attr_flag option
-(** [parse_data_expr expr] reads a [data-[expr]] bracket body (the interior
-    text, no brackets) into the attribute name (["data-" ^ name]), the match
-    operator, and an optional case-sensitivity flag. Handles [$=], [^=], [*=],
-    [~=], [|=] and bare [=]; underscores in the attribute name and value stand
-    for spaces, per Tailwind's arbitrary-value convention. Reads the decoded
-    expression through {!Css.Selector.of_string}, so it raises
-    [Invalid_argument] or [Cascade.Cursor.Parse_error] on a malformed
-    expression; callers parsing untrusted class strings validate first and only
-    call this once that validation has already succeeded. Used both to build the
-    selector at render time and, by that earlier validation, to reject a
-    malformed expression at parse time. *)
-
-(** {1 Variant Ordering}
-
-    The two functions below read one table of cascade positions, so they cannot
-    put a variant in one place as a [not-*] inner and another place as a
-    class-name token. Both return a key on the same scale, comparable with each
-    other. *)
-
-val variant_order_of_prefix : ?theme:Scheme.t -> string -> int
-(** [variant_order_of_prefix ?theme prefix] returns the position of a modifier
-    prefix string in the Tailwind v4 variant cascade. The prefix is one modifier
-    of a class name, the part between two ":" (e.g. ["hover"],
-    ["group-has-checked"], ["@min-[64rem]"]). When [theme] is supplied, its
-    exact custom-variant names take precedence over the built-in prefix grammar;
-    re-registering ["dark"] retains its pre-existing built-in position. Returns
-    0 for a token that names no variant, which {!Sort.compare_indexed_rules}
-    reads as "this rule carries no variant". *)
-
-val variant_inner_order : string -> int
-(** [variant_inner_order token] returns what separates [token] from another
-    token in the same cascade position: the state a [group-]/[peer-] or [in-]
-    token names on another element, and the variant a [not-] token negates, all
-    on the scale {!val-variant_order_of_prefix} returns. [0] for every other
-    token. *)
-
-val variant_inner_token : string -> string option
-(** [variant_inner_token token] is the variant immediately wrapped by a
-    [group-], [peer-], [not-], [in-], or [has-] compound token. *)
-
-val variant_inner_order_path : ?theme:Scheme.t -> string -> int list
-(** [variant_inner_order_path ?theme token] recursively returns every wrapped
-    variant position, outermost first. For example, [group-has-focus] yields the
-    {!val-has} and {!val-focus} positions. [theme] resolves wrapped custom
-    variants. *)
-
-val variant_order_of_media_cond : Css.Media.t -> int
-(** [variant_order_of_media_cond cond] returns the same sort key as
-    {!val-variant_order_of_prefix} for the corresponding CSS media condition.
-    Used to derive the cascade position of rules whose ordering comes from a
-    nested media query rather than from the class-name prefix alone. *)
+    Each token is read by {!Variant_parse.modifier}. Returns [None] if any
+    modifier is unrecognized. Example: [apply ["hover"; "sm"] (bg blue 500)]
+    creates a hover:sm:bg-blue-500 style. *)

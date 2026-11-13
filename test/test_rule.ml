@@ -8,25 +8,9 @@ open Tw.Modifiers
 
 (* ===== Tests ===== *)
 
-(* A variant decides the selector and the at-rules wrapped around it, and
-   neither is a declaration, so what these tests have to compare is the sheet
-   itself. Comparing it whole is what a substring cannot do: [:has(:focus)] is
-   an infix of [:has(:focus-visible)], and a [check bool] failure prints neither
-   the class nor the CSS. *)
-let sheet cls =
-  match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-
-let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
-
-(* Most classes here draw on no theme token, so the layers ahead of [utilities]
-   are empty and only the utilities layer is worth spelling out. The comparison
-   is still against the whole sheet. *)
-let check_utilities cls expected =
-  check_sheet cls
-    ("@layer theme,components,utilities;@layer theme;@layer components;@layer \
-      utilities{" ^ expected ^ "}")
+let sheet = Test_helpers.sheet
+let check_sheet = Test_helpers.check_sheet
+let check_utilities = Test_helpers.check_utilities
 
 let check_extract_selector_props () =
   let rules = Tw.Rule.outputs (p 4) in

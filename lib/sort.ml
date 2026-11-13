@@ -101,7 +101,7 @@ let container_value_of_token token =
   if n < 2 || token.[0] <> '@' then None
   else
     let width =
-      Option.bind (Modifiers.container_query_of_token token) (fun q ->
+      Option.bind (Variant_parse.container_query_of_token token) (fun q ->
           Option.map Css.Media.sort_key
             (container_media_projection
                (Containers.container_query_to_condition q)))
@@ -481,8 +481,8 @@ let accessibility_preference_group =
 
 (* The rank the variant table gives a breakpoint prefix. Read back from the
    table for the same reason as the two groups above. *)
-let responsive_variant_order = Modifiers.variant_order_of_prefix "sm"
-let negation_variant_order = Modifiers.variant_order_of_prefix "not-hover"
+let responsive_variant_order = Variant_order.of_prefix "sm"
+let negation_variant_order = Variant_order.of_prefix "not-hover"
 
 (** Compare two media conditions within the same group *)
 let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
@@ -1093,8 +1093,7 @@ let collapse_repeated_variant_slots modifiers =
   let same_collapsible_slot outer inner =
     (is_element outer && String.equal outer inner)
     || is_data outer && is_data inner
-       && Modifiers.variant_order_of_prefix outer
-          = Modifiers.variant_order_of_prefix inner
+       && Variant_order.of_prefix outer = Variant_order.of_prefix inner
   in
   let rec loop data_depth acc = function
     | outer :: (inner :: _ as rest) when same_collapsible_slot outer inner ->
@@ -1120,10 +1119,10 @@ let variant_prefix_and_data_depth = function
    wrappers *)
 let strip_group_peer_vo p =
   if String.starts_with ~prefix:"group-" p then
-    Modifiers.variant_order_of_prefix (String.sub p 6 (String.length p - 6))
+    Variant_order.of_prefix (String.sub p 6 (String.length p - 6))
   else if String.starts_with ~prefix:"peer-" p then
-    Modifiers.variant_order_of_prefix (String.sub p 5 (String.length p - 5))
-  else Modifiers.variant_order_of_prefix p
+    Variant_order.of_prefix (String.sub p 5 (String.length p - 5))
+  else Variant_order.of_prefix p
 
 (* The outermost container token of each rule, compared as its variant component
    is. *)
@@ -1151,11 +1150,9 @@ let inner_vo prefix =
   | [] -> 0
   | [ _ ] ->
       if String.starts_with ~prefix:"group-" prefix then
-        Modifiers.variant_order_of_prefix
-          (String.sub prefix 6 (String.length prefix - 6))
+        Variant_order.of_prefix (String.sub prefix 6 (String.length prefix - 6))
       else if String.starts_with ~prefix:"peer-" prefix then
-        Modifiers.variant_order_of_prefix
-          (String.sub prefix 5 (String.length prefix - 5))
+        Variant_order.of_prefix (String.sub prefix 5 (String.length prefix - 5))
       else 0
   | outer :: _ :: _ as parts ->
       if
@@ -1164,7 +1161,7 @@ let inner_vo prefix =
       then
         List.fold_left (fun acc p -> max acc (strip_group_peer_vo p)) 0 parts
         + 1
-      else Modifiers.variant_order_of_prefix (String.concat ":" (List.tl parts))
+      else Variant_order.of_prefix (String.concat ":" (List.tl parts))
 
 (* Effective inner variant order: prefer prefix-derived, fall back to nested
    media *)
@@ -1175,7 +1172,7 @@ let effective_ivo_of nested prefix =
     match nested with
     | [ n ] -> (
         match Css.as_media n with
-        | Some (cond, _) -> Modifiers.variant_order_of_media_cond cond
+        | Some (cond, _) -> Variant_order.of_media_cond cond
         | None -> 0)
     | _ -> 0
 
@@ -1240,7 +1237,7 @@ let rec variant_value_key token =
   match arbitrary_variant_selector_key token with
   | Some _ as key -> key
   | None when String.starts_with ~prefix:"data-" token -> Some token
-  | None -> Option.bind (Modifiers.variant_inner_token token) variant_value_key
+  | None -> Option.bind (Variant_order.inner_token token) variant_value_key
 
 (* One modifier token's sort key. The slot alone leaves every breakpoint on one
    key and every group-/peer- spelling on another, so the component carries what
@@ -1250,15 +1247,14 @@ let rec variant_value_key token =
    predicate spelling for data variants, so a lower-order compound component
    does not push [data-focus:has-checked] past every other data predicate. *)
 let token_order_key ?theme ~breakpoint token =
-  let slot = Modifiers.variant_order_of_prefix ?theme token in
-  let wrapped = Modifiers.variant_inner_order_path ?theme token in
+  let slot = Variant_order.of_prefix ?theme token in
+  let wrapped = Variant_order.inner_order_path ?theme token in
   let reverse_breakpoint =
     slot = negation_variant_order
     &&
-    match Modifiers.variant_inner_token token with
+    match Variant_order.inner_token token with
     | Some inner ->
-        Modifiers.variant_order_of_prefix ?theme inner
-        = responsive_variant_order
+        Variant_order.of_prefix ?theme inner = responsive_variant_order
     | None -> false
   in
   let breakpoint =

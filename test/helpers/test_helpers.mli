@@ -61,6 +61,19 @@ val check_declarations_match : string -> string list -> unit
     failure. For a value that cannot be spelled exactly; anchor the pattern,
     since an unanchored one accepts a longer class the way a substring does. *)
 
+val sheet : string -> string
+(** [sheet cls] is the minified sheet [cls] compiles to without the base layer,
+    failing the test when [cls] does not parse. *)
+
+val check_sheet : string -> string -> unit
+(** [check_sheet cls expected] checks that {!sheet} of [cls] is [expected],
+    whole. *)
+
+val check_utilities : string -> string -> unit
+(** [check_utilities cls expected] is {!check_sheet} for a class drawing on no
+    theme token: [expected] is the body of the utilities layer, and the empty
+    layers ahead of it are spelled out here. *)
+
 val interacting_pairs : string list -> (string * string) list
 (** [interacting_pairs classes] pairs up the classes that write on each other.
     An element carrying such a pair is where an ordering difference becomes
