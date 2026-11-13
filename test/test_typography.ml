@@ -1,18 +1,7 @@
 open Alcotest
 open Test_helpers
 
-let check_early =
-  check_handler_roundtrip (module Tw.Typography.Typography_early)
-
-let check_late = check_handler_roundtrip (module Tw.Typography.Typography_late)
-
-(* Try both handlers - the utility could be in either *)
-let check class_name =
-  match
-    Tw.Typography.Typography_early.of_class Tw.Scheme.default class_name
-  with
-  | Ok _ -> check_early class_name
-  | Error _ -> check_late class_name
+let check = check_handler_roundtrip (module Tw.Typography.Typography_early)
 
 let test_font_family () =
   check "font-sans";
@@ -88,22 +77,6 @@ let test_text_alignment () =
     (fun v -> check ("text-" ^ v))
     [ "left"; "center"; "right"; "justify" ]
 
-let test_text_decoration () =
-  check "underline";
-  check "overline";
-  check "line-through";
-  check "no-underline";
-  (* decoration color/thickness *)
-  check "decoration-from-font";
-  check "decoration-2";
-  check "decoration-blue-500"
-
-let test_text_transform () =
-  check "uppercase";
-  check "lowercase";
-  check "capitalize";
-  check "normal-case"
-
 let test_line_height () =
   List.iter
     (fun v -> check ("leading-" ^ v))
@@ -127,180 +100,6 @@ let test_line_height () =
       "relaxed";
       "loose";
     ]
-
-let test_letter_spacing () =
-  List.iter
-    (fun v -> check ("tracking-" ^ v))
-    [ "tighter"; "tight"; "normal"; "wide"; "wider"; "widest" ]
-
-let test_line_clamp () =
-  check "line-clamp-0";
-  check "line-clamp-3"
-
-(* A project [@theme] override of [--line-clamp-none] is a namespace key, not a
-   value Tailwind type-checks at build time: any override at all, decimal or
-   not, switches line-clamp-none to the variable-driven form. Reading the value
-   with [int_of_string_opt] read [0x3] as the integer 3 (an OCaml-only spelling)
-   yet rejected a non-numeric override like [banana], which Tailwind still
-   honours the same way. *)
-let test_line_clamp_none_theme_override () =
-  let css theme cls =
-    match Tw.of_string ~theme cls with
-    | Ok u -> Tw.to_css ~theme ~base:false [ u ] |> Tw.Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let hex =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "0x3") ]
-  in
-  let variable_form theme =
-    (* The whole list: the box properties travel with the clamp, so an affix on
-       the clamp alone passes on a utility that lost them. *)
-    Test_helpers.check_declarations ~theme ~minify:false "line-clamp-none"
-      [
-        "-webkit-line-clamp: var(--line-clamp-none)";
-        "-webkit-box-orient: vertical";
-        "display: -webkit-box";
-        "overflow: hidden";
-      ]
-  in
-  variable_form hex;
-  (* The binding itself is a :root declaration, which declarations_of_class
-     leaves out by design, so this one stays a substring. *)
-  Alcotest.(check bool)
-    "the theme layer keeps the override text as authored" true
-    (Astring.String.is_infix ~affix:"--line-clamp-none: 0x3"
-       (css hex "line-clamp-none"));
-  let non_numeric =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "banana") ]
-  in
-  variable_form non_numeric
-
-let test_text_overflow_wrap () =
-  check "text-ellipsis";
-  check "overflow-ellipsis";
-  check "text-clip";
-  check "text-wrap";
-  check "text-nowrap";
-  check "text-balance";
-  check "text-pretty"
-
-let test_text_overflow_order () =
-  Test_helpers.check_class_order ~test_name:"text-overflow order"
-    [ "text-ellipsis"; "overflow-ellipsis"; "text-clip" ]
-
-let test_antialiasing_order () =
-  Test_helpers.check_class_order ~test_name:"antialiasing order"
-    [
-      "caret-red-500";
-      "placeholder-gray-400";
-      "subpixel-antialiased";
-      "antialiased";
-    ]
-
-let test_variant_antialiasing_order () =
-  Test_helpers.check_class_order ~test_name:"variant antialiasing order"
-    [
-      "hover:placeholder-gray-400";
-      "hover:subpixel-antialiased";
-      "hover:antialiased";
-    ]
-
-let test_word_overflow_wrap () =
-  check "break-normal";
-  check "break-words";
-  check "break-all";
-  check "break-keep";
-  check "overflow-wrap-normal";
-  check "overflow-wrap-anywhere";
-  check "overflow-wrap-break-word"
-
-let test_hyphens () =
-  check "hyphens-none";
-  check "hyphens-manual";
-  check "hyphens-auto"
-
-let test_list_style () =
-  check "list-none";
-  check "list-disc";
-  check "list-decimal";
-  check "list-inside";
-  check "list-outside";
-  check "list-image-none"
-
-let test_text_indent () =
-  check "indent-4";
-  check "-indent-8";
-  check "indent-px";
-  check "-indent-px"
-
-(* [indent'] takes a half-step float; the int base keeps emitting what it always
-   did. *)
-let test_text_indent_prime () =
-  check_typed_class "indent-0.5" (Tw.indent' 0.5);
-  check_typed_class "indent-4" (Tw.indent 4)
-
-let test_vertical_align () =
-  check "align-baseline";
-  check "align-top";
-  check "align-middle";
-  check "align-bottom";
-  check "align-text-top";
-  check "align-text-bottom";
-  check "align-sub";
-  check "align-super"
-
-let test_font_stretch () =
-  check "font-stretch-ultra-condensed";
-  check "font-stretch-extra-condensed";
-  check "font-stretch-condensed";
-  check "font-stretch-semi-condensed";
-  check "font-stretch-normal";
-  check "font-stretch-semi-expanded";
-  check "font-stretch-expanded";
-  check "font-stretch-extra-expanded";
-  check "font-stretch-ultra-expanded";
-  check "font-stretch-150%"
-
-let test_numeric_variants () =
-  check "normal-nums";
-  check "ordinal";
-  check "slashed-zero";
-  check "lining-nums";
-  check "oldstyle-nums";
-  check "proportional-nums";
-  check "tabular-nums";
-  check "diagonal-fractions";
-  check "stacked-fractions"
-
-let test_content () =
-  check "content-none";
-  (* Arbitrary content round-trips with its original quote style: the
-     double-quoted form already worked, the single-quoted form used to mangle to
-     content-[["x"]]. *)
-  check "content-[\"x\"]";
-  check "content-['x']";
-  (* unquoted function values *)
-  check "content-[attr(before)]";
-  check "content-[counter(x)]";
-  (* the bracket binds the channel and [content] reads it back *)
-  check_declarations "content-[attr(before)]"
-    [ "--tw-content:attr(before)"; "content:var(--tw-content)" ]
-
-(* content-<token> parses only when the @theme defines --content-<token>; a bare
-   word like content-wrapper with no token is rejected (it used to parse as a
-   named content value, a false positive Tailwind does not emit). *)
-let test_content_named_requires_theme () =
-  (match
-     Tw.Typography.Typography_late.of_class Tw.Scheme.default "content-wrapper"
-   with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "content-wrapper should be rejected without a token");
-  let themed =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("content-slash", "\"/\"") ]
-  in
-  match Tw.Typography.Typography_late.of_class themed "content-slash" with
-  | Ok _ -> ()
-  | Error (`Msg m) -> Alcotest.failf "content-slash with theme rejected: %s" m
 
 (* A project @theme can name font families of its own. The token gates the
    parse, so a stray source word (font-awesome) stays an unknown class; an
@@ -481,15 +280,16 @@ let test_text_bracket_size_valid () =
   check "text-[percentage:50%]"
 
 let test_text_bracket_size_invalid () =
+  let rejects name (module H : Handler) input =
+    match H.of_class Tw.Scheme.default input with
+    | Ok _ -> Alcotest.fail ("Expected " ^ name ^ " handler to reject: " ^ input)
+    | Error _ -> ()
+  in
   let bad input =
-    match Tw.Typography.Typography_early.of_class Tw.Scheme.default input with
-    | Ok _ -> Alcotest.fail ("Expected early handler to reject: " ^ input)
-    | Error _ -> (
-        match
-          Tw.Typography.Typography_late.of_class Tw.Scheme.default input
-        with
-        | Ok _ -> Alcotest.fail ("Expected late handler to reject: " ^ input)
-        | Error _ -> ())
+    rejects "early" (module Tw.Typography.Typography_early) input;
+    (* The other families that read a [text-] class. *)
+    rejects "text-overflow" (module Tw.Text_overflow.Handler) input;
+    rejects "line-breaking" (module Tw.Line_breaking.Handler) input
   in
   (* Regression: these used to silently emit font-size: var(--<garbage>). *)
   bad "text-[1A202C]";
@@ -584,56 +384,11 @@ let test_leading_var_shorthand () =
         "text-sm/(--lh) round-trips" "text-sm/(--lh)" (Tw.pp u)
   | Error (`Msg m) -> Alcotest.failf "text-sm/(--lh): %s" m
 
-(* [tracking-[...]] forwards any safe declaration value. *)
-let test_arbitrary_tracking_token_stream () =
-  let renders cls =
-    match Tw.of_string cls with
-    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  renders "tracking-[foo]";
-  renders "tracking-[red]";
-  renders "tracking-[45deg]";
-  renders "tracking-[1e]";
-  renders "tracking-[a,b]";
-  renders "-tracking-[foo]";
-  renders "tracking-[1px]";
-  renders "tracking-[.5em]";
-  renders "tracking-[-1px]";
-  renders "tracking-[2%]";
-  renders "tracking-[calc(1px_+_2px)]";
-  renders "tracking-[var(--x)]";
-  renders "-tracking-[.5em]"
-
-(* A shade the palette does not define is not a colour. [decoration-*] read the
-   shade without checking it, so the class was accepted and then referenced a
-   variable no theme declares. *)
-let test_decoration_undefined_shade () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
-  in
-  let accepted cls =
-    match Tw.of_string cls with
-    | Ok _ -> ()
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  rejected "decoration-red-999";
-  rejected "decoration-red-0";
-  rejected "decoration-red-42";
-  rejected "decoration-red-999/50";
-  accepted "decoration-red-500";
-  accepted "decoration-red-950";
-  accepted "decoration-red-500/50"
-
 let of_string_invalid () =
   (* Invalid typography values *)
   let fail_maybe input =
     let class_name = String.concat "-" input in
-    (* Both handlers should reject the input *)
+    (* Neither the typography handler nor tw as a whole accepts the input *)
     (match
        Tw.Typography.Typography_early.of_class Tw.Scheme.default class_name
      with
@@ -642,13 +397,11 @@ let of_string_invalid () =
         Alcotest.fail
           (String.concat ""
              [ "Expected early handler to reject: "; class_name ]));
-    match
-      Tw.Typography.Typography_late.of_class Tw.Scheme.default class_name
-    with
+    match Tw.of_string class_name with
     | Error _ -> ()
     | Ok _ ->
         Alcotest.fail
-          (String.concat "" [ "Expected late handler to reject: "; class_name ])
+          (String.concat "" [ "Expected tw to reject: "; class_name ])
   in
 
   fail_maybe [ "font"; "invalid" ];
@@ -663,24 +416,6 @@ let of_string_invalid () =
   (* Invalid letter spacing *)
   fail_maybe [ "unknown" ]
 (* Unknown typography type *)
-
-(* line-clamp sits between box-sizing and the display family in Tailwind's
-   order, not among the typography utilities its class name suggests. *)
-let line_clamp_sorts_with_box_sizing () =
-  let order cls =
-    Tw.Utility.base_of_class Tw.Scheme.default cls
-    |> Result.get_ok |> Tw.Utility.order
-  in
-  let named_priority, _ = order "line-clamp-2" in
-  let arbitrary_priority, _ = order "line-clamp-[<value>]" in
-  Alcotest.(check int)
-    "arbitrary line-clamp stays in the line-clamp property band" named_priority
-    arbitrary_priority;
-  let classes =
-    [ "indent-4"; "line-clamp-2"; "block"; "box-border"; "ml-auto" ]
-  in
-  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
-  Test_helpers.check_ordering_matches ~test_name:"line-clamp order" utilities
 
 (* Tailwind's tail runs the [color] property, then text-transform, font-style
    and text-decoration-line, then the decoration colour, style and thickness,
@@ -733,42 +468,6 @@ let test_typography_brackets_peel_a_hint () =
       ("underline-offset-[length:4px]", "text-underline-offset: 4px");
       ("underline-offset-[foo:4px]", "text-underline-offset: 4px");
     ]
-
-(* [underline-offset-[N]] is a bracket value, not a spelling of the bare
-   [underline-offset-N] step: it names its own rule and its value carries the
-   unit the author wrote rather than the [px] the scale supplies. Folding the
-   two together emitted [.underline-offset-0] for [underline-offset-[0.0]], a
-   rule nothing selects. *)
-let test_underline_offset_bracket_keeps_its_class () =
-  List.iter
-    (fun (cls, escaped, value) ->
-      match Tw.of_string cls with
-      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-      | Ok u ->
-          Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          (* The whole selector, not an affix of it: the rule this test is
-             about, [.underline-offset-0] for [underline-offset-[0.0]], is a
-             selector the affix for the bracket form would simply miss rather
-             than contradict. And the value, which says the unit the author
-             wrote survived. *)
-          Alcotest.(check (list string))
-            (cls ^ " selects itself") [ escaped ]
-            (Test_helpers.selectors_of_utility u);
-          Test_helpers.check_declarations ~minify:false cls
-            [ "text-underline-offset: " ^ value ])
-    [
-      ("underline-offset-[0.0]", {|.underline-offset-\[0\.0\]|}, "0");
-      ("underline-offset-[3px]", {|.underline-offset-\[3px\]|}, "3px");
-      ("underline-offset-[1.50px]", {|.underline-offset-\[1\.50px\]|}, "1.50px");
-      ( "underline-offset-[calc(1px+2px)]",
-        {|.underline-offset-\[calc\(1px\+2px\)\]|},
-        "calc(1px + 2px)" );
-      ( "-underline-offset-[3px]",
-        {|.-underline-offset-\[3px\]|},
-        "calc(3px * -1)" );
-    ];
-  (* the bare step keeps its own class and the [px] the scale gives it *)
-  check_declarations "underline-offset-3" [ "text-underline-offset:3px" ]
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -838,14 +537,6 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches
     ~test_name:"typography renders like Tailwind"
     (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
-
-(* tracking-normal's token must keep the em unit (0em), not collapse to 0. *)
-let test_tracking_normal_unit () =
-  let css = Tw.to_css [ Tw.tracking_normal ] |> Tw.Css.to_string ~minify:true in
-  (* The subject is the :root binding, which declarations_of_class leaves out by
-     design, so this stays a substring. *)
-  Alcotest.check bool "tracking-normal token keeps em unit" true
-    (Astring.String.is_infix ~affix:"--tracking-normal:0em" css)
 
 (* Numeric leading derives from the spacing scale in v4.3.1 (not a --leading-N
    theme token). *)
@@ -971,18 +662,6 @@ let test_text_bracket_alpha_var () =
        transparent) 50%, transparent)";
     ]
 
-(* A bracket list-style value is read with the CSS parser rather than a
-   hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be
-   unknown classes. A name the keyword table does not know is a
-   [<counter-style-name>], which CSS Lists 3 sec. 3.3 admits as any
-   [<custom-ident>], so it reads as the author's own [@counter-style]. *)
-let test_bracket_list_style () =
-  check_declarations "list-[square]" [ "list-style-type:square" ];
-  check_declarations "list-image-[url(/carrot.png)]"
-    [ "list-style-image:url(/carrot.png)" ];
-  check_declarations "list-[nonsense-style]"
-    [ "list-style-type:nonsense-style" ]
-
 (* A [url()] argument is left verbatim, so a file name keeps the [_] it is
    written with. [list-image-] and [content-] read their bracket through the
    arbitrary-value decoder, which used to turn every [_] into a space. *)
@@ -995,21 +674,6 @@ let test_bracket_url_underscore () =
      canonical spelling of the same URL; the underscore is the point. *)
   check_declarations "content-[url('a_b.png')]"
     [ "--tw-content:url(a_b.png)"; "content:var(--tw-content)" ]
-
-(* List position, type, and image are three property bands; candidates inside
-   each band use their natural class-name order. *)
-let test_list_style_property_bands () =
-  Test_helpers.check_class_order ~test_name:"list-style property bands"
-    [
-      "list-image-none";
-      "list-image-[url(/carrot.png)]";
-      "list-none";
-      "list-disc";
-      "list-decimal";
-      "list-[square]";
-      "list-outside";
-      "list-inside";
-    ]
 
 (* CSS Fonts 4 sec. 6.4: a feature setting is a quoted four-character tag with
    an optional integer / on / off, so the docs' [<value>] placeholder is not
@@ -1085,177 +749,6 @@ let test_font_bracket_family_quoted () =
 let test_font_bracket_family_comma_list () =
   check_declarations "font-[Papyrus,fantasy]" [ "font-family:Papyrus,fantasy" ]
 
-(* An arbitrary decoration thickness takes any CSS length unit, not just the px
-   the hand-rolled suffix parser knew; the percentage form keeps its em
-   conversion. A bracket that is not a length is rejected by the parser rather
-   than raising once the sheet is rendered. *)
-let test_decoration_bracket_thickness () =
-  let thickness cls value =
-    check_declarations cls [ "text-decoration-thickness:" ^ value ]
-  in
-  thickness "decoration-[3rem]" "3rem";
-  thickness "decoration-[2px]" "2px";
-  thickness "decoration-[2ch]" "2ch";
-  thickness "decoration-[50%]" ".5em";
-  (* The bracket goes through the arbitrary-value decoder, so an escaped space
-     and a [--spacing()] call both read as lengths. *)
-  thickness "decoration-[calc(1rem_+_2px)]" "calc(1rem + 2px)";
-  thickness "decoration-[--spacing(2)]" "calc(var(--spacing)*2)";
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "decoration-[.]";
-  rejected "decoration-[1e]"
-
-(* Tailwind treats a unitless arbitrary decoration value as a colour candidate,
-   whether it is written as an integer or with a fractional part. The resulting
-   colour declaration is invalid CSS and has no browser effect; TW must keep the
-   candidate accepted without turning it into a visible pixel thickness. *)
-let test_decoration_bracket_unitless_is_color () =
-  (* The whole list, which is empty: the class is accepted and writes nothing.
-     That is a divergence from the CLI, which writes the invalid
-     [text-decoration-color: 1.5] under the token-stream contract; see
-     docs/token-stream-contract.md. Pinning the empty list rather than searching
-     for a thickness that must not appear is what makes the divergence visible,
-     and what will fail when the contract is honoured here. *)
-  List.iter
-    (fun cls -> Test_helpers.check_declarations cls [])
-    [
-      "decoration-[0]"; "decoration-[2]"; "decoration-[1.5]"; "decoration-[.5]";
-    ]
-
-(* A shadeless decoration colour takes an opacity modifier the same way every
-   other colour family does, and keeps its shadeless class name. *)
-let test_decoration_shadeless_opacity () =
-  check_late "decoration-white/50";
-  check_late "decoration-black/50";
-  check_late "decoration-white/[0.5]";
-  (* the folded sRGB fallback, then the [color-mix] enhancement under its
-     [@supports] guard, aliased for WebKit *)
-  let mixed cls hex token =
-    check_declarations cls
-      [
-        "text-decoration-color:" ^ hex;
-        "-webkit-text-decoration-color:color-mix(in oklab,var(" ^ token
-        ^ ") 50%,transparent)";
-        "text-decoration-color:color-mix(in oklab,var(" ^ token
-        ^ ") 50%,transparent)";
-      ]
-  in
-  mixed "decoration-white/50" "#ffffff80" "--color-white";
-  mixed "decoration-black/50" "#00000080" "--color-black";
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "decoration-2/50";
-  rejected "decoration-nosuchcolor/50";
-  rejected "decoration-white/"
-
-(* A modifier reading a custom property mixes that property into the guarded
-   value, on [currentcolor] and on a bracket [var()] as on a palette colour.
-   Both arms folded the modifier to a percentage, which a var() has none of, so
-   the mix said [100%] and the modifier was dropped. *)
-let test_decoration_opacity_var () =
-  let mixed cls fallback colour =
-    check_declarations cls
-      (fallback
-      @ [
-          "-webkit-text-decoration-color:color-mix(in oklab," ^ colour
-          ^ " var(--o),transparent)";
-          "text-decoration-color:color-mix(in oklab," ^ colour
-          ^ " var(--o),transparent)";
-        ])
-  in
-  mixed "decoration-current/(--o)"
-    [ "text-decoration-color:currentColor" ]
-    "currentcolor";
-  mixed "decoration-current/[var(--o)]"
-    [ "text-decoration-color:currentColor" ]
-    "currentcolor";
-  mixed "decoration-[var(--c)]/(--o)"
-    [
-      "-webkit-text-decoration-color:var(--c)"; "text-decoration-color:var(--c)";
-    ]
-    "var(--c)";
-  mixed "decoration-[color:var(--c)]/(--o)"
-    [
-      "-webkit-text-decoration-color:var(--c)"; "text-decoration-color:var(--c)";
-    ]
-    "var(--c)"
-
-(* The pre-color-mix fallback has to carry the modifier's alpha, or a browser
-   without [color-mix()] paints the decoration fully opaque. A palette colour
-   folds the alpha into a hex; a project token, whose value the theme supplies,
-   takes the sRGB mix instead. *)
-let test_decoration_opacity_fallback () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("color-brand", "oklch(55% 0.2 250)") ]
-  in
-  (* All three arms: the fallback, then the enhancement aliased for WebKit and
-     unaliased. The affixes these replace named the fallback alone for the first
-     three, so nothing held the enhancement to carrying the same alpha the
-     fallback folded in - which is the whole subject of this test. *)
-  let emits cls fallback enhanced =
-    Test_helpers.check_declarations ~theme cls
-      [
-        "text-decoration-color:" ^ fallback;
-        "-webkit-text-decoration-color:" ^ enhanced;
-        "text-decoration-color:" ^ enhanced;
-      ]
-  in
-  emits "decoration-red-500/50" "#fb2c3680"
-    "color-mix(in oklab,var(--color-red-500) 50%,transparent)";
-  emits "decoration-white/50" "#ffffff80"
-    "color-mix(in oklab,var(--color-white) 50%,transparent)";
-  emits "decoration-brand/50"
-    "color-mix(in srgb,oklch(55%.2 250) 50%,transparent)"
-    "color-mix(in oklab,var(--color-brand) 50%,transparent)";
-  (* An alpha read from a var has no percentage to fold in, so the fallback is
-     the colour itself and the enhanced value reads the var. *)
-  emits "decoration-brand/(--a)" "oklch(55%.2 250)"
-    "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
-
-(* A bracket colour CSS names without spelling it as a function - a named
-   colour, a keyword - is a decoration colour too. The reader admitted only a
-   [#] hex and a colour function, so [decoration-[rebeccapurple]] was an unknown
-   class, with or without an opacity modifier. *)
-let test_decoration_bracket_named_color () =
-  check_declarations "decoration-[rebeccapurple]"
-    [ "text-decoration-color:rebeccapurple" ];
-  check_declarations "decoration-[currentColor]"
-    [ "text-decoration-color:currentColor" ];
-  (* the modifier mixes into the colour the bracket named, not into black *)
-  Test_helpers.check_declarations ~minify:false "decoration-[rebeccapurple]/50"
-    [
-      "text-decoration-color: color-mix(in oklab, rebeccapurple 50%, \
-       transparent)";
-    ];
-  (* a bracket naming no colour and no thickness is still not a class *)
-  Alcotest.(check bool)
-    "decoration-[notacolour] is not a class" true
-    (Result.is_error (Tw.of_string "decoration-[notacolour]"))
-
-(* A [#] bracket is only a decoration colour when what follows is a hex
-   spelling. The decoration reader handed everything after the [#] to the
-   raising constructor from inside [of_class], so a malformed hex escaped the
-   parser as an exception instead of failing the match. *)
-let test_invalid_decoration_bracket_hex () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "decoration-[#zz]";
-  rejected "decoration-[#]";
-  rejected "decoration-[#12345]";
-  rejected "decoration-[#zz]/50";
-  check_declarations "decoration-[#ff0000]" [ "text-decoration-color:#f00" ]
-
 (* Integers in a class name are plain decimal here too: the leading modifier
    [text-lg/0x10] was read as /16 and the font-weight bracket [font-[0x10]] as
    16, so tw painted a weight where Tailwind, which passes [0x10] through for
@@ -1297,22 +790,6 @@ let test_project_font_and_leading_tokens () =
   Alcotest.(check bool)
     "an undeclared weight name is rejected" true
     (Result.is_error (Tw.of_string ~theme "font-nope"))
-
-(* A [--tracking-*] token the project declared in its [@theme] names a letter
-   spacing the built-in scale has no slot for. Tailwind generates the utility
-   from it, channel variable included; tw rejected the class outright. *)
-let test_project_tracking_token () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("tracking-airy", "0.2em") ]
-  in
-  Test_helpers.check_declarations ~theme ~minify:false "tracking-airy"
-    [
-      "--tw-tracking: var(--tracking-airy)";
-      "letter-spacing: var(--tracking-airy)";
-    ];
-  Alcotest.(check bool)
-    "an undeclared tracking name is rejected" true
-    (Result.is_error (Tw.of_string ~theme "tracking-nope"))
 
 (* An arbitrary value writes a space as [_] and a literal underscore as [\_].
    Both readings have to reach the value: a family name and a content string are
@@ -1373,44 +850,15 @@ let test_bracket_data_type_hint_reads_the_value () =
         (Tw.pp (Result.get_ok (Tw.of_string cls))))
     [ "text-[length:notalength]"; "text-[length:12]" ]
 
-(* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
-   writes for every unit. Folding the sign into the number instead was done from
-   a unit table that listed a few of them, so [4px] came out [-4px] while [2em]
-   and [10vh], which the table missed, already carried the calc. The two compute
-   the same length, so only the raw sheets show it; what makes it worth settling
-   is that the upstream fixtures record the CLI's spelling. *)
-let test_typography_negated_arbitrary_is_a_calc () =
-  List.iter
-    (fun (cls, decl) ->
-      Test_helpers.check_declarations ~minify:false cls [ decl ])
-    [
-      ("-indent-[4px]", "text-indent: calc(4px * -1)");
-      ("-indent-[2rem]", "text-indent: calc(2rem * -1)");
-    ]
-
 let tests =
   [
-    test_case "negated arbitrary length is a calc" `Quick
-      test_typography_negated_arbitrary_is_a_calc;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;
     test_case "arbitrary underscore escape" `Quick
       test_arbitrary_underscore_escape;
-    test_case "invalid decoration bracket hex" `Quick
-      test_invalid_decoration_bracket_hex;
     test_case "non-decimal integers" `Quick test_non_decimal_integers;
-    test_case "project tracking token" `Quick test_project_tracking_token;
     test_case "project font and leading tokens" `Quick
       test_project_font_and_leading_tokens;
-    test_case "decoration bracket thickness" `Quick
-      test_decoration_bracket_thickness;
-    test_case "unitless decoration bracket is a colour" `Quick
-      test_decoration_bracket_unitless_is_color;
-    test_case "decoration shadeless opacity" `Quick
-      test_decoration_shadeless_opacity;
-    test_case "decoration opacity from a var" `Quick test_decoration_opacity_var;
-    test_case "bracket list-style" `Quick test_bracket_list_style;
-    test_case "list-style property bands" `Slow test_list_style_property_bands;
     test_case "invalid font family" `Quick test_invalid_font_family;
     test_case "font bracket family quoted" `Quick
       test_font_bracket_family_quoted;
@@ -1420,7 +868,6 @@ let tests =
     test_case "font-feature property band" `Slow test_font_feature_property_band;
     test_case "bracket font-size candidate band" `Slow
       test_bracket_font_size_candidate_band;
-    test_case "tracking-normal unit" `Quick test_tracking_normal_unit;
     test_case "numeric leading from spacing" `Quick test_numeric_leading_spacing;
     test_case "leading half-step" `Quick test_leading_prime;
     test_case "leading-none inline" `Quick test_leading_none_inline;
@@ -1430,28 +877,7 @@ let tests =
     test_case "font size" `Quick test_font_size;
     test_case "font weight" `Quick test_font_weight;
     test_case "text alignment" `Quick test_text_alignment;
-    test_case "text decoration" `Quick test_text_decoration;
-    test_case "text transform" `Quick test_text_transform;
     test_case "line height" `Quick test_line_height;
-    test_case "letter spacing" `Quick test_letter_spacing;
-    test_case "line clamp" `Quick test_line_clamp;
-    test_case "line-clamp-none theme override" `Quick
-      test_line_clamp_none_theme_override;
-    test_case "text overflow/wrap" `Quick test_text_overflow_wrap;
-    test_case "text overflow order" `Slow test_text_overflow_order;
-    test_case "antialiasing order" `Slow test_antialiasing_order;
-    test_case "variant antialiasing order" `Slow test_variant_antialiasing_order;
-    test_case "word/overflow wrap" `Quick test_word_overflow_wrap;
-    test_case "hyphens" `Quick test_hyphens;
-    test_case "list style" `Quick test_list_style;
-    test_case "text indent" `Quick test_text_indent;
-    test_case "text indent half-step" `Quick test_text_indent_prime;
-    test_case "vertical align" `Quick test_vertical_align;
-    test_case "font stretch" `Quick test_font_stretch;
-    test_case "numeric variants" `Quick test_numeric_variants;
-    test_case "content" `Quick test_content;
-    test_case "content-named requires theme token" `Quick
-      test_content_named_requires_theme;
     test_case "text-[<font-size>] valid values" `Quick
       test_text_bracket_size_valid;
     test_case "text-[<font-size>] invalid values" `Quick
@@ -1461,8 +887,6 @@ let tests =
     test_case "arbitrary leading" `Quick test_arbitrary_leading;
     test_case "arbitrary leading token stream" `Quick
       test_arbitrary_leading_token_stream;
-    test_case "arbitrary tracking token stream" `Quick
-      test_arbitrary_tracking_token_stream;
     test_case "text-[--spacing()/--alpha()] functions" `Quick
       test_text_bracket_functions;
     test_case "text-[--alpha()] with a var alpha" `Quick
@@ -1478,21 +902,11 @@ let tests =
     test_case "leading modifier from the theme" `Quick
       test_theme_leading_modifier;
     test_case "leading var shorthand" `Quick test_leading_var_shorthand;
-    test_case "decoration undefined colour shade" `Quick
-      test_decoration_undefined_shade;
     test_case "typography of_string - invalid values" `Quick of_string_invalid;
     test_case "late typography colour block order" `Quick
       late_typography_colour_block_order;
     test_case "typography suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
-    test_case "line-clamp sorts with box-sizing" `Quick
-      line_clamp_sorts_with_box_sizing;
-    test_case "decoration opacity fallback" `Quick
-      test_decoration_opacity_fallback;
-    test_case "decoration bracket named colour" `Quick
-      test_decoration_bracket_named_color;
-    test_case "underline-offset-[...] keeps its bracket" `Quick
-      test_underline_offset_bracket_keeps_its_class;
     test_case "indent and underline-offset peel a data-type hint" `Quick
       test_typography_brackets_peel_a_hint;
     test_case "typography renders like Tailwind" `Slow

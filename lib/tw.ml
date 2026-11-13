@@ -22,6 +22,19 @@ include Gap
 include Padding
 include Sizing
 include Typography
+include Text_decoration
+include Letter_spacing
+include Text_transform
+include Font_smoothing
+include Line_breaking
+include Text_overflow
+include Line_clamp
+include Vertical_align
+include Text_indent
+include List_style
+include Content
+include Font_stretch
+include Font_variant_numeric
 include Layout
 include Overflow
 include Overscroll
@@ -541,6 +554,19 @@ module Grid = Grid
 module Grid_item = Grid_item
 module Grid_template = Grid_template
 module Typography = Typography
+module Text_decoration = Text_decoration
+module Letter_spacing = Letter_spacing
+module Text_transform = Text_transform
+module Font_smoothing = Font_smoothing
+module Line_breaking = Line_breaking
+module Text_overflow = Text_overflow
+module Line_clamp = Line_clamp
+module Vertical_align = Vertical_align
+module Text_indent = Text_indent
+module List_style = List_style
+module Content = Content
+module Font_stretch = Font_stretch
+module Font_variant_numeric = Font_variant_numeric
 module Divide = Divide
 module Effects = Effects
 module Ring = Ring
