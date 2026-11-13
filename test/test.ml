@@ -43,6 +43,10 @@ let () =
       Test_cursor.suite;
       Test_arbitrary.suite;
       Test_color.suite;
+      Test_color_value.suite;
+      Test_color_opacity.suite;
+      Test_palette.suite;
+      Test_srgb.suite;
       Test_margin.suite;
       Test_padding.suite;
       Test_borders.suite;
