@@ -352,9 +352,6 @@ module Handler = struct
     let selector = divide_children_selector class_name in
     Color.divide_current_with_opacity opacity selector
 
-  (* Helper to check if a string contains an opacity modifier *)
-  let has_opacity s = String.contains s '/'
-
   let to_class = function
     | X n -> if n = 1 then "divide-x" else "divide-x-" ^ string_of_int n
     | Y n -> if n = 1 then "divide-y" else "divide-y-" ^ string_of_int n
@@ -556,7 +553,8 @@ module Handler = struct
             match Parse.arbitrary_declaration_value inner with
             | Some value -> Ok (Raw_color (inner, value, opacity))
             | None -> Error (`Msg ("Invalid divide bracket color: " ^ inner))))
-    | "divide" :: color_parts when List.exists has_opacity color_parts -> (
+    | "divide" :: color_parts when List.exists Color.has_opacity color_parts
+      -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Named_color_opacity (color, shade, opacity))

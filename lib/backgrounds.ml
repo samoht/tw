@@ -14,9 +14,6 @@
 module Css = Cascade.Css
 
 module Handler = struct
-  (* Helper to check if a string contains an opacity modifier *)
-  let has_opacity s = String.contains s '/'
-
   (* The named background positions, as [bg-<position>] spells them. *)
   module Position = struct
     type t =
@@ -253,11 +250,6 @@ module Handler = struct
 
   (* A palette colour's value with the theme token it reads, or the value alone
      for an arbitrary colour, which has no token. *)
-  let color_binding ?theme ~shade color =
-    let value = Color.to_css ?theme color shade in
-    if Color.is_custom_color color then ([], value)
-    else Color.bound ?theme (Color.color_var color shade) value
-
   let bg' ?theme ?(shade = 500) color =
     let bg_var_name =
       let base = Color.pp color in
@@ -271,7 +263,7 @@ module Handler = struct
         let d, r = Var.binding tv (Css.hex theme_val) in
         style [ d; Css.background_color (Var r) ]
     | None ->
-        let theme_decls, color_value = color_binding ?theme ~shade color in
+        let theme_decls, color_value = Color.bound_color ?theme ~shade color in
         style (theme_decls @ [ Css.background_color color_value ])
 
   let bg_origin_border = style [ Css.background_origin Border_box ]
@@ -402,21 +394,12 @@ module Handler = struct
   (* A [color:] hint says how to read the value written after it; only a var()
      reference there names a custom property, so any other spelling has to be a
      colour the reader takes. *)
-  let is_bracket_color_hint value =
-    Parse.is_var value || Color.parse_bracket_color value <> None
-
   (* [position:] and [percentage:] both name the background-position longhand;
      Tailwind knows the two spellings for the one hint. *)
   let has_bracket_position_hint inner =
     match Parse.data_type_hint inner with
     | Some (("position" | "percentage"), _) -> true
     | Some _ | None -> false
-
-  (* The value after a [color:] hint, when there is one and it reads. *)
-  let bracket_color_hint inner =
-    match Parse.data_type_hint inner with
-    | Some ("color", v) when is_bracket_color_hint v -> Some v
-    | Some _ | None -> None
 
   let to_style theme =
     let bg_with_opacity c shade opacity =
@@ -681,7 +664,7 @@ module Handler = struct
           let inner = Parse.bracket_inner bracket in
           match parse_opacity opacity_str with
           | Some opacity -> (
-              match bracket_color_hint inner with
+              match Color.bracket_color_hint inner with
               | Some v -> (
                   if
                     (* The hint says how to read the value written after it;
@@ -735,7 +718,7 @@ module Handler = struct
                   match last_resort inner with
                   | Some raw -> Ok (Bg_bracket_raw_position (inner, raw))
                   | None -> Error (`Msg ("Unknown bg bracket position: " ^ v))))
-          | _, Some ("color", v) when is_bracket_color_hint v -> (
+          | _, Some ("color", v) when Color.is_bracket_color v -> (
               if
                 (* The hint says how to read the value written after it; only a
                    var() reference there names a custom property. *)
@@ -811,7 +794,7 @@ module Handler = struct
                               Error
                                 (`Msg ("Unknown bg bracket value: " ^ inner)))))
               ))
-    | "bg" :: rest when List.exists has_opacity rest -> (
+    | "bg" :: rest when List.exists Color.has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ~theme rest with
         | Ok (color, shade, opacity) -> Ok (Bg_opacity (color, shade, opacity))
         | Error e -> Error e)

@@ -265,6 +265,12 @@ val color_binding :
     the palette token and the typed reference to it, for utilities that set a
     colour var of their own from a palette entry. *)
 
+val bound_color :
+  ?theme:Scheme.t -> shade:int -> color -> Css.declaration list * Css.color
+(** [bound_color ?theme ~shade color] is {!bound} for the palette token of
+    [color] at [shade]: the theme declaration and the value a utility writes. A
+    custom colour has no token, so it is its own value with no declaration. *)
+
 val all_palette_declarations : ?theme:Scheme.t -> unit -> Css.declaration list
 (** [all_palette_declarations ?theme ()] is the [\@layer theme] declaration for
     every colour the palette defines, in theme order. [theme(static)] on the
@@ -337,3 +343,11 @@ val parse_bracket_hint : string -> bracket_hint option
     A [color:] hint says how to read the value written after it, so
     [color:var(--x)] is a typed var while [color:red] is the color red. Only a
     [var()] reference names a custom property. *)
+
+val is_bracket_color : string -> bool
+(** [is_bracket_color v] is [true] when [v] is a [var()] reference or a colour
+    {!parse_bracket_color} reads. *)
+
+val bracket_color_hint : string -> string option
+(** [bracket_color_hint inner] is the value after a [color:] hint in [inner],
+    when there is one and {!is_bracket_color} accepts it. *)

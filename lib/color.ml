@@ -187,9 +187,6 @@ module Handler = struct
     | Outline_bracket_typed_var_opacity _ ->
         28
 
-  (* Helper to check if a string contains an opacity modifier *)
-  let has_opacity s = String.contains s '/'
-
   (* A data-type hint chooses the longhand and says nothing about the value, so
      a family that writes one colour longhand reads what follows any hint.
      [border-[…]] is the exception: [length:] and [line-width:] name the width,

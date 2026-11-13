@@ -433,7 +433,6 @@ module Handler = struct
   (* ============ Parsing ============ *)
 
   let err_not_utility = Error (`Msg "Not a text shadow utility")
-  let has_opacity s = String.contains s '/'
   let starts_with prefix s = String.starts_with ~prefix s
 
   let is_shadow_value inner =
@@ -587,8 +586,8 @@ module Handler = struct
             match Color.shade_of_strings ~theme [ base ] with
             | Ok (color, shade) -> Ok (Color_opacity (color, shade, op))
             | Error e -> Error e))
-    | "text" :: "shadow" :: color_parts when List.exists has_opacity color_parts
-      -> (
+    | "text" :: "shadow" :: color_parts
+      when List.exists Color.has_opacity color_parts -> (
         let full = String.concat "-" color_parts in
         let base, opacity = Color.parse_opacity_modifier ~theme full in
         if named_bodies ~theme base <> Stdlib.Option.None then

@@ -187,8 +187,6 @@ module Handler = struct
     | Thumb s -> compose ~set_var:thumb_var s
     | Track s -> compose ~set_var:track_var s
 
-  let has_opacity s = String.contains s '/'
-
   let parse_color ?theme mk rest =
     match rest with
     | [ "inherit" ] -> Ok (mk Inherit)
@@ -209,7 +207,7 @@ module Handler = struct
             match (op, Parse.arbitrary_declaration_value inner) with
             | Color.No_opacity, Some value -> Ok (mk (Raw (base, value)))
             | _ -> Error (`Msg "Not a scrollbar utility")))
-    | parts when List.exists has_opacity parts -> (
+    | parts when List.exists Color.has_opacity parts -> (
         match Color.shade_and_opacity_of_strings ?theme parts with
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))
         | Error e -> Error e)
