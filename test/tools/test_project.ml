@@ -49,6 +49,16 @@ let test_source_inline () =
     ~present:[ ".underline{"; ".hover\\:bg-red-500:hover{" ]
     ~absent:[]
 
+(* An entrypoint saved with CR LF line ends compiles as the LF one does: CSS
+   Syntax 3 §3.3 turns CR LF, a lone CR and FF into LF before the stream is
+   read, so no directive reader ever sees the CR. *)
+let test_crlf_entrypoint () =
+  check_rules
+    (compiled "crlf"
+       "@source inline(\"underline\");\r\n.card {\r\n  @apply p-4;\r\n}\r\n")
+    ~present:[ ".underline{"; ".card{padding:calc(var(--spacing)*4)}" ]
+    ~absent:[]
+
 (* A pattern expands the way the bundle's brace expansion does: a comma list,
    the empty alternative included, and a numeric range, stepped or descending.
    Each candidate is expanded on its own. *)
@@ -538,6 +548,7 @@ let suite =
   ( "project",
     [
       test_case "@source inline" `Quick test_source_inline;
+      test_case "CR LF entrypoint" `Quick test_crlf_entrypoint;
       test_case "@source inline braces" `Quick test_source_inline_braces;
       test_case "@source inline braces at the int limits" `Quick
         test_source_inline_braces_at_int_limits;
