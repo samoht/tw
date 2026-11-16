@@ -1,10 +1,30 @@
 module Css = Cascade.Css
 
+(* CSS Syntax 3 §3.3: CR LF, a lone CR and FF are each one LF. *)
+let preprocess s =
+  if not (String.exists (function '\r' | '\x0c' -> true | _ -> false) s) then s
+  else
+    let n = String.length s in
+    let b = Buffer.create n in
+    let rec go i =
+      if i < n then
+        match s.[i] with
+        | '\r' when i + 1 < n && s.[i + 1] = '\n' -> go (i + 1)
+        | '\r' | '\x0c' ->
+            Buffer.add_char b '\n';
+            go (i + 1)
+        | c ->
+            Buffer.add_char b c;
+            go (i + 1)
+    in
+    go 0;
+    Buffer.contents b
+
 let read_file path =
   let ic = open_in_bin path in
   Fun.protect
     ~finally:(fun () -> close_in ic)
-    (fun () -> really_input_string ic (in_channel_length ic))
+    (fun () -> preprocess (really_input_string ic (in_channel_length ic)))
 
 (* Preload every transitively-referenced stylesheet, keyed by the URL resolved
    against its importer, which is what the inliner looks up. Mirrors cascade's

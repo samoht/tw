@@ -1,3 +1,11 @@
+## Unreleased
+
+### Project stylesheets
+
+- An entrypoint saved with CR LF line ends keeps its `@apply` bodies,
+  `@source inline` lists and `@theme` blocks, which compiled to nothing
+  (#916).
+
 ## 1.2.1 (12/11/2026)
 
 ### Utilities
