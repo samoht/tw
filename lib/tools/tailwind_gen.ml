@@ -603,9 +603,7 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
     Stats.record_call elapsed;
 
     if exit_code = 0 then (
-      let ic = open_in output_file in
-      let content = really_input_string ic (in_channel_length ic) in
-      close_in ic;
+      let content = In_channel.with_open_bin output_file In_channel.input_all in
       cleanup ();
       content)
     else
@@ -640,7 +638,4 @@ let generate_entrypoint ?(minify = true) entry =
   Stats.record_call (Unix.gettimeofday () -. start_time);
   if status <> 0 then
     failwith ("Failed to generate Tailwind CSS from the entrypoint " ^ entry);
-  let ic = open_in out in
-  Fun.protect
-    ~finally:(fun () -> close_in_noerr ic)
-    (fun () -> really_input_string ic (in_channel_length ic))
+  In_channel.with_open_bin out In_channel.input_all

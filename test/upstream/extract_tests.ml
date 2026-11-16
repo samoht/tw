@@ -675,9 +675,7 @@ type parse_state =
   | In_snapshot of string * string list * Buffer.t
 
 let parse_file filename =
-  let ic = open_in filename in
-  let content = really_input_string ic (in_channel_length ic) in
-  close_in ic;
+  let content = In_channel.with_open_text filename In_channel.input_all in
 
   let tests = ref [] in
   let lines = String.split_on_char '\n' content in

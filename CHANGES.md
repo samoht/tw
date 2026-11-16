@@ -1,3 +1,13 @@
+## Unreleased
+
+### Project stylesheets
+
+- An entrypoint saved with CR LF line ends keeps its `@apply` bodies,
+  `@source inline` lists and `@theme` blocks, which compiled to nothing
+  (#916).
+- On Windows, an `@source` glob matches the files under its root and
+  `@source not` takes its paths out, where both matched nothing (#916).
+
 ## 1.2.1 (12/11/2026)
 
 ### Utilities

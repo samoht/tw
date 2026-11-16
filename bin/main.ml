@@ -17,6 +17,13 @@ let ignored_scan_entry name =
 let scan_warning path message =
   Fmt.epr "Warning: cannot scan %s: %s@." path message
 
+(* Scanned paths are joined with [/], which Windows also takes as a separator. A
+   file the walk reaches and a path an [@source] names then compare as strings,
+   which [Filename.concat]'s [\\] on Windows would keep apart: a glob would
+   match nothing under its root, and [@source not] would take nothing out. *)
+let join dir entry =
+  if String.ends_with ~suffix:"/" dir then dir ^ entry else dir ^ "/" ^ entry
+
 (* Recursively get content files without following directory symlinks or
    descending into generated/dependency/metadata trees. A bad subtree is local
    to that path: readable siblings still contribute their candidates. *)
@@ -27,8 +34,7 @@ let rec files path keep =
     | Unix.S_DIR ->
         Sys.readdir path |> Array.to_list
         |> List.filter (fun entry -> not (ignored_scan_entry entry))
-        |> List.concat_map (fun entry ->
-            files (Filename.concat path entry) keep)
+        |> List.concat_map (fun entry -> files (join path entry) keep)
     | Unix.S_LNK -> (
         match (Unix.stat path).st_kind with
         | Unix.S_DIR -> []
@@ -389,9 +395,7 @@ let relative_to root file =
    command line, a glob keeps the files under its root that match it, and a path
    naming nothing is skipped, as Tailwind skips it. *)
 let source_files ~base path =
-  let path =
-    if Filename.is_relative path then Filename.concat base path else path
-  in
+  let path = if Filename.is_relative path then join base path else path in
   if Tw_tools.Source_scan.is_glob path then
     let root, pattern = Tw_tools.Source_scan.glob_root path in
     if Sys.file_exists root then

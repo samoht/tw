@@ -102,10 +102,11 @@ let split_classes line =
 let lines_of filename =
   if not (Sys.file_exists filename) then []
   else
-    let ic = open_in filename in
-    let content = really_input_string ic (in_channel_length ic) in
-    close_in ic;
-    String.split_on_char '\n' content
+    (* Text mode, so a fixture written on Windows reads back with LF line ends;
+       [in_channel_length] counts the CRs text mode drops, so it cannot size the
+       read. *)
+    String.split_on_char '\n'
+      (In_channel.with_open_text filename In_channel.input_all)
 
 (* A line the reader cannot place: the fixtures are machine-written, so a line
    outside the grammar means the extractor and the reader have drifted apart, or
