@@ -29,6 +29,15 @@
 
 ### Utilities
 
+- A bracket opening with a data-type hint the family does not know writes only
+  the value after the hint, as Tailwind does: `transition-[foo:color]` sets
+  `transition-property: color`, not `foo:color`. This holds for `transition-`,
+  `bg-linear-`, `bg-radial-`, `bg-conic-`, `scale-z-`, `contain-`, the
+  `mask-linear-`, `mask-conic-`, `mask-radial-` and `mask-radial-at-` families
+  and the `brightness-`, `contrast-`, `grayscale-`, `invert-`, `saturate-`,
+  `sepia-` and `backdrop-opacity-` filters and their `backdrop-` forms;
+  `contain-[...]` writes any other value as written rather than as a `var()`
+  (#942).
 - A `!`-prefixed utility that only the project's `@theme` makes valid, such as
   `!bg-brand`, sorts with its family rather than after every other utility
   (#920).

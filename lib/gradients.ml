@@ -76,7 +76,7 @@ module Handler = struct
     (* -bg-linear-{angle}/interp *)
     | Bg_linear_angle_neg_interp of int * string * string
     (* bg-linear-[value] - bracket linear gradient value *)
-    | Bg_linear_bracket of string
+    | Bg_linear_bracket of string * string
     (* -bg-linear-[value] - negated bracket *)
     | Bg_linear_bracket_neg of string
     (* bg-conic - bare conic gradient (in oklab) *)
@@ -91,13 +91,13 @@ module Handler = struct
     | Bg_conic_angle_interp of int * string * string
     (* -bg-conic-{angle}/interp *)
     | Bg_conic_angle_neg_interp of int * string * string
-    | Bg_conic_bracket of string
+    | Bg_conic_bracket of string * string
     (* bg-radial - bare radial gradient (in oklab) *)
     | Bg_radial
     (* bg-radial/interp - radial gradient with interpolation *)
     | Bg_radial_interp of string * string
     (* bg-radial-[value] - bracket radial gradient value *)
-    | Bg_radial_bracket of string
+    | Bg_radial_bracket of string * string
 
   let to_class (t : t) =
     match t with
@@ -187,7 +187,7 @@ module Handler = struct
         "bg-linear-" ^ string_of_int n ^ "/" ^ interp
     | Bg_linear_angle_neg_interp (n, interp, _) ->
         "-bg-linear-" ^ string_of_int n ^ "/" ^ interp
-    | Bg_linear_bracket v -> "bg-linear-[" ^ v ^ "]"
+    | Bg_linear_bracket (v, _) -> "bg-linear-[" ^ v ^ "]"
     | Bg_linear_bracket_neg v -> "-bg-linear-[" ^ v ^ "]"
     | Bg_conic -> "bg-conic"
     | Bg_conic_angle n -> "bg-conic-" ^ string_of_int n
@@ -197,10 +197,10 @@ module Handler = struct
         "bg-conic-" ^ string_of_int n ^ "/" ^ interp
     | Bg_conic_angle_neg_interp (n, interp, _) ->
         "-bg-conic-" ^ string_of_int n ^ "/" ^ interp
-    | Bg_conic_bracket v -> "bg-conic-[" ^ v ^ "]"
+    | Bg_conic_bracket (v, _) -> "bg-conic-[" ^ v ^ "]"
     | Bg_radial -> "bg-radial"
     | Bg_radial_interp (interp, _) -> "bg-radial/" ^ interp
-    | Bg_radial_bracket v -> "bg-radial-[" ^ v ^ "]"
+    | Bg_radial_bracket (v, _) -> "bg-radial-[" ^ v ^ "]"
 
   let to_spec (dir : direction) : Css.gradient_direction =
     match dir with
@@ -516,14 +516,13 @@ module Handler = struct
         | Ok space -> Some (Css.In (space, None))
         | Error _ -> None)
 
-  (** Convert a bracket gradient value to its CSS string. "125deg" → "125deg",
-      "1.3rad" → "74.4845deg", "to_bottom" → "to bottom", "circle_at_center" →
-      "circle at center". "100grad" stays "100grad": gradians are a distinct CSS
-      angle unit from radians, even though the word ends in the same three
-      letters. Reading the value as a real [<angle>] tells the two apart instead
-      of matching on the "rad" suffix, which "grad" also has. *)
-  let bracket_value_to_css inner =
-    let decoded = Parse.decode_underscores inner in
+  (** Convert a decoded bracket gradient value to its CSS string. "125deg" →
+      "125deg", "1.3rad" → "74.4845deg", anything else as it is. "100grad" stays
+      "100grad": gradians are a distinct CSS angle unit from radians, even
+      though the word ends in the same three letters. Reading the value as a
+      real [<angle>] tells the two apart instead of matching on the "rad"
+      suffix, which "grad" also has. *)
+  let bracket_value_to_css decoded =
     match
       Cascade.Cursor.try_parse_full_err Css.Values.read_angle
         (Cascade.Cursor.of_string decoded)
@@ -603,8 +602,7 @@ module Handler = struct
 
   (** [bg-linear-[value]] - bracket linear gradient (no [@supports]). Output:
       [--tw-gradient-position: {value}; background-image:
-       linear-gradient(var(--tw-gradient-stops, {value}))] The value_str is the
-      raw bracket inner; we convert rad→deg and _→space. *)
+       linear-gradient(var(--tw-gradient-stops, {value}))] *)
   let bg_linear_bracket' value_str =
     let css_val = bracket_value_to_css value_str in
     let position_decl = gradient_position_decl_of_string css_val in
@@ -620,7 +618,9 @@ module Handler = struct
 
   (** -bg-linear-[value] - negated bracket *)
   let bg_linear_bracket_neg' value_str =
-    let css_val = bracket_value_to_css value_str in
+    let css_val =
+      bracket_value_to_css (Parse.decode_arbitrary_value value_str)
+    in
     let neg_str = "calc(" ^ css_val ^ " * -1)" in
     let position_decl = gradient_position_decl_of_string neg_str in
     let stops_ref : Css.gradient_stop Css.var =
@@ -1130,7 +1130,7 @@ module Handler = struct
         bg_linear_angle_interp' n (interp_to_color_interpolation interp) css
     | Bg_linear_angle_neg_interp (n, interp, css) ->
         bg_linear_angle_neg_interp' n (interp_to_color_interpolation interp) css
-    | Bg_linear_bracket v -> bg_linear_bracket' v
+    | Bg_linear_bracket (_, v) -> bg_linear_bracket' v
     | Bg_linear_bracket_neg v -> bg_linear_bracket_neg' v
     | Bg_conic -> bg_conic' ()
     | Bg_conic_angle n -> bg_conic_angle' n
@@ -1138,10 +1138,10 @@ module Handler = struct
     | Bg_conic_interp (_, css) -> bg_conic_interp' css
     | Bg_conic_angle_interp (n, _, css) -> bg_conic_angle_interp' n css
     | Bg_conic_angle_neg_interp (n, _, css) -> bg_conic_angle_neg_interp' n css
-    | Bg_conic_bracket value -> bg_conic_bracket' value
+    | Bg_conic_bracket (_, v) -> bg_conic_bracket' v
     | Bg_radial -> bg_radial' ()
     | Bg_radial_interp (_, css) -> bg_radial_interp' css
-    | Bg_radial_bracket v -> bg_radial_bracket' v
+    | Bg_radial_bracket (_, v) -> bg_radial_bracket' v
 
   (** Split a string on the first '/' into (base, modifier_opt). E.g. "r/oklab"
       → ("r", Some "oklab"), "45" → ("45", None) *)
@@ -1287,12 +1287,11 @@ module Handler = struct
                    Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
            | None, _ -> Error (`Msg ("Unknown direction: " ^ dir_s)))
     (* bg-linear-[value] - bracket linear gradient *)
-    | [ "bg"; "linear"; bracket ]
-      when Parse.is_bracket_value bracket
-           && Parse.is_declaration_value
-                (Parse.decode_underscores (Parse.bracket_inner bracket)) ->
+    | [ "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        Some (Ok (Bg_linear_bracket inner))
+        match Parse.arbitrary_declaration_value inner with
+        | Some value -> Some (Ok (Bg_linear_bracket (inner, value)))
+        | None -> Some (Error (`Msg ("Invalid bg-linear value: " ^ inner))))
     (* bg-linear-{angle} and bg-linear-{angle}/interp *)
     | [ "bg"; "linear"; angle_mod ] ->
         Some
@@ -1342,7 +1341,7 @@ module Handler = struct
         let inner = Parse.bracket_inner bracket in
         Some
           (match Parse.arbitrary_declaration_value inner with
-          | Some _ -> Ok (Bg_conic_bracket inner)
+          | Some value -> Ok (Bg_conic_bracket (inner, value))
           | None -> Error (`Msg ("Invalid bg-conic value: " ^ inner)))
     (* bg-conic/interp - conic gradient with modifier only *)
     | [ "bg"; conic_mod ]
@@ -1389,12 +1388,11 @@ module Handler = struct
           | Some css -> Ok (Bg_radial_interp (interp, css))
           | None -> Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
     (* bg-radial-[value] - bracket radial gradient *)
-    | [ "bg"; "radial"; bracket ]
-      when Parse.is_bracket_value bracket
-           && Parse.is_declaration_value
-                (Parse.decode_underscores (Parse.bracket_inner bracket)) ->
+    | [ "bg"; "radial"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
-        Some (Ok (Bg_radial_bracket inner))
+        match Parse.arbitrary_declaration_value inner with
+        | Some value -> Some (Ok (Bg_radial_bracket (inner, value)))
+        | None -> None)
     | _ -> None
 
   let owns_bg_class class_name =

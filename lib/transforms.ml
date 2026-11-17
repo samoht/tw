@@ -445,8 +445,9 @@ module Handler = struct
     match (typed, op, axis) with
     | Some _, _, _ -> typed
     | None, Scale, Z ->
-        let value = Parse.decode_arbitrary_value inner in
-        if Parse.is_declaration_value value then Some (`Raw value) else None
+        Option.bind (Parse.value_after_hint inner) (fun value ->
+            let value = Parse.decode_arbitrary_value value in
+            if Parse.is_declaration_value value then Some (`Raw value) else None)
     | None, _, _ ->
         Option.map (fun v -> `Raw v) (Parse.arbitrary_declaration_value inner)
 
