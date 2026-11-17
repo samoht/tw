@@ -4,7 +4,7 @@
 
 - tw requires cascade 1.3.0. Its selector, `@supports`, `@container` and
   media readers return a result where they raised, and tw handles a bracket
-  that does not read where it reads it (#N).
+  that does not read where it reads it (#918).
 
 ### Utilities
 

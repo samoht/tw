@@ -159,15 +159,8 @@ let test_arbitrary_selector_combinator () =
    source text and re-parsing the result also rewrote an [&] that was part of a
    quoted attribute value. *)
 let test_arbitrary_anchor_in_quoted_value () =
-  (* This one stays on a substring. tw's library writes the attribute value
-     quoted, exactly as the pinned CLI does, but the optimizer the [tw] binary
-     runs respells it as [data-x=a\&b], so [--diff] reports a difference and the
-     sheet cannot be pinned as agreed output. *)
-  let has cls affix =
-    check bool cls true (Astring.String.is_infix ~affix (sheet cls))
-  in
-  has {|[&[data-x="a&b"]]:flex|}
-    {|.\[\&\[data-x\=\"a\&b\"\]\]\:flex[data-x="a&b"]|};
+  check_utilities {|[&[data-x="a&b"]]:flex|}
+    {|.\[\&\[data-x\=\"a\&b\"\]\]\:flex[data-x=a\&b]{display:flex}|};
   (* the spellings that already worked stay byte-identical *)
   check_utilities "[&>*]:flex" {|.\[\&\>\*\]\:flex>*{display:flex}|};
   check_utilities "[&_p]:flex" {|.\[\&_p\]\:flex p{display:flex}|};
@@ -588,12 +581,9 @@ let test_selector_underscore_escape () =
     {|.not-\[\.a\\_b\]\:flex:not(.a_b){display:flex}|};
   check_utilities {|[.a\_b_&]:flex|}
     {|.a_b .\[\.a\\_b_\&\]\:flex{display:flex}|};
-  (* A bare [_] still stands for a space. This one stays on a substring: tw
-     quotes the attribute value where the pinned CLI escapes the space
-     ([aria-label=a\ b]), so [--diff] reports a changed selector. *)
-  check bool "aria-[label=a_b]:flex" true
-    (Astring.String.is_infix ~affix:{|[aria-label="a b"]|}
-       (sheet "aria-[label=a_b]:flex"))
+  (* A bare [_] still stands for a space, escaped as the pinned CLI does. *)
+  check_utilities "aria-[label=a_b]:flex"
+    {|.aria-\[label\=a_b\]\:flex[aria-label=a\ b]{display:flex}|}
 
 (* [not-[:pseudo]] used to run through a table of nine pseudo-classes and write
    everything else as a class node, so [not-[:target]] negated a class literally
