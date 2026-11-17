@@ -41,6 +41,12 @@
 - On Windows, an `@source` glob matches the files under its root and
   `@source not` takes its paths out, where both matched nothing (#916).
 
+### Variants
+
+- An `aria-[...]` or `data-[...]` variant naming an attribute no selector can
+  hold, such as `aria-[0.5ch]` or `data-[a\b]`, is refused, where it was
+  accepted and emitted nothing or, under `in-` and `not-`, raised (#TBD).
+
 ### OCaml API
 
 - `Utility.unclaimed` is the answer a handler's `of_class` gives a class it

@@ -703,34 +703,6 @@ let route_has_modifier modifier ~selector base_class props =
   has_like_selector kind ?name ?shorthand ~has_hover ~selector selector_str
     base_class props
 
-(* Parse an aria expression string into an attribute name and match. "modal" →
-   ("aria-modal", Presence) "valuenow=1" → ("aria-valuenow", Exact "1")
-   "invalid=spelling" → ("aria-invalid", Exact "spelling") The expression is an
-   arbitrary value, so [_] is a space in it and [\_] a literal underscore. *)
-let parse_aria_expr expr =
-  let expr = Parse.decode_underscores expr in
-  let expr = String.trim expr in
-  match String.index_opt expr '=' with
-  | None -> ("aria-" ^ expr, Css.Selector.Presence)
-  | Some i ->
-      let attr = String.trim (String.sub expr 0 i) in
-      let raw_value =
-        String.trim (String.sub expr (i + 1) (String.length expr - i - 1))
-      in
-      (* The quotes an author writes around the value are the attribute
-         selector's own, which the printer puts back; either style spells the
-         same value. *)
-      let value =
-        let len = String.length raw_value in
-        if
-          len >= 2
-          && (raw_value.[0] = '"' || raw_value.[0] = '\'')
-          && raw_value.[len - 1] = raw_value.[0]
-        then String.sub raw_value 1 (len - 2)
-        else raw_value
-      in
-      ("aria-" ^ attr, Css.Selector.Exact value)
-
 (* Route aria variants to appropriate handler *)
 let route_aria_modifier modifier ~selector base_class props =
   let kind, raw_str, name_opt =
@@ -744,7 +716,7 @@ let route_aria_modifier modifier ~selector base_class props =
   let is_shorthand = Variant_parse.is_aria_shorthand raw_str in
   let aria_attr, aria_match =
     if is_shorthand then ("aria-" ^ raw_str, Exact "true")
-    else parse_aria_expr raw_str
+    else Variant_parse.parse_aria_expr raw_str
   in
   let class_part = if is_shorthand then raw_str else "[" ^ raw_str ^ "]" in
   match kind with
@@ -1022,7 +994,7 @@ let attribute_condition = function
       let name, matcher =
         if Variant_parse.is_aria_shorthand expr then
           ("aria-" ^ expr, Css.Selector.Exact "true")
-        else parse_aria_expr expr
+        else Variant_parse.parse_aria_expr expr
       in
       Some [ Css.Selector.attribute name matcher ]
   | Style.Aria_selected ->

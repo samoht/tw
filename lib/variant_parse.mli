@@ -90,6 +90,14 @@ val is_aria_shorthand : string -> bool
     attribute (e.g., "checked", "expanded", "hidden") that maps to
     [aria-X=true]. *)
 
+val parse_aria_expr : string -> string * Css.Selector.attribute_match
+(** [parse_aria_expr expr] reads an [aria-[expr]] bracket body into the
+    attribute name (["aria-" ^ name]) and its match: [modal] is
+    [("aria-modal", Presence)], [valuenow=1] is [("aria-valuenow", Exact "1")].
+    Underscores stand for spaces and [\_] for a literal underscore, as in any
+    arbitrary value; quotes around the value are dropped, since the selector
+    printer writes its own. *)
+
 val parse_data_expr :
   string ->
   string * Css.Selector.attribute_match * Css.Selector.attr_flag option
