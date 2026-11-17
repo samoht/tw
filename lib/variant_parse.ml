@@ -345,6 +345,10 @@ let quote_value value =
 let data_attribute_of_bracket bracket =
   match Css.Selector.of_string bracket with
   | Css.Selector.Attribute (_, Css.Selector.Data name, m, flag) ->
+      (* The reader takes an escaped code point the constructor refuses, so the
+         name is checked here, where a class can still be rejected, rather than
+         when its rule is built. *)
+      ignore (Css.Selector.attribute ?flag ("data-" ^ name) m);
       ("data-" ^ name, m, flag)
   | _ -> invalid_arg ("not a data attribute: " ^ bracket)
 
@@ -387,6 +391,38 @@ let parse_data_expr raw_expr =
       in
       data_attribute_of_bracket
         ("[data-" ^ name ^ op_text ^ value_text ^ flag_text ^ "]")
+
+let parse_aria_expr expr =
+  let expr = Parse.decode_underscores expr in
+  let expr = String.trim expr in
+  match String.index_opt expr '=' with
+  | None -> ("aria-" ^ expr, Css.Selector.Presence)
+  | Some i ->
+      let attr = String.trim (String.sub expr 0 i) in
+      let raw_value =
+        String.trim (String.sub expr (i + 1) (String.length expr - i - 1))
+      in
+      (* The quotes an author writes around the value are the attribute
+         selector's own, which the printer puts back; either style spells the
+         same value. *)
+      let value =
+        let len = String.length raw_value in
+        if
+          len >= 2
+          && (raw_value.[0] = '"' || raw_value.[0] = '\'')
+          && raw_value.[len - 1] = raw_value.[0]
+        then String.sub raw_value 1 (len - 2)
+        else raw_value
+      in
+      ("aria-" ^ attr, Css.Selector.Exact value)
+
+(* An aria bracket names an attribute the rule builds from it, so a name the
+   selector constructor refuses is refused here, at parse time. *)
+let is_valid_aria_attr_expr expr =
+  let name, matcher = parse_aria_expr expr in
+  match Css.Selector.attribute name matcher with
+  | _ -> true
+  | exception Invalid_argument _ -> false
 
 (* Validate a data-[...] bracket expression by running it through the same
    reading [parse_data_expr] does at render time. *)
@@ -577,9 +613,15 @@ let bracket_named_patterns s =
     if is_valid_has_selector sel then Some (make sel name) else None
   in
   [
-    (fun () -> try_named "group-aria-[" (fun e n -> Group_aria (e, n)));
-    (fun () -> try_named "peer-aria-[" (fun e n -> Peer_aria (e, n)));
-    (fun () -> try_attr "aria-[" (fun expr -> Aria_bracket expr));
+    (fun () ->
+      try_named "group-aria-[" ~extra:is_valid_aria_attr_expr (fun e n ->
+          Group_aria (e, n)));
+    (fun () ->
+      try_named "peer-aria-[" ~extra:is_valid_aria_attr_expr (fun e n ->
+          Peer_aria (e, n)));
+    (fun () ->
+      try_attr "aria-[" ~extra:is_valid_aria_attr_expr (fun expr ->
+          Aria_bracket expr));
     (fun () ->
       try_named "group-data-[" ~extra:is_valid_data_attr_expr (fun e n ->
           Group_data ("[" ^ e ^ "]", n)));
