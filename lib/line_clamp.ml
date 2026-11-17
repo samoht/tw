@@ -1,5 +1,3 @@
-(** Line clamp utilities. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

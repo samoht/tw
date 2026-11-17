@@ -90,10 +90,8 @@ let tokens body =
     (declared @ namespace_resets body)
   |> List.map snd
 
-(* Extract @theme token overrides from a project CSS entrypoint, so tw renders
-   with the same tokens Tailwind reads from it: the pairs every block declares,
-   and the names among them that came from an [@theme inline] block. The
-   resulting strings feed Scheme.with_overrides. *)
+(* The [@theme] blocks of a project CSS entrypoint, each as its prelude words
+   and the tokens it declares. *)
 let blocks css =
   match Css.of_string css with
   | Error _ -> []

@@ -1,7 +1,3 @@
-(** Scroll margin and padding utilities.
-
-    Provides utilities for scroll-m-*, scroll-mx-*, scroll-p-*, etc. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -44,8 +40,6 @@ module Handler = struct
      interaction band and precede scrollbar/list/appearance. *)
   let priority _ = 11
 
-  (** Get (declaration, length) for spacing value using Theme.spacing_calc_float
-  *)
   let spacing_to_decl_len ?theme ~negative n : Css.declaration * Css.length =
     if n = 0.0 then
       let decl = Var.set Theme.spacing_var Theme.spacing_base in
@@ -55,9 +49,9 @@ module Handler = struct
       Theme.spacing_calc_float ?theme mult
 
   let parse_arbitrary s : scroll_value option =
-    (* Parse [4px] or [1rem] or [var(--value)] etc. Only a var() reference is a
-       variable name: anything else that is not a length is not a utility, and
-       reading it as one emitted [scroll-margin: var(--2vh)]. *)
+    (* Only a var() reference is a variable name: anything else that is not a
+       length is not a utility, where reading it as one would emit
+       [scroll-margin: var(--2vh)]. *)
     if Parse.is_bracket_value s then
       let inner = Parse.bracket_inner s in
       (* A data-type hint chooses the longhand and says nothing about the value.
@@ -251,12 +245,10 @@ module Handler = struct
         | Some Padding, _ when negative ->
             Error (`Msg "Negative scroll-padding not supported")
         | Some kind, Some axis -> (
-            (* Try as spacing value (integer or fractional like 0.5, 2.5) *)
             match Parse.spacing_value ~name:"scroll" value with
             | Ok n when Theme.has_spacing_step ~theme n ->
                 Ok { kind; negative; axis; value = Spacing n }
             | Ok _ | Error _ -> (
-                (* Try as arbitrary value *)
                 match parse_arbitrary value with
                 | Some value -> Ok { kind; negative; axis; value }
                 | None -> Utility.unclaimed))
@@ -328,7 +320,6 @@ module Utility_factory = Utility.Make (Handler)
 let utility kind negative axis value =
   Utility_factory.v { kind; negative; axis; value }
 
-(* Scroll margin utilities *)
 let scroll_m' n = utility Margin (n < 0.0) All (Spacing (Float.abs n))
 let scroll_mx' n = utility Margin (n < 0.0) X (Spacing (Float.abs n))
 let scroll_my' n = utility Margin (n < 0.0) Y (Spacing (Float.abs n))
@@ -351,8 +342,6 @@ let scroll_ms n = scroll_ms' (float_of_int n)
 let scroll_me n = scroll_me' (float_of_int n)
 let scroll_mbs n = scroll_mbs' (float_of_int n)
 let scroll_mbe n = scroll_mbe' (float_of_int n)
-
-(* Scroll padding utilities *)
 let scroll_p' n = utility Padding (n < 0.0) All (Spacing (Float.abs n))
 let scroll_px' n = utility Padding (n < 0.0) X (Spacing (Float.abs n))
 let scroll_py' n = utility Padding (n < 0.0) Y (Spacing (Float.abs n))

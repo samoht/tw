@@ -118,14 +118,12 @@ let test_filters_css_generation () =
     (backdrop "--tw-backdrop-opacity" "opacity(50%)")
 
 let of_string_invalid () =
-  (* Invalid effects values *)
   let fail_maybe =
     Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
       (module Tw.Effects.Handler)
   in
 
   fail_maybe [ "shadow"; "3xl" ];
-  (* Invalid shadow size *)
   fail_maybe [ "unknown" ]
 
 (* Tailwind reads a bare opacity as any non-negative multiple of 0.25 written

@@ -36,9 +36,8 @@ let expand_spacing ~theme css =
       | None -> None)
 
 (* The value a theme token carries. The palette is not in [Scheme]'s table: a
-   colour is catalogued, and [theme_color_decl] is what reads it back. Asking
-   [Scheme.token] alone left [theme(--color-red-500)] unresolved, and an
-   unresolved [theme()] is not CSS, so the parser dropped the declaration and
+   colour is catalogued, and [theme_color_decl] is what reads it back. An
+   unresolved [theme()] is not CSS, so the parser would drop the declaration and
    the author's rule with it. *)
 let theme_token_value theme name =
   match Tw.Scheme.token theme name with

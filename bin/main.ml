@@ -48,13 +48,8 @@ let rec files path keep =
       scan_warning path (Unix.error_message error);
       []
 
-(* Generation backend - determines which tool to use *)
-type backend =
-  | Native (* Use our tw implementation *)
-  | Tailwind (* Use real tailwindcss tool *)
-  | Diff (* Compare tw vs tailwindcss *)
+type backend = Native | Tailwind | Diff
 
-(* Main command implementation *)
 type gen_opts = {
   minify : bool;
   optimize : bool;
@@ -276,7 +271,7 @@ let reference_css ~(opts : gen_opts) classes =
     classes
 
 (* [classes ()] runs under the same handler as the CLI, so a source that cannot
-   be scanned reports as a generation error, as it did. *)
+   be scanned reports as a generation error. *)
 let tailwind_backend ~opts classes =
   reporting_errors ~what:"Error generating with Tailwind: " (fun () ->
       emit ~opts (reference_css ~opts (classes ()));
@@ -579,20 +574,18 @@ let rec watch ~always ~interval ~inputs ~build previous =
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     ~input_css ~output ~watching ~diff_mode ~html paths =
-  (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
-    | _, Diff, _ -> Variables (* Diff always uses variables mode *)
+    | _, Diff, _ -> Variables
     | _, _, `Inline -> Inline
     | _, _, `Variables -> Variables
-    | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
-    | None, _, `Default -> Variables (* files/scan default to variables *)
+    | Some _, _, `Default -> Inline
+    | None, _, `Default -> Variables
   in
-  (* Diff mode forces minified output; Cascade handles semantic comparison. *)
   let resolved_minify = match backend with Diff -> true | _ -> minify in
-  (* Build the renderer theme from the project's CSS entrypoint (its @theme), so
-     a --diff over a real repo compares against the same tokens Tailwind uses.
-     It is read again for every build, so a watch sees an edit to it. *)
+  (* The renderer theme comes from the project's entrypoint, so a [--diff] over
+     a real repo compares against the tokens Tailwind uses. It is read again for
+     every build, so a watch sees an edit to it. *)
   let load () =
     let css_content = Option.map Entrypoint.read_file input_css in
     let theme =
@@ -648,7 +641,6 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       report_failure (build ());
       watch ~always ~interval ~inputs ~build before
 
-(* Command-line arguments *)
 let single_flag =
   let doc = "Generate CSS for a single Tailwind class" in
   Arg.(
@@ -775,7 +767,6 @@ let diff_mode_arg =
   Arg.(
     value & opt mode_conv `Canonical & info [ "diff-mode" ] ~docv:"MODE" ~doc)
 
-(* Which tool generates, and how a comparison reads the two sheets. *)
 let html_arg =
   let doc =
     "With $(b,--diff), also render Tailwind's sheet and tw's over the HTML \
@@ -789,6 +780,7 @@ let html_arg =
      against that directory would be refused. [run] checks it once there. *)
   Arg.(value & opt (some string) None & info [ "html" ] ~docv:"FILE" ~doc)
 
+(* Which tool generates, and how a comparison reads the two sheets. *)
 let backend_term =
   let backend tailwind diff diff_mode html =
     match (tailwind, diff, html) with

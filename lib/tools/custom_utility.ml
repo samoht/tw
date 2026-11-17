@@ -42,19 +42,19 @@ let take_named_defs keyword css =
   in
   (css, !defs)
 
-(** The value a candidate carries: a bare word, or an arbitrary value with the
-    data-type hint it was spelled with. The modifier takes the same two shapes.
-*)
+(* The value a candidate carries: a bare word, or an arbitrary value with the
+   data-type hint it was spelled with. The modifier takes the same two
+   shapes. *)
 type candidate_value =
   | Bare of string
   | Bracketed of { hint : string option; text : string }
 
 type functional_candidate = {
-  root : string;  (** the [@utility] name without its [-*] *)
+  root : string; (* the [@utility] name without its [-*] *)
   value : candidate_value option;
   fraction : string option;
-      (** [2/3] when the value and the modifier read as one fraction, which is
-          what a [--value(ratio)] resolves against. *)
+      (* [2/3] when the value and the modifier read as one fraction, which is
+         what a [--value(ratio)] resolves against. *)
   modifier : candidate_value option;
 }
 
@@ -304,10 +304,10 @@ let theme_arg_css ~theme arg name =
           theme_token_css ~theme (entry ^ List.nth subs (List.length subs - 1))
     | _ -> None
 
+(* What one [--value(...)] or [--modifier(...)] resolved to, and whether it read
+   the candidate as a ratio. A ratio rules out the modifier and takes every
+   declaration that read the candidate as something else out of the utility. *)
 type resolution = { css : string; is_ratio : bool }
-(** What one [--value(...)] or [--modifier(...)] resolved to, and whether it
-    read the candidate as a ratio - which rules out its modifier and takes every
-    declaration that read it as something else out of the utility. *)
 
 let plain css = Some { css; is_ratio = false }
 
@@ -377,6 +377,8 @@ let resolve_read ~theme ~value ~fraction args =
   | None -> Option.bind (List.find_map default_arg args) plain
   | Some value -> List.find_map (resolve_arg ~theme ~fraction value) args
 
+(* What the whole body's reads did, which decides whether the candidate is a
+   utility at all. *)
 type read_state = {
   mutable used_value : bool;
   mutable resolved_value : bool;
@@ -384,11 +386,9 @@ type read_state = {
   mutable resolved_modifier : bool;
   mutable ratio : bool;
 }
-(** What the whole body's reads did, which is what decides whether the candidate
-    is a utility at all. *)
 
-(** A declaration once its reads are resolved: kept, dropped because a read did
-    not resolve, or kept unless a [--value(ratio)] resolved somewhere else. *)
+(* A declaration once its reads are resolved: kept, dropped because a read did
+   not resolve, or kept unless a [--value(ratio)] resolved somewhere else. *)
 type declaration_result = Keep of string | Drop | Ratio_drop of string
 
 (* Resolve every read in one declaration. A read that does not resolve takes the
@@ -444,8 +444,8 @@ let resolve_declaration ~theme ~candidate ~state text =
   else if !non_ratio then Ratio_drop (Buffer.contents buf)
   else Keep (Buffer.contents buf)
 
-(** A body read as declarations and the punctuation between them, so one whose
-    reads did not resolve can be dropped without disturbing the rest. *)
+(* A body read as declarations and the punctuation between them, so one whose
+   reads did not resolve can be dropped without disturbing the rest. *)
 type body_piece = Declaration of string | Punctuation of string
 
 (* A [;] inside a bracket group is part of the declaration around it; a [;], [{]

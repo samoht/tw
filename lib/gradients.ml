@@ -1,17 +1,3 @@
-(** Gradient utilities
-
-    What's included:
-    - `bg-linear-*` - Linear gradients by direction, angle or bracket value,
-      negated angles, and the `/<interpolation>` modifier.
-    - `bg-radial*`, `bg-conic*` - Radial and conic gradients, with an angle, a
-      bracket value or the `/<interpolation>` modifier.
-    - `bg-gradient-to-*` - The v3 spellings of the linear directions.
-    - `from-*`, `via-*`, `to-*` - Gradient colour stops, with an opacity
-      modifier, and stop positions.
-    - `via-none` - Clears the via stops.
-
-    The background colours, images and layout are in [Backgrounds]. *)
-
 module Css = Cascade.Css
 
 type direction =
@@ -45,7 +31,6 @@ module Handler = struct
       | Plain of plain * Color.opacity_modifier option
   end
 
-  (* Gradient position source *)
   (* A bracket stop position carries the author's text alongside the value it
      denotes, so the class name is spelled exactly as it was written. *)
   type gradient_position_source =
@@ -61,44 +46,27 @@ module Handler = struct
         gradient_target * string * string * Color.opacity_modifier option
     | Gradient_stop_position of gradient_target * gradient_position_source
     | Via_none (* via-none: clears the gradient's via stops *)
-    (* bg-linear-to-* direction utilities *)
     | Bg_linear_to of direction
-    (* bg-linear-to-*/interp - direction with interpolation modifier *)
     (* The author's modifier travels with the interpolation text it denotes, so
        the class name is spelled exactly as it was written. *)
     | Bg_linear_to_interp of direction * string * string
-    (* bg-linear-{angle} - linear gradient with angle *)
     | Bg_linear_angle of int
-    (* -bg-linear-{angle} - negated angle *)
     | Bg_linear_angle_neg of int
-    (* bg-linear-{angle}/interp - angle with interpolation *)
     | Bg_linear_angle_interp of int * string * string
-    (* -bg-linear-{angle}/interp *)
     | Bg_linear_angle_neg_interp of int * string * string
-    (* bg-linear-[value] - bracket linear gradient value *)
     | Bg_linear_bracket of string * string
-    (* -bg-linear-[value] - negated bracket *)
     | Bg_linear_bracket_neg of string * string
-    (* bg-conic - bare conic gradient (in oklab) *)
     | Bg_conic
-    (* bg-conic-{angle} - conic with angle, no interpolation modifier *)
     | Bg_conic_angle of int
-    (* -bg-conic-{angle} *)
     | Bg_conic_angle_neg of int
-    (* bg-conic/interp - conic gradient with interpolation *)
     | Bg_conic_interp of string * string
-    (* bg-conic-{angle}/interp - conic with angle and interpolation *)
     | Bg_conic_angle_interp of int * string * string
-    (* -bg-conic-{angle}/interp *)
     | Bg_conic_angle_neg_interp of int * string * string
     | Bg_conic_bracket of string * string
     (* -bg-conic-[value]: Tailwind writes the bracket unnegated *)
     | Bg_conic_bracket_neg of string * string
-    (* bg-radial - bare radial gradient (in oklab) *)
     | Bg_radial
-    (* bg-radial/interp - radial gradient with interpolation *)
     | Bg_radial_interp of string * string
-    (* bg-radial-[value] - bracket radial gradient value *)
     | Bg_radial_bracket of string * string
 
   let to_class (t : t) =
@@ -216,7 +184,6 @@ module Handler = struct
     | Left -> To_left
     | Bottom_left -> To_bottom_left
 
-  (** Parse a direction suffix string to a direction value *)
   let parse_direction = function
     | "b" -> Some Bottom
     | "br" -> Some Bottom_right
@@ -345,34 +312,27 @@ module Handler = struct
       ~property_order:15 ~family:`Gradient "tw-gradient-to-position"
 
   let bg_gradient_to' dir =
-    (* Set --tw-gradient-position to the typed direction with oklab
-       interpolation *)
     let dir_val = With_interpolation (to_spec dir, In (Oklab, None)) in
     let d_position = Var.set gradient_position_var dir_val in
-    (* Reference --tw-gradient-stops for linear-gradient *)
     let stops_ref = Var.reference gradient_stops_var in
     style [ d_position; Css.background_image (Linear_gradient_var stops_ref) ]
 
   (* A palette colour's value with the theme token it reads, or the value alone
      for an arbitrary colour, which has no token. *)
 
-  (** Common helper for gradient color utilities *)
   let gradient_color ?theme ~prefix ~set_var ?(shade = 500) color =
     let theme_decls, gradient_color_value =
       Color.bound_color ?theme ~shade color
     in
 
-    (* Set the appropriate gradient variable *)
     let d_var = Var.set set_var gradient_color_value in
 
-    (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
     let from_ref = Var.reference gradient_from_var in
     let from_pos_ref = Var.reference gradient_from_position_var in
     let to_ref = Var.reference gradient_to_var in
     let to_pos_ref = Var.reference gradient_to_position_var in
 
-    (* Build the fallback gradient stop list (without via) *)
     let fallback_stops : Css.gradient_stop =
       List
         [
@@ -382,11 +342,9 @@ module Handler = struct
         ]
     in
 
-    (* Handle via-specific logic *)
     let d_stops, d_via_stops_opt =
       match prefix with
       | "via-" ->
-          (* For via, build complete stop list with via in the middle *)
           let via_ref = Var.reference gradient_via_var in
           let via_pos_ref = Var.reference gradient_via_position_var in
           let via_stop_list : Css.gradient_stop =
@@ -404,7 +362,6 @@ module Handler = struct
           let d_stops_via = Var.set gradient_stops_var (Var via_stops_ref) in
           (d_stops_via, Some d_via_stops)
       | _ ->
-          (* For from/to, reference via-stops with fallback *)
           let via_stops_ref =
             Var.reference_with_fallback gradient_via_stops_var fallback_stops
           in
@@ -412,7 +369,6 @@ module Handler = struct
           (d_stops, None)
     in
 
-    (* Generate @property rules for all gradient variables *)
     let property_rules =
       [
         Var.property_rule gradient_position_var;
@@ -428,7 +384,6 @@ module Handler = struct
       |> List.filter_map Fun.id |> Css.concat
     in
 
-    (* Build declarations list *)
     let base_declarations = theme_decls @ [ d_var ] in
     let declarations =
       match d_via_stops_opt with
@@ -446,8 +401,8 @@ module Handler = struct
      initial values. *)
   let gradient_property_rules = Css.empty
 
-  (** Helper: build the 3-rule pattern for gradient direction utilities. Returns
-      [base_decl; @supports { interp_decl }; bg-image rule]. *)
+  (* Three rules: [base_decl], [@supports { interp_decl }], then the
+     background-image rule. *)
   let gradient_direction_rules ~base_decl ~interp_decl =
     let base_rule =
       Css.rule ~selector:(Css.Selector.class_ "_") [ base_decl ]
@@ -463,7 +418,6 @@ module Handler = struct
     in
     [ base_rule; supports_rule; bg_image_rule ]
 
-  (* bg-linear-to-* with @supports for color interpolation *)
   let bg_linear_to' dir =
     let dir_val = to_spec dir in
     let dir_with_interp : Css.gradient_direction =
@@ -520,12 +474,9 @@ module Handler = struct
         | Ok space -> Some (Css.In (space, None))
         | Error _ -> None)
 
-  (** Convert a decoded bracket gradient value to its CSS string. "125deg" →
-      "125deg", "1.3rad" → "74.4845deg", anything else as it is. "100grad" stays
-      "100grad": gradians are a distinct CSS angle unit from radians, even
-      though the word ends in the same three letters. Reading the value as a
-      real [<angle>] tells the two apart instead of matching on the "rad"
-      suffix, which "grad" also has. *)
+  (* "125deg" → "125deg", "1.3rad" → "74.4845deg", anything else as it is.
+     "100grad" stays "100grad": reading the value as a real [<angle>] tells
+     gradians from radians, where matching on the "rad" suffix would not. *)
   let bracket_value_to_css decoded =
     match
       Cascade.Cursor.try_parse_full_err Css.Values.read_angle
@@ -563,8 +514,6 @@ module Handler = struct
         let dir_css = Css.Pp.to_string Css.pp_gradient_direction dir_val in
         gradient_position_decl_of_string (dir_css ^ " " ^ interp_css)
 
-  (** bg-linear-to-*/interp - direction with specific interpolation. Uses 3-rule
-      pattern: base → [@supports] → bg-image. *)
   let bg_linear_to_interp' dir ci_opt interp_css =
     let dir_val = to_spec dir in
     let base_decl = Var.set gradient_position_var dir_val in
@@ -572,7 +521,6 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
-  (** [bg-linear-{angle}] with [@supports] for default oklab interpolation *)
   let bg_linear_angle' angle_deg =
     let dir_val : Css.gradient_direction =
       Angle (Deg (float_of_int angle_deg))
@@ -585,7 +533,6 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
-  (** [-bg-linear-{angle}] - negated angle with [@supports] *)
   let bg_linear_angle_neg' angle_deg =
     let angle_calc : Css.gradient_direction =
       Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
@@ -598,7 +545,6 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
-  (** [bg-linear-{angle}/interp] - angle with specific interpolation *)
   let bg_linear_angle_interp' angle_deg ci_opt interp_css =
     let dir_val : Css.gradient_direction =
       Angle (Deg (float_of_int angle_deg))
@@ -608,7 +554,6 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
-  (** [-bg-linear-{angle}/interp] *)
   let bg_linear_angle_neg_interp' angle_deg ci_opt interp_css =
     let angle_calc : Css.gradient_direction =
       Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
@@ -618,9 +563,8 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
-  (** [bg-linear-[value]] - bracket linear gradient (no [@supports]). Output:
-      [--tw-gradient-position: {value}; background-image:
-       linear-gradient(var(--tw-gradient-stops, {value}))] *)
+  (* No [@supports]: [--tw-gradient-position: {value}; background-image:
+     linear-gradient(var(--tw-gradient-stops, {value}))]. *)
   let bg_linear_position css_val =
     let position_decl = gradient_position_decl_of_string css_val in
     let stops_ref : Css.gradient_stop Css.var =
@@ -639,8 +583,6 @@ module Handler = struct
   (* Bare [bg-conic] / [bg-radial]: default to the [in oklab] interpolation, no
      angle. Mirrors the interp renderers with a fixed position. *)
 
-  (** [bg-conic/interp] - conic gradient with interpolation only (no
-      [@supports]) *)
   let bg_conic' () =
     let position_decl = gradient_position_decl_of_string "in oklab" in
     let stops_ref = Var.reference gradient_stops_var in
@@ -653,7 +595,6 @@ module Handler = struct
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Radial_gradient_var stops_ref) ]
 
-  (* [bg-conic-{angle}] - conic with angle, default [in oklab] interpolation. *)
   let bg_conic_angle' angle_deg =
     let position_css = "from " ^ string_of_int angle_deg ^ "deg in oklab" in
     let position_decl = gradient_position_decl_of_string position_css in
@@ -667,7 +608,6 @@ module Handler = struct
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
 
-  (** [bg-conic-{angle}/interp] - conic with angle and interpolation *)
   let bg_conic_angle_interp' angle_deg interp_css =
     let position_css =
       "from " ^ string_of_int angle_deg ^ "deg " ^ interp_css
@@ -677,7 +617,6 @@ module Handler = struct
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
 
-  (** [-bg-conic-{angle}/interp] *)
   let bg_conic_angle_neg_interp' angle_deg interp_css =
     let position_css =
       "from calc(" ^ string_of_int angle_deg ^ "deg * -1) " ^ interp_css
@@ -701,14 +640,12 @@ module Handler = struct
       ~metadata:[ Var.metadata gradient_position_var ]
       [ position_decl; Css.background_image (Conic_gradient_var stops_ref) ]
 
-  (** bg-radial/interp - radial gradient with interpolation *)
   let bg_radial_interp' interp_css =
     let position_decl = gradient_position_decl_of_string interp_css in
     let stops_ref = Var.reference gradient_stops_var in
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Radial_gradient_var stops_ref) ]
 
-  (** bg-radial-[value] - bracket radial gradient *)
   let bg_radial_bracket' value_str =
     let css_val = bracket_value_to_css value_str in
     let position_decl = gradient_position_decl_of_string css_val in
@@ -731,14 +668,12 @@ module Handler = struct
     let color_name = Color.scheme_color_name color shade in
     let scheme = Scheme.or_default theme in
 
-    (* Build variable references for gradient stops *)
     let position_ref = Var.reference gradient_position_var in
     let from_ref = Var.reference gradient_from_var in
     let from_pos_ref = Var.reference gradient_from_position_var in
     let to_ref = Var.reference gradient_to_var in
     let to_pos_ref = Var.reference gradient_to_position_var in
 
-    (* Build the fallback gradient stop list (without via) *)
     let fallback_stops : Css.gradient_stop =
       List
         [
@@ -748,7 +683,6 @@ module Handler = struct
         ]
     in
 
-    (* Handle via-specific logic for stops *)
     let d_stops, d_via_stops_opt =
       match prefix with
       | "via-" ->
@@ -776,7 +710,6 @@ module Handler = struct
           (d_stops, None)
     in
 
-    (* Generate @property rules *)
     let property_rules =
       [
         Var.property_rule gradient_position_var;
@@ -840,17 +773,14 @@ module Handler = struct
         let color_value, fallback_value = value_pair () in
         let d_fallback = Var.set set_var fallback_value in
 
-        (* Theme variable for @supports block *)
         let decls, color =
           Color.bound ?theme (Color.color_var color shade) color_value
         in
         let oklab_color = Color.mix_alpha opacity color in
         let d_oklab = Var.set set_var oklab_color in
 
-        (* Build @supports block with placeholder selector *)
         let supports_rule = Color.color_mix_supports (decls @ [ d_oklab ]) in
 
-        (* Build stops rule with placeholder selector (will be replaced) *)
         let stops_decls =
           match d_via_stops_opt with
           | Some d_via_stops -> [ d_via_stops; d_stops ]
@@ -860,7 +790,6 @@ module Handler = struct
           Css.rule ~selector:(Css.Selector.class_ "_") stops_decls
         in
 
-        (* Three separate rules: fallback, @supports, stops *)
         let fallback_rule =
           Css.rule ~selector:(Css.Selector.class_ "_") [ d_fallback ]
         in
@@ -868,8 +797,6 @@ module Handler = struct
           ~rules:(Some [ fallback_rule; supports_rule; stops_rule ])
           []
 
-  (** Build gradient stops declarations for a given prefix (from-/via-/to-).
-      Returns (d_stops, d_via_stops_opt) *)
   let gradient_stops_decls prefix =
     let position_ref = Var.reference gradient_position_var in
     let from_ref = Var.reference gradient_from_var in
@@ -909,7 +836,6 @@ module Handler = struct
         let d_stops = Var.set gradient_stops_var (Var via_stops_ref) in
         (d_stops, None)
 
-  (* All gradient @property rules *)
   let gradient_all_property_rules () =
     [
       Var.property_rule gradient_position_var;
@@ -924,13 +850,11 @@ module Handler = struct
     ]
     |> List.filter_map Fun.id |> Css.concat
 
-  (** Flatten stops into declaration list *)
   let stops_as_decls d_stops d_via_stops_opt =
     match d_via_stops_opt with
     | Some d_via_stops -> [ d_via_stops; d_stops ]
     | None -> [ d_stops ]
 
-  (** Gradient with a simple color value + stops (no opacity) *)
   let gradient_simple ~theme ~prefix ~set_var color_value extra_decls =
     let color_value = Color.resolve_bracket_css_color color_value in
     let d_stops, d_via_stops_opt = gradient_stops_decls prefix in
@@ -1008,13 +932,11 @@ module Handler = struct
           ~rules:(Some [ self [ d_fallback ]; supports_rule; self stops ])
           []
 
-  (** Convert gradient target to set_var and prefix *)
   let gradient_target_info = function
     | From -> ("from-", gradient_from_var, gradient_from_position_var)
     | Via -> ("via-", gradient_via_var, gradient_via_position_var)
     | To -> ("to-", gradient_to_var, gradient_to_position_var)
 
-  (* Shared @property rules for gradient positions *)
   (* A gradient stop-position utility (from-10% etc.) registers the whole
      --tw-gradient-* @property family, like the colour utilities do, matching
      Tailwind (which declares the gradient properties as a unit). *)
@@ -1032,7 +954,6 @@ module Handler = struct
     ]
     |> List.filter_map Fun.id |> Css.concat
 
-  (* Gradient position from a length_percentage value *)
   let gradient_position_style pos_var (value : Css.length_percentage) =
     let d_var = Var.set pos_var value in
     style ~property_rules:(gradient_position_property_rules ()) [ d_var ]
@@ -1061,7 +982,6 @@ module Handler = struct
     if Parse.is_var value then Some (var_ref value)
     else Parse.arbitrary_length_percentage value
 
-  (** Convert a var string to a typed CSS color value *)
   let color_var_ref v : Css.color =
     let bare = Parse.extract_var_name v in
     let vr : Css.color Css.var = Var.bracket bare in
@@ -1071,7 +991,6 @@ module Handler = struct
      reference there names a custom property, so any other spelling has to be a
      colour the reader takes. *)
 
-  (** Convert a plain colour source to a Css.color *)
   let css_color_of_plain : Color_source.plain -> Css.color = function
     | Color_source.Current -> Css.Current
     | Color_source.Inherit -> Css.Inherit
@@ -1147,8 +1066,8 @@ module Handler = struct
     | Bg_radial_interp (_, css) -> bg_radial_interp' css
     | Bg_radial_bracket (_, v) -> bg_radial_bracket' v
 
-  (** Split a string on the first '/' into (base, modifier_opt). E.g. "r/oklab"
-      → ("r", Some "oklab"), "45" → ("45", None) *)
+  (* Splits on the first '/': "r/oklab" → ("r", Some "oklab"), "45" → ("45",
+     None). *)
   let split_mod s =
     match String.index_opt s '/' with
     | Some i ->
@@ -1169,7 +1088,6 @@ module Handler = struct
     in
     let gp src = Ok (Gradient_stop_position (target, src)) in
     match rest with
-    (* Keywords *)
     | [ "current" ] -> plain Color_source.Current
     | [ current_str ] when String.starts_with ~prefix:"current/" current_str ->
         let _, opacity = Color.parse_opacity_modifier ?theme current_str in
@@ -1189,7 +1107,6 @@ module Handler = struct
         in
         match opacity_opt with
         | Color.No_opacity when Parse.is_bracket_value bracket_opacity -> (
-            (* No valid opacity found — treat as plain bracket *)
             let inner = Parse.bracket_inner bracket_opacity in
             match Color.bracket_color_hint inner with
             | Some var_str -> plain (Color_source.Bracket_color_var var_str)
@@ -1235,11 +1152,9 @@ module Handler = struct
                   | None -> Error (`Msg "Invalid gradient bracket with opacity")
                 ))
         | _ -> (
-            (* Named color with opacity *)
             match Color.shade_and_opacity_of_strings ?theme rest with
             | Ok (color, shade, opacity) -> palette ~opacity color shade
             | Error e -> Error e))
-    (* Bracket notation without opacity *)
     | [ bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         match Color.bracket_color_hint inner with
@@ -1260,12 +1175,10 @@ module Handler = struct
                   match Parse.arbitrary_declaration_value inner with
                   | Some value -> Ok (Gradient_raw (target, inner, value, None))
                   | None -> Error (`Msg "Invalid gradient stop value"))))
-    (* Named color with opacity via Color.has_opacity on rest *)
     | _ when List.exists Color.has_opacity rest -> (
         match Color.shade_and_opacity_of_strings ?theme rest with
         | Ok (color, shade, opacity) -> palette ~opacity color shade
         | Error e -> Error e)
-    (* Named color *)
     | _ -> (
         match Color.shade_of_strings ?theme rest with
         | Ok (color, shade) -> palette color shade
@@ -1278,7 +1191,6 @@ module Handler = struct
     match parts with
     | [ "bg"; "gradient"; "to"; dir ] ->
         Option.map (fun dir -> Ok (Bg_gradient_to dir)) (parse_direction dir)
-    (* bg-linear-to-* direction utilities (with optional /interp modifier) *)
     | [ "bg"; "linear"; "to"; dir_mod ] ->
         Some
           (let dir_s, interp_opt = split_mod dir_mod in
@@ -1290,13 +1202,11 @@ module Handler = struct
                | None ->
                    Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
            | None, _ -> Error (`Msg ("Unknown direction: " ^ dir_s)))
-    (* bg-linear-[value] - bracket linear gradient *)
     | [ "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         match Parse.arbitrary_declaration_value inner with
         | Some value -> Some (Ok (Bg_linear_bracket (inner, value)))
         | None -> Some (Error (`Msg ("Invalid bg-linear value: " ^ inner))))
-    (* bg-linear-{angle} and bg-linear-{angle}/interp *)
     | [ "bg"; "linear"; angle_mod ] ->
         Some
           (let angle_s, interp_opt = split_mod angle_mod in
@@ -1326,7 +1236,6 @@ module Handler = struct
            with
           | Some neg -> Ok (Bg_linear_bracket_neg (inner, neg))
           | None -> Error (`Msg ("Invalid -bg-linear bracket value: " ^ inner)))
-    (* -bg-linear-{angle} and -bg-linear-{angle}/interp *)
     | [ ""; "bg"; "linear"; angle_mod ] ->
         Some
           (let angle_s, interp_opt = split_mod angle_mod in
@@ -1338,7 +1247,6 @@ module Handler = struct
                | None ->
                    Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
            | None, _ -> Error (`Msg ("Invalid -bg-linear angle: " ^ angle_mod)))
-    (* bg-conic - bare conic gradient *)
     | [ "bg"; "conic" ] -> Some (Ok Bg_conic)
     | [ "bg"; "conic"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
@@ -1352,7 +1260,6 @@ module Handler = struct
           (match Parse.arbitrary_declaration_value inner with
           | Some value -> Ok (Bg_conic_bracket_neg (inner, value))
           | None -> Error (`Msg ("Invalid -bg-conic value: " ^ inner)))
-    (* bg-conic/interp - conic gradient with modifier only *)
     | [ "bg"; conic_mod ]
       when String.starts_with ~prefix:"conic/" conic_mod
            && String.length conic_mod > 6 ->
@@ -1361,7 +1268,6 @@ module Handler = struct
           (match interp_to_css_string interp with
           | Some css -> Ok (Bg_conic_interp (interp, css))
           | None -> Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
-    (* bg-conic-{angle} and bg-conic-{angle}/interp *)
     | [ "bg"; "conic"; angle_mod ] ->
         Some
           (let angle_s, interp_opt = split_mod angle_mod in
@@ -1373,7 +1279,6 @@ module Handler = struct
                | None ->
                    Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
            | _ -> Error (`Msg ("Invalid bg-conic angle: " ^ angle_mod)))
-    (* -bg-conic-{angle} and -bg-conic-{angle}/interp *)
     | [ ""; "bg"; "conic"; angle_mod ] ->
         Some
           (let angle_s, interp_opt = split_mod angle_mod in
@@ -1385,9 +1290,7 @@ module Handler = struct
                | None ->
                    Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
            | _ -> Error (`Msg ("Invalid -bg-conic angle: " ^ angle_mod)))
-    (* bg-radial - bare radial gradient *)
     | [ "bg"; "radial" ] -> Some (Ok Bg_radial)
-    (* bg-radial/interp - radial gradient with modifier only *)
     | [ "bg"; radial_mod ]
       when String.starts_with ~prefix:"radial/" radial_mod
            && String.length radial_mod > 7 ->
@@ -1396,7 +1299,6 @@ module Handler = struct
           (match interp_to_css_string interp with
           | Some css -> Ok (Bg_radial_interp (interp, css))
           | None -> Error (`Msg ("Invalid gradient interpolation: " ^ interp)))
-    (* bg-radial-[value] - bracket radial gradient *)
     | [ "bg"; "radial"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         match Parse.arbitrary_declaration_value inner with

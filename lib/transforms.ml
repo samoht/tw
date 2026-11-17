@@ -1,8 +1,4 @@
-(** Transform utilities for 2D and 3D transformations. *)
-
 module Css = Cascade.Css
-
-(** Error helpers. *)
 
 module Handler = struct
   open Style
@@ -66,20 +62,16 @@ module Handler = struct
        name is spelled exactly as it was written. *)
     | Perspective_origin_arbitrary of string * Css.perspective_origin
     | Perspective_origin_raw of string * string
-    | (* Transform style *)
-      Transform_style_3d
+    | Transform_style_3d
     | Transform_style_flat
-    | (* Transform box *)
-      Transform_box_border
+    | Transform_box_border
     | Transform_box_content
     | Transform_box_fill
     | Transform_box_stroke
     | Transform_box_view
-    | (* Backface visibility *)
-      Backface_visible
+    | Backface_visible
     | Backface_hidden
-    | (* Transform control *)
-      Transform
+    | Transform
     | Transform_cpu
     | Transform_none
     | Transform_gpu
@@ -111,14 +103,6 @@ module Handler = struct
         42
     | _ -> 9
 
-  (* Tailwind v4 uses rotate-x/y/z and skew-x/y variables for the transform
-     utility. These variables contain the full transform function values, e.g.:
-     --tw-rotate-x: rotateX(45deg) --tw-skew-x: skewX(10deg) *)
-  (* Property ordering to match Tailwind v4:
-     translate (0-2), scale (3-5), then other properties follow *)
-
-  (* Translate variables - use property_default pattern with initial 0 *)
-  (* Translate properties don't appear in @layer properties in standard Tailwind - only used locally *)
   let tw_translate_x_var =
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
       ~property_order:0 ~family:`Translate "tw-translate-x"
@@ -131,7 +115,7 @@ module Handler = struct
     Var.property_default Css.Length ~initial:Css.Zero ~universal:true
       ~property_order:2 ~family:`Translate "tw-translate-z"
 
-  (* Scale variables - property_order (6-8) comes after duration (5) *)
+  (* Scale's property_order (6-8) comes after duration (5). *)
   let tw_scale_x_var =
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
       ~universal:true ~property_order:6 ~family:`Scale "tw-scale-x"
@@ -144,7 +128,8 @@ module Handler = struct
     Var.property_default Css.Number_percentage ~initial:(Num 1.0)
       ~universal:true ~property_order:8 ~family:`Scale "tw-scale-z"
 
-  (* Rotate and skew properties appear FIRST in @layer properties (0-4) *)
+  (* Rotate and skew come first in [@layer properties] (0-4). Each channel holds
+     a whole transform function, such as [rotateX(45deg)]. *)
   let tw_rotate_x_var =
     Var.channel ~needs_property:true ~property_order:0 ~family:`Rotate
       Css.Transform "tw-rotate-x"
@@ -222,12 +207,9 @@ module Handler = struct
         Theme.register_default var (Css.Px px : Css.length))
       depths
 
-  (** {1 Helpers} *)
-
   let collect_property_rules vars =
     List.filter_map Var.property_rule vars |> concat
 
-  (* Property rules for rotate/skew transform chain *)
   let rotate_skew_props =
     collect_property_rules
       [
@@ -315,12 +297,11 @@ module Handler = struct
   let signed sign n = match sign with Pos -> n | Neg -> -n
   let signed_float sign f = match sign with Pos -> f | Neg -> -.f
 
-  (* Helper to create an angle with calc for negative values *)
+  (* A negative angle or percentage is written as [calc(<abs> * -1)]. *)
   let make_angle deg =
     if deg >= 0 then Deg (float_of_int deg)
     else Calc (Expr (Val (Deg (float_of_int (abs deg))), Mul, Num (-1.)))
 
-  (* Helper to create a percentage with calc for negative values *)
   let make_pct n : Css.number_percentage =
     if n >= 0 then Pct (float_of_int n)
     else Calc (Expr (Val (Pct (float_of_int (abs n))), Mul, Num (-1.)))
@@ -509,8 +490,6 @@ module Handler = struct
     | Some declaration -> style [ declaration ]
     | None -> style []
 
-  (** {1 Operation styles} *)
-
   (* The spacing step comes from [Theme], as every spacing family's does, so a
      project's [--spacing-N] token and an inline [--spacing] reach a translate
      the way they reach a padding. [calc(var(--spacing) * 0)] is zero whatever
@@ -674,8 +653,6 @@ module Handler = struct
     | Rotate, All -> rotate_style sign amount
     | (Rotate | Skew), _ -> chain_style op axis sign amount
 
-  (** {1 Perspective and origin} *)
-
   (* A project that declares [--perspective-none] chooses the length the utility
      resolves to, so read its value with the CSS length grammar, any unit
      included. A value the grammar cannot read falls back to the utility's own
@@ -805,8 +782,8 @@ module Handler = struct
        a token nothing declares. *)
     | None -> style [ perspective_origin default ]
 
-  (* Tailwind v4 uses theme variable references for origin utilities when theme
-     variables are defined. *)
+  (* Tailwind writes a theme variable reference when the project defines the
+     origin token. *)
   let origin_style ?theme position =
     let name = "transform-origin-" ^ position_name position in
     let default = transform_origin_of position in
@@ -819,14 +796,8 @@ module Handler = struct
         style [ decl; transform_origin (Var ref) ]
     | None -> style [ transform_origin default ]
 
-  (** {1 Transform Control Utilities} *)
-
-  (* Tailwind v4 transform utility uses individual rotate-x/y/z and skew-x/y
-     variables with empty fallbacks. The output is: transform:
-     var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,)
-     var(--tw-skew-x,) var(--tw-skew-y,); When a variable is set (e.g.,
-     --tw-rotate-x: rotateX(45deg)), it becomes part of the transform.
-
+  (* [transform] writes [var(--tw-rotate-x,) ... var(--tw-skew-y,)], each
+     channel with an empty fallback, so a set channel joins the transform.
      [transform-cpu] writes what [transform] writes, and [transform-gpu] adds
      translateZ(0) for GPU acceleration. The [@property] block for the five
      channels belongs to [transform] alone: Tailwind declares them there, so a
@@ -835,8 +806,6 @@ module Handler = struct
   let transform = style ~property_rules:rotate_skew_props [ rotate_skew_chain ]
   let transform_cpu = style [ rotate_skew_chain ]
   let transform_gpu = style [ transforms (Translate_z Zero :: chain_refs) ]
-
-  (** {1 Utility Conversion Functions} *)
 
   let to_style theme = function
     | Op (op, axis, sign, amount) -> op_style theme op axis sign amount
@@ -941,8 +910,6 @@ module Handler = struct
     | Transform_box_view -> 1608
     | Origin_arbitrary _ | Origin_raw _ -> 1699
     | Origin p -> 1700 + position_rank p
-
-  (** {1 Parsing Functions} *)
 
   let ( >|= ) = Parse.( >|= )
 

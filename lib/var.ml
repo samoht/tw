@@ -107,7 +107,6 @@ let metadata var =
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
-(* Create a variable template *)
 let v : type a r.
     a Css.kind ->
     ?property:a property_info ->
@@ -176,7 +175,7 @@ let string_of_kind_value : type a. a Css.kind -> a -> string =
       Css.Pp.to_string ~minify:true Css.Properties.pp_gradient_position value
   | _ -> Css.Properties.string_of_kind_value kind value
 
-(* Helper to create @property with correct syntax based on kind *)
+(* The [@property] syntax follows the kind. *)
 let property_universal : type a.
     name:string -> a Css.kind -> a option -> inherits:bool -> Css.t =
  fun ~name kind initial ~inherits ->
@@ -246,7 +245,6 @@ let property_rule_of_metadata (Info info) =
 let property_rule_of_var var =
   Option.bind (metadata_of_var var) property_rule_of_metadata
 
-(* Get @property rule if metadata present *)
 let property_rule : type a r. (a, r) t -> Css.t option =
  fun var ->
   match var.role with
@@ -272,8 +270,6 @@ let property_rules : type a. (a, [< `Property_default ]) t -> Css.t =
           metadata with an initial value.")
   | Some r -> r
 
-(* Create a binding: returns both declaration and a context-aware var
-   reference *)
 let binding var ?fallback value = var.binding ?fallback value
 let set var value = fst (var.binding value)
 
@@ -328,8 +324,8 @@ let reference_with_var_fallback : type a.
     (a, [< `Channel ]) t -> (a, [< `Theme ]) t -> a -> a Css.var =
  fun channel_var theme_var _dummy_value ->
   let fallback_name = theme_var.name in
-  (* Create a var reference directly without going through binding, to avoid
-     adding property metadata that would trigger @property rules *)
+  (* A reference built here, not through [binding], carries no property
+     metadata, so it triggers no [@property] rule. *)
   Css.var_ref ~fallback:(Css.Var_fallback fallback_name) channel_var.name
 
 let theme_ref : type a. ?default:a -> ?default_css:string -> string -> a Css.var

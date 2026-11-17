@@ -1,12 +1,9 @@
-(** Container query utilities for responsive design based on container size. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
   open Style
   open Css
 
-  (** Local container utility type *)
   type t =
     | Layout_container (* .container - layout container with width:100% *)
     | Container (* @container - sets container-type: inline-size *)
@@ -134,7 +131,6 @@ module Utility_factory = Utility.Make (Handler)
 
 let utility = Utility_factory.v
 
-(** Container Query Modifiers *)
 let container_sm styles =
   Utility.Modified (Container Container_sm, Utility.Group styles)
 
@@ -163,8 +159,6 @@ let container = utility Layout_container
 let at_container = utility Container
 let at_container_normal = utility Container_normal
 let at_container_named name = utility (Container_named name)
-
-(** Helper Functions *)
 
 (* Tailwind v4 container-query thresholds (rem) for the named size scale. *)
 let container_size_rem = function
@@ -215,7 +209,6 @@ let container_size_length ?(theme = Scheme.default) q =
   | Some _ as len -> len
   | None -> default (container_size_rem q)
 
-(** Convert a container query modifier to a structured Container.t condition *)
 let rec container_query_to_condition ?theme q =
   let geq len = width_range Css.Media.Ge len in
   let sized q =

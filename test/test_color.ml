@@ -1,5 +1,3 @@
-(** Tests for the colour utilities. *)
-
 module Css = Cascade.Css
 
 let test_oklch_css_formatting () =
@@ -16,21 +14,16 @@ let test_oklch_css_formatting () =
   pp 100.0 0.4 360.0 "oklch(100% .4 360)"
 
 let test_css_mode_with_colors () =
-  (* Test that color utilities work correctly with different CSS modes *)
   let open Tw in
-  (* Generate CSS from color utilities *)
   let styles = [ bg blue; text red ] in
   let css = to_css styles in
   let css_string = Css.to_string css in
-
-  (* Debug: print CSS and class names *)
   Fmt.epr "bg_blue class: '%s'\n" (Tw.to_classes [ bg blue ]);
   Fmt.epr "text_red class: '%s'\n" (Tw.to_classes [ text red ]);
   Fmt.epr "Generated CSS:\n%s\n" css_string;
 
-  (* Test that Variables mode is the default and uses CSS variables *)
-  (* One rule per utility and nothing else: a search for ".bg-blue-500"
-     anywhere in the text would also match ".bg-blue-500\\/50". *)
+  (* One rule per utility and nothing else: a search for ".bg-blue-500" anywhere
+     in the text would also match ".bg-blue-500\\/50". *)
   Alcotest.(check (list string))
     "one rule per utility"
     [ ".bg-blue-500"; ".text-red-500" ]
@@ -791,7 +784,6 @@ let test_removed_palette_namespace_rejected () =
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "text-brand was rejected: %s" m
 
-(* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
    the same but folds to a plain hex, which pins the hue that interpolation is
    meant to take from the other colour. *)

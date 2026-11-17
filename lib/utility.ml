@@ -1,22 +1,12 @@
-(** Utility module for common utility types and functions *)
-
 type base = ..
 
 type t =
   | Base of base
   | Modified of Style.modifier * t
   | Group of t list
-  | Important of bool * t  (** [bool] is [true] for the v4 trailing [!] form. *)
+  | Important of bool * t
   | Aliased of string * t
-      (** [Aliased (class_name, u)] renders as [u] but reports [class_name] from
-          {!to_class}, so the emitted selector matches the source spelling. Used
-          for the [prop-(--x)] shorthand, which is [prop-[var(--x)]] in value
-          but keeps its own class name. *)
   | Theme_bound of Cascade.Css.declaration list * t
-      (** [Theme_bound (decls, u)] renders as [u] with [decls] alongside its own
-          declarations. Carries the [\@layer theme] binding of a token a
-          [theme(--x)] read: resolving the reference does not consume the token,
-          so Tailwind writes the binding as well. *)
 
 let base x = Base x
 let important ?(suffix = false) x = Important (suffix, x)
@@ -25,7 +15,6 @@ let alias class_name u = Aliased (class_name, u)
 let theme_bound decls u =
   match decls with [] -> u | _ -> Theme_bound (decls, u)
 
-(* See the .mli. *)
 module Property_order = struct
   let width = 1000
   let slot rank = width * rank
@@ -242,7 +231,6 @@ let base_of_class theme class_name =
   in
   try_handlers (handlers_snapshot ())
 
-(* Every utility each handler offers as its own example, as class names. *)
 let examples_classes () =
   List.concat_map
     (fun (H (module M)) -> List.map M.to_class M.examples)

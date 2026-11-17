@@ -361,7 +361,7 @@ let test_arbitrary_filter_chain () =
   filters "filter-[blur(4px)_saturate(150%)]" "blur(4px) saturate(150%)";
   backdrop_filters "backdrop-filter-[blur(4px)_saturate(150%)]"
     "blur(4px) saturate(150%)";
-  (* single-function and var() forms are unchanged *)
+  (* single-function and var() forms *)
   filters "filter-[blur(4px)]" "blur(4px)";
   filters "filter-[var(--my-filter)]" "var(--my-filter)";
   backdrop_filters "backdrop-filter-[blur(4px)]" "blur(4px)";

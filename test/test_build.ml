@@ -8,15 +8,13 @@ open Tw.Position
 open Tw.Modifiers
 open Test_helpers
 
-(* ===== Tests ===== *)
-
 let check_theme_layer_empty () =
   let default_decls =
     Tw.Typography.default_font_declarations
     @ Tw.Typography.default_font_family_declarations
   in
   let theme_layer = Tw.Build.theme_layer_of ~default_decls [] in
-  (* Should include font variables even for empty input *)
+  (* the font variables are declared even for empty input *)
   let vars = vars_in_layer "theme" theme_layer in
   check bool "includes --font-sans" true (List.mem "--font-sans" vars);
   check bool "includes --font-mono" true (List.mem "--font-mono" vars);
@@ -31,10 +29,8 @@ let check_theme_layer_with_color () =
     @ Tw.Typography.default_font_family_declarations
   in
   let theme_layer = Tw.Build.theme_layer_of ~default_decls [ bg blue ] in
-  (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true
     (has_var_in_layer "--color-blue-500" "theme" theme_layer);
-  (* Should still include font variables *)
   check bool "includes --font-sans" true
     (has_var_in_layer "--font-sans" "theme" theme_layer)
 
@@ -63,18 +59,10 @@ let check_order_under_project_theme () =
     (position ".\\!bg-brand{" < position ".p-4{")
 
 let check_properties_layer () =
-  (* Test that shadow utilities generate proper @layer properties with initial
-     values *)
   let config = { Tw.Build.base = false; forms = None; layers = true } in
   let actual_css = Tw.Build.to_css ~config [ Tw.Effects.shadow_sm ] in
-
-  (* Verify properties layer exists *)
   check bool "has properties layer" true (has_layer "properties" actual_css);
-
-  (* Extract custom property declarations from properties layer *)
   let vars = vars_in_layer "properties" actual_css in
-
-  (* Verify expected shadow variables are present *)
   check bool "has --tw-shadow" true (List.mem "--tw-shadow" vars);
   check bool "has --tw-shadow-alpha" true (List.mem "--tw-shadow-alpha" vars);
   check bool "has --tw-ring-offset-color" true
@@ -115,7 +103,6 @@ let check_css_variables_with_base () =
   check bool "has theme layer" true (has_layer "theme" css);
   check bool "has base layer" true (has_layer "base" css);
   check bool "has utilities layer" true (has_layer "utilities" css);
-  (* Check base layer contains reset selectors *)
   let base_selectors = selectors_in_layer "base" css in
   check bool "base has universal reset" true
     (List.mem "*, ::after, ::before, ::backdrop" base_selectors)
@@ -161,11 +148,6 @@ let check_inline_style () =
   check bool "has background-color" true
     (inline_has_property "background-color" style)
 
-(* ---------------------------------------------------------------------- *)
-(* Ordering tests for layers and properties/@property emission (AST-based) *)
-(* ---------------------------------------------------------------------- *)
-
-(* Short, reusable helpers *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
   let sheet =
     Tw.Build.to_css
@@ -220,7 +202,7 @@ let rec is_prefix pre lst =
 let or_fail msg = function Some x -> x | None -> fail msg
 
 let check_layer_declaration_and_ordering () =
-  (* Use a utility that triggers properties + @property rules *)
+  (* shadow-sm sets variables, so the sheet has a properties layer *)
   let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
   let expected = [ "properties"; "theme"; "components"; "utilities" ] in
   let layer_names =
@@ -361,18 +343,17 @@ let check_content_none_no_property () =
     (List.mem "--tw-content" value_names)
 
 let test_inline_no_vars_defaults () =
-  (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
-     rounded_sm which sets a default on its CSS var. *)
+  (* Inline mode resolves defaults and emits no var(--...). rounded_sm sets a
+     default on its CSS var. *)
   let config = { Tw.Build.base = false; forms = None; layers = true } in
   let sheet =
     Tw.Build.to_css ~config [ Tw.Borders.rounded_sm ] |> Css.inline_vars
   in
-  (* Find first rule with declarations using fold *)
   let find_first_decls css =
     Css.fold
       (fun acc stmt ->
         match (acc, Css.as_rule stmt) with
-        | Some _, _ -> acc (* already found *)
+        | Some _, _ -> acc
         | None, Some (_, decls, _) when List.length decls > 0 -> Some decls
         | None, _ -> None)
       None css
@@ -383,7 +364,6 @@ let test_inline_no_vars_defaults () =
   | Some declarations ->
       check bool "no Var in declarations" false
         (has_var_in_declarations ~inline:true declarations);
-      (* Check border-radius property exists *)
       let has_border_radius =
         List.exists
           (fun decl -> Css.declaration_name decl = "border-radius")
@@ -392,7 +372,6 @@ let test_inline_no_vars_defaults () =
       check bool "has border-radius" true has_border_radius
 
 let test_inline_style_no_vars () =
-  (* Directly build a declaration with a defaulted var and inline it. *)
   let _, radius_var = Css.var "radius-md" Css.Length (Css.Rem 0.5) in
   let decls =
     [
@@ -404,8 +383,6 @@ let test_inline_style_no_vars () =
   let inline = Css.inline_style_of_declarations ~mode:Css.Inline decls in
   check bool "inline: border-radius present" true
     (inline_has_property "border-radius" inline);
-  (* Verify no var() in output - this requires checking string since inline is
-     string *)
   check bool "inline: no var() in string" false
     (String.contains inline '(' && String.contains inline ')'
     &&
@@ -429,7 +406,6 @@ let test_inline_vs_variables_diff () =
       [ p 4 ]
     |> Css.inline_vars
   in
-  (* Extract all declarations using fold *)
   let extract_decls css =
     Css.fold
       (fun acc stmt ->
@@ -520,7 +496,6 @@ let test_theme_layer_media_refs () =
     |> Option.map Css.custom_props_of_rules
     |> Option.value ~default:[]
   in
-  (* Check for exact variable name matches *)
   check bool "includes --text-xl var" true
     (List.exists (fun v -> v = "--text-xl") all_vars);
   check bool "includes --text-xl--line-height var" true
@@ -581,14 +556,11 @@ let test_theme_media_refs_md () =
     (List.exists (fun v -> v = "--text-xl--line-height") all_vars)
 
 let test_rule_sets_hover_media () =
-  (* A bare hover utility produces a rule that should be gated behind
-     (hover:hover) *)
+  (* A bare hover utility's rule is gated behind (hover:hover). *)
   let config = { Tw.Build.base = false; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ hover [ p 4 ] ] in
-  (* Check for exact media condition *)
   check bool "has (hover:hover) media query" true
     (has_media_condition "(hover: hover)" css);
-  (* Extract selectors from within the (hover:hover) media query *)
   let selectors = selectors_in_media_sel ~condition:"(hover: hover)" css in
   let expected =
     Css.Selector.compound
@@ -615,8 +587,6 @@ let test_rule_sets_md_media () =
     |> List.length
   in
   check int "one consecutive md media block" 1 md_blocks;
-
-  (* Collect the md media block and verify both selectors remain under md. *)
   let selectors =
     Css.fold
       (fun acc stmt ->
@@ -646,12 +616,10 @@ let test_media_grouping_order () =
   let css =
     Tw.Build.to_css [ sm [ p 2 ]; md [ m 4 ]; lg [ Tw.Typography.text_xl ] ]
   in
-  (* Conditions present and in order *)
   let conditions = media_conditions css in
   check (list string) "media conditions order"
     [ "(min-width: 40rem)"; "(min-width: 48rem)"; "(min-width: 64rem)" ]
     conditions;
-  (* Each block contains only its selectors *)
   let sm_sels = selectors_in_media_sel ~condition:"(min-width: 40rem)" css in
   let md_sels = selectors_in_media_sel ~condition:"(min-width: 48rem)" css in
   let lg_sels = selectors_in_media_sel ~condition:"(min-width: 64rem)" css in
@@ -737,9 +705,7 @@ let test_container_and_media () =
   let statements =
     Tw.Build.rule_sets [ Tw.Containers.container_md [ p 4 ]; md [ m 2 ] ]
   in
-  (* Check that we have some statements *)
   check bool "has statements" true (List.length statements > 0);
-  (* Check that we have both media and container queries in the output *)
   let has_media =
     List.exists
       (fun stmt ->
@@ -873,9 +839,7 @@ let test_container_merge_keeps_conditions_apart () =
 
 let test_rule_sets () =
   let statements = Tw.Build.rule_sets [ p 4; sm [ m 2 ] ] in
-  (* Check that we have statements *)
   check bool "has statements" true (List.length statements > 0);
-  (* Check for media queries *)
   let has_media =
     List.exists
       (fun stmt ->
@@ -883,7 +847,6 @@ let test_rule_sets () =
       statements
   in
   check bool "has media queries" true has_media;
-  (* Check no container queries *)
   let has_container =
     List.exists
       (fun stmt ->
@@ -904,7 +867,6 @@ let test_build_utilities_layer () =
     ]
   in
   let layer = Tw.Build.utilities_layer ~layers:true ~statements in
-  (* Check for utilities layer and selectors *)
   check bool "creates utilities layer" true (has_layer "utilities" layer);
   check bool "includes padding rule" true
     (has_selector_in_layer ".p-4" "utilities" layer);
@@ -912,7 +874,7 @@ let test_build_utilities_layer () =
     (has_selector_in_layer ".m-2" "utilities" layer)
 
 let test_build_utils_layer_order () =
-  (* Test that build_utilities_layer preserves rule order and doesn't sort *)
+  (* [utilities_layer] keeps the order it is given; it does not sort. *)
   let statements =
     [
       Css.rule ~selector:(Css.Selector.class_ "a")
@@ -927,27 +889,20 @@ let test_build_utils_layer_order () =
   in
   let layer = Tw.Build.utilities_layer ~layers:true ~statements in
   let css = Css.to_string ~minify:true layer in
-
-  (* Find positions of each rule in the output *)
   let find_position selector =
     match Astring.String.find_sub ~sub:selector css with
     | None -> -1
     | Some pos -> pos
   in
-
   let pos_a1 = find_position ".a{color" in
   let pos_b = find_position ".b{" in
   let pos_c = find_position ".c{" in
   let pos_a2 = find_position ".a{background" in
   let pos_d = find_position ".d{" in
-
-  (* Check that original order is preserved *)
   check bool "first .a before .b" true (pos_a1 < pos_b);
   check bool ".b before .c" true (pos_b < pos_c);
   check bool ".c before second .a" true (pos_c < pos_a2);
   check bool "second .a before .d" true (pos_a2 < pos_d);
-
-  (* Most importantly: the two .a rules should NOT be adjacent *)
   check bool "two .a rules are not adjacent" true
     (pos_b > pos_a1 && pos_b < pos_a2)
 
@@ -980,8 +935,7 @@ let test_extra_keeps_plain_order () =
   check bool "flex before table" true (flex < table)
 
 let test_style_rules_props () =
-  (* Test that when a Style has both props and rules, the props are placed after
-     the rules *)
+  (* A style with both props and rules places the props after the rules. *)
   let open Css in
   let open Css.Selector in
   let test_class = class_ "test" in
@@ -1000,7 +954,6 @@ let test_style_rules_props () =
   let props = [ color (Css.hex "#ff0000") ] in
 
   let style = Tw.Style.style ~rules:(Some custom_rules) props in
-  (* Create a test utility that wraps the style and provides the class name *)
   let module TestHandler = struct
     type t = Test
 
@@ -1015,11 +968,7 @@ let test_style_rules_props () =
   let module TestUtility = Tw.Utility.Make (TestHandler) in
   let test_utility = TestUtility.v TestHandler.Test in
   let extracted = Tw.Rule.outputs test_utility in
-
-  (* Should generate rules in order: custom rules first, then base props *)
   check int "correct number of rules" 3 (List.length extracted);
-
-  (* Check that the base props come last *)
   let selectors =
     List.map
       (fun r ->
@@ -1028,8 +977,6 @@ let test_style_rules_props () =
         | _ -> "")
       extracted
   in
-
-  (* First two should be the custom rules, last should be the base class *)
   check string "first rule selector" ".test :where(p)" (List.nth selectors 0);
   check string "second rule selector" ".test :where(div)" (List.nth selectors 1);
   check string "last rule selector" ".test" (List.nth selectors 2)
@@ -1046,21 +993,11 @@ let test_property_default_rule_is_automatic () =
        css)
 
 let test_media_query_deduplication () =
-  (* Test that media queries preserve cascade order.
-   *
-   * Container Tw.Rule.outputs separate @media blocks for each breakpoint.
-   * md:grid-cols-2 also gets a @media block for its breakpoint.
-   * At 48rem we expect 2 media queries: one for container, one for md:grid-cols-2.
-   *
-   * Example output:
-   *   .container { width: 100% }
-   *   @media (min-width:768px) { .container { max-width: 48rem } }
-   *   @media (min-width:768px) { .md\:grid-cols-2 { ... } }
-   *)
+  (* Media queries preserve cascade order: [container] writes its own @media
+     block per breakpoint and md:grid-cols-2 writes another, so at 48rem there
+     are two top-level blocks, not one merged block. *)
   let utilities = Tw.[ container; md [ grid_cols 2 ] ] in
   let css = Tw.to_css ~base:false utilities in
-
-  (* Count top-level media queries in layers *)
   let rec count_toplevel_media condition stmt =
     match Tw.Css.as_media stmt with
     | Some (cond, _) -> if Tw.Css.Media.equal cond condition then 1 else 0
@@ -1078,9 +1015,6 @@ let test_media_query_deduplication () =
          (count_toplevel_media (Tw.Css.media_min_width_length (Tw.Css.Rem 48.)))
          (Tw.Css.statements css))
   in
-
-  (* Should have 2 top-level media queries at 768px: one for container, one for
-     md:grid-cols-2 *)
   Alcotest.(check int)
     "preserves cascade with nested and top-level media" 2 count_768px
 

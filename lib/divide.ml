@@ -1,8 +1,3 @@
-(** Divide utilities for creating gaps between child elements
-
-    @see <https://tailwindcss.com/docs/divide-width>
-      Tailwind CSS Divide Width documentation *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -53,8 +48,6 @@ module Handler = struct
      layer. Borders declares it; reading its handle here is what keeps the two
      families pointing at the same declaration. *)
   let border_style_var = Borders.border_style_var
-
-  (* {2 Divide Width Utilities} *)
 
   let divide_x_width_style ~class_name ~(width : Css.border_width) =
     let selector =
@@ -189,7 +182,6 @@ module Handler = struct
       in
       style ~rules:(Some [ rule ]) ~property_rules []
 
-  (* divide-x-reverse utility sets --tw-divide-x-reverse: 1 on children *)
   let divide_x_reverse_style () =
     let selector =
       Css.Selector.(where [ class_ "divide-x-reverse" >> not [ Last_child ] ])
@@ -201,7 +193,6 @@ module Handler = struct
     let rule = Css.rule ~selector [ decl ] in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
-  (* divide-y-reverse utility sets --tw-divide-y-reverse: 1 on children *)
   let divide_y_reverse_style () =
     let selector =
       Css.Selector.(where [ class_ "divide-y-reverse" >> not [ Last_child ] ])
@@ -219,9 +210,6 @@ module Handler = struct
     Css.Selector.(
       where [ Combined (Class class_name, Child, Not [ Last_child ]) ])
 
-  (* Divide color utilities use nested rules with :where(.divide-X >
-     :not(:last-child)) We construct the full class name in the selector like
-     space-x-reverse does. *)
   let divide_color_style ?theme color shade =
     let class_name =
       if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
@@ -348,7 +336,6 @@ module Handler = struct
     let rule = Css.rule ~selector [ decl; Css.border_style bs ] in
     style ~rules:(Some [ rule ]) []
 
-  (* Divide color with opacity using Color helpers *)
   let divide_color_opacity_style ?theme color shade opacity =
     let base_class_name =
       if Color.is_shadeless color then "divide-" ^ Color.color_to_string color
@@ -460,7 +447,8 @@ module Handler = struct
     | Y_arb _ -> 63_998
     | Y_reverse -> 64_000
     | Line_style _ -> 65_000
-    (* All divide color utilities use flat suborder for natural sort *)
+    (* Every divide colour shares one suborder, so the class names settle the
+       order. *)
     | Named_color _ | Named_color_opacity _ -> 66_000
     | Bracket_color _ | Bracket_color_opacity _ | Raw_color _ -> 66_000
     | Current | Current_opacity _ -> 66_000
@@ -570,7 +558,6 @@ module Handler = struct
         | Ok (color, shade, opacity) ->
             Ok (Named_color_opacity (color, shade, opacity))
         | Error _ ->
-            (* Try as theme-named color *)
             let name = String.concat "-" color_parts in
             let base, opacity = Color.parse_opacity_modifier ~theme name in
             if
@@ -583,8 +570,8 @@ module Handler = struct
         match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Named_color (color, shade))
         | Error _ ->
-            (* Try as theme-named color - check both generic and property-scoped
-               theme values *)
+            (* A project colour, from the generic or the property-scoped
+               token. *)
             let name = String.concat "-" color_parts in
             if
               Scheme.theme_value (Some theme) ("color-" ^ name) <> None
@@ -603,9 +590,6 @@ module Utility_factory = Utility.Make (Handler)
 let utility = Utility_factory.v
 let divide_x_reverse = utility X_reverse
 let divide_y_reverse = utility Y_reverse
-
-(** {1 Divide Width Utilities} *)
-
 let divide_x n = utility (X n)
 let divide_y n = utility (Y n)
 
@@ -620,8 +604,6 @@ let divide_x_length w =
 let divide_y_length w =
   utility (Y_arb (bracket_spelling ~name:"divide_y_length" w, `Width w))
 
-(** {1 Divide Colour Utilities} *)
-
 let divide_color ?opacity ?(shade = 500) color =
   Color.check_shade ~utility:"divide_color" color shade;
   match opacity with
@@ -632,7 +614,4 @@ let divide_color ?opacity ?(shade = 500) color =
 let divide_transparent = utility Transparent
 let divide_current = utility Current
 let divide_inherit = utility Inherit
-
-(** {1 Divide Style Utilities} *)
-
 let divide_style s = utility (Line_style s)

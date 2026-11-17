@@ -1,11 +1,3 @@
-(** Mask gradient utilities for creating gradient masks.
-
-    Provides utilities for mask-t-from-*, mask-t-to-*, mask-r-from-*,
-    mask-r-to-*, mask-b-from-*, mask-b-to-*, mask-l-from-*, mask-l-to-*,
-    mask-x-from-*, mask-x-to-*, mask-y-from-*, mask-y-to-*, mask-linear-from-*,
-    mask-linear-to-*, mask-radial-*, mask-radial-from-*, mask-radial-to-*,
-    mask-conic-from-*, mask-conic-to-*. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -105,7 +97,6 @@ module Handler = struct
         [ decl ]
     | Percent _ | Arbitrary _ -> []
 
-  (* Common mask image using List of three var references *)
   let mask_image_list : background_image =
     List
       [
@@ -228,8 +219,6 @@ module Handler = struct
   (* Reading a mask variable. The [@property] rule gives it an initial value, so
      the reference needs no fallback of its own. *)
   let read v initial = snd (Var.binding v initial)
-
-  (* Writing one. *)
   let set v value = Var.set v value
 
   (* The two stops a mask gradient runs between. *)
@@ -311,7 +300,6 @@ module Handler = struct
     let decl, stops_ref = Var.binding radial_stops_var radial_stops in
     [ decl; set radial_vars.slot (Radial_gradient_var stops_ref) ]
 
-  (* Common composite declarations *)
   let composite_decls =
     [
       webkit_mask_composite Source_in;
@@ -319,7 +307,6 @@ module Handler = struct
       mask_composite Intersect;
     ]
 
-  (* Helper to create mask-image declarations using typed functions *)
   let mask_image_decls =
     [
       webkit_mask_image mask_image_list;
@@ -327,13 +314,11 @@ module Handler = struct
       mask_image mask_image_list;
     ]
 
-  (* @property rule helpers. *)
   let prop ?(order = 100) name initial =
     let _ = order in
     property ~name:("--tw-mask-" ^ name) Universal ~initial_value:initial
       ~inherits:false ()
 
-  (* Common @property rules for mask-image vars *)
   let common_property_rules =
     concat
       [
@@ -342,7 +327,6 @@ module Handler = struct
         prop ~order:57 "conic" "linear-gradient(#fff, #fff)";
       ]
 
-  (* @property rules for directional gradient vars (left, right, bottom, top) *)
   let directional_gradient_property_rules =
     concat
       [
@@ -500,11 +484,9 @@ module Handler = struct
         | Some lp -> set var lp
         | None -> custom_property ~layer:"utilities" (Var.css_name var) value)
 
-  (* Build the style for a directional mask position *)
   let build_directional_style ?theme dir pos_end value =
     let property_rules = property_rules_for_direction dir in
 
-    (* Common declarations for all directional masks *)
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
       @ [
@@ -515,7 +497,6 @@ module Handler = struct
     in
     style ~property_rules (common_decls @ composite_decls)
 
-  (* Build the style for mask-x (both left and right) *)
   let build_x_style ?theme pos_end value =
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
@@ -530,7 +511,6 @@ module Handler = struct
     in
     style ~property_rules:x_property_rules (common_decls @ composite_decls)
 
-  (* Build the style for mask-y (both top and bottom) *)
   let build_y_style ?theme pos_end value =
     let common_decls =
       spacing_theme_decl value @ mask_image_decls
@@ -545,7 +525,6 @@ module Handler = struct
     in
     style ~property_rules:y_property_rules (common_decls @ composite_decls)
 
-  (* Build the style for mask-linear (generic linear gradient) *)
   let build_linear_style ?theme pos_end value =
     let common_decls =
       spacing_theme_decl value @ mask_image_decls @ linear_stops_decls
@@ -553,7 +532,6 @@ module Handler = struct
     in
     style ~property_rules:linear_property_rules (common_decls @ composite_decls)
 
-  (* Build the style for mask-radial position *)
   let build_radial_style ?theme pos_end value =
     let common_decls =
       spacing_theme_decl value @ mask_image_decls @ radial_stops_decls
@@ -561,8 +539,7 @@ module Handler = struct
     in
     style ~property_rules:radial_property_rules (common_decls @ composite_decls)
 
-  (* Build the style for mask-radial (no position) - produces no output in
-     Tailwind *)
+  (* A bare [mask-radial] writes nothing in Tailwind. *)
   let build_radial_base_style = style []
 
   (* An arbitrary [mask-radial-at-[30%_30%]] is a position value, so it goes
@@ -604,7 +581,6 @@ module Handler = struct
               s;
           ]
 
-  (* Build the style for mask-circle/mask-ellipse *)
   let build_radial_shape_style (shape : radial_shape) =
     let shape : Css.radial_shape =
       match shape with Circle -> Circle | Ellipse -> Ellipse
@@ -634,7 +610,6 @@ module Handler = struct
     | None ->
         custom_property ~layer:"utilities" (Var.css_name radial_size_var) s
 
-  (* Build the style for mask-radial size keywords and arbitrary sizes *)
   let build_radial_size_style (size : radial_size) =
     let size_decl =
       match size with
@@ -666,7 +641,6 @@ module Handler = struct
           (common_decls @ composite_decls)
     | _ -> style [ size_decl ]
 
-  (* Build the style for mask-conic position *)
   let build_conic_style ?theme pos_end value =
     let common_decls =
       spacing_theme_decl value @ mask_image_decls @ conic_stops_decls
@@ -773,7 +747,6 @@ module Handler = struct
     in
     mask_image_decls @ linear_decl @ dir_decls
 
-  (* Build the style for parenthesized var reference setting position *)
   let build_var_ref_style dir pos_end name =
     let property_rules = property_rules_for_direction dir in
     let merge_key =
@@ -1152,7 +1125,6 @@ module Handler = struct
               (fun v -> Position (dir, pos_end, v))
               (bare_position base))
 
-  (* Parse directional from/to with support for values and paren refs *)
   let parse_directional ~theme dir pos_end rest =
     let base, opacity =
       Color.parse_opacity_modifier ~theme (String.concat "-" rest)
@@ -1194,37 +1166,30 @@ module Handler = struct
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    (* mask-t-from-*, mask-t-to-* *)
     | "mask" :: "t" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Top From rest
     | "mask" :: "t" :: "to" :: rest when rest <> [] ->
         parse_directional ~theme Top To rest
-    (* mask-r-from-*, mask-r-to-* *)
     | "mask" :: "r" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Right From rest
     | "mask" :: "r" :: "to" :: rest when rest <> [] ->
         parse_directional ~theme Right To rest
-    (* mask-b-from-*, mask-b-to-* *)
     | "mask" :: "b" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Bottom From rest
     | "mask" :: "b" :: "to" :: rest when rest <> [] ->
         parse_directional ~theme Bottom To rest
-    (* mask-l-from-*, mask-l-to-* *)
     | "mask" :: "l" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Left From rest
     | "mask" :: "l" :: "to" :: rest when rest <> [] ->
         parse_directional ~theme Left To rest
-    (* mask-x-from-*, mask-x-to-* *)
     | "mask" :: "x" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme X From rest
     | "mask" :: "x" :: "to" :: rest when rest <> [] ->
         parse_directional ~theme X To rest
-    (* mask-y-from-*, mask-y-to-* *)
     | "mask" :: "y" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Y From rest
     | "mask" :: "y" :: "to" :: rest when rest <> [] ->
         parse_directional ~theme Y To rest
-    (* mask-linear-from-*, mask-linear-to-* *)
     | "mask" :: "linear" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Linear From rest
     | "mask" :: "linear" :: "to" :: rest when rest <> [] ->
@@ -1245,12 +1210,9 @@ module Handler = struct
           match Parse.decimal_int n with
           | Some i -> Ok (Linear_angle (Int (-i)))
           | None -> Error (`Msg "Invalid negative mask-linear angle value"))
-    (* mask-radial *)
     | [ "mask"; "radial" ] -> Ok Radial
-    (* mask-radial-at-* *)
     | "mask" :: "radial" :: "at" :: rest when rest <> [] ->
         let position = String.concat " " rest in
-        (* Handle arbitrary values - strip brackets *)
         if Parse.is_bracket_value position then
           let inner = Parse.bracket_inner position in
           (* The channel is this family's longhand, so a bracket no position
@@ -1260,8 +1222,6 @@ module Handler = struct
             Error (`Msg ("Invalid mask-radial-at position: " ^ position))
           else Ok (Radial_at (Bracket inner))
         else
-          (* Validate keyword positions: top, bottom, left, right, center and
-             combinations *)
           let is_valid_keyword =
             List.for_all
               (fun w ->
@@ -1270,12 +1230,10 @@ module Handler = struct
           in
           if is_valid_keyword then Ok (Radial_at (Keyword position))
           else Error (`Msg ("Invalid mask-radial-at position: " ^ position))
-    (* mask-radial-from-*, mask-radial-to-* *)
     | "mask" :: "radial" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Radial From rest
     | "mask" :: "radial" :: "to" :: rest when rest <> [] ->
         parse_directional ~theme Radial To rest
-    (* mask-conic-from-*, mask-conic-to-* *)
     | "mask" :: "conic" :: "from" :: rest when rest <> [] ->
         parse_directional ~theme Conic From rest
     | "mask" :: "conic" :: "to" :: rest when rest <> [] ->
@@ -1296,17 +1254,14 @@ module Handler = struct
           match Parse.decimal_int n with
           | Some i -> Ok (Conic_angle (Int (-i)))
           | None -> Error (`Msg "Invalid negative mask-conic angle value"))
-    (* mask-circle, mask-ellipse *)
     | [ "mask"; "circle" ] -> Ok (Radial_shape Circle)
     | [ "mask"; "ellipse" ] -> Ok (Radial_shape Ellipse)
-    (* mask-radial size keywords *)
     | [ "mask"; "radial"; "closest"; "corner" ] ->
         Ok (Radial_size Closest_corner)
     | [ "mask"; "radial"; "closest"; "side" ] -> Ok (Radial_size Closest_side)
     | [ "mask"; "radial"; "farthest"; "corner" ] ->
         Ok (Radial_size Farthest_corner)
     | [ "mask"; "radial"; "farthest"; "side" ] -> Ok (Radial_size Farthest_side)
-    (* mask-radial-[size] - arbitrary size *)
     | [ "mask"; "radial"; arb ] when Parse.is_bracket_value arb ->
         let inner = Parse.bracket_inner arb in
         if Parse.arbitrary_declaration_value inner = None then
@@ -1372,8 +1327,6 @@ open Handler
 module Utility_factory = Utility.Make (Handler)
 
 let utility = Utility_factory.v
-
-(* Convenience functions for creating mask gradient utilities *)
 let mask_t_from value = utility (Position (Top, From, value))
 let mask_t_to value = utility (Position (Top, To, value))
 let mask_r_from value = utility (Position (Right, From, value))

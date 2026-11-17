@@ -1,6 +1,3 @@
-(** Text decoration utilities: the decoration line, colour, style and thickness,
-    and the underline offset. *)
-
 module Css = Cascade.Css
 
 let underline_offset_auto_var =
@@ -184,9 +181,7 @@ module Handler = struct
     | [ "decoration"; "transparent" ] -> Ok Decoration_transparent
     | [ "decoration"; "inherit" ] -> Ok Decoration_inherit
     | [ "decoration"; n ] -> (
-        (* Parse opacity modifier first *)
         let base_str, opacity = Color.parse_opacity_modifier ~theme n in
-        (* Check for "current" with optional opacity *)
         match (base_str, opacity) with
         | "current", Color.No_opacity -> Ok Decoration_current
         | "current", opacity -> Ok (Decoration_current_opacity opacity)

@@ -1,5 +1,3 @@
-(** Padding utilities. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -186,12 +184,10 @@ module Handler = struct
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    (* Handle arbitrary values: p-[4px], px-[var(--value)] *)
     | [ prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (padding_axis_of_prefix prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value }
         | _ -> Utility.unclaimed)
-    (* Standard parsing via Spacing *)
     | _ -> (
         match Spacing.parse_class_parts parts with
         | Some (true, _, _) ->

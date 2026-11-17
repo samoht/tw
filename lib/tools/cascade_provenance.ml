@@ -1,5 +1,3 @@
-(** See {!Cascade_provenance}. *)
-
 let run_line cmd =
   match Unix.open_process_in (cmd ^ " 2>/dev/null") with
   | exception Unix.Unix_error _ -> None

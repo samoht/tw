@@ -1,5 +1,3 @@
-(** tab-size utilities *)
-
 module Css = Cascade.Css
 
 module Handler = struct

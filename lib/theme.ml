@@ -1,13 +1,4 @@
-(** Shared theme variables for consistent ordering and avoiding conflicts *)
-
 module Css = Cascade.Css
-
-(** Main ordering scheme: 1. Font families (1) - basic font families 2. Colors
-    (2) - color variables 3. Spacing (3) - spacing variables 4. Breakpoints (4)
-    \- breakpoint variables 5. Containers (5) - container variables 6.
-    Typography (6) - text sizes and other typography 7. Border radius (7) -
-    border radius variables 8. Animation/timing (8) - animation variables 9.
-    Default fonts (9) - default font family variables *)
 
 (* Publish a theme variable's built-in default through the token registry. The
    text comes from the binding the utility itself emits, so [theme(--x)] in a
@@ -21,16 +12,9 @@ let register_default var value =
   Scheme.register_default_token (Var.name var)
     (Css.declaration_value ~minify:true decl)
 
-(** {1 Spacing Variables} *)
-
-(* Resolve the optionally-threaded theme, defaulting to the base scheme. *)
-
-(* Shared spacing variable used across padding, margin, positioning, etc.
-   Tailwind v4 uses a single --spacing: 0.25rem variable and calc() for
-   values. *)
+(* Tailwind v4 has a single [--spacing: 0.25rem] token, and a step is a calc()
+   over it. *)
 let spacing_var = Var.theme Css.Length "spacing" ~runtime:true ~order:(3, 0)
-
-(* The base spacing value: 0.25rem *)
 let spacing_base : Css.length = Rem 0.25
 
 (* Publish the spacing step through the theme-token registry, the way rule.ml
@@ -48,7 +32,6 @@ let spacing_times n =
   | Css.Em v -> Some (Css.Pp.to_string Css.pp_length (Css.Em (v *. n)))
   | _ -> None
 
-(* Create a spacing variable for explicit spacing values (e.g., --spacing-4) *)
 let spacing_n_var n = Var.theme Css.Length ("spacing-" ^ Pp.int n) ~order:(3, n)
 
 (* The length the theme binds to step [n] outright, as [--spacing-<n>]. Tailwind
@@ -83,7 +66,6 @@ let explicit_spacing_length ?theme (n : float) =
         let spacing_n = spacing_n_var abs_n in
         let decl, spacing_ref = Var.binding spacing_n explicit_length in
         if n < 0.0 then
-          (* Negative: wrap in calc(... * -1) *)
           let neg_len : Css.length =
             Css.Calc
               (Css.Calc.mul
@@ -126,10 +108,6 @@ let spacing_product ?theme (n : float) : Css.declaration * Css.length =
       in
       (decl, len)
 
-(* Create a spacing length value. When scheme has explicit spacing for |n|,
-   returns var(--spacing-|n|) or calc(var(--spacing-|n|) * -1) for negatives.
-   Otherwise returns calc(var(--spacing) * n), with the zero and unit
-   multipliers folded the way Tailwind folds them. *)
 let spacing_calc ?theme n : Css.declaration * Css.length =
   match explicit_spacing_length ?theme (float_of_int n) with
   | Some result -> result
@@ -159,9 +137,6 @@ let spacing_calc ?theme n : Css.declaration * Css.length =
         let decl, step = spacing_step ?theme () in
         if n = 0 then (decl, (Px 0. : Css.length)) else (decl, step)
 
-(* Create a spacing length value for float multipliers like 2.5. For integer
-   values, checks scheme for explicit spacing. Otherwise uses calc. This handles
-   cases like my-2.5 which need calc(var(--spacing) * 2.5). *)
 let spacing_calc_float ?theme (n : float) : Css.declaration * Css.length =
   (* Only an integer step can be bound outright by the scheme, and only an
      integer step folds. *)

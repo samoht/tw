@@ -6,8 +6,6 @@ open Tw.Backgrounds
 open Tw.Padding
 open Tw.Modifiers
 
-(* ===== Tests ===== *)
-
 let sheet = Test_helpers.sheet
 let check_sheet = Test_helpers.check_sheet
 let check_utilities = Test_helpers.check_utilities

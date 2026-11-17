@@ -48,8 +48,8 @@ let test_arbitrary_token_stream () =
 let test_columns_arbitrary_width () =
   Test_helpers.check_declarations "columns-[16rem]" [ "columns:16rem" ]
 
-(* The typed constructors (newly exposed in tw.mli) must agree with the parser
-   on class names, including the [int] argument of [columns]. *)
+(* The typed constructors agree with the parser on class names, including the
+   [int] argument of [columns]. *)
 let test_typed () =
   Test_helpers.check_typed_class "columns-3" (Tw.columns 3);
   Test_helpers.check_typed_class "columns-auto" Tw.columns_auto;

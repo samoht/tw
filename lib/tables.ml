@@ -1,27 +1,9 @@
-(** Table-related utilities
-
-    What's included:
-    - Border collapse: `border-collapse`, `border-separate`.
-    - Border spacing: `border-spacing-*`, `border-spacing-x-*`,
-      `border-spacing-y-*` with numeric values using CSS variables.
-    - Table layout: `table-auto`, `table-fixed`.
-
-    What's not:
-    - Other table-specific properties not exposed in the typed `Css` API.
-
-    Parsing contract (`of_string`):
-    - Accepts tokens like ["border"; "collapse"], ["border"; "separate"],
-      ["border"; "spacing"; n], ["border"; "spacing"; "x"; n],
-      ["border"; "spacing"; "y"; n], ["table"; "auto"], ["table"; "fixed"].
-    - Unknown tokens yield [Utility.unclaimed]. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
   open Style
   open Css
 
-  (** Local table utility type *)
   type t =
     | Border_collapse
     | Border_separate
@@ -38,16 +20,14 @@ module Handler = struct
     | Caption_top
     | Caption_bottom
 
-  (** Extensible variant for table utilities *)
-
-  (** Priority for table utilities - comes before layout utilities *)
   let name = "tables"
 
+  (* Before the layout utilities. *)
   let priority _ = 8
 
-  (** CSS variables for border-spacing - initialized to 0 in the properties
-      layer. Tailwind emits these first; a negative property_order with no
-      family sorts them ahead of every other composition variable. *)
+  (* Tailwind emits these first in the properties layer; a negative
+     property_order with no family sorts them ahead of every other composition
+     variable. *)
   let border_spacing_x_var =
     Var.property_default Css.Length ~initial:Zero ~property_order:(-2)
       "tw-border-spacing-x"
@@ -56,17 +36,12 @@ module Handler = struct
     Var.property_default Css.Length ~initial:Zero ~property_order:(-1)
       "tw-border-spacing-y"
 
-  (** Get spacing value - uses theme variable var(--spacing-N) *)
   let spacing_value ?theme n =
     let decl, len = Theme.spacing_calc_float ?theme n in
     (decl, len)
 
-  (** border-spacing: sets both x and y variables and outputs two-value
-      border-spacing *)
   let border_spacing_style ?theme n =
     let spacing_decl, spacing_len = spacing_value ?theme n in
-    (* Set --tw-border-spacing-x and --tw-border-spacing-y to the spacing
-       value *)
     let decl_x, x_ref = Var.binding border_spacing_x_var spacing_len in
     let decl_y, y_ref = Var.binding border_spacing_y_var spacing_len in
     style
@@ -77,7 +52,6 @@ module Handler = struct
         Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]);
       ]
 
-  (** border-spacing-x: sets only x variable *)
   let border_spacing_x_style ?theme n =
     let spacing_decl, spacing_len = spacing_value ?theme n in
     let decl_x, x_ref = Var.binding border_spacing_x_var spacing_len in
@@ -97,7 +71,6 @@ module Handler = struct
         Css.border_spacing (Lengths [ Var x_ref; Var y_ref ]);
       ]
 
-  (** border-spacing-y: sets only y variable *)
   let border_spacing_y_style ?theme n =
     let spacing_decl, spacing_len = spacing_value ?theme n in
     let _, x_ref = Var.binding border_spacing_x_var Zero in
@@ -294,23 +267,19 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
-(** Public API *)
 let utility = Utility_factory.v
-
 let border_collapse = utility Border_collapse
 let border_separate = utility Border_separate
 let border_spacing' n = utility (Border_spacing n)
 let border_spacing n = border_spacing' (float_of_int n)
+
+(* The axis variants take a float multiplier ([4.] for border-spacing-x-4): only
+   [border_spacing] reaches [Tw], so only it follows the int and prime-float
+   convention. *)
 let border_spacing_x n = utility (Border_spacing_x n)
 let border_spacing_y n = utility (Border_spacing_y n)
-
-(* Note: the axis variants' [n] is still a float multiplier, e.g., 4.0 for
-   border-spacing-x-4; only the combined [border_spacing] is exposed through
-   [Tw], so only it follows the int/prime-float convention. *)
 let table_auto = utility Table_auto
 let table_fixed = utility Table_fixed
 let caption_top = utility Caption_top

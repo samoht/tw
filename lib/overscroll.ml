@@ -1,15 +1,3 @@
-(** Overscroll behavior utilities for controlling scroll chaining.
-
-    What's included:
-    - `overscroll-auto` - Default scroll chaining behavior.
-    - `overscroll-contain` - Prevent scroll chaining to parent.
-    - `overscroll-none` - Prevent scroll chaining and overscroll effects.
-    - `overscroll-x-*`, `overscroll-y-*` - Axis-specific overscroll behavior.
-
-    Parsing contract ([of_class]):
-    - Accepts ["overscroll"; value] and ["overscroll"; axis; value].
-    - Unknown tokens yield [Utility.unclaimed]. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

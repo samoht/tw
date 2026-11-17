@@ -1,6 +1,4 @@
-(** Tests for colours under an opacity modifier. *)
-
-module Color_opacity = Tw__.Color_opacity (* Access internal module *)
+module Color_opacity = Tw__.Color_opacity
 open Color_opacity
 
 (* A class name is a selector, so it has to repeat the text the author wrote

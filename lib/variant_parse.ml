@@ -99,7 +99,6 @@ let rec involves_hover = function
 let group_state_modifiers = Style.group_state_modifiers
 let is_has_shorthand = Style.is_has_shorthand
 
-(* Find matching closing bracket, handling nested brackets *)
 let matching_bracket s =
   let len = String.length s in
   let rec loop i depth =
@@ -115,7 +114,6 @@ let matching_bracket s =
   in
   loop 0 0
 
-(* Extract bracketed content from a string like "prefix-[content]" *)
 let extract_bracket_content ~prefix s =
   if String.starts_with ~prefix s then
     let rest =
@@ -129,9 +127,7 @@ let extract_bracket_content ~prefix s =
     | _ -> None
   else None
 
-(* Extract bracketed content allowing an optional /name suffix *)
-(* Extract name suffix from "rest" after prefix, e.g. "checked/name" ->
-   ("checked", Some "name") *)
+(* ["checked/name"] is [("checked", Some "name")]. *)
 let split_name rest =
   match String.index_opt rest '/' with
   | Some i ->
@@ -251,9 +247,8 @@ let extract_bracket_content_with_name ~prefix s =
     | _ -> None
   else None
 
-(* Parse a CSS length from a string like "600px", "40rem", "100vh". Arbitrary
-   value syntax is decoded first, so [min-[calc(1000px+12em)]] becomes a
-   spec-valid [calc(1000px + 12em)] the length reader accepts. *)
+(* Arbitrary value syntax is decoded first, so [min-[calc(1000px+12em)]] becomes
+   a spec-valid [calc(1000px + 12em)] the length reader accepts. *)
 let parse_css_length s : Style.arbitrary_length option =
   Option.map
     (fun len : Style.arbitrary_length -> { len; text = s })
@@ -262,7 +257,7 @@ let parse_css_length s : Style.arbitrary_length option =
 (* Parse a pixel value from a string like "600px" or "600", keeping the
    spelling: it is what the variant's own class is named after. The digits are a
    CSS number, which is not OCaml's: [0x600px] is neither a number nor a length,
-   and reading it as an OCaml float turned [min-[0x600px]] into a live 1536px
+   and an OCaml float reader would turn [min-[0x600px]] into a live 1536px
    breakpoint out of a value Tailwind leaves for the browser to drop. *)
 let parse_px_value s =
   let digits =
@@ -607,8 +602,6 @@ let is_valid_nth_expr expr =
     true
   with Cascade.Cursor.Parse_error _ | Invalid_argument _ -> false
 
-(* Try parsing a bracketed modifier, returning Some if matched *)
-(* Build the list of bracket pattern matchers for a given input string *)
 let bracket_named_patterns s =
   let ( let* ) = Option.bind in
   (* Every aria- and data- bracket here takes an attribute expression, so the
@@ -748,7 +741,6 @@ let try_numeric_nth s =
           | Some _ as r -> r
           | None -> try_prefix "nth-" (fun n -> Nth (bare n))))
 
-(* Simple modifiers - direct string to modifier mapping *)
 let simple_modifiers =
   [
     (* Responsive breakpoints *)
@@ -968,9 +960,8 @@ let try_custom_breakpoint breakpoints s =
     if List.mem name breakpoints then Some (Max_custom name) else None
   else None
 
-(** Check if a modifier is compatible with not-* negation. Pseudo-elements,
-    starting style and children/descendants cannot be negated; a container query
-    can, as [\@container not (width >= 28rem)]. *)
+(* Pseudo-elements, starting style and children/descendants cannot be negated; a
+   container query can, as [@container not (width >= 28rem)]. *)
 let is_not_compatible = function
   | Pseudo_before | Pseudo_after | Pseudo_marker | Pseudo_selection
   | Pseudo_placeholder | Pseudo_backdrop | Pseudo_file | Pseudo_first_letter
@@ -1058,16 +1049,12 @@ let bracket_supports_condition content =
         None
   else None
 
-(** Check if bracket content is valid for not-[...] patterns. Rejects combinator
-    selectors (+, >, ~), media conditions with commas, and bare selectors. *)
 let is_valid_not_bracket_content content =
   if String.length content = 0 then false
   else
-    (* Reject combinator selectors: +img, >img, ~img *)
     let first = content.[0] in
     if first = '+' || first = '>' || first = '~' then false
     else if
-      (* Reject media conditions with commas (complex media) *)
       (String.starts_with ~prefix:"@media" content && String.length content > 6)
       || String.starts_with ~prefix:"@media_" content
          && String.length content > 7
@@ -1079,8 +1066,6 @@ let is_valid_not_bracket_content content =
     else if first = ':' then true
     else reads_as_selector content
 
-(** Try parsing a not-[...] bracket pattern. Returns the Not_bracket modifier
-    for pseudo-class or media bracket content. *)
 let try_not_bracket inner =
   if String.starts_with ~prefix:"[" inner then
     let rest = String.sub inner 1 (String.length inner - 1) in
@@ -1094,8 +1079,6 @@ let try_not_bracket inner =
     | Some _ | None -> None
   else None
 
-(** Parse group-not-* or peer-not-* pattern. Splits the rest into inner modifier
-    and optional /name suffix. *)
 let parse_group_peer_not_inner rest =
   (* Check for bracket content first: [...]/name or [...] *)
   if String.starts_with ~prefix:"[" rest then
@@ -1194,7 +1177,6 @@ let try_in_modifier s =
       | Some m -> Some (In_state (m, rest))
       | None -> None
 
-(* Try not-in-[...] pattern *)
 let try_not_in_modifier s =
   if not (String.starts_with ~prefix:"not-in-[" s && String.length s > 8) then
     None
@@ -1207,7 +1189,6 @@ let try_not_in_modifier s =
         Some (Not (In_bracket (String.sub rest 0 i)))
     | _ -> None
 
-(* Try group-not-* and peer-not-* patterns *)
 let try_group_peer_not s =
   let try_prefix prefix make =
     let plen = String.length prefix in
@@ -1222,7 +1203,6 @@ let try_group_peer_not s =
   | Some _ as r -> r
   | None -> try_prefix "peer-not-" (fun i n -> Peer_not (i, n))
 
-(* Try not-* prefix: wrap inner modifier in Not *)
 let try_not_modifier theme s =
   if not (String.starts_with ~prefix:"not-" s && String.length s > 4) then None
   else
@@ -1270,7 +1250,6 @@ let is_prose_element_name = function
       true
   | _ -> false
 
-(* Try parsing prose-* element variant modifier *)
 let try_prose_element s =
   if String.starts_with ~prefix:"prose-" s && String.length s > 6 then
     let name = String.sub s 6 (String.length s - 6) in
@@ -1455,7 +1434,6 @@ let rec container_size_is_defined theme = function
       not (Scheme.is_removed theme ("container-" ^ Style.container_size_name q))
   | Container_named _ | Container_len _ | Container_len_cmp _ -> true
 
-(* Parse a modifier string into a typed Style.modifier *)
 let rec modifier ~(theme : Scheme.t) s : modifier option =
   let fns =
     [

@@ -1,8 +1,3 @@
-(** Flexbox layout utilities (direction, wrap).
-
-    These utilities control flex container layout direction and wrap behavior.
-    They come after grid-template utilities in Tailwind's ordering. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -63,9 +58,7 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
 let utility = Utility_factory.v
 let flex_row = utility Row

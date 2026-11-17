@@ -60,9 +60,7 @@ let test_arbitrary_token_streams_agree () =
       [ "--tw-duration: " ^ value; "transition-duration: " ^ value ]
   in
   let delay cls value =
-    (* The whole list, which is how the claim that [delay-] sets no duration
-       channel is made: it is absent from the declarations, not merely absent
-       from a substring search over the sheet. *)
+    (* The whole list: [delay-] sets no duration channel. *)
     Test_helpers.check_declarations ~minify:false cls
       [ "transition-delay: " ^ value ]
   in

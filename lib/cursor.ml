@@ -1,8 +1,3 @@
-(** Cursor utilities
-
-    @see <https://tailwindcss.com/docs/cursor> Tailwind CSS Cursor documentation
-*)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -192,7 +187,6 @@ module Handler = struct
       all
 
   let theme_suborder name =
-    (* Find alphabetical position among known cursors *)
     let rec find = function
       | [] -> 999
       | (suffix, order) :: _ when String.compare name suffix < 0 -> order - 5
@@ -232,13 +226,9 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register the cursor utility handlers *)
 
-(** Public API returning Utility.t *)
 let utility = Utility_factory.v
-
 let cursor_alias = utility (Keyword Alias)
 let cursor_all_scroll = utility (Keyword All_scroll)
 let cursor_auto = utility (Keyword Auto)

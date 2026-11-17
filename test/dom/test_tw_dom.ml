@@ -1,8 +1,6 @@
-(** Tests for {!Tw_dom} — runs in both Node.js and browser.
-
-    In Node.js only the utilities that do not touch the DOM run. In a browser
-    all tests run, including {!Tw_dom} with real DOM injection. Open
-    [_build/default/test/dom/index.html] to run in a browser. *)
+(* In Node.js only the tests that do not touch the DOM run. In a browser all of
+   them run, {!Tw_dom}'s DOM injection included. Open
+   [_build/default/test/dom/index.html] to run them in a browser. *)
 
 module Css = Cascade.Css
 open Alcotest
@@ -159,7 +157,7 @@ let dom_use_str_unknown_class () =
     (Tw_dom.unknown_classes ())
 
 let has_dom =
-  (* Check if document.createElement exists — absent in Node.js *)
+  (* Node.js has no document. *)
   try
     ignore (Brr.Document.head Brr.G.document : Brr.El.t);
     true

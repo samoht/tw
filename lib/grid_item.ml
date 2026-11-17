@@ -1,12 +1,7 @@
-(** Grid item placement utilities (col-{i n}, row-{i n}).
-
-    These utilities control how grid items are placed within a grid container.
-    They come before display utilities in the cascade order. *)
-
 module Css = Cascade.Css
 
-(* Generate themed grid_column style: custom declaration + var reference when
-   theme value is set, otherwise bare theme_ref fallback *)
+(* A custom declaration and a reference to it when the theme sets the value,
+   else the bare theme reference. *)
 let themed_decl name value_str =
   match int_of_string_opt value_str with
   | Some n -> Css.custom_property ~layer:"theme" ("--" ^ name) (string_of_int n)
@@ -54,7 +49,6 @@ module Handler = struct
   type 'a bracket = [ `Typed of 'a | `Raw of string ]
 
   type t =
-    (* Column *)
     | Col of int
     | Neg_col of int (* -col-12 = calc(12 * -1) *)
     (* The author's bracket text travels with the grid line it denotes, so the
@@ -76,7 +70,6 @@ module Handler = struct
     | Col_end_auto
     | Col_end_arbitrary of string * Css.grid_line bracket
     | Col_end_named of string (* col-end-custom *)
-    (* Row *)
     | Row of int
     | Neg_row of int
     | Row_arbitrary of string * (Css.grid_line * Css.grid_line) bracket
@@ -117,9 +110,8 @@ module Handler = struct
     | `Row_start -> "grid-row-start"
     | `Row_end -> "grid-row-end"
 
-  (** Priority 1 - before margin (priority 2) *)
+  (* Before margin (priority 2). *)
   let priority _ = 1
-
   let col n = style [ grid_column (Num n, Auto) ]
   let neg_col n = style [ grid_column (Num (-n), Auto) ]
 
@@ -337,7 +329,6 @@ module Handler = struct
     | Col_end_arbitrary _ -> 1200
     | Col_end_auto -> 1250
     | Col_end_named _ -> 1260
-    (* Row utilities *)
     | Neg_row n -> 1300 + n
     | Row n -> 1400 + n
     | Row_arbitrary _ -> 1500
@@ -443,7 +434,6 @@ module Handler = struct
             then Ok (Col_start_named n)
             else Utility.unclaimed)
     | [ ""; "col"; "start"; n ] -> (
-        (* Negative col-start: -col-start-12 *)
         match Parse.int_pos ~name:"-col-start" n with
         | Ok i -> Ok (Neg_col_start i)
         | Error _ -> Utility.unclaimed)
@@ -463,12 +453,10 @@ module Handler = struct
             then Ok (Col_end_named n)
             else Utility.unclaimed)
     | [ ""; "col"; "end"; n ] -> (
-        (* Negative col-end: -col-end-12 *)
         match Parse.int_pos ~name:"-col-end" n with
         | Ok i -> Ok (Neg_col_end i)
         | Error _ -> Utility.unclaimed)
     | [ "col"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        (* Calc col: col-[span_123/span_123] *)
         match parse_arbitrary_pair read_grid_line_pair n with
         | Some (v, x) -> Ok (Col_arbitrary (v, x))
         | None -> Utility.unclaimed)
@@ -477,7 +465,6 @@ module Handler = struct
         | Ok i -> Ok (Col i)
         | Error _ -> Utility.unclaimed)
     | [ ""; "col"; n ] -> (
-        (* Negative col: -col-12 *)
         match Parse.int_pos ~name:"-col" n with
         | Ok i -> Ok (Neg_col i)
         | Error _ -> Utility.unclaimed)
@@ -492,7 +479,6 @@ module Handler = struct
         | Ok i -> Ok (Row_span i)
         | Error _ -> Utility.unclaimed)
     | [ "row"; n ] when String.length n > 0 && n.[0] = '[' -> (
-        (* Calc row: row-[span_123/span_123] *)
         match parse_arbitrary_pair read_grid_line_pair n with
         | Some (v, x) -> Ok (Row_arbitrary (v, x))
         | None -> Utility.unclaimed)
@@ -501,7 +487,6 @@ module Handler = struct
         | Ok i -> Ok (Row i)
         | Error _ -> Utility.unclaimed)
     | [ ""; "row"; n ] -> (
-        (* Negative row: -row-12 *)
         match Parse.int_pos ~name:"-row" n with
         | Ok i -> Ok (Neg_row i)
         | Error _ -> Utility.unclaimed)
@@ -520,7 +505,6 @@ module Handler = struct
             then Ok (Row_start_named n)
             else Utility.unclaimed)
     | [ ""; "row"; "start"; n ] -> (
-        (* Negative row-start: -row-start-12 *)
         match Parse.int_pos ~name:"-row-start" n with
         | Ok i -> Ok (Neg_row_start i)
         | Error _ -> Utility.unclaimed)
@@ -539,7 +523,6 @@ module Handler = struct
             then Ok (Row_end_named n)
             else Utility.unclaimed)
     | [ ""; "row"; "end"; n ] -> (
-        (* Negative row-end: -row-end-12 *)
         match Parse.int_pos ~name:"-row-end" n with
         | Ok i -> Ok (Neg_row_end i)
         | Error _ -> Utility.unclaimed)
@@ -548,7 +531,6 @@ module Handler = struct
   let to_class_arbitrary s = "[" ^ s ^ "]"
 
   let to_class = function
-    (* Column *)
     | Col n -> "col-" ^ string_of_int n
     | Neg_col n -> "-col-" ^ string_of_int n
     | Col_arbitrary (s, _) -> "col-" ^ to_class_arbitrary s
@@ -566,7 +548,6 @@ module Handler = struct
     | Col_end_arbitrary (s, _) -> "col-end-" ^ to_class_arbitrary s
     | Col_end_auto -> "col-end-auto"
     | Col_end_named s -> "col-end-" ^ s
-    (* Row *)
     | Row n -> "row-" ^ string_of_int n
     | Neg_row n -> "-row-" ^ string_of_int n
     | Row_arbitrary (s, _) -> "row-" ^ to_class_arbitrary s
@@ -598,9 +579,7 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
 let utility = Utility_factory.v
 let col n = utility (Col n)

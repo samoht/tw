@@ -14,10 +14,9 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-04";
   Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-1_0"
 
-(* Tailwind emits [zoom-*] between the transforms and the animations. It sorted
-   with the margins instead, at the priority a family gets when nobody has
-   placed it, and no canonical comparison could see that: [zoom] shares a
-   property with none of them. *)
+(* Tailwind emits [zoom-*] between the transforms and the animations. [zoom]
+   shares a property with none of them, so only the sheet positions show the
+   order; no canonical comparison does. *)
 let test_zoom_sorts_after_the_transforms () =
   Test_helpers.check_class_order ~test_name:"zoom band"
     [

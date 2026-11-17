@@ -377,24 +377,16 @@ let test_leading_var_shorthand () =
   | Error (`Msg m) -> Alcotest.failf "text-sm/(--lh): %s" m
 
 let of_string_invalid () =
-  (* Invalid typography values *)
   let fail_maybe =
     Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
       (module Tw.Typography.Typography_early)
   in
-
   fail_maybe [ "font"; "invalid" ];
-  (* Invalid font family *)
   fail_maybe [ "text"; "10xl" ];
-  (* Invalid text size *)
   fail_maybe [ "font"; "superheavy" ];
-  (* Invalid font weight *)
   fail_maybe [ "text"; "middle" ];
-  (* Invalid text alignment *)
   fail_maybe [ "tracking"; "tightest" ];
-  (* Invalid letter spacing *)
   fail_maybe [ "unknown" ]
-(* Unknown typography type *)
 
 (* Tailwind's tail runs the [color] property, then text-transform, font-style
    and text-decoration-line, then the decoration colour, style and thickness,

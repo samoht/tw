@@ -1,8 +1,5 @@
-(** Overflow utilities for controlling element overflow behavior.
-
-    These utilities are in their own module to get correct ordering - they
-    should appear after display, sizing, flex, alignment, and gap utilities but
-    before borders. *)
+(* Overflow has its own module for its order: after display, sizing, flex,
+   alignment and gap, before borders. *)
 
 module Css = Cascade.Css
 
@@ -98,8 +95,6 @@ end
 
 open Handler
 module Utility_factory = Utility.Make (Handler)
-
-(** {1 Public API} *)
 
 let utility = Utility_factory.v
 let overflow_auto = utility Auto

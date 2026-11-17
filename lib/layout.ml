@@ -1,8 +1,5 @@
-(** Layout utilities for basic display, positioning, and object properties *)
-
 module Css = Cascade.Css
 
-(** Screen reader utilities handler - priority 0 to appear first *)
 module Screen_reader_handler = struct
   open Style
   open Css
@@ -73,12 +70,9 @@ end
    declaration --z-index-auto: 42 in the :root, :host block. *)
 let z_index_auto_var = Var.theme Css.Z_index "z-index-auto" ~order:(4, 750)
 
-(* Generate z-auto style: either theme var with custom declaration, or bare
-   theme_ref fallback *)
 let z_auto_style ?theme () =
   match Scheme.theme_value theme "z-index-auto" with
   | Some value_str ->
-      (* Parse theme value as z_index *)
       let z_value : Css.z_index =
         match value_str with
         | "auto" -> Auto
@@ -289,9 +283,9 @@ module Handler = struct
     | Isolation_auto -> 15_000_001
     (* Z-index (priority 0) - after inset (up to ~13M in position.ml), before
        container (priority 1). Order: negative, positive, arbitrary, auto. *)
-    | Neg_z n -> 20_000_000 + 500 + n (* -z-50, -z-10 *)
+    | Neg_z n -> 20_000_000 + 500 + n
     | Z_0 -> 20_000_000 + 600
-    | Z n -> 20_000_000 + 601 + n (* z-10 *)
+    | Z n -> 20_000_000 + 601 + n
     | Z_10 -> 20_000_000 + 611
     | Z_20 -> 20_000_000 + 621
     | Z_30 -> 20_000_000 + 631
@@ -369,8 +363,6 @@ module Handler = struct
     | Break_after_left -> 1305
     | Break_after_page -> 1306
     | Break_after_right -> 1307
-
-  (** {1 Style Generation} *)
 
   let to_class = function
     | Block -> "block"
@@ -593,7 +585,6 @@ module Handler = struct
             Css.webkit_box_decoration_break Slice;
             Css.box_decoration_break Slice;
           ]
-    (* Break before *)
     | Break_before_all -> style [ Css.break_before All ]
     | Break_before_auto -> style [ Css.break_before Auto ]
     | Break_before_avoid -> style [ Css.break_before Avoid ]
@@ -602,7 +593,6 @@ module Handler = struct
     | Break_before_left -> style [ Css.break_before Left ]
     | Break_before_page -> style [ Css.break_before Page ]
     | Break_before_right -> style [ Css.break_before Right ]
-    (* Break after *)
     | Break_after_all -> style [ Css.break_after All ]
     | Break_after_auto -> style [ Css.break_after Auto ]
     | Break_after_avoid -> style [ Css.break_after Avoid ]
@@ -611,13 +601,10 @@ module Handler = struct
     | Break_after_left -> style [ Css.break_after Left ]
     | Break_after_page -> style [ Css.break_after Page ]
     | Break_after_right -> style [ Css.break_after Right ]
-    (* Break inside *)
     | Break_inside_auto -> style [ Css.break_inside Auto ]
     | Break_inside_avoid -> style [ Css.break_inside Avoid ]
     | Break_inside_avoid_column -> style [ Css.break_inside Avoid_column ]
     | Break_inside_avoid_page -> style [ Css.break_inside Avoid_page ]
-
-  (** {1 Parsing Functions} *)
 
   (* The z-index a [z-[...]] bracket denotes. [None] is a bracket the z-index
      grammar cannot read, and [of_class] refuses the utility rather than leaving
@@ -665,7 +652,6 @@ module Handler = struct
     | [ "z"; "50" ] -> Ok Z_50
     | [ "z"; "auto" ] -> Ok Z_auto
     | [ "z"; n ] when String.starts_with ~prefix:"[" n ->
-        (* Arbitrary value: z-[123] *)
         if Parse.is_bracket_value n then
           let inner = Parse.bracket_inner n in
           match arbitrary_z_index inner with
@@ -677,12 +663,10 @@ module Handler = struct
               | None -> Error (`Msg ("Invalid z-index arbitrary value: " ^ n)))
         else Error (`Msg ("Invalid z-index arbitrary value: " ^ n))
     | [ "z"; n ] -> (
-        (* Dynamic z-index: z-5, z-100, etc. *)
         match Parse.decimal_int n with
         | Some i -> Ok (Z i)
         | None -> Error (`Msg ("Invalid z-index value: " ^ n)))
     | "" :: "z" :: rest when rest <> [] -> (
-        (* Negative z-index: -z-10, -z-50, -z-[var(--value)], etc. *)
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
@@ -749,7 +733,6 @@ module Handler = struct
     | [ "box"; "decoration"; "slice" ] -> Ok Box_decoration_slice
     | [ "decoration"; "clone" ] -> Ok Decoration_clone
     | [ "decoration"; "slice" ] -> Ok Decoration_slice
-    (* Break before *)
     | [ "break"; "before"; "all" ] -> Ok Break_before_all
     | [ "break"; "before"; "auto" ] -> Ok Break_before_auto
     | [ "break"; "before"; "avoid" ] -> Ok Break_before_avoid
@@ -758,7 +741,6 @@ module Handler = struct
     | [ "break"; "before"; "left" ] -> Ok Break_before_left
     | [ "break"; "before"; "page" ] -> Ok Break_before_page
     | [ "break"; "before"; "right" ] -> Ok Break_before_right
-    (* Break after *)
     | [ "break"; "after"; "all" ] -> Ok Break_after_all
     | [ "break"; "after"; "auto" ] -> Ok Break_after_auto
     | [ "break"; "after"; "avoid" ] -> Ok Break_after_avoid
@@ -767,7 +749,6 @@ module Handler = struct
     | [ "break"; "after"; "left" ] -> Ok Break_after_left
     | [ "break"; "after"; "page" ] -> Ok Break_after_page
     | [ "break"; "after"; "right" ] -> Ok Break_after_right
-    (* Break inside *)
     | [ "break"; "inside"; "auto" ] -> Ok Break_inside_auto
     | [ "break"; "inside"; "avoid" ] -> Ok Break_inside_avoid
     | [ "break"; "inside"; "avoid"; "column" ] -> Ok Break_inside_avoid_column
@@ -794,9 +775,6 @@ open Handler
 module Screen_reader_utility = Utility.Make (Screen_reader_handler)
 module Utility_factory = Utility.Make (Handler)
 
-(** {1 Public API - Utility Values} *)
-
-(* Layout utilities *)
 let utility = Utility_factory.v
 let block = utility Block
 let contents = utility Contents
@@ -857,17 +835,11 @@ let clear_none = utility Clear_none
 let clear_both = utility Clear_both
 let clear_start = utility Clear_start
 let clear_end = utility Clear_end
-
-(* Screen reader utilities *)
 let sr_utility = Screen_reader_utility.v
 let sr_only = sr_utility Screen_reader_handler.Sr_only
 let not_sr_only = sr_utility Screen_reader_handler.Not_sr_only
-
-(* Box decoration break utilities *)
 let box_decoration_clone = utility Box_decoration_clone
 let box_decoration_slice = utility Box_decoration_slice
-
-(* Break before/after/inside utilities - page/column breaks *)
 let break_before_all = utility Break_before_all
 let break_before_auto = utility Break_before_auto
 let break_before_avoid = utility Break_before_avoid

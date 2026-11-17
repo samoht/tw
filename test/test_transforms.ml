@@ -116,53 +116,33 @@ let test_any_translate_fraction () =
   check "-translate-x-0/2"
 
 let test_of_string_invalid () =
-  (* Invalid transform utilities *)
   let test_invalid =
     Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
       (module Tw.Transforms.Handler)
   in
-
-  (* Invalid translate - missing value *)
   test_invalid [ "translate"; "x" ];
   test_invalid [ "translate"; "y" ];
   test_invalid [ "translate"; "z" ];
-
-  (* Invalid rotate - missing value *)
   test_invalid [ "rotate" ];
   test_invalid [ "rotate"; "x" ];
   test_invalid [ "rotate"; "y" ];
   test_invalid [ "rotate"; "z" ];
-
-  (* Invalid scale - missing value *)
   test_invalid [ "scale" ];
   test_invalid [ "scale"; "x" ];
   test_invalid [ "scale"; "y" ];
   test_invalid [ "scale"; "z" ];
-
-  (* Invalid skew - missing value *)
   test_invalid [ "skew"; "x" ];
   test_invalid [ "skew"; "y" ];
-
-  (* Invalid perspective *)
   test_invalid [ "perspective" ];
   test_invalid [ "perspective"; "123" ];
   test_invalid [ "perspective"; "potato" ];
-
-  (* Invalid perspective origin *)
   test_invalid [ "perspective"; "origin" ];
   test_invalid [ "perspective"; "origin"; "invalid" ];
-
-  (* Invalid transform style *)
   test_invalid [ "transform"; "style" ];
   test_invalid [ "transform"; "style"; "invalid" ];
-
-  (* Invalid prefixes *)
   test_invalid [ "translate" ];
-  (* Missing axis *)
   test_invalid [ "scale"; "invalid"; "100" ];
-  (* Invalid axis *)
   test_invalid []
-(* Empty *)
 
 let suborder_matches_tailwind () =
   let open Tw in

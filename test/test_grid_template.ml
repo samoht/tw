@@ -75,29 +75,18 @@ let of_string_invalid () =
     (module Tw.Grid_template.Handler)
     [ "grid" ];
   fail_maybe [ "grid"; "cols" ];
-  (* Missing value *)
   fail_maybe [ "grid"; "cols"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "grid"; "rows" ];
-  (* Missing value *)
   fail_maybe [ "grid"; "rows"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "grid"; "flow" ];
-  (* Missing flow direction *)
   fail_maybe [ "grid"; "flow"; "invalid" ];
 
-  (* Invalid flow direction *)
   fail_maybe [ "auto" ];
-  (* Missing subcommand *)
   fail_maybe [ "auto"; "cols" ];
-  (* Missing value *)
   fail_maybe [ "auto"; "cols"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "auto"; "rows" ];
-  (* Missing value *)
   fail_maybe [ "auto"; "rows"; "invalid" ];
 
-  (* Invalid value *)
   ()
 
 (* A bracket the track grammar cannot read is not refused: Tailwind hands it to

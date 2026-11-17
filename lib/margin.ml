@@ -1,5 +1,3 @@
-(** Margin utilities with negative value support. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -27,14 +25,9 @@ module Handler = struct
     axis : [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ];
     value : margin_value;
   }
-  (** Local margin utility type *)
-
-  (** Extensible variant for margin utilities *)
 
   let name = "margin"
   let priority _ = 2
-
-  (** {2 Typed Margin Utilities} *)
 
   let named_margin_value ?theme name : Css.declaration option * Css.length =
     let prop_name = "spacing-" ^ name in
@@ -53,8 +46,6 @@ module Handler = struct
         let ref = Spacing.named_spacing_ref name in
         (None, ref)
 
-  (** {1 Conversion Functions} *)
-
   (* Spacing keywords sort by their suffix's first character, matching
      Tailwind's raw order after the numeric rem values: auto ('a') < a named
      spacing like big ('b') < full ('f') < px ('p'). *)
@@ -68,7 +59,6 @@ module Handler = struct
     | `Full -> keyword_order 'f'
     | `Px -> keyword_order 'p'
 
-  (* Get the CSS property function for an axis *)
   (* The longhand each axis names, for a value no typed setter can hold. *)
   let property_of_axis = function
     | `All -> "margin"
@@ -97,7 +87,6 @@ module Handler = struct
     | `Bs -> margin_block_start
     | `Be -> margin_block_end
 
-  (** Convert margin utility to style *)
   let to_style theme { axis; value } =
     let prop = prop_for_axis axis in
     let named_margin_value name = named_margin_value ~theme name in
@@ -254,7 +243,6 @@ module Handler = struct
     | "mbe" -> Some `Be
     | _ -> None
 
-  (** Check if a prefix is an extended margin prefix (ms, me, mbs, mbe) *)
   let is_extended_margin_prefix = function
     | "ms" | "me" | "mbs" | "mbe" -> true
     | _ -> false
@@ -267,7 +255,6 @@ module Handler = struct
 
   let sign ~is_negative v = if is_negative then Negative v else Positive v
 
-  (** Parse value to standard or named margin *)
   let parse_value ?theme ~is_negative value =
     let allow_auto = not is_negative in
     match Spacing.parse_value_string ?theme ~allow_auto value with
@@ -278,25 +265,20 @@ module Handler = struct
       when (not is_negative)
            && Parse.is_valid_theme_name value
            && is_named_spacing theme value ->
-        (* Try as a named spacing: mx-big *)
         Some { axis = `All; value = Positive (Named value) }
     | _ -> None
 
-  (** Parse string parts to margin utility using shared logic *)
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    (* Handle arbitrary values: mx-[4px], mx-[var(--value)] *)
     | [ prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value = Positive value }
         | _ -> Utility.unclaimed)
-    (* Handle negative arbitrary: -mx-[4px], -mx-[var(--value)] *)
     | [ ""; prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value = Negative value }
         | _ -> Utility.unclaimed)
-    (* Handle extended axes (ms, me, mbs, mbe) with values *)
     | [ prefix; value ] when is_extended_margin_prefix prefix -> (
         match
           ( axis_of_prefix_ext prefix,
@@ -304,14 +286,12 @@ module Handler = struct
         with
         | Some axis, Some t -> Ok { t with axis }
         | _ -> Utility.unclaimed)
-    (* Handle negative extended axes: -ms-4 *)
     | [ ""; prefix; value ] when is_extended_margin_prefix prefix -> (
         match
           (axis_of_prefix_ext prefix, parse_value ~theme ~is_negative:true value)
         with
         | Some axis, Some t -> Ok { t with axis }
         | _ -> Utility.unclaimed)
-    (* Use existing Spacing parser for standard values *)
     | _ -> (
         match Spacing.parse_class_parts parts with
         | Some (is_negative, prefix, value) -> (
@@ -337,7 +317,6 @@ module Handler = struct
                   let allow_auto = not is_negative in
                   match Spacing.parse_value_string ~theme ~allow_auto value with
                   | None ->
-                      (* Try as a named spacing: mx-big, -mx-big *)
                       if
                         Parse.is_valid_theme_name value
                         && is_named_spacing (Some theme) value

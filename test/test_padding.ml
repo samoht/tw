@@ -30,15 +30,11 @@ let of_string_invalid () =
   in
 
   fail_maybe [ "p" ];
-  (* Missing value *)
   fail_maybe [ "p"; "!!!" ];
-  (* Invalid value - non-alphanumeric *)
+  (* padding takes no negative and no auto *)
   fail_maybe [ "p"; "-1" ];
-  (* Negative not allowed for padding *)
   fail_maybe [ "px"; "auto" ];
-  (* Auto not valid for px *)
   fail_maybe [ "py"; "auto" ]
-(* Auto not valid for py *)
 
 let suborder_matches_tailwind () =
   let open Tw in

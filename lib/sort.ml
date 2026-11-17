@@ -1,31 +1,19 @@
-(** CSS rule cascade sort order
-
-    Provides the [indexed_rule] type and [compare_indexed_rules], the comparison
-    function used to sort assembled CSS rules into Tailwind v4 cascade order. *)
-
 module Css = Cascade.Css
 
-(* ======================================================================== *)
-(* Types *)
-(* ======================================================================== *)
-
-(** Classification of CSS selectors for ordering purposes *)
 type selector_kind =
-  | Simple  (** Plain class selector like .foo *)
-  | Pseudo_element
-      (** Selector with pseudo-element like .before:absolute::before *)
+  | Simple (* .foo *)
+  | Pseudo_element (* .before:absolute::before *)
   | Complex of {
       has_focus : bool;
       has_focus_within : bool;
       has_focus_visible : bool;
-      has_group : bool;  (** group-* without :has() like group-focus *)
-      has_peer : bool;  (** peer-* without :has() like peer-checked *)
-      has_group_has : bool;
-          (** group-* with :has() like group-has-[:checked] *)
-      has_peer_has : bool;  (** peer-* with :has() like peer-has-[:checked] *)
+      has_group : bool; (* group-focus: a group- marker without :has() *)
+      has_peer : bool; (* peer-checked *)
+      has_group_has : bool; (* group-has-[:checked] *)
+      has_peer_has : bool; (* peer-has-[:checked] *)
       has_standalone_has : bool;
       has_aria : bool;
-    }  (** Selector with combinators, pseudo-classes, etc. *)
+    }
 
 (* One component of a rule's variant sort key: the slot the token sorts in, plus
    what separates two tokens that share it. A breakpoint token carries the width
@@ -162,10 +150,7 @@ type variant_component = {
   container : container_value option;
 }
 
-(** Relationship between two rules being compared *)
-type rule_relationship =
-  | Same_utility of string  (** Both rules from same base utility *)
-  | Different_utilities  (** Rules from different utilities *)
+type rule_relationship = Same_utility of string | Different_utilities
 
 type indexed_rule = {
   index : int;
@@ -181,12 +166,8 @@ type indexed_rule = {
   has_modifier_colon : bool;
   props : Css.declaration list;
   declared : bool;
-      (* The rule came in as finished CSS from a project's own [@utility]. *)
   declaration_count : int;
-      (* How many declarations the rule emits, those of its nested rules
-         included. Tailwind breaks a tie between two rules that write the same
-         property by this, widest first, so the narrower one wins the cascade.
-         Read only when one side is [declared]: the built-ins of a family are
+      (* Read only when one side is [declared]: the built-ins of a family are
          already separated by their suborders, and tw writes vendor-prefixed
          spellings Tailwind leaves to its optimizer, so counting them against
          each other would move rules the corpus pins. *)
@@ -196,52 +177,23 @@ type indexed_rule = {
   merge_key : string option;
   variant_order : int;
   variant_key : string * int * int;
-      (* Precomputed (variant prefix, effective inner order, collapsed data
-         depth) - see [variant_sort_key]. Read by [compare_variant_ordered]. *)
   variant_orders : variant_component list;
-      (* The rule's variant order keys sorted descending - see
-         [variant_order_list]. Compared lexicographically by
-         [compare_variant_ordered] so a stacked variant sorts into the group of
-         its highest-order component, after that group's base rules, and two
-         stacks with the same variant multiset (e.g. group:hover and
-         hover:group) get identical keys. *)
+      (* Two stacks with the same variant multiset ([group:hover] and
+         [hover:group]) get identical keys. *)
   base_class_key : string;
-      (* The rule's base class ("" when it has none), read by
-         [compare_by_base_class] as the lexicographic sort key. *)
   media_key : Css.Media.key option;
-      (* Precomputed sort key of the rule's own media condition (the [`Media]
-         case of [rule_type]); [None] otherwise. Lets media comparisons use
-         [Css.Media.compare_keys] instead of re-serializing the query. *)
   nested_media_key : Css.Media.key option;
-      (* Precomputed sort key of a single nested media condition. *)
   responsive_media_key : Css.Media.key option;
-      (* Precomputed sort key of the rule's breakpoint condition, taken from
-         whichever nesting level carries it - see [responsive_media_key]. *)
 }
-(** An indexed CSS rule ready for sorting. [index] preserves source order;
-    [order] is the [(priority, suborder)] pair from the utility definition;
-    [variant_order] places modifier-prefixed rules after their base
-    counterparts. *)
-
-(* ======================================================================== *)
-(* Debug *)
-(* ======================================================================== *)
 
 (* The comparator traces its decisions when [TW_DEBUG_SORT] is set in the
    environment, so tracing needs no recompile. *)
 let debug_compare = Sys.getenv_opt "TW_DEBUG_SORT" <> None
 let debug_compare_enabled () = debug_compare
 
-(* ======================================================================== *)
-(* Selector Classification *)
-(* ======================================================================== *)
-
 let is_simple_class_selector sel =
   match sel with Css.Selector.Class _ -> true | _ -> false
 
-(** Compare complex selector kinds. Returns ordering value for sorting. At equal
-    priority levels, the order is: simple/complex < pseudo-element < group <
-    group-has < peer < peer-has < focus-within < focus-visible < has < aria *)
 let complex_selector_order = function
   | Complex { has_aria = true; _ } -> 60
   | Complex { has_standalone_has = true; _ } -> 50
@@ -255,15 +207,13 @@ let complex_selector_order = function
   | Simple -> 0
   | Complex _ -> 0
 
-(** Determine the relationship between two rules *)
 let rule_relationship r1 r2 =
   match (r1.base_class, r2.base_class) with
   | Some bc1, Some bc2 when bc1 = bc2 -> Same_utility bc1
   | _ -> Different_utilities
 
-(** Traverse a selector tree like [Css.Selector.any] but skip [Not] children.
-    This prevents :not(:focus) from being classified as a focus modifier, which
-    would break ordering for not-* variant rules. *)
+(* [Css.Selector.any] that skips [Not] children, so the :not(:focus) of a not-*
+   variant does not classify as a focus modifier. *)
 let rec any_outside_not p = function
   | Css.Selector.Not _ -> false
   | Css.Selector.Compound xs -> List.exists (any_outside_not p) xs
@@ -275,9 +225,7 @@ let rec any_outside_not p = function
       List.exists (any_outside_not p) xs
   | s -> p s
 
-(** Classify a selector into Simple or Complex with focus/has analysis. For List
-    selectors (merged selectors like `.a, .b`), classify based on the first
-    element to preserve sort order. *)
+(* A merged selector list ([.a, .b]) classifies as its first element. *)
 let classify_selector sel =
   let sel_to_classify =
     match Css.Selector.as_list sel with
@@ -323,46 +271,37 @@ let classify_selector sel =
         has_aria = has_aria_attr sel_to_classify;
       }
 
-(** Get sort key for preference media conditions. Tailwind order: reduced-motion
-    (no-preference, reduce) < contrast (more, less) *)
+(* Tailwind orders reduced-motion (no-preference, reduce) before contrast (more,
+   less). *)
 let preference_condition_order cond = Css.Media.preference_order cond
 
-(** Count modifier colons in a selector's first class name. Used to determine
-    modifier stacking depth for hover media interleaving. *)
+(* The modifier stacking depth that hover media interleaving reads. *)
 let selector_modifier_depth sel =
   match Css.Selector.first_class sel with
   | Some cls ->
       String.fold_left (fun acc c -> if c = ':' then acc + 1 else acc) 0 cls
   | None -> 0
 
-(* Shares [any_outside_not]'s traversal: the hand-rolled one missed [Has] and
-   [Relative], so :hover inside a :has() did not count. Both want the same
-   thing, a :hover that is not under a :not(). *)
-
-(** Check if a selector contains :hover pseudo-class at any depth (used to
-    detect compound variants like group-hocus that combine hover+focus). *)
+(* A :hover at any depth outside a :not(), :has() included, which marks a
+   compound variant such as group-hocus. *)
 let selector_has_hover sel =
   any_outside_not (function Css.Selector.Hover -> true | _ -> false) sel
 
-(* Determine sort group for rule types. Regular and Media are grouped together
-   to preserve utility grouping - media queries appear immediately after their
-   base utility rule. *)
+(* Regular, Media and Supports share a group, so a media query sits right after
+   its base utility rule. *)
 let rule_type_order = function
   | `Regular -> 0
-  | `Media _ -> 0 (* Same as Regular to keep grouped *)
-  | `Supports _ -> 0 (* Same as Regular to keep grouped with base rule *)
+  | `Media _ -> 0
+  | `Supports _ -> 0
   | `Container _ -> 1
   | `Starting -> 2
 
-(* Extract media sort key using Css.Media.kind and group_order. Returns (group,
-   subkey) where subkey is rem value for responsive conditions. *)
+(* [(group, subkey)], the subkey being the rem width of a responsive
+   condition. *)
 let extract_media_sort_key = function
   | `Media cond -> Css.Media.group_order (Css.Media.kind cond)
   | _ -> (0, 0.)
 
-(* Precompute the sort keys for a rule's own and nested media conditions, so the
-   comparators use [Css.Media.compare_keys] (cheap) instead of re-serializing
-   the query on every comparison. See [media_key]/[nested_media_key]. *)
 let media_sort_keys rule_type nested =
   let media_key =
     match rule_type with
@@ -399,13 +338,8 @@ let responsive_media_key rule_type nested =
           match Css.as_media n with Some (c, _) -> of_cond c | None -> None)
       | _ -> None)
 
-(* ======================================================================== *)
-(* Priority Comparison *)
-(* ======================================================================== *)
-
-(** Compare two simple selectors by suborder, then alphabetically, then index.
-    Index fallback is critical for utilities like prose that emit multiple rules
-    with the same selector - preserves original order. *)
+(* The index breaks the last tie because prose emits several rules with the same
+   selector, which must keep their source order. *)
 let compare_simple_selectors sel_str1 sel_str2 s1 s2 i1 i2 =
   let sub_cmp = Int.compare s1 s2 in
   if sub_cmp <> 0 then sub_cmp
@@ -413,33 +347,27 @@ let compare_simple_selectors sel_str1 sel_str2 s1 s2 i1 i2 =
     let sel_cmp = String.compare sel_str1 sel_str2 in
     if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
-(** Compare two complex selectors by kind, then selector string (for aria), then
-    suborder, then index. Order: focus < group-has < peer-has < has < aria. For
-    aria selectors, sort by attribute name before property to match Tailwind. *)
 let compare_complex_selectors sel_str1 sel_str2 kind1 kind2 s1 s2 i1 i2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2
   else if match kind1 with Complex { has_aria = true; _ } -> true | _ -> false
   then
-    (* Both are aria selectors - compare by selector string (aria attribute)
-       before suborder (property shade) to match Tailwind v4 behavior *)
+    (* Tailwind orders two aria selectors by the attribute before the suborder
+       (the property shade). *)
     let sel_cmp = String.compare sel_str1 sel_str2 in
     if sel_cmp <> 0 then sel_cmp
     else
       let sub_cmp = Int.compare s1 s2 in
       if sub_cmp <> 0 then sub_cmp else Int.compare i1 i2
   else
-    (* Other complex selectors - use suborder first *)
     let sub_cmp = Int.compare s1 s2 in
     if sub_cmp <> 0 then sub_cmp
     else
       let sel_cmp = String.compare sel_str1 sel_str2 in
       if sel_cmp <> 0 then sel_cmp else Int.compare i1 i2
 
-(** Compare rules by priority, then suborder, then by selector kind. Uses
-    type-directed dispatch based on selector classification. At the same
-    priority/suborder, cross-kind comparisons preserve source order (index) to
-    match tailwindcss output exactly. *)
+(* At the same priority and suborder, two rules of different selector kinds keep
+   their source order, as Tailwind does. *)
 let compare_by_priority_suborder_alpha kind1 kind2 sel_str1 sel_str2 (p1, s1)
     (p2, s2) i1 i2 =
   let prio_cmp = Int.compare p1 p2 in
@@ -463,10 +391,6 @@ let compare_by_priority_suborder_alpha kind1 kind2 sel_str1 sel_str2 (p1, s1)
       | Complex _, Complex _ ->
           compare_complex_selectors sel_str1 sel_str2 kind1 kind2 s1 s2 i1 i2
 
-(* ======================================================================== *)
-(* Media Query Comparison *)
-(* ======================================================================== *)
-
 (* The two groups below are compared on something other than their key, so they
    need naming. Taken from [Css.Media.group_order] rather than written out, so
    they follow it if it moves. *)
@@ -481,7 +405,6 @@ let accessibility_preference_group =
 let responsive_variant_order = Variant_order.of_prefix "sm"
 let negation_variant_order = Variant_order.of_prefix "not-hover"
 
-(** Compare two media conditions within the same group *)
 let compare_media_conditions group1 sub1 sub2 cond1 cond2 key1 key2 =
   if group1 = responsive_group then Float.compare sub1 sub2
   else if group1 = accessibility_preference_group then
@@ -503,9 +426,8 @@ let compare_order (p1, s1) (p2, s2) =
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp else Int.compare s1 s2
 
-(* For hover media, separate rules by modifier depth so that single-modifier
-   hover rules (group-hover:flex) form a separate block from stacked hover rules
-   (group-focus:group-hover:flex) *)
+(* Under hover media, single-modifier rules (group-hover:flex) form a block
+   apart from stacked ones (group-focus:group-hover:flex). *)
 let compare_hover_depth cond1 cond2 sel1 sel2 =
   match (cond1, cond2) with
   | Some c1, Some c2
@@ -514,8 +436,7 @@ let compare_hover_depth cond1 cond2 sel1 sel2 =
       Int.compare (selector_modifier_depth sel1) (selector_modifier_depth sel2)
   | _ -> 0
 
-(* Compare by nested media condition when both have nested media. This sorts
-   stacked min/max variants like min-sm:max-xl vs min-sm:max-lg by the inner
+(* Orders stacked min/max variants (min-sm:max-xl, min-sm:max-lg) by the inner
    media condition. *)
 let compare_nested_media_cond nk1 nk2 =
   match (nk1, nk2) with
@@ -606,24 +527,12 @@ let compare_media_rules (r1 : indexed_rule) (r2 : indexed_rule) =
         if cond_cmp <> 0 then cond_cmp
         else compare_same_media_group r1 r2 cond1 cond2
 
-(* ======================================================================== *)
-(* Regular vs Media Comparison *)
-(* ======================================================================== *)
-
-(* For the same base utility, preserve original order (index) to keep media
-   rules adjacent to their related state rules. *)
+(* Source order keeps a utility's media rules beside its state rules. *)
 let compare_same_utility_regular_media r1 r2 = Int.compare r1.index r2.index
 
-(** Check if a selector has special modifiers that should come at the end.
-    Includes :has() variants (group-has, peer-has, has) and focus-within/
-    focus-visible variants that have modifier prefixes.
-
-    Note: Regular focus: with modifier prefix is NOT a late modifier. Only
-    focus-within: and focus-visible: are late modifiers.
-
-    IMPORTANT: Only selectors with modifier colons (like `.focus-within\:ring`)
-    are late modifiers. Native pseudo-classes like `.form-radio:focus` are not.
-*)
+(* Late modifiers sort last: the :has() variants, and focus-within: and
+   focus-visible: written as a modifier ([.focus-within\:ring]). A plain focus:
+   is not one, nor is a native pseudo-class such as [.form-radio:focus]. *)
 let is_late_modifier sel_kind has_modifier_colon =
   match sel_kind with
   | Complex { has_group_has = true; _ } -> true
@@ -633,8 +542,6 @@ let is_late_modifier sel_kind has_modifier_colon =
   | Complex { has_standalone_has = true; _ } -> true
   | _ -> false
 
-(** Check if a selector is a state modifier rule. These include :active,
-    :disabled, [aria-*], and :has() selectors with modifier colons. *)
 let is_state_modifier_rule sel_kind has_modifier_colon sel_str =
   if not has_modifier_colon then false
   else
@@ -646,14 +553,13 @@ let is_state_modifier_rule sel_kind has_modifier_colon sel_str =
         || String.ends_with ~suffix:":disabled" sel_str
     | _ -> false
 
-(** Check if a selector is a focus: modifier rule (has :focus pseudo-class and
-    modifier colon). These rules come AFTER hover:hover media but BEFORE other
-    modifier-prefixed media like motion-safe:/motion-reduce:/contrast-more:. *)
+(* A focus: modifier rule sorts after hover:hover media and before the other
+   modifier-prefixed media (motion-safe:, motion-reduce:, contrast-more:). *)
 let is_focus_modifier_rule sel_kind has_modifier_colon =
   has_modifier_colon
   && match sel_kind with Complex { has_focus = true; _ } -> true | _ -> false
 
-(** Compare by (priority, suborder), defaulting to [regular_first] (-1). *)
+(* On a tie the regular rule comes first. *)
 let compare_by_order_regular_first (p1, s1) (p2, s2) =
   let prio_cmp = Int.compare p1 p2 in
   if prio_cmp <> 0 then prio_cmp
@@ -661,8 +567,6 @@ let compare_by_order_regular_first (p1, s1) (p2, s2) =
     let sub_cmp = Int.compare s1 s2 in
     if sub_cmp <> 0 then sub_cmp else -1
 
-(** Compare Regular vs Media rules from different utilities. Uses selector
-    classification to determine ordering. *)
 let try_hover_media_interleave (r1 : indexed_rule) (r2 : indexed_rule)
     media_type =
   match media_type with
@@ -706,7 +610,6 @@ let compare_different_utility_regular_media (r1 : indexed_rule)
           | Some (Css.Media.Hover | Css.Media.Responsive _) -> -1
           | _ -> compare_by_order_regular_first r1.order r2.order)
 
-(** Compare Regular vs Media rules using rule relationship dispatch. *)
 let compare_regular_vs_media r1 r2 =
   match rule_relationship r1 r2 with
   | Same_utility _ -> compare_same_utility_regular_media r1 r2
@@ -718,13 +621,6 @@ let compare_regular_vs_media r1 r2 =
       in
       compare_different_utility_regular_media r1 r2 media_type
 
-(* ======================================================================== *)
-(* Regular Rule Comparison *)
-(* ======================================================================== *)
-
-(** Compare pseudo-element vs non-pseudo-element selectors. Simple selectors
-    ALWAYS come before Pseudo_element selectors within the same priority group.
-*)
 let compare_pseudo_elements kind1 kind2 _sel1 _sel2 =
   match (kind1, kind2) with
   | Simple, Pseudo_element -> Some (-1)
@@ -732,8 +628,6 @@ let compare_pseudo_elements kind1 kind2 _sel1 _sel2 =
   | Pseudo_element, Pseudo_element -> None
   | _, _ -> None
 
-(** Compare rules by order tuple then index. Used for same-utility regular
-    rules, starting style rules, and as a generic tiebreaker. *)
 let compare_by_order_then_index r1 r2 =
   let order_cmp = compare_order r1.order r2.order in
   if order_cmp <> 0 then order_cmp else Int.compare r1.index r2.index
@@ -762,9 +656,8 @@ let compare_by_priority_index r1 r2 =
         if idx_cmp <> 0 then idx_cmp
         else String.compare r1.selector_str r2.selector_str
 
-(* Natural sort comparison: treats consecutive digit sequences as integers.
-   E.g., "2.5" < "2.25" because 5 < 25 when compared as numbers. This matches
-   Tailwind v4's selector ordering for opacity modifiers like /2.5 vs /2.25. *)
+(* Natural sort reads a digit run as an integer, so "2.5" < "2.25" because 5 <
+   25: Tailwind orders opacity modifiers /2.5 and /2.25 that way. *)
 let natural_extract_number s i =
   let rec go j acc =
     if j >= String.length s || not (Parse.is_digit s.[j]) then (acc, j)
@@ -866,7 +759,6 @@ let compare_late_modifiers r1 r2 kind1 kind2 =
   let k1 = complex_selector_order kind1 and k2 = complex_selector_order kind2 in
   if k1 <> k2 then Int.compare k1 k2 else compare_by_priority_index r1 r2
 
-(** Check if a selector kind is a focus-visible late modifier *)
 let is_focus_visible_late_modifier kind has_modifier_colon =
   is_late_modifier kind has_modifier_colon
   &&
@@ -874,8 +766,7 @@ let is_focus_visible_late_modifier kind has_modifier_colon =
   | Complex { has_focus_visible = true; _ } -> true
   | _ -> false
 
-(** Compare focus-visible and state modifier ordering. Returns [Some cmp] if at
-    least one rule is a focus-visible or state modifier, [None] otherwise. *)
+(* [None] when neither rule is a focus-visible or state modifier. *)
 let compare_focus_visible_state r1 r2 kind1 kind2 =
   let fv1 = is_focus_visible_late_modifier kind1 r1.has_modifier_colon in
   let fv2 = is_focus_visible_late_modifier kind2 r2.has_modifier_colon in
@@ -891,8 +782,6 @@ let compare_focus_visible_state r1 r2 kind1 kind2 =
   else if s1 && s2 then Some (compare_by_priority_index r1 r2)
   else None
 
-(** Compare focus modifier ordering. Returns [Some cmp] if at least one rule is
-    a focus modifier, [None] otherwise. *)
 let compare_focus_modifier_ordering r1 r2 kind1 kind2 =
   let f1 = is_focus_modifier_rule kind1 r1.has_modifier_colon in
   let f2 = is_focus_modifier_rule kind2 r2.has_modifier_colon in
@@ -911,9 +800,6 @@ let compare_declared_width r1 r2 =
   if not (r1.declared || r2.declared) then 0
   else Int.compare r2.declaration_count r1.declaration_count
 
-(** Compare by priority, suborder, late modifiers, then natural selector sort.
-    Used as the final comparison when focus-visible/state/focus modifiers don't
-    apply. *)
 let compare_by_prio_sub_late r1 r2 kind1 kind2 =
   let p1, _ = r1.order and p2, _ = r2.order in
   let prio_cmp = Int.compare p1 p2 in
@@ -929,11 +815,7 @@ let compare_by_prio_sub_late r1 r2 kind1 kind2 =
       else if late2 && not late1 then -1
       else if late1 && late2 then compare_late_modifiers r1 r2 kind1 kind2
       else
-        (* Two utilities share a slot when they are named for the same property,
-           which is where a project's own [@utility] lands. The wider rule goes
-           first - [select-none] writes the prefixed spelling of [user-select]
-           as well as the plain one - and only rules of equal width fall through
-           to the candidate name. *)
+        (* Only rules of equal width fall through to the candidate name. *)
         let width_cmp = compare_declared_width r1 r2 in
         if width_cmp <> 0 then width_cmp
         else natural_compare r1.base_class_key r2.base_class_key
@@ -998,7 +880,6 @@ let compare_cross_utility_regular r1 r2 =
               | Some cmp -> cmp
               | None -> compare_by_prio_sub_late r1 r2 kind1 kind2)))
 
-(** Compare two Regular rules using rule relationship dispatch. *)
 let compare_regular_rules r1 r2 =
   let rel = rule_relationship r1 r2 in
   if debug_compare then
@@ -1021,10 +902,6 @@ let compare_regular_rules r1 r2 =
 
 let compare_starting_rules = compare_by_order_then_index
 
-(* ======================================================================== *)
-(* Main Rule Comparison *)
-(* ======================================================================== *)
-
 let supports_suffix s =
   if String.starts_with ~prefix:"supports-" s then
     Some (String.sub s 9 (String.length s - 9))
@@ -1032,9 +909,8 @@ let supports_suffix s =
     Some (String.sub s 13 (String.length s - 13))
   else None
 
-(* Sort key for supports modifier variants: named before bracket. Negating a
-   supports variant changes its condition, not its position within this
-   group. *)
+(* A named supports variant sorts before a bracket one. Negating a supports
+   variant changes its condition, not its position within this group. *)
 let supports_sort_key bc =
   match Option.bind bc supports_suffix with
   | Some after ->
@@ -1048,7 +924,6 @@ let supports_sort_key bc =
 let is_modifier_supports bc =
   match bc with Some s -> Option.is_some (supports_suffix s) | None -> false
 
-(* Compare supports modifier rules by sort key *)
 let compare_supports_by_key r1 r2 =
   let g1, k1 = supports_sort_key r1.base_class in
   let g2, k2 = supports_sort_key r2.base_class in
@@ -1058,7 +933,6 @@ let compare_supports_by_key r1 r2 =
     let key_cmp = natural_compare k1 k2 in
     if key_cmp <> 0 then key_cmp else Int.compare r1.index r2.index
 
-(* Compare by order tuple, then selector, then index *)
 let compare_by_order_then_selector r1 r2 =
   let order_cmp = compare_order r1.order r2.order in
   if order_cmp <> 0 then order_cmp
@@ -1066,7 +940,6 @@ let compare_by_order_then_selector r1 r2 =
     let sel_cmp = natural_compare r1.selector_str r2.selector_str in
     if sel_cmp <> 0 then sel_cmp else Int.compare r1.index r2.index
 
-(* Compare nested media conditions *)
 let compare_nested_media r1 r2 =
   match (nested_variants r1, nested_variants r2) with
   | [], [] -> 0
@@ -1099,9 +972,8 @@ let collapse_repeated_variant_slots modifiers =
   in
   loop 0 [] modifiers
 
-(* Extract the modifier prefix from a base_class, e.g. "hover:p-4" -> "hover".
-   Split with the modifier parser, not on the last ':': an arbitrary value can
-   hold one, and [hover:bg-[color:var(--x)]] split naively yields the prefix
+(* The modifier parser splits the class, not the last ':': an arbitrary value
+   can hold one, and [hover:bg-[color:var(--x)]] split naively yields the prefix
    [hover:bg-[color]. *)
 let variant_prefix_and_data_depth = function
   | Some s ->
@@ -1110,8 +982,6 @@ let variant_prefix_and_data_depth = function
       (String.concat ":" modifiers, data_depth)
   | None -> ("", 0)
 
-(* Compute variant order for a modifier prefix, stripping group-/peer-
-   wrappers *)
 let strip_group_peer_vo p =
   if String.starts_with ~prefix:"group-" p then
     Variant_order.of_prefix (String.sub p 6 (String.length p - 6))
@@ -1139,7 +1009,6 @@ let compare_container_values r1 r2 p1 p2 =
       | _ -> None)
   | _ -> None
 
-(* Compute the inner variant order for a compound prefix like "hover:focus" *)
 let inner_vo prefix =
   match Parse.split_on_colon prefix with
   | [] -> 0
@@ -1158,8 +1027,7 @@ let inner_vo prefix =
         + 1
       else Variant_order.of_prefix (String.concat ":" (List.tl parts))
 
-(* Effective inner variant order: prefer prefix-derived, fall back to nested
-   media *)
+(* The prefix's inner variant order, else the nested media's. *)
 let effective_ivo_of nested prefix =
   let ivo = inner_vo prefix in
   if ivo > 0 then ivo
@@ -1171,10 +1039,6 @@ let effective_ivo_of nested prefix =
         | None -> 0)
     | _ -> 0
 
-(* The variant prefix and effective inner order are pure functions of a rule's
-   base class and nested statements, but [compare_variant_ordered] needs them on
-   every comparison. Precompute them once per rule (see [add_index]) so the hot
-   sort comparator only reads the result. *)
 let variant_sort_key base_class nested =
   let prefix, data_depth = variant_prefix_and_data_depth base_class in
   (prefix, effective_ivo_of nested prefix, data_depth)
@@ -1307,26 +1171,22 @@ let rec compare_variant_order_lists l1 l2 =
       let c = compare_variant_components a b in
       if c <> 0 then c else compare_variant_order_lists r1 r2
 
-(** Classify bracket content: pseudo-class brackets ([:checked]) sort before
-    combinator/ampersand brackets ([&>img], [+img], etc.). *)
+(* A pseudo-class bracket ([:checked]) sorts before a combinator or ampersand
+   one ([&>img], [+img]). *)
 let bracket_content_key p =
   match String.index_opt p '[' with
   | Some i when i + 1 < String.length p ->
       let first_char = p.[i + 1] in
-      if first_char = ':' then 0 (* pseudo-class *)
-      else 1 (* combinator/ampersand/other *)
+      if first_char = ':' then 0 else 1
   | _ -> 1
 
-(** Compare two bracket-containing variant prefixes: by bracket content type
-    (pseudo-class before combinator), then by raw name. *)
 let compare_both_bracket_prefixes p1 p2 =
   let bk_cmp = Int.compare (bracket_content_key p1) (bracket_content_key p2) in
   if bk_cmp <> 0 then bk_cmp else String.compare p1 p2
 
-(** Compare variant prefixes for bracket ordering. Named variants (has-checked)
-    sort before bracket variants (has-[:checked]) within the same variant group.
-    Element-variant permutations with identical component keys tie here so their
-    utilities can interleave in [compare_variant_tail]. *)
+(* A named variant (has-checked) sorts before a bracket one (has-[:checked]) in
+   the same variant group. Element-variant permutations with identical component
+   keys tie here so their utilities can interleave in [compare_variant_tail]. *)
 let compare_bracket_prefixes p1_prefix p2_prefix =
   let has_bracket p = String.length p > 0 && String.contains p '[' in
   let has_element_variant p = String.contains p '*' in
@@ -1337,20 +1197,20 @@ let compare_bracket_prefixes p1_prefix p2_prefix =
   else if has_element_variant p1_prefix && has_element_variant p2_prefix then 0
   else String.compare p1_prefix p2_prefix
 
-(* Compare rules when both have variant_order > 0 *)
+(* A single nested hover sorts first, then rules with no nested variant, then
+   other nesting, and a hover nested in a hover query last. *)
 let nested_order r =
   match nested_variants r with
-  | [] -> 0 (* non-nested: middle *)
+  | [] -> 0
   | [ stmt ] -> (
       match (r.rule_type, Css.as_media stmt) with
       | `Media c, Some (nested, _)
         when Css.Media.kind c = Css.Media.Hover
              && Css.Media.kind nested = Css.Media.Hover ->
-          2 (* doubly-nested hover: after everything *)
-      | _, Some (nested, _) when Css.Media.kind nested = Css.Media.Hover ->
-          -1 (* single hover nested: first *)
-      | _ -> 1 (* other nested: last *))
-  | _ -> 1 (* multiple nested: last *)
+          2
+      | _, Some (nested, _) when Css.Media.kind nested = Css.Media.Hover -> -1
+      | _ -> 1)
+  | _ -> 1
 
 (* Last resort for two rules that share a variant group, a breakpoint and a
    prefix: the utility's own priority, then the selector. *)
@@ -1442,16 +1302,12 @@ let compare_variant_ordered r1 r2 =
                   if data_depth_cmp <> 0 then data_depth_cmp
                   else compare_variant_tail r1 r2
 
-(* Compare two Supports rules *)
 let compare_supports_rules r1 r2 =
   let m1 = is_modifier_supports r1.base_class in
   let m2 = is_modifier_supports r2.base_class in
   if m1 && m2 then compare_supports_by_key r1 r2
   else compare_by_order_then_selector r1 r2
 
-(** Compare indexed rules for sorting. Uses type-directed dispatch based on
-    rule_type. This is the main entry point for sorting assembled CSS rules into
-    Tailwind v4 cascade order. *)
 let compare_indexed_rules r1 r2 =
   (if debug_compare then
      let rule_type_str = function

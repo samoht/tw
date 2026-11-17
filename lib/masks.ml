@@ -1,8 +1,3 @@
-(** Mask utilities for CSS masking.
-
-    Provides utilities for mask-image, mask-composite, mask-mode, mask-type,
-    mask-size, mask-position, mask-repeat, mask-clip, and mask-origin. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -41,9 +36,9 @@ module Handler = struct
      class names and leaves the value spelled as the author wrote it, so whether
      it means anything is the browser's answer rather than tw's. *)
   type opaque = {
-    spelling : string;  (** the class as written, which prints back *)
+    spelling : string; (* the class as written, which prints back *)
     longhand : Longhand.t;
-    value : string;  (** the bracket's contents, decoded but not read *)
+    value : string; (* the bracket's contents, decoded but not read *)
   }
 
   type t =
@@ -171,7 +166,6 @@ module Handler = struct
   let mask_type_alpha = style [ Css.mask_type Css.Alpha ]
   let mask_type_luminance = style [ Css.mask_type Css.Luminance ]
 
-  (* mask-size *)
   let mask_auto =
     style [ Css.webkit_mask_size Css.Auto; Css.mask_size Css.Auto ]
 
@@ -181,7 +175,6 @@ module Handler = struct
   let mask_cover =
     style [ Css.webkit_mask_size Css.Cover; Css.mask_size Css.Cover ]
 
-  (* mask-position *)
   let mask_position' pos =
     let pos_val : Css.position_value list =
       match pos with
@@ -197,7 +190,6 @@ module Handler = struct
     in
     style [ Css.webkit_mask_position pos_val; Css.mask_position pos_val ]
 
-  (* mask-repeat *)
   let mask_no_repeat' =
     style
       [ Css.webkit_mask_repeat Css.No_repeat; Css.mask_repeat Css.No_repeat ]
@@ -249,8 +241,6 @@ module Handler = struct
   let mask_origin_fill = style [ Css.mask_origin Fill_box ]
   let mask_origin_stroke = style [ Css.mask_origin Stroke_box ]
   let mask_origin_view = style [ Css.mask_origin View_box ]
-
-  (* Bracket notation helpers *)
 
   (* [mask-size-[...]], [mask-[size:...]] and [mask-[length:...]] take any CSS
      length, so a token is read with the value parser rather than a hand-picked
@@ -335,7 +325,6 @@ module Handler = struct
     | Origin_fill -> mask_origin_fill
     | Origin_stroke -> mask_origin_stroke
     | Origin_view -> mask_origin_view
-    (* Bracket notation *)
     | Bracket_contain ->
         style [ Css.webkit_mask_size Css.Contain; Css.mask_size Css.Contain ]
     | Bracket_cover ->
@@ -407,7 +396,6 @@ module Handler = struct
         | _ ->
             invalid_arg ("mask-[" ^ v ^ "]: not a valid background-image value")
         )
-    (* Sub-property bracket notation *)
     | Position_bracket (_, positions) -> mask_position_style positions
     | Position_bracket_var v ->
         let bare = Parse.extract_var_name v in
@@ -512,7 +500,6 @@ module Handler = struct
     | [ "mask"; "auto" ] -> Ok Auto
     | [ "mask"; "contain" ] -> Ok Contain
     | [ "mask"; "cover" ] -> Ok Cover
-    (* mask-position *)
     | [ "mask"; "bottom" ] -> Ok (Position Keyword.Bottom)
     | [ "mask"; "bottom"; "left" ] -> Ok (Position Keyword.Bottom_left)
     | [ "mask"; "bottom"; "right" ] -> Ok (Position Keyword.Bottom_right)
@@ -522,14 +509,12 @@ module Handler = struct
     | [ "mask"; "top" ] -> Ok (Position Keyword.Top)
     | [ "mask"; "top"; "left" ] -> Ok (Position Keyword.Top_left)
     | [ "mask"; "top"; "right" ] -> Ok (Position Keyword.Top_right)
-    (* mask-repeat *)
     | [ "mask"; "no"; "repeat" ] -> Ok No_repeat
     | [ "mask"; "repeat" ] -> Ok Repeat
     | [ "mask"; "repeat"; "round" ] -> Ok Repeat_round
     | [ "mask"; "repeat"; "space" ] -> Ok Repeat_space
     | [ "mask"; "repeat"; "x" ] -> Ok Repeat_x
     | [ "mask"; "repeat"; "y" ] -> Ok Repeat_y
-    (* mask-clip *)
     | [ "mask"; "clip"; "border" ] -> Ok Clip_border
     | [ "mask"; "clip"; "padding" ] -> Ok Clip_padding
     | [ "mask"; "clip"; "content" ] -> Ok Clip_content
@@ -537,14 +522,12 @@ module Handler = struct
     | [ "mask"; "clip"; "stroke" ] -> Ok Clip_stroke
     | [ "mask"; "clip"; "view" ] -> Ok Clip_view
     | [ "mask"; "no"; "clip" ] -> Ok No_clip
-    (* mask-origin *)
     | [ "mask"; "origin"; "border" ] -> Ok Origin_border
     | [ "mask"; "origin"; "padding" ] -> Ok Origin_padding
     | [ "mask"; "origin"; "content" ] -> Ok Origin_content
     | [ "mask"; "origin"; "fill" ] -> Ok Origin_fill
     | [ "mask"; "origin"; "stroke" ] -> Ok Origin_stroke
     | [ "mask"; "origin"; "view" ] -> Ok Origin_view
-    (* Sub-property bracket notation: mask-position-[...], mask-size-[...] *)
     | [ "mask"; "position"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         (* This class names its longhand outright, so a hint in front of the
@@ -566,7 +549,6 @@ module Handler = struct
             else if parse_bracket_size inner = None then
               opaque class_name Longhand.Size inner
             else Ok (Size_bracket inner))
-    (* Bracket notation: mask-[...] *)
     | [ "mask"; bracket ] when Parse.is_bracket_value bracket -> (
         let inner = Parse.bracket_inner bracket in
         (* A hint with nothing after it names no value: it is read below as a

@@ -122,7 +122,7 @@ let test_typed_width_units () =
     ]
 
 (* Every divide utility the parser accepts also has a typed constructor, and the
-   two agree on the class name (issue #5). *)
+   two agree on the class name. *)
 let test_typed () =
   let open Tw in
   Test_helpers.check_typed_class "divide-x-2" (divide_x 2);

@@ -1,8 +1,5 @@
-(** Typography utilities for text and font styling. *)
-
 module Css = Cascade.Css
 
-(* Text size variables with line heights *)
 let text_xs_var = Var.theme Css.Length "text-xs" ~order:(6, 0)
 
 let text_xs_lh_var =
@@ -121,7 +118,6 @@ let () =
       (font_weight_black_var, Weight 900.);
     ]
 
-(* Theme variables for named leading values *)
 let leading_none_var = Var.theme Css.Line_height "leading-none" ~order:(6, 47)
 let leading_tight_var = Var.theme Css.Line_height "leading-tight" ~order:(6, 48)
 let leading_snug_var = Var.theme Css.Line_height "leading-snug" ~order:(6, 49)
@@ -144,18 +140,15 @@ let font_weight_var =
   Var.channel ~needs_property:true ~property_order:12 ~family:`Font_weight
     Css.Font_weight "tw-font-weight"
 
-(* Theme record for line height variables *)
 type line_height_theme = { leading : Css.declaration * Css.line_height Css.var }
 
-(* Default line height theme with empty fallback for Tailwind's var(--name,)
-   pattern *)
+(* The empty fallback gives Tailwind's [var(--name,)] spelling. *)
 let default_line_height_theme : line_height_theme =
   let leading_decl, leading_ref =
     Var.binding leading_var ~fallback:Css.Empty (Num 1.5)
   in
   { leading = (leading_decl, leading_ref) }
 
-(* Content variable *)
 let content_var =
   Var.property_default Content ~initial:(String "") ~universal:true
     ~property_order:100 ~family:`Content "tw-content"
@@ -224,7 +217,6 @@ let font_sans_var = Var.theme Css.Font_family "font-sans" ~order:(1, 0)
 let font_serif_var = Var.theme Css.Font_family "font-serif" ~order:(1, 1)
 let font_mono_var = Var.theme Css.Font_family "font-mono" ~order:(1, 2)
 
-(* Default font family variables that reference the base font variables *)
 let default_font_family_var =
   Var.theme Css.Font_family "default-font-family" ~order:(8, 39)
 
@@ -276,13 +268,13 @@ let () =
       (font_mono_var, default_mono_stack);
     ]
 
-(* Base font family variables for theme layer *)
 let default_font_declarations =
   let sans_decl = Var.set font_sans_var default_sans_stack in
   let mono_decl = Var.set font_mono_var default_mono_stack in
   [ sans_decl; mono_decl ]
 
-(* Default font family variables that reference the base font variables. *)
+(* [--default-font-family] and [--default-mono-font-family] reference the base
+   font variables. *)
 let default_font_family_declarations =
   let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
   let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
@@ -295,8 +287,6 @@ let default_font_family_declarations =
 (* CSS Fonts 4 sec. 6.4: [font-feature-settings] is [normal] or a comma list of
    [<opentype-tag> [<integer> | on | off]?], the tag being a quoted
    four-character string. The docs' [<value>] placeholder is neither. *)
-
-(** Early typography handler - comes before color utilities (priority 22) *)
 let is_feature_tag_list s =
   let s = Parse.decode_underscores s in
   let entry e =
@@ -337,8 +327,7 @@ module Typography_early = struct
   open Css
 
   type t =
-    | (* Text sizes *)
-      Text_xs
+    | Text_xs
     | Text_sm
     | Text_base
     | Text_lg
@@ -351,8 +340,7 @@ module Typography_early = struct
     | Text_7xl
     | Text_8xl
     | Text_9xl
-    | (* Font weights *)
-      Font_thin
+    | Font_thin
     | Font_extralight
     | Font_light
     | Font_normal
@@ -371,34 +359,30 @@ module Typography_early = struct
     | Font_bracket_family_var of string * string
       (* font-[family-name:var(--x)] or font-[generic-name:var(--x)] *)
     | Font_bracket_family_raw of string * string
-    | (* Font feature settings *)
-      Font_features_quoted of string (* font-features-["smcp"] *)
+    | Font_features_quoted of string (* font-features-["smcp"] *)
     | Font_features_raw of string * string
       (* Each of these families writes one longhand, so a bracket no reader took
          still names it and the value is forwarded verbatim - Tailwind's
          token-stream contract. *)
     | Font_features_var of string (* font-features-[var(--x)] *)
     | Font_features_bare_var of string (* font-features-(--my-var) *)
-    | (* Font families. The flag records whether the theme adds feature
-         settings, which gives the candidate a wider property set. *)
+    | (* The flag records whether the theme adds feature settings, which gives
+         the candidate a wider property set. *)
       Font_sans of bool
     | Font_serif of bool
     | Font_mono of bool
     | Font_named of string * bool (* font-source, from a --font-* theme token *)
     | Font_weight_theme of string (* weight from a --font-weight-* token *)
     | Leading_theme of string (* line height from a --leading-* token *)
-    | (* Font styles *)
-      Italic
+    | Italic
     | Not_italic
-    | (* Text alignment *)
-      Text_left
+    | Text_left
     | Text_center
     | Text_right
     | Text_justify
     | Text_start
     | Text_end
-    | (* Leading *)
-      Leading_none
+    | Leading_none
     | Leading_tight
     | Leading_snug
     | Leading_normal
@@ -443,7 +427,7 @@ module Typography_early = struct
      lib/text_transform.ml). *)
   let priority = function Italic | Not_italic -> 26 | _ -> 24
 
-  (* Lookup table for named text sizes: (name, size_var, default_rem) *)
+  (* [(name, size_var, default_rem)] *)
   let text_size_data =
     [
       ("xs", text_xs_var, 0.75);
@@ -487,7 +471,6 @@ module Typography_early = struct
   let named_sizes = List.map (fun (name, _, _) -> name) text_size_data
   let is_named_size s = List.mem s named_sizes
 
-  (** Font-size keyword lookup. *)
   let font_size_keyword = function
     | "larger" -> Stdlib.Option.Some Css.Larger
     | "smaller" -> Stdlib.Option.Some Css.Smaller
@@ -501,15 +484,16 @@ module Typography_early = struct
     | "xxx-large" -> Stdlib.Option.Some Css.Xxx_large
     | _ -> Stdlib.Option.None
 
-  (** A bracket font-size is any CSS length, but it has to carry a unit:
-      Tailwind reads the unitless zero of [text-[0]] as a colour, not a size. *)
+  (* A bracket font-size is any CSS length, but it has to carry a unit: Tailwind
+     reads the unitless zero of [text-[0]] as a colour, not a size. *)
   let try_parse_length_value s =
     match Parse.arbitrary_length s with
     | Stdlib.Option.Some Css.Zero -> Stdlib.Option.None
     | len -> len
 
-  (** Split a type prefix like "absolute-size:var(--my-size)" into (prefix,
-      value). Finds first ':' outside parens/brackets. *)
+  (* Splits at the first [:] outside parentheses and brackets, so
+     ["absolute-size:var(--my-size)"] is [("absolute-size",
+     "var(--my-size)")]. *)
   let split_type_prefix inner =
     let len = String.length inner in
     let rec find i depth =
@@ -527,14 +511,6 @@ module Typography_early = struct
 
   (* Tailwind's [--spacing(N)] inside an arbitrary value reads the spacing
      scale: [text-[--spacing(2)]] is [font-size: calc(var(--spacing) * 2)]. *)
-
-  (** Does [inner] look like something we can emit as a font-size? Accepts typed
-      prefix (length/percentage/absolute-size/relative-size), font-size keyword
-      (medium, xxx-large, larger, ...), any CSS length carrying a unit (16px,
-      1rem, 1.5em, 3ch, 100%, clamp(...), calc(...)), or var(...). Rejects bare
-      identifiers that aren't recognised keywords -- e.g. a bare "1A202C" is not
-      a valid font-size: a length must carry a unit and a hex color must start
-      with "#" (CSS Color §5.4.6). *)
   let parse_spacing_call s =
     Option.bind (Parse.call_body "--spacing" s) float_of_string_opt
 
@@ -580,6 +556,8 @@ module Typography_early = struct
         Parse.arbitrary_declaration_value inner
     | _ -> Stdlib.Option.None
 
+  (* A bare identifier that is no font-size keyword is not a size: [1A202C] has
+     no unit, and a hex colour starts with [#]. *)
   let is_valid_bracket_font_size (inner : string) : bool =
     let value, hinted = bracket_font_size_value inner in
     match font_size_keyword value with
@@ -589,19 +567,15 @@ module Typography_early = struct
         || Parse.is_var value
         || parse_spacing_call value <> Stdlib.Option.None
 
-  (** Check if bracket content looks like a color (should go to color handler).
-  *)
+  (* A bracket that reads as a colour belongs to the colour handler. *)
   let is_color_bracket inner =
-    (* Hex color *)
     (String.length inner > 0 && inner.[0] = '#')
-    (* color: typed prefix *)
     || String.starts_with ~prefix:"color:" inner
-    (* bare var() without type prefix defaults to color *)
+    (* A bare var() with no type hint is a colour. *)
     || Parse.is_var inner
-    (* CSS color functions like rgba(...), hsl(...), oklch(...) *)
     || Parse.is_css_color_fn inner
 
-  (** Split on first '/' outside brackets/parens. *)
+  (* Splits at the first [/] outside brackets and parentheses. *)
   let split_on_slash s =
     let len = String.length s in
     let rec find i depth =
@@ -962,8 +936,6 @@ module Typography_early = struct
     | Text_bracket_fs_raw (raw, _) -> "text-[" ^ raw ^ "]"
     | Text_bracket_fs_lh (raw, lh) -> "text-[" ^ raw ^ "]/" ^ lh_to_string lh
 
-  (** {1 Ordering Support} *)
-
   let suborder = function
     (* Text align comes first - alphabetical order *)
     | Text_center -> 1001
@@ -979,8 +951,7 @@ module Typography_early = struct
     | Font_bracket_family_var _ -> 1503
     | Font_bracket_family_raw _ -> 1503
     | Font_bracket_family_name _ -> 1503
-    (* Bracket font weights come before named font weights *)
-    (* Font family - comes between text-align and text-size. *)
+    (* Font family comes between text-align and text-size. *)
     | Font_mono true | Font_sans true | Font_serif true | Font_named (_, true)
       ->
         1502
@@ -1058,15 +1029,12 @@ module Typography_early = struct
     | Font_normal -> 4700
     | Font_semibold -> 4800
     | Font_thin -> 4900
-    (* Font feature settings *)
     | Font_features_quoted _ | Font_features_raw _ -> 1600
     | Font_features_var _ -> 1600
     | Font_features_bare_var _ -> 1600
-    (* Italic *)
     | Italic -> 8380
     | Not_italic -> 8381
 
-  (* Text utilities use theme record for line height variable reference *)
   (* Tailwind v4 expresses a rem line-height as the ratio [calc(line-height /
      font-size)]; unitless line-heights stay verbatim. *)
   let text_line_height ~size_rem : Css.line_height -> Css.line_height = function
@@ -1080,7 +1048,6 @@ module Typography_early = struct
     let size_decl, size_ref = Var.binding size_var (Rem size_rem) in
     let lh_value = text_line_height ~size_rem lh_value in
     let lh_decl, lh_ref = Var.binding lh_var lh_value in
-    (* Use shared theme record - no declaration, just reference *)
     let theme = default_line_height_theme in
     let leading_ref = snd theme.leading in
     let leading_with_fallback =
@@ -1140,7 +1107,6 @@ module Typography_early = struct
       Var.binding weight_var weight_value
     in
     let weight_util_decl = Var.set font_weight_var (Css.Var weight_theme_ref) in
-    (* Get @property rule for font-weight channel (needed for animations) *)
     let property_rules =
       match Var.property_rule font_weight_var with
       | None -> Css.empty
@@ -1179,7 +1145,6 @@ module Typography_early = struct
     let mono_decl, mono_ref = Var.binding font_mono_var default_mono_stack in
     style [ mono_decl; font_family (Css.Var mono_ref) ]
 
-  (* Font family utilities use the font variables directly *)
   let font_sans =
     let sans_decl, sans_ref = Var.binding font_sans_var default_sans_stack in
     style [ sans_decl; font_family (Css.Var sans_ref) ]
@@ -1405,8 +1370,7 @@ module Typography_early = struct
 
   let text_size_table = List.map (fun (n, v, d) -> (n, (v, d))) text_size_data
 
-  (** Convert a line-height modifier to (extra_declarations, line_height_value).
-  *)
+  (* [(extra_declarations, line_height_value)] *)
   let lh_modifier_to_css theme = function
     | Spacing n ->
         let spacing_decl, _spacing_ref =
@@ -1505,8 +1469,6 @@ module Typography_early = struct
                   (text_named_weight_var name) font_weight_var (fun v ->
                     font_weight (Var v)))
 
-  (** Generate font-size + line-height style for a named text size with
-      modifier. *)
   let text_named_with_lh theme name lh_mod =
     match List.assoc_opt name text_size_table with
     | Stdlib.Option.Some (size_var, default_rem) ->
@@ -1516,15 +1478,7 @@ module Typography_early = struct
           [ line_height lh_value ] )
     | Stdlib.Option.None -> invalid_arg ("text-" ^ name ^ ": not a named size")
 
-  (* font_size_keyword / try_parse_length_value / split_type_prefix are defined
-     earlier in the module so of_class can validate arbitrary bracket values up
-     front. *)
-
-  (* is_valid_bracket_font_size is defined earlier (before of_class). *)
-
-  (** Parse bracket content as font-size declarations (without line-height).
-      Caller must have already passed [inner] through
-      [is_valid_bracket_font_size]. *)
+  (* [inner] must already have passed [is_valid_bracket_font_size]. *)
   let bracket_font_size_decls inner =
     let value, hinted = bracket_font_size_value inner in
     match parse_spacing_call value with
@@ -1546,7 +1500,6 @@ module Typography_early = struct
                     ("bracket_font_size_decls: not a valid font-size value: "
                    ^ inner)))
 
-  (** Generate font-size-only style for bracket value. *)
   let bracket_font_size_style raw = style (bracket_font_size_decls raw)
 
   let to_style theme =
@@ -1770,8 +1723,6 @@ module Typography_early = struct
 end
 
 module Early_utility = Utility.Make (Typography_early)
-
-(* Public API *)
 
 let utility_early = Early_utility.v
 let text_xs = utility_early Typography_early.Text_xs

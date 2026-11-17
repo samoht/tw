@@ -9,7 +9,6 @@ let test_bg_colors () =
   check "bg-green-700"
 
 let test_of_string_invalid () =
-  (* Invalid background utilities *)
   let test_invalid =
     Test_helpers.check_invalid_parts (module Tw.Backgrounds.Handler)
   in
@@ -23,10 +22,8 @@ let test_of_string_invalid () =
   invalid "bg-red-500/04";
   invalid "bg-red-500/1.50";
   invalid "bg-red-0500";
-  (* Incomplete *)
   test_invalid [ "bg" ];
   test_invalid [ "bg"; "gradient" ];
-  (* Unknown prefix *)
   test_invalid [ "unknown"; "red" ];
   (* A gradient shape is the gradients' to read, whether its value reads or not,
      and a gradient stop is theirs too. *)

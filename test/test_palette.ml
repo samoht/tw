@@ -1,6 +1,4 @@
-(** Tests for Tailwind's default colour palette. *)
-
-module Palette = Tw__.Palette (* Access internal module *)
+module Palette = Tw__.Palette
 module Srgb = Tw__.Srgb
 
 let families =

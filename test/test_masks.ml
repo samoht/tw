@@ -30,8 +30,8 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask-foo";
   Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask"
 
-(* The typed mask constructors are newly exposed in tw.mli; check a sample
-   across the families agrees with the parser on class names. *)
+(* A sample of the typed mask constructors across the families agrees with the
+   parser on class names. *)
 let test_typed () =
   Test_helpers.check_typed_class "mask-clip-border" Tw.mask_clip_border;
   Test_helpers.check_typed_class "mask-no-clip" Tw.mask_no_clip;
@@ -176,7 +176,7 @@ let test_bracket_position_grammar () =
   has "mask-[position:top]" "top";
   has "mask-position-[top]" "top";
   has "mask-[top]" "top";
-  (* the lengths and layer-list forms are unchanged *)
+  (* the lengths and layer-list forms *)
   has "mask-[position:10px_20px]" "10px 20px";
   has "mask-position-[30%_50%,70%_50%]" "30% 50%, 70% 50%"
 

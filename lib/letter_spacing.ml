@@ -1,8 +1,5 @@
-(** Letter spacing utilities ([tracking-*]). *)
-
 module Css = Cascade.Css
 
-(* Theme variables for named tracking values *)
 let tracking_tighter_var = Var.theme Css.Length "tracking-tighter" ~order:(6, 39)
 let tracking_tight_var = Var.theme Css.Length "tracking-tight" ~order:(6, 40)
 let tracking_normal_var = Var.theme Css.Length "tracking-normal" ~order:(6, 41)
@@ -169,11 +166,8 @@ module Handler = struct
       [ theme_decl; channel_decl; letter_spacing (Css.Var theme_ref) ]
 
   let tracking_tight =
-    (* Theme var: --tracking-tight: -0.025em *)
     let theme_decl, theme_ref = Var.binding tracking_tight_var (Em (-0.025)) in
-    (* Channel var: --tw-tracking: var(--tracking-tight) *)
     let channel_decl = Var.set tracking_var (Css.Var theme_ref) in
-    (* Property: letter-spacing: var(--tracking-tight) *)
     let property_rules =
       Var.property_rule tracking_var |> Option.to_list |> Css.concat
     in

@@ -1,16 +1,3 @@
-(** Accessibility utilities
-
-    What's included:
-    - `forced-color-adjust-auto`, `forced-color-adjust-none` - Control forced
-      color adjustment behavior.
-
-    What's not:
-    - Other accessibility properties beyond forced-color-adjust.
-
-    Parsing contract (`of_string`):
-    - Accepts ["forced"; "color"; "adjust"; "auto" | "none"]. Unknown tokens
-      yield [Utility.unclaimed]. *)
-
 module Css = Cascade.Css
 open Style
 

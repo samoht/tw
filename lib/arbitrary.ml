@@ -1,9 +1,5 @@
-(** Arbitrary property utilities: [property:value] with optional /opacity. *)
-
 module Css = Cascade.Css
 
-(** Map a CSS property name to its declaration constructor (color properties
-    only). *)
 let color_property_of_name = function
   | "color" -> Some Css.color
   | "background-color" -> Some Css.background_color
@@ -19,20 +15,17 @@ let color_property_of_name = function
 module Handler = struct
   open Style
 
-  type alpha_fn = {
-    spelling : string;
-        (** the [--alpha(...)] text the class was written with *)
-    alpha : Color.opacity_modifier;  (** the alpha that function applies *)
-  }
-  (** A value written as Tailwind's [--alpha(<color>/<percentage>)]. *)
+  (* A value written as Tailwind's [--alpha(<color>/<percentage>)]: the text the
+     class was written with, and the alpha it applies. *)
+  type alpha_fn = { spelling : string; alpha : Color.opacity_modifier }
 
   type t =
     | Color_opacity of {
         property : string;
-        value : string;  (** the colour, with any [--alpha()] wrapper undone *)
+        value : string; (* the colour, with any [--alpha()] wrapper undone *)
         alpha_fn : alpha_fn option;
         opacity : Color.opacity_modifier;
-            (** the [/] modifier written after the closing bracket *)
+            (* the [/] modifier written after the closing bracket *)
       }
     | Parsed_decl of { property : string; value : string }
   (* Plain [property:value] (no /opacity), parsed by cascade into a typed,
@@ -215,7 +208,6 @@ module Handler = struct
     | None -> Utility.unclaimed
     | Some close_pos -> (
         let inner = String.sub class_name 1 (close_pos - 1) in
-        (* Find the colon that separates property from value *)
         let rec find_colon i =
           if i >= String.length inner then None
           else if inner.[i] = ':' then Some i

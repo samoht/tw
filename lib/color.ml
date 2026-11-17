@@ -1,12 +1,7 @@
-(** Colour utilities: text, border, outline, accent, caret and placeholder
-    colours. *)
-
 module Css = Cascade.Css
 include Srgb
 include Color_value
 include Color_opacity
-
-(** {1 Parsing Functions} *)
 
 module Handler = struct
   (* Which border edge a border-{side}-{color} utility paints: a physical edge,
@@ -43,9 +38,7 @@ module Handler = struct
       | Inherit
   end
 
-  (** Local color utility type *)
   type t =
-    (* Text colors *)
     | Text of color * int
     | Text_opacity of color * int * opacity_modifier
     | Text_transparent
@@ -64,7 +57,6 @@ module Handler = struct
     | Text_bracket_var_opacity of string * opacity_modifier
     | Text_bracket_typed_var of string (* text-[color:var(--value)] *)
     | Text_bracket_typed_var_opacity of string * opacity_modifier
-    (* Border colors *)
     | Border of color * int
     | Border_opacity of color * int * opacity_modifier
     | Border_transparent
@@ -77,7 +69,6 @@ module Handler = struct
          bracket no reader took reaches [border-color] verbatim. *)
     | Border_bracket_color_opacity of string * Css.color * opacity_modifier
     | Border_side_color of Side.t * Side_color.t
-    (* Accent colors *)
     | Accent of color * int
     | Accent_opacity of color * int * opacity_modifier
     | Accent_transparent
@@ -89,7 +80,6 @@ module Handler = struct
       (* accent-[notacolour]: the colour is this family's last resort, so a
          bracket no reader took reaches [accent-color] verbatim. *)
     | Accent_bracket_color_opacity of string * Css.color * opacity_modifier
-    (* Caret colors *)
     | Caret of color * int
     | Caret_opacity of color * int * opacity_modifier
     | Caret_current
@@ -101,7 +91,6 @@ module Handler = struct
       (* caret-[notacolour]: the colour is this family's last resort, so a
          bracket no reader took reaches [caret-color] verbatim. *)
     | Caret_bracket_color_opacity of string * Css.color * opacity_modifier
-    (* Outline colors *)
     | Outline of color * int
     | Outline_opacity of color * int * opacity_modifier
     | Outline_current
@@ -118,7 +107,6 @@ module Handler = struct
     | Outline_bracket_var_opacity of string * opacity_modifier
     | Outline_bracket_typed_var of string (* outline-[color:var(--value)] *)
     | Outline_bracket_typed_var_opacity of string * opacity_modifier
-    (* Placeholder colors *)
     | Placeholder of color * int
     | Placeholder_opacity of color * int * opacity_modifier
     | Placeholder_transparent
@@ -129,8 +117,6 @@ module Handler = struct
     | Placeholder_bracket_raw of string * string
       (* placeholder-[notacolour]: the colour is this family's last resort. *)
     | Placeholder_bracket_color_opacity of string * Css.color * opacity_modifier
-
-  (** Extensible variant for color utilities *)
 
   (* The colour helpers other families reach through the handler. *)
   let all_palette_declarations = all_palette_declarations
@@ -535,8 +521,6 @@ module Handler = struct
         | Error e -> Error e)
     | _ -> Utility.unclaimed
 
-  (** Text color utilities *)
-
   let text' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
@@ -559,8 +543,6 @@ module Handler = struct
   let text_current = style [ Css.color Current ]
   let text_inherit = style [ Css.color Inherit ]
 
-  (** Border color utilities *)
-
   let border_color' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
@@ -575,7 +557,6 @@ module Handler = struct
   let border_current = style [ Css.border_color Current ]
   let border_inherit = style [ Css.border_color Inherit ]
 
-  (* Per-side border colour emission. *)
   (* The longhand each side names, for a value no typed setter can hold. *)
   let properties_of_side : Side.t -> string list = function
     | Side.Top -> [ "border-top-color" ]
@@ -603,8 +584,6 @@ module Handler = struct
     | Side.Block_start -> [ Css.border_block_start_color ]
     | Side.Block_end -> [ Css.border_block_end_color ]
 
-  (** Accent color utilities *)
-
   let accent' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
@@ -623,8 +602,6 @@ module Handler = struct
   let accent_current = style [ Css.accent_color Current ]
   let accent_inherit = style [ Css.accent_color Inherit ]
 
-  (** Caret color utilities *)
-
   let caret' ?theme color shade =
     if is_custom_color color then
       let css_color = to_css color shade in
@@ -642,8 +619,6 @@ module Handler = struct
   let caret_current = style [ Css.caret_color Current ]
   let caret_inherit = style [ Css.caret_color Inherit ]
   let caret_transparent = style [ Css.caret_color (Css.hex "#0000") ]
-
-  (** Outline color utilities *)
 
   let outline' ?theme color shade =
     if is_custom_color color then
@@ -673,7 +648,6 @@ module Handler = struct
     style ~merge_key:"outline-"
       [ Css.outline_color (Css.Var (Var.bracket bare_name)) ]
 
-  (** Text color with opacity *)
   let text_with_opacity ?theme c shade opacity =
     let property_prefix =
       if not (is_custom_color c) then
@@ -686,35 +660,26 @@ module Handler = struct
     color_with_opacity_style ?theme ~property:Css.color ?property_prefix c shade
       opacity
 
-  (** Border color with opacity *)
   let border_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.border_color c shade opacity
 
-  (** Accent color with opacity *)
   let accent_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.accent_color
       ~property_prefix:"accent-color" c shade opacity
 
-  (** Caret color with opacity *)
   let caret_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.caret_color
       ~property_prefix:"caret-color" c shade opacity
 
-  (** Outline color with opacity *)
   let outline_with_opacity ?theme c shade opacity =
     color_with_opacity_style ?theme ~property:Css.outline_color
       ~property_prefix:"outline-color" c shade opacity
 
-  (** Current color with opacity using color-mix with progressive enhancement *)
+  (* A browser without [color-mix()] gets plain [currentcolor]. *)
   let current_color_with_opacity ~property opacity =
     let property : Css.color -> Css.declaration = property in
-    (* Fallback: just currentColor (browsers that don't support color-mix) *)
     let fallback_decl = property Css.Current in
-    (* Progressive enhancement: color-mix(in oklab, currentcolor NN%,
-       transparent) *)
     let oklab_decl = property (mix_alpha opacity Css.Current) in
-    (* Create @supports block with oklab version as top-level rule. Use
-       placeholder selector that rule.ml replaces with actual class. *)
     let supports_block = color_mix_supports [ oklab_decl ] in
     style ~rules:(Some [ supports_block ]) [ fallback_decl ]
 
@@ -1243,11 +1208,8 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register color handler with Utility system *)
 
-(** Public API *)
 let utility = Utility_factory.v
 
 let text ?opacity ?(shade = 500) color =

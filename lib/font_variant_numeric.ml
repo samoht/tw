@@ -1,5 +1,3 @@
-(** Font variant numeric utilities. *)
-
 module Css = Cascade.Css
 
 let ordinal_var =
@@ -22,7 +20,6 @@ let fraction_var =
   Var.channel ~needs_property:true ~property_order:106
     Css.Font_variant_numeric_token "tw-numeric-fraction"
 
-(* Default theme for font variant numeric variables *)
 type font_variant_theme = {
   ordinal : Css.declaration * Css.font_variant_numeric_token Css.var;
   slashed : Css.declaration * Css.font_variant_numeric_token Css.var;
@@ -101,8 +98,8 @@ module Handler = struct
     | Diagonal_fractions -> "diagonal-fractions"
     | Stacked_fractions -> "stacked-fractions"
 
+  (* Alphabetical, with normal-nums last. *)
   let suborder = function
-    (* Numeric variants - alphabetical order with normal-nums last *)
     | Diagonal_fractions -> 8390
     | Lining_nums -> 8391
     | Oldstyle_nums -> 8392
@@ -115,12 +112,10 @@ module Handler = struct
 
   let normal_nums = style [ font_variant_numeric (Tokens [ Normal ]) ]
 
+  (* Every variable falls back to empty, as in Tailwind, so the composed value
+     reads only the ones a utility set. *)
   let font_variant_numeric_utility var_to_set value =
-    (* Use the shared default theme *)
     let theme = default_font_variant_theme in
-
-    (* Override the specific variable being set - with EMPTY fallback to match
-       Tailwind *)
     let updated_theme =
       match var_to_set with
       | `Ordinal ->
@@ -149,8 +144,6 @@ module Handler = struct
           in
           { theme with fraction = (new_decl, new_ref) }
     in
-
-    (* Extract only the active declaration (the one being set) *)
     let active_decl =
       match var_to_set with
       | `Ordinal -> fst updated_theme.ordinal
@@ -159,8 +152,6 @@ module Handler = struct
       | `Spacing -> fst updated_theme.spacing
       | `Fraction -> fst updated_theme.fraction
     in
-
-    (* Compose the font-variant-numeric value using all var references *)
     let composed_value =
       Composed
         {
@@ -171,8 +162,6 @@ module Handler = struct
           numeric_fraction = Some (Css.Var (snd updated_theme.fraction));
         }
     in
-
-    (* Get property rules for animation support *)
     let property_rules =
       List.filter_map
         (fun x -> x)

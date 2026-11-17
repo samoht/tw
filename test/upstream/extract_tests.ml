@@ -52,9 +52,8 @@
 
     Usage: dune exec test/upstream/extract_tests.exe -- <utilities.test.ts> *)
 
-(** Check if a string looks like a class name (vs a directive or invalid
-    syntax). We only filter out things that aren't class names at all - bare
-    utility names and invalid suffixes are kept as negative tests. *)
+(* Only what is no class name at all is filtered out: bare utility names and
+   invalid suffixes are kept as negative tests. *)
 let is_valid_class s =
   String.length s > 0
   (* Filter out @layer, @apply, etc. - these are directives, not classes *)
@@ -968,7 +967,6 @@ let parse_file filename =
                 if Re.execp tailwind_utilities_re (Buffer.contents s.text) then
                   current_layer_wrap := Some name));
 
-          (* Check for run([...]) *)
           (match Re.exec_opt run_pattern line with
           | Some groups ->
               let content = Re.Group.get groups 1 in
@@ -987,8 +985,7 @@ let parse_file filename =
                       (extract_quoted_strings content)
                       !current_classes
               | None -> ()));
-          (* Check for .toEqual('') which means classes should produce empty
-             output. Flush test with empty expected, then clear classes. *)
+          (* [.toEqual('')] says the classes produce no output. *)
           let saw_empty_expect =
             let scan =
               match !in_expect with
@@ -1012,15 +1009,14 @@ let parse_file filename =
           in
           if saw_empty_expect then (
             flush_test name (Some "");
-            current_classes := [] (* Check for array continuation *))
+            current_classes := [])
           else if
             let stripped = strip_quoted line in
             Astring.String.is_infix ~affix:"[" stripped
             && not (Astring.String.is_infix ~affix:"]" stripped)
-          then state := In_array name (* Check for snapshot start *)
+          then state := In_array name
           else if Re.execp snapshot_start line then
             state := In_snapshot (name, !current_classes, Buffer.create 256)
-            (* Check for new test *)
           else
             match test_open line with
             | Some (indent, next) ->
@@ -1030,7 +1026,6 @@ let parse_file filename =
                 current_config := No_theme;
                 test_indent := indent;
                 state := In_test next
-            (* Check for test end without snapshot *)
             | None ->
                 if test_close ~indent:!test_indent line then (
                   flush_test name None;
