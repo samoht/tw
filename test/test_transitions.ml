@@ -217,6 +217,12 @@ let test_initial_reset_boundary () =
       "ease-initial";
     ]
 
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "transition-[foo:color]"; "transition-[foo:var(--x)]" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -239,6 +245,8 @@ let tests =
       Alcotest.test_case "delay candidate band" `Quick test_delay_candidate_band;
       Alcotest.test_case "initial reset boundary" `Quick
         test_initial_reset_boundary;
+      Alcotest.test_case "unknown hint is not the value" `Quick
+        test_unknown_hint_is_not_the_value;
     ]
 
 let suite = ("transitions", tests)

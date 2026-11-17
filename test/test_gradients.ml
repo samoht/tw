@@ -474,6 +474,17 @@ let test_gradient_raw_stop_modifier () =
   Test_helpers.check_declarations ~minify:false "to-[foo(1)]/[0.5]"
     (("--tw-gradient-to: " ^ mix "foo(1)" "50%") :: from_stops)
 
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "bg-linear-[foo:45deg]";
+      "bg-linear-[foo:1.3rad]";
+      "bg-radial-[foo:circle_at_center]";
+      "bg-conic-[foo:from_45deg]";
+    ]
+
 let tests =
   [
     test_case "gradient position refuses a modifier" `Quick
@@ -511,6 +522,8 @@ let tests =
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "legacy gradient alias order matches Tailwind" `Quick
       legacy_gradient_alias_order_matches_tailwind;
+    test_case "unknown hint is not the value" `Quick
+      test_unknown_hint_is_not_the_value;
   ]
 
 let suite = ("gradients", tests)

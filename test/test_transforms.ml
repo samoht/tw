@@ -626,6 +626,11 @@ let test_transform_brackets_peel_a_hint () =
       ("transform-[foo:scaleX(2)]", "transform: scaleX(2)");
     ]
 
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind [ "scale-z-[foo:2]" ]
+
 let tests =
   [
     test_case "rotate underscore escape" `Quick test_rotate_underscore_escape;
@@ -673,6 +678,8 @@ let tests =
     test_case "transform brackets peel a data-type hint" `Quick
       test_transform_brackets_peel_a_hint;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
+    test_case "unknown hint is not the value" `Quick
+      test_unknown_hint_is_not_the_value;
   ]
 
 let suite = ("transforms", tests)

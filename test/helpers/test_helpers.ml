@@ -642,6 +642,11 @@ let check_ordering_matches ?forms ~test_name utilities =
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
 
+let check_class_matches_tailwind cls =
+  match Tw.of_string cls with
+  | Ok u -> check_ordering_matches ~test_name:cls [ u ]
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
 let tree_diff_css ~expected ~actual =
   Css_compare.diff ~mode:`Tree (respelled expected) (respelled actual)
 
