@@ -265,6 +265,18 @@ val opaque_declaration : string -> string -> Cascade.Css.declaration option
     contract for arbitrary utilities, which deliberately emits some values that
     are invalid for [property]. *)
 
+val is_number : string -> bool
+(** [is_number s] is [true] when [s] is a number as Tailwind spells one: an
+    optional sign, digits with at most one point and a digit after it, and an
+    optional exponent. [1.5], [.5], [-2] and [1e3] are numbers; [1.], [0x10] and
+    [10px] are not. *)
+
+val holds_math_function : string -> bool
+(** [holds_math_function s] is [true] when one of the math function names
+    Tailwind knows ([calc], [min], [clamp], ...) stands right before a [(]
+    anywhere in [s]. Tailwind reads such a bracket as a number or a length
+    whatever the rest of it holds, so this is the test that routes it. *)
+
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
     function ([calc], [min], [max], [clamp], ...). A utility whose bracket takes
@@ -353,10 +365,11 @@ val shadow_layer : string -> (Cascade.Css.length list * shadow_colour) option
     {!decode_underscores} first. *)
 
 val split_top_level : char -> string -> string list
-(** [split_top_level sep s] splits [s] on [sep] where no bracket is open, so a
-    [sep] inside [(...)], [[...]] or [{...}] stays in its piece. Always yields
-    one piece more than the separators it split on; a closing bracket with no
-    opener is passed over. *)
+(** [split_top_level sep s] splits [s] on [sep] where no bracket or string is
+    open, so a [sep] inside [(...)], [[...]], [{...}], a quoted string or
+    escaped by a backslash stays in its piece. Always yields one piece more than
+    the separators it split on; a closing bracket with no opener is passed over.
+*)
 
 val replace_shadow_colours : (string -> string) -> string -> string
 (** [replace_shadow_colours wrap value] is the shadow list [value] with the

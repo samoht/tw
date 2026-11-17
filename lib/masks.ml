@@ -496,32 +496,6 @@ module Handler = struct
     | Some value -> Ok (Bracket_opaque { spelling; longhand; value })
     | None -> Error (`Msg ("Unknown mask bracket value: " ^ inner))
 
-  (* Tailwind reads a bracket holding a math function as a length, and a length
-     is a position component, so such a value goes to mask-position however the
-     rest of it reads: [mask-[foo_calc(1+2)]] is a position where
-     [mask-[foo_10px]] is an image. *)
-  let holds_math_function inner =
-    let len = String.length inner in
-    let is_name_char c =
-      (c >= 'a' && c <= 'z')
-      || (c >= 'A' && c <= 'Z')
-      || (c >= '0' && c <= '9')
-      || c = '-'
-    in
-    let rec name_start i =
-      if i > 0 && is_name_char inner.[i - 1] then name_start (i - 1) else i
-    in
-    let rec scan i =
-      i < len
-      && ((inner.[i] = '('
-          &&
-          let s = name_start i in
-          Css.Properties.is_math_function
-            (String.lowercase_ascii (String.sub inner s (i - s))))
-         || scan (i + 1))
-    in
-    scan 0
-
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -646,8 +620,11 @@ module Handler = struct
             match parse_bracket_position inner with
             | Some positions -> Ok (Bracket_position (inner, positions))
             | None ->
+                (* Tailwind reads a math function as a length, and a length is a
+                   position component: [mask-[foo_calc(1+2)]] is a position
+                   where [mask-[foo_10px]] is an image. *)
                 let longhand =
-                  if holds_math_function inner then Longhand.Position
+                  if Parse.holds_math_function inner then Longhand.Position
                   else Longhand.Image
                 in
                 opaque class_name longhand inner))

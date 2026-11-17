@@ -1014,25 +1014,6 @@ module Handler = struct
     | Radial_size _ -> Utility.Property_order.last 238
     | Radial_at _ -> Utility.Property_order.last 239
 
-  (* Tailwind's <number>: an optional sign, digits with at most one point and a
-     digit after it, and an optional exponent. It is what a percentage token
-     opens with, whether or not the token then reads as a stop. *)
-  let is_css_number s =
-    let n = String.length s in
-    let digit i = i < n && s.[i] >= '0' && s.[i] <= '9' in
-    let rec digits i = if digit i then digits (i + 1) else i in
-    let signed i = if i < n && (s.[i] = '+' || s.[i] = '-') then i + 1 else i in
-    let i = signed 0 in
-    let j = digits i in
-    let j = if j < n && s.[j] = '.' then digits (j + 1) else j in
-    if not (j > i && digit (j - 1)) then false
-    else if j = n then true
-    else if s.[j] = 'e' || s.[j] = 'E' then
-      let k = signed (j + 1) in
-      let l = digits k in
-      l > k && l = n
-    else false
-
   let percentage_number s =
     if String.ends_with ~suffix:"%" s then
       Option.some (String.sub s 0 (String.length s - 1))
@@ -1060,40 +1041,6 @@ module Handler = struct
           | Ok n -> Option.some (Spacing n)
           | Error _ -> Option.none)
 
-  (* Tailwind's own test for a math function: one of its names followed by a
-     paren anywhere in the value. *)
-  let math_functions =
-    [
-      "calc";
-      "min";
-      "max";
-      "clamp";
-      "mod";
-      "rem";
-      "sin";
-      "cos";
-      "tan";
-      "asin";
-      "acos";
-      "atan";
-      "atan2";
-      "pow";
-      "sqrt";
-      "hypot";
-      "log";
-      "exp";
-      "round";
-    ]
-
-  let contains ~sub s =
-    let n = String.length s and m = String.length sub in
-    let rec from i = i + m <= n && (String.sub s i m = sub || from (i + 1)) in
-    from 0
-
-  let has_math_call value =
-    String.contains value '('
-    && List.exists (fun f -> contains ~sub:(f ^ "(") value) math_functions
-
   (* The colour keywords Tailwind knows: the named colours, [transparent],
      [currentcolor] and the system colours, in any case. [inherit] is not
      one. *)
@@ -1117,10 +1064,10 @@ module Handler = struct
   type bracket_kind = Colour_stop | Percentage_stop | Position_stop
 
   let infer_kind value =
-    if Parse.is_var value || has_math_call value then Position_stop
+    if Parse.is_var value || Parse.holds_math_function value then Position_stop
     else
       match percentage_number value with
-      | Some number when is_css_number number -> Percentage_stop
+      | Some number when Parse.is_number number -> Percentage_stop
       | Some _ | None ->
           if is_colour_token value then Colour_stop else Position_stop
 

@@ -371,6 +371,54 @@ let is_css_non_math_function = function
   | "attr" | "env" | "url" | "var" -> true
   | _ -> false
 
+let is_number s =
+  let n = String.length s in
+  let digit i = i < n && s.[i] >= '0' && s.[i] <= '9' in
+  let rec digits i = if digit i then digits (i + 1) else i in
+  let signed i = if i < n && (s.[i] = '+' || s.[i] = '-') then i + 1 else i in
+  let i = signed 0 in
+  let j = digits i in
+  let j = if j < n && s.[j] = '.' then digits (j + 1) else j in
+  if not (j > i && digit (j - 1)) then false
+  else if j = n then true
+  else if s.[j] = 'e' || s.[j] = 'E' then
+    let k = signed (j + 1) in
+    let l = digits k in
+    l > k && l = n
+  else false
+
+let tailwind_math_functions =
+  [
+    "calc";
+    "min";
+    "max";
+    "clamp";
+    "mod";
+    "rem";
+    "sin";
+    "cos";
+    "tan";
+    "asin";
+    "acos";
+    "atan";
+    "atan2";
+    "pow";
+    "sqrt";
+    "hypot";
+    "log";
+    "exp";
+    "round";
+  ]
+
+let contains ~sub s =
+  let n = String.length s and m = String.length sub in
+  let rec from i = i + m <= n && (String.sub s i m = sub || from (i + 1)) in
+  from 0
+
+let holds_math_function s =
+  String.contains s '('
+  && List.exists (fun f -> contains ~sub:(f ^ "(") s) tailwind_math_functions
+
 (* A math function stands for the value it computes, so a bracket opening with
    one denotes whatever the utility's numeric side takes. Utilities that tell a
    width from a colour by the bracket's first character need to know. *)
@@ -513,14 +561,22 @@ let call_body name s =
 
 let split_top_level sep s =
   let len = String.length s in
+  let rec after_string q i =
+    if i >= len then len
+    else if s.[i] = '\\' then after_string q (i + 2)
+    else if s.[i] = q then i + 1
+    else after_string q (i + 1)
+  in
   let rec go depth start i acc =
     if i >= len then List.rev (String.sub s start (len - start) :: acc)
     else
       match s.[i] with
-      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
-      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
       | c when c = sep && depth = 0 ->
           go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | '\\' -> go depth start (i + 2) acc
+      | ('"' | '\'') as q -> go depth start (after_string q (i + 1)) acc
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
       | _ -> go depth start (i + 1) acc
   in
   go 0 0 0 []
