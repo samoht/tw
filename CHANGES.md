@@ -44,6 +44,10 @@
   that cannot stand in a declaration or opens with an empty hint, as Tailwind
   does: `-mask-conic-[}]` raised out of `to_css` and `mask-linear-[a;b]`
   compiled (#951).
+- `-col-[...]`, `-col-start-[...]`, `-col-end-[...]`, `-row-[...]`,
+  `-row-start-[...]` and `-row-end-[...]` compile to `calc(<value> * -1)` in
+  their longhand, as Tailwind writes them, where tw refused every negated
+  bracket on a grid line (#953).
 - `space-x-[...]` and `space-y-[...]` take a `var()` and, negated, any length
   or `var()`, as Tailwind does: `-space-x-[3px]` writes
   `calc(calc(3px * -1) * var(--tw-space-x-reverse))` where tw refused the

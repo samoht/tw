@@ -91,8 +91,28 @@ module Handler = struct
     | Row_end_auto
     | Row_end_arbitrary of string * Css.grid_line
     | Row_end_named of string (* row-end-custom *)
+    | Neg_line_arbitrary of line * string * string
+  (* -col-[...]: the bracket as written, and its negated token stream *)
+
+  and line = [ `Col | `Col_start | `Col_end | `Row | `Row_start | `Row_end ]
 
   let name = "grid_item"
+
+  let line_name : line -> string = function
+    | `Col -> "col"
+    | `Col_start -> "col-start"
+    | `Col_end -> "col-end"
+    | `Row -> "row"
+    | `Row_start -> "row-start"
+    | `Row_end -> "row-end"
+
+  let line_property : line -> string = function
+    | `Col -> "grid-column"
+    | `Col_start -> "grid-column-start"
+    | `Col_end -> "grid-column-end"
+    | `Row -> "grid-row"
+    | `Row_start -> "grid-row-start"
+    | `Row_end -> "grid-row-end"
 
   (** Priority 1 - before margin (priority 2) *)
   let priority _ = 1
@@ -281,6 +301,9 @@ module Handler = struct
     | Row_end_arbitrary (_, gl) -> row_end_arbitrary gl
     | Row_end_auto -> row_end_auto ()
     | Row_end_named s -> row_end_named s
+    | Neg_line_arbitrary (line, _, value) ->
+        style
+          (Option.to_list (Parse.opaque_declaration (line_property line) value))
 
   let suborder = function
     (* Column utilities - negative, positive, arbitrary, auto, span, span-arb,
@@ -320,6 +343,12 @@ module Handler = struct
     | Row_end_arbitrary _ -> 2500
     | Row_end_auto -> 2550
     | Row_end_named _ -> 2560
+    | Neg_line_arbitrary (`Col, _, _) -> 99
+    | Neg_line_arbitrary (`Col_start, _, _) -> 799
+    | Neg_line_arbitrary (`Col_end, _, _) -> 1099
+    | Neg_line_arbitrary (`Row, _, _) -> 1399
+    | Neg_line_arbitrary (`Row_start, _, _) -> 2099
+    | Neg_line_arbitrary (`Row_end, _, _) -> 2399
 
   let parse_arbitrary s =
     (* The bracket text, through the arbitrary-value pipeline: [_] becomes a
@@ -348,9 +377,32 @@ module Handler = struct
     | Some raw, Some value -> Option.map (fun x -> (raw, x)) (read value)
     | _ -> None
 
+  (* Tailwind negates any bracket on a grid line as [calc(<value> * -1)]. *)
+  let neg_line_arbitrary line n =
+    let inner = Parse.bracket_inner n in
+    match
+      Option.bind
+        (Parse.arbitrary_declaration_value inner)
+        Parse.negated_declaration_value
+    with
+    | Some value -> Ok (Neg_line_arbitrary (line, inner, value))
+    | None -> Utility.unclaimed
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
+    | [ ""; "col"; n ] when Parse.is_bracket_value n ->
+        neg_line_arbitrary `Col n
+    | [ ""; "col"; "start"; n ] when Parse.is_bracket_value n ->
+        neg_line_arbitrary `Col_start n
+    | [ ""; "col"; "end"; n ] when Parse.is_bracket_value n ->
+        neg_line_arbitrary `Col_end n
+    | [ ""; "row"; n ] when Parse.is_bracket_value n ->
+        neg_line_arbitrary `Row n
+    | [ ""; "row"; "start"; n ] when Parse.is_bracket_value n ->
+        neg_line_arbitrary `Row_start n
+    | [ ""; "row"; "end"; n ] when Parse.is_bracket_value n ->
+        neg_line_arbitrary `Row_end n
     | [ "col"; "auto" ] -> Ok Col_auto
     | [ "col"; "span"; "full" ] -> Ok Col_span_full
     | [ "col"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
@@ -521,6 +573,7 @@ module Handler = struct
     | Row_end_arbitrary (s, _) -> "row-end-" ^ to_class_arbitrary s
     | Row_end_auto -> "row-end-auto"
     | Row_end_named s -> "row-end-" ^ s
+    | Neg_line_arbitrary (line, s, _) -> "-" ^ line_name line ^ "-[" ^ s ^ "]"
 
   let examples =
     [
