@@ -307,6 +307,18 @@ family writes a style declaration beside the width (`border-`, `outline-`),
 that declaration travels with the raw value, so the browser drops the width
 and keeps the style.
 
+## Negated brackets
+
+A utility Tailwind accepts with a leading `-` negates any bracket as
+`calc(<value> * -1)`, with the value after any hint, whether or not a typed
+reader takes it: `-z-[foo:2]` is `z-index: calc(2 * -1)`.
+`Parse.negated_declaration_value` writes that spelling, so a family whose
+typed reader declines a negated bracket passes the value
+`arbitrary_declaration_value` returns through it. Two families differ.
+`-bg-conic-[…]` writes its bracket unnegated, as `bg-conic-[…]` does, and
+`-bg-linear-[…]` names a utility only for a number with a lower-case angle
+unit or a value after an `angle:` hint.
+
 ## Open gaps
 
 These families refuse shapes the CLI writes out. Each is a defect against the
@@ -319,6 +331,10 @@ contract.
 - `decoration-[…]` refuses an identifier, a dashed identifier, `calc(1+2)` and
   a `url()` with a word after it.
 - `text-shadow-[…]` refuses every shape but a colour keyword.
+- `space-x-[…]` and `space-y-[…]`, negated or not, refuse every bracket that
+  is not a length or a `var()`. Tailwind writes the value inside the margin
+  pair's `calc()`, and cascade's `length` has no case that keeps tokens it
+  cannot read.
 
 Two mask readings are wrong in a way this contract does not reach, because
 their readers accept the bracket. `mask-[30%_50%,70%_50%]` is a `mask-size` to
