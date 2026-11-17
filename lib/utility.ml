@@ -123,15 +123,11 @@ let rec style_declarations (s : Style.t) =
 
 (* A width utility writes the style property as a bare reference to the style
    utilities' channel, so the declaration says nothing about which family the
-   utility belongs to. The two carriers are named by the channel they read,
-   matched on the typed value rather than on the printed declaration, so a
-   declared [border-style] naming any other variable stays a style utility. *)
-(* A carrier reads its channel and nothing else. There is no public accessor for
-   a declaration's typed value - [Properties_intf] is one of cascade's private
-   modules, so destructuring the record only compiles when cascade is built from
-   source in the same workspace - and the printed form is the surface cascade
-   does expose. Comparing it to the one spelling a carrier can have keeps a
-   declared [border-style] naming any other variable a style utility. *)
+   utility belongs to. A carrier reads its channel and nothing else.
+   [Declaration.value_of] gives the typed [Var], but no public accessor tells a
+   bare reference from one with a fallback, so the printed form is compared to
+   the one spelling a carrier can have. A declared [border-style] naming any
+   other variable stays a style utility. *)
 let carries_var decl name =
   String.equal
     (Cascade.Css.declaration_value ~minify:true decl)

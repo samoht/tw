@@ -149,14 +149,25 @@ module Handler = struct
             [ "border-top-width"; "border-bottom-width" ] )
     in
     let reverse_decl, reverse_ref = Var.binding reverse_var (Css.Num 0.) in
-    let reverse = "var(--" ^ Css.var_name reverse_ref ^ ")" in
+    (* The width is an author token stream, which no calc leaf holds, so only
+       the reverse factor is typed and cascade prints it. *)
+    let start_factor =
+      Css.Pp.to_string
+        (Css.Values.pp_var Css.Values.pp_number_percentage)
+        reverse_ref
+    in
+    let end_factor =
+      Css.Pp.to_string
+        (Css.pp_calc Css.Values.pp_number_percentage)
+        (Css.Calc.sub (Num 1.) (Var reverse_ref))
+    in
     let width_values =
       [
         Parse.wrap_declaration_value ~before:"calc("
-          ~after:(" * " ^ reverse ^ ")")
+          ~after:(" * " ^ start_factor ^ ")")
           value;
         Parse.wrap_declaration_value ~before:"calc("
-          ~after:(" * calc(1 - " ^ reverse ^ "))")
+          ~after:(" * " ^ end_factor ^ ")")
           value;
       ]
     in
