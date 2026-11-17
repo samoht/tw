@@ -14,7 +14,7 @@ All core Tailwind v4 utilities and all official plugins are in scope, including:
 
 ## 2) Core principles
 
-1. **Type safety over strings.** Never write `"var(--name)"` and never hand `Css.custom_property` an assembled token string; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to CSS types** — if a pattern cannot be expressed with existing types, extend the type system properly.
+1. **Type safety over strings.** Never write `"var(--name)"` and never hand `Css.custom_property` an assembled token string; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to cascade's CSS types**; if a pattern cannot be expressed with existing types, extend the type system properly. The exception is the bracket of an arbitrary utility that no typed reader accepts. tw writes such a bracket through `Parse.opaque_declaration` as the token stream the author wrote, and the utility's own variant may hold it as `` `Raw of string ``. `docs/token-stream-contract.md` states when that applies.
 2. **Spec-driven tests.** CSS behaviour is tested against MDN/W3C where applicable; utilities against Tailwind v4 output.
 3. **Variables come from three constructors.** See §5 below, and `docs/adding-a-new-utility.md` for the patterns that use them.
 4. **Respect layers.** `properties → theme → base → components → utilities`. Utilities must not leak into theme or properties.
@@ -38,6 +38,7 @@ scripts/       pre-commit (format and lint hook), bench.sh (tw against
                tailwindcss on a source tree)
 docs/          adding-a-new-utility.md (start here for new utils)
                parity.md (how Tailwind parity is measured and read)
+               token-stream-contract.md (what an arbitrary bracket emits)
 ```
 
 The CSS type system lives in cascade, not here. `Cascade.Css` is aliased as
@@ -300,15 +301,15 @@ and the fields it keys on.
        - Block at position 26: .contrast-more\:text-black
        + Block at position 27: .contrast-more\:border-4, .contrast-more\:text-black
      ```
-     **Fix**: Media query merging is cascade's. `merge_consecutive_media` lives in
-     `cascade/lib/block.ml`, and `cascade/lib/optimize.mli` re-exports it, so tw can call
-     it the way `lib/build.ml` already calls
-     `Css.Optimize.merge_consecutive_starting_style` over the sorted utilities.
-     `lib/build.ml` runs no media merge yet, and `bin/main.ml` reaches the rest of
-     cascade's optimizer only under `--optimize`, so a plain `--minify` sheet gets none.
-     Check first whether a rule sorting between the two blocks is what keeps them apart:
-     `merge_consecutive_media` joins adjacent blocks only, and `merge_distant_media` is
-     the pass that reaches past an intervening rule.
+     **Fix**: `statements_of_sorted_rules` in `lib/build.ml` already runs cascade's
+     `Css.Optimize.merge_consecutive_media` over the sorted utilities, after
+     `merge_consecutive_starting_style` and before the `@supports` and `@container`
+     merges, so two adjacent blocks with the same condition become one. Two blocks
+     left apart have a rule sorting between them, so check the order in `lib/sort.ml`
+     first. `merge_distant_media`, which hoists a block past the rules between, stays
+     out of that pipeline because Tailwind does not regroup that way; the comment
+     above `merge_nested_media` gives the reason. A fault in the merge itself is
+     cascade's (`cascade/lib/block.ml`) and is fixed there.
 
   2. **"blocks at different positions"** - Media query appears at wrong location:
      ```
@@ -365,6 +366,8 @@ and the fields it keys on.
    since it takes length values).
 7. Adding `Raw of string` or similar escape hatches to bypass type safety → **NEVER**. Always add
    the properly typed properties/variants you need. Extend the type system rather than escape it.
+   The one exception is an arbitrary bracket no typed reader accepts, which
+   `docs/token-stream-contract.md` covers.
 8. Using `Fmt`, `Format` or `Printf` in `lib/` → `lib/` compiles to JavaScript and
    these bloat the bundle; use `Pp` (`lib/pp.ml`). Inside a module that opens
    `Css`, a bare `Pp` is `Css.Pp`, so bind the helpers you need before the open.
