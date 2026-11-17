@@ -2288,13 +2288,11 @@ and apply_builtin_modifier ?theme modifier = function
             rebase ~selector (handle_in_named_group inner name bc props)
         | Style.Group_peer_named (inner, name) ->
             rebase ~selector (handle_group_peer_named inner name bc props)
-        | _ -> (
-            try
-              [
-                modifier_to_rule_themed ?theme ~inner_has_hover:has_hover
-                  modifier bc selector props;
-              ]
-            with Invalid_argument _ -> [])
+        | _ ->
+            [
+              modifier_to_rule_themed ?theme ~inner_has_hover:has_hover modifier
+                bc selector props;
+            ]
       in
       preserve_hover_gate has_hover rules
   | Media_query

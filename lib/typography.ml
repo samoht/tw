@@ -1487,9 +1487,7 @@ module Typography_early = struct
         let lh_extra, lh_value = lh_modifier_to_css theme lh_mod in
         ( (size_decl :: lh_extra) @ [ font_size (Css.Var size_ref) ],
           [ line_height lh_value ] )
-    | Stdlib.Option.None ->
-        (* Fallback — should not happen for valid named sizes *)
-        ([], [])
+    | Stdlib.Option.None -> invalid_arg ("text-" ^ name ^ ": not a named size")
 
   (* font_size_keyword / try_parse_length_value / split_type_prefix are defined
      earlier in the module so of_class can validate arbitrary bracket values up

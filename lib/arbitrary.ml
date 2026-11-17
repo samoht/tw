@@ -170,8 +170,7 @@ module Handler = struct
                   [ in_the_open ]))
     | Color_opacity { property; value; alpha_fn; opacity } -> (
         match color_emitter property with
-        (* of_class only accepts renderable colour declarations; defensive. *)
-        | None -> style []
+        | None -> invalid_arg ("[" ^ property ^ "]: not a colour property")
         | Some emit -> (
             (* The [/] modifier applies to the colour the value denotes, which
                is already a mix when the value was written with [--alpha()], so

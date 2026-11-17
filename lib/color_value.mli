@@ -166,7 +166,10 @@ val to_oklch_opt : color -> int -> Srgb.oklch option
 
 val to_oklch_css : color -> int -> string
 (** [to_oklch_css color shade] converts color to OKLCH CSS string for a given
-    shade. *)
+    shade.
+
+    @raise Invalid_argument
+      if [color] is a {!hex} colour whose string is not a hex colour. *)
 
 val to_name : color -> string
 (** [to_name color] gets the name of a color as a string. *)
