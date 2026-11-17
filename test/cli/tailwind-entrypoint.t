@@ -1,8 +1,9 @@
 The Tailwind backend generates against the project's own entrypoint, so a
 [--tailwind] run over files reads the same [@theme] the native run does.
 A stub CLI stands in for the real one: it echoes the entrypoint it was given,
-and answers the identification probe, which asks for the banner on stdout and
-leaves a copy of whatever it was asked to compile. tw takes the CLI from the
+keeps the arguments of its last compile in [last-args.txt], and answers the
+identification probe, which asks for the banner on stdout and leaves a copy of
+whatever it was asked to compile. tw takes the CLI from the
 nearest [node_modules] above the working directory, so the stub goes there; on
 [PATH] the installed one still wins and the stub never runs.
 
@@ -11,6 +12,7 @@ nearest [node_modules] above the working directory, so the stub goes there; on
   > #!/bin/sh
   > in=input.css
   > out=output.css
+  > args="$*"
   > while [ $# -gt 0 ]; do
   >   case "$1" in
   >     -i) in=$2; shift 2 ;;
@@ -23,6 +25,7 @@ nearest [node_modules] above the working directory, so the stub goes there; on
   >   echo "/*! tailwindcss v4.3.3 | MIT License */"
   >   exit 0
   > fi
+  > echo "$args" > last-args.txt
   > if [ -n "$TW_STUB_CSS" ]; then cat "$TW_STUB_CSS" > "$out"
   > else cat "$in" > "$out"; fi
   > EOF
@@ -86,4 +89,20 @@ CI job: 1 when the two sheets differ, 0 when they do not, as above.
   $ TW_STUB_CSS="$PWD/different.css" tw --diff -s flex > single.txt
   [1]
   $ grep -c 'Differences found' single.txt
+  1
+
+The reference is Tailwind's sheet before lightningcss minifies it, so a
+difference [--diff] reports is always tw's: the CLI is asked to minify only
+when the run asks for it, and both sheets are then minified, each by its own
+tool.
+
+  $ tw -s flex --variables --base --minify > flex.css
+  $ TW_STUB_CSS="$PWD/flex.css" tw --diff -s flex
+  ✓ No differences found between Tailwind and tw for 'flex'
+  $ grep -c -- --minify last-args.txt
+  0
+  [1]
+  $ TW_STUB_CSS="$PWD/flex.css" tw --diff --minify -s flex
+  ✓ No differences found between Tailwind and tw for 'flex'
+  $ grep -c -- --minify last-args.txt
   1

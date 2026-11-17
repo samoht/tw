@@ -9,3 +9,15 @@
  (applies_to reference-cli entry-imports scratch tailwind-entrypoint)
  (enabled_if
   (<> %{os_type} Win32)))
+
+; The pinned tailwindcss CLI compiles the reference here. TW_TAILWIND_TESTS=1
+; says the CLI is meant to be present, so a missing npx fails rather than
+; retiring the case from the suite.
+
+(cram
+ (applies_to diff-reference)
+ (deps ../../package-lock.json)
+ (enabled_if
+  (or
+   %{bin-available:npx}
+   (= %{env:TW_TAILWIND_TESTS=0} 1))))
