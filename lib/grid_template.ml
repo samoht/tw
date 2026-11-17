@@ -12,8 +12,7 @@
 
     Parsing contract (`of_string`):
     - Accepts ["grid"; "cols" | "rows"; n], ["grid"; "flow"; ...],
-      ["auto"; "cols" | "rows"; ...]. Unknown tokens yield `Error (`Msg "Not a
-      grid template utility")`. *)
+      ["auto"; "cols" | "rows"; ...]. Others yield [Utility.unclaimed]. *)
 
 module Css = Cascade.Css
 
@@ -26,7 +25,6 @@ module Handler = struct
 
   open Css
 
-  let err_not_utility = Error (`Msg "Not a grid template utility")
   let err_invalid_cols = Error (`Msg "Invalid grid-cols value")
   let err_invalid_rows = Error (`Msg "Invalid grid-rows value")
 
@@ -348,8 +346,8 @@ module Handler = struct
                   Css.Properties.read_grid_auto_tracks inner
               with
               | Some v -> Ok (Auto_cols_arbitrary (inner, v))
-              | None -> err_not_utility
-            else err_not_utility)
+              | None -> Utility.unclaimed
+            else Utility.unclaimed)
     | [ "auto"; "rows"; "auto" ] -> Ok Auto_rows_auto
     | [ "auto"; "rows"; "min" ] -> Ok Auto_rows_min
     | [ "auto"; "rows"; "max" ] -> Ok Auto_rows_max
@@ -365,9 +363,9 @@ module Handler = struct
                   Css.Properties.read_grid_auto_tracks inner
               with
               | Some v -> Ok (Auto_rows_arbitrary (inner, v))
-              | None -> err_not_utility
-            else err_not_utility)
-    | _ -> err_not_utility
+              | None -> Utility.unclaimed
+            else Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Grid_cols n -> "grid-cols-" ^ string_of_int n

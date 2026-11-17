@@ -2,8 +2,6 @@
 
 module Css = Cascade.Css
 
-let err_not_utility = Error (`Msg "Not an arbitrary property utility")
-
 (** Map a CSS property name to its declaration constructor (color properties
     only). *)
 let color_property_of_name = function
@@ -215,7 +213,7 @@ module Handler = struct
        quotes or escapes stays inside it: [[content:'a]b']] is one property and
        one value. *)
     match Parse.bracket_close class_name with
-    | None -> err_not_utility
+    | None -> Utility.unclaimed
     | Some close_pos -> (
         let inner = String.sub class_name 1 (close_pos - 1) in
         (* Find the colon that separates property from value *)
@@ -225,7 +223,7 @@ module Handler = struct
           else find_colon (i + 1)
         in
         match find_colon 0 with
-        | None -> err_not_utility
+        | None -> Utility.unclaimed
         | Some colon_pos -> (
             let property = String.sub inner 0 colon_pos in
             let raw_value =
@@ -265,7 +263,7 @@ module Handler = struct
               else None
             in
             match modifier with
-            | None -> err_not_utility
+            | None -> Utility.unclaimed
             | Some opacity -> (
                 if fn_alpha <> None || opacity <> Color.No_opacity then
                   (* The /opacity form wraps the value in color-mix, so it needs
@@ -281,7 +279,7 @@ module Handler = struct
                     Ok
                       (Color_opacity
                          { property; value; alpha_fn = fn_alpha; opacity })
-                  else err_not_utility
+                  else Utility.unclaimed
                 else if
                   Parse.holds_unresolved_call
                     (Parse.decode_arbitrary_value value)
@@ -290,7 +288,7 @@ module Handler = struct
                      is a lookup that failed: Tailwind names no utility. The
                      decoded text is what the lexer reads as a call: before it,
                      [1px_--alpha(] is one dimension token. *)
-                  err_not_utility
+                  Utility.unclaimed
                 else
                   (* Plain [property:value]: any property whose value cascade
                      can parse becomes a typed declaration. *)
@@ -300,7 +298,7 @@ module Handler = struct
                       (Parse.decode_arbitrary_value value)
                   with
                   | Some _ -> Ok (Parsed_decl { property; value })
-                  | None -> err_not_utility)))
+                  | None -> Utility.unclaimed)))
 
   let examples = []
 end

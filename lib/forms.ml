@@ -352,7 +352,7 @@ module Handler = struct
     | "form-input" -> Ok Input
     | "form-checkbox" -> Ok Checkbox
     | "form-radio" -> Ok Radio
-    | _ -> Error (`Msg "Not a form utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Input -> "form-input"
@@ -502,7 +502,7 @@ module Select = struct
     | "form-select" -> Ok Select
     | "form-textarea" -> Ok Textarea
     | "form-multiselect" -> Ok Multiselect
-    | _ -> Error (`Msg "Not a form select utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Select -> "form-select"

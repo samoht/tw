@@ -23,6 +23,11 @@
 - On Windows, an `@source` glob matches the files under its root and
   `@source not` takes its paths out, where both matched nothing (#916).
 
+### OCaml API
+
+- `Utility.unclaimed` is the answer a handler's `of_class` gives a class it
+  does not claim, shared by every handler in place of its own message (#TBD).
+
 ## 1.2.1 (12/11/2026)
 
 ### Utilities

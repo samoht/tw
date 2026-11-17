@@ -25,7 +25,7 @@ module Handler = struct
     match parts with
     | [ "box"; "border" ] -> Ok Border
     | [ "box"; "content" ] -> Ok Content
-    | _ -> Error (`Msg "Not a box-sizing utility")
+    | _ -> Utility.unclaimed
 
   let examples = [ Border ]
 end

@@ -321,8 +321,6 @@ module Handler = struct
     | Row_end_auto -> 2550
     | Row_end_named _ -> 2560
 
-  let err_not_utility = Error (`Msg "Not a grid item utility")
-
   let parse_arbitrary s =
     (* The bracket text, through the arbitrary-value pipeline: [_] becomes a
        space, [\_] a literal underscore, and a CSS math function gets the spaces
@@ -358,16 +356,16 @@ module Handler = struct
     | [ "col"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary n with
         | Some v -> Ok (Col_span_arbitrary v)
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "col"; "span"; n ] -> (
         match Parse.int_pos ~name:"col-span" n with
         | Ok i -> Ok (Col_span i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "col"; "start"; "auto" ] -> Ok Col_start_auto
     | [ "col"; "start"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Col_start_arbitrary (v, x))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "col"; "start"; n ] -> (
         match Parse.int_pos ~name:"col-start" n with
         | Ok i -> Ok (Col_start i)
@@ -377,17 +375,17 @@ module Handler = struct
               && Scheme.theme_value (Some theme) ("grid-column-start-" ^ n)
                  <> None
             then Ok (Col_start_named n)
-            else err_not_utility)
+            else Utility.unclaimed)
     | [ ""; "col"; "start"; n ] -> (
         (* Negative col-start: -col-start-12 *)
         match Parse.int_pos ~name:"-col-start" n with
         | Ok i -> Ok (Neg_col_start i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "col"; "end"; "auto" ] -> Ok Col_end_auto
     | [ "col"; "end"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Col_end_arbitrary (v, x))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "col"; "end"; n ] -> (
         match Parse.int_pos ~name:"col-end" n with
         | Ok i -> Ok (Col_end i)
@@ -397,55 +395,55 @@ module Handler = struct
               && Scheme.theme_value (Some theme) ("grid-column-end-" ^ n)
                  <> None
             then Ok (Col_end_named n)
-            else err_not_utility)
+            else Utility.unclaimed)
     | [ ""; "col"; "end"; n ] -> (
         (* Negative col-end: -col-end-12 *)
         match Parse.int_pos ~name:"-col-end" n with
         | Ok i -> Ok (Neg_col_end i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "col"; n ] when String.length n > 0 && n.[0] = '[' -> (
         (* Calc col: col-[span_123/span_123] *)
         match parse_arbitrary_pair read_grid_line_pair n with
         | Some (v, x) -> Ok (Col_arbitrary (v, x))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "col"; n ] -> (
         match Parse.int_pos ~name:"col" n with
         | Ok i -> Ok (Col i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ ""; "col"; n ] -> (
         (* Negative col: -col-12 *)
         match Parse.int_pos ~name:"-col" n with
         | Ok i -> Ok (Neg_col i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "row"; "auto" ] -> Ok Row_auto
     | [ "row"; "span"; "full" ] -> Ok Row_span_full
     | [ "row"; "span"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary n with
         | Some v -> Ok (Row_span_arbitrary v)
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "row"; "span"; n ] -> (
         match Parse.int_pos ~name:"row-span" n with
         | Ok i -> Ok (Row_span i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "row"; n ] when String.length n > 0 && n.[0] = '[' -> (
         (* Calc row: row-[span_123/span_123] *)
         match parse_arbitrary_pair read_grid_line_pair n with
         | Some (v, x) -> Ok (Row_arbitrary (v, x))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "row"; n ] -> (
         match Parse.int_pos ~name:"row" n with
         | Ok i -> Ok (Row i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ ""; "row"; n ] -> (
         (* Negative row: -row-12 *)
         match Parse.int_pos ~name:"-row" n with
         | Ok i -> Ok (Neg_row i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "row"; "start"; "auto" ] -> Ok Row_start_auto
     | [ "row"; "start"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Row_start_arbitrary (v, x))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "row"; "start"; n ] -> (
         match Parse.int_pos ~name:"row-start" n with
         | Ok i -> Ok (Row_start i)
@@ -454,17 +452,17 @@ module Handler = struct
               (not (String.contains n '/'))
               && Scheme.theme_value (Some theme) ("grid-row-start-" ^ n) <> None
             then Ok (Row_start_named n)
-            else err_not_utility)
+            else Utility.unclaimed)
     | [ ""; "row"; "start"; n ] -> (
         (* Negative row-start: -row-start-12 *)
         match Parse.int_pos ~name:"-row-start" n with
         | Ok i -> Ok (Neg_row_start i)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "row"; "end"; "auto" ] -> Ok Row_end_auto
     | [ "row"; "end"; n ] when String.length n > 0 && n.[0] = '[' -> (
         match parse_arbitrary_pair read_gl n with
         | Some (v, x) -> Ok (Row_end_arbitrary (v, x))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "row"; "end"; n ] -> (
         match Parse.int_pos ~name:"row-end" n with
         | Ok i -> Ok (Row_end i)
@@ -473,13 +471,13 @@ module Handler = struct
               (not (String.contains n '/'))
               && Scheme.theme_value (Some theme) ("grid-row-end-" ^ n) <> None
             then Ok (Row_end_named n)
-            else err_not_utility)
+            else Utility.unclaimed)
     | [ ""; "row"; "end"; n ] -> (
         (* Negative row-end: -row-end-12 *)
         match Parse.int_pos ~name:"-row-end" n with
         | Ok i -> Ok (Neg_row_end i)
-        | Error _ -> err_not_utility)
-    | _ -> err_not_utility
+        | Error _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let to_class_arbitrary s =
     (* The value is held decoded, so the bracket it goes back into spells a

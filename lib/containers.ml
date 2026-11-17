@@ -124,7 +124,7 @@ module Handler = struct
     | n when String.starts_with ~prefix:"@container/" n ->
         let name = String.sub n 11 (String.length n - 11) in
         Ok (Container_named name)
-    | _ -> Error (`Msg "Not a container utility")
+    | _ -> Utility.unclaimed
 
   let examples = [ Container ]
 end

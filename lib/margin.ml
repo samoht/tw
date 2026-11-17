@@ -290,12 +290,12 @@ module Handler = struct
     | [ prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value = Positive value }
-        | _ -> Error (`Msg "Not a margin utility"))
+        | _ -> Utility.unclaimed)
     (* Handle negative arbitrary: -mx-[4px], -mx-[var(--value)] *)
     | [ ""; prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (axis_of_prefix_ext prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value = Negative value }
-        | _ -> Error (`Msg "Not a margin utility"))
+        | _ -> Utility.unclaimed)
     (* Handle extended axes (ms, me, mbs, mbe) with values *)
     | [ prefix; value ] when is_extended_margin_prefix prefix -> (
         match
@@ -303,23 +303,22 @@ module Handler = struct
             parse_value ~theme ~is_negative:false value )
         with
         | Some axis, Some t -> Ok { t with axis }
-        | _ -> Error (`Msg "Not a margin utility"))
+        | _ -> Utility.unclaimed)
     (* Handle negative extended axes: -ms-4 *)
     | [ ""; prefix; value ] when is_extended_margin_prefix prefix -> (
         match
           (axis_of_prefix_ext prefix, parse_value ~theme ~is_negative:true value)
         with
         | Some axis, Some t -> Ok { t with axis }
-        | _ -> Error (`Msg "Not a margin utility"))
+        | _ -> Utility.unclaimed)
     (* Use existing Spacing parser for standard values *)
     | _ -> (
         match Spacing.parse_class_parts parts with
         | Some (is_negative, prefix, value) -> (
-            if not (Spacing.is_margin_prefix prefix) then
-              Error (`Msg "Not a margin utility")
+            if not (Spacing.is_margin_prefix prefix) then Utility.unclaimed
             else
               match Spacing.axis_of_prefix prefix with
-              | None -> Error (`Msg "Not a margin utility")
+              | None -> Utility.unclaimed
               | Some axis -> (
                   let axis =
                     match axis with
@@ -343,7 +342,7 @@ module Handler = struct
                         Parse.is_valid_theme_name value
                         && is_named_spacing (Some theme) value
                       then Ok { axis; value = sign ~is_negative (Named value) }
-                      else Error (`Msg "Not a margin utility")
+                      else Utility.unclaimed
                   | Some (#spacing as spacing_val) ->
                       Ok
                         {
@@ -351,9 +350,9 @@ module Handler = struct
                           value = sign ~is_negative (Spacing spacing_val);
                         }
                   | Some `Auto ->
-                      if is_negative then Error (`Msg "Not a margin utility")
+                      if is_negative then Utility.unclaimed
                       else Ok { axis; value = Auto }))
-        | None -> Error (`Msg "Not a margin utility"))
+        | None -> Utility.unclaimed)
 
   let examples =
     List.map

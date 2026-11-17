@@ -24,7 +24,6 @@ module Handler = struct
   (* Tailwind ranks [vertical-align] at 283, right after text-align (281) and
      text-indent (282), so it sorts with them at priority 24. *)
   let priority _ = 24
-  let err_not_utility = Error (`Msg "Not a vertical-align utility")
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -35,7 +34,7 @@ module Handler = struct
         let inner = Parse.bracket_inner v in
         match Parse.arbitrary_declaration_value inner with
         | Some raw -> Ok (Raw (inner, raw))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "align"; "baseline" ] -> Ok Baseline
     | [ "align"; "top" ] -> Ok Top
     | [ "align"; "middle" ] -> Ok Middle
@@ -44,7 +43,7 @@ module Handler = struct
     | [ "align"; "text"; "bottom" ] -> Ok Text_bottom
     | [ "align"; "sub" ] -> Ok Sub
     | [ "align"; "super" ] -> Ok Super
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Arbitrary_var s -> "align-[" ^ s ^ "]"

@@ -500,11 +500,11 @@ module Handler = struct
               let spelling = Parse.bracket_inner value in
               match Parse.arbitrary_declaration_value spelling with
               | Some raw -> Ok (X_arb (spelling, `Raw raw))
-              | None -> Error (`Msg "Not a divide utility")
+              | None -> Utility.unclaimed
             else
               match Parse.decimal_int value with
               | Some n when n >= 0 -> Ok (X n)
-              | _ -> Error (`Msg "Not a divide utility")))
+              | _ -> Utility.unclaimed))
     | [ "divide"; "y"; value ] -> (
         match parse_bracket_width value with
         | Some (spelling, w) -> Ok (Y_arb (spelling, `Width w))
@@ -513,11 +513,11 @@ module Handler = struct
               let spelling = Parse.bracket_inner value in
               match Parse.arbitrary_declaration_value spelling with
               | Some raw -> Ok (Y_arb (spelling, `Raw raw))
-              | None -> Error (`Msg "Not a divide utility")
+              | None -> Utility.unclaimed
             else
               match Parse.decimal_int value with
               | Some n when n >= 0 -> Ok (Y n)
-              | _ -> Error (`Msg "Not a divide utility")))
+              | _ -> Utility.unclaimed))
     | [ "divide"; "transparent" ] -> Ok Transparent
     | [ "divide"; "inherit" ] -> Ok Inherit
     | [ "divide"; style_str ]
@@ -581,7 +581,7 @@ module Handler = struct
                  <> None
             then Ok (Named_color (Theme_named name, 500))
             else Error (`Msg ("Invalid divide color: " ^ name)))
-    | _ -> Error (`Msg "Not a divide utility")
+    | _ -> Utility.unclaimed
 
   let examples = []
 end

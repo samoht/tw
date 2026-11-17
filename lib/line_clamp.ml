@@ -13,7 +13,6 @@ module Handler = struct
   (* line-clamp (rank 26) sits between box-sizing and the display family, so it
      shares box-sizing's priority and sorts after it on suborder. *)
   let priority _ = 3
-  let err_not_utility = Error (`Msg "Not a line-clamp utility")
   let ( >|= ) = Parse.( >|= )
 
   let of_class _theme class_name =
@@ -27,11 +26,11 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some value -> Ok (Raw (inner, value))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | [ "line"; "clamp"; n ] ->
         Parse.int_bounded ~name:"line-clamp" ~min:0 ~max:999 n >|= fun i ->
         Lines i
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Lines n -> "line-clamp-" ^ string_of_int n

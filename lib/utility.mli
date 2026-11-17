@@ -25,7 +25,7 @@
 
         let of_class _theme = function
           | "example-block" -> Ok Block
-          | _ -> Error (`Msg "Not an example utility")
+          | _ -> Utility.unclaimed
 
         let to_class = function Block -> "example-block"
 
@@ -47,7 +47,7 @@
     + Use [Css.property] qualification when helper name conflicts with CSS
       property
     + Public API functions shadow Handler helpers after [open Handler]
-    + Use descriptive error messages in [of_string]
+    + [of_class] answers {!unclaimed} for a class the handler does not claim
 
     {2 Priority Assignment}
 
@@ -139,7 +139,8 @@ module type Handler = sig
 
   val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
   (** [of_class theme name] parses class [name] into a utility, consulting
-      [theme] for custom token validation (e.g. named colors and opacities). *)
+      [theme] for custom token validation (e.g. named colors and opacities). It
+      is {!unclaimed} for a class this handler does not claim. *)
 
   val to_class : t -> string
   (** [to_class u] is the CSS class name for utility [u]. *)
@@ -151,6 +152,10 @@ module type Handler = sig
       pair a property with a variant by hand. Covering a property here is what
       lets a project's [@utility] declaring it sort in the right place. *)
 end
+
+val unclaimed : ('a, [> `Msg of string ]) result
+(** [unclaimed] is what {!Handler.of_class} answers for a class its handler does
+    not claim: {!base_of_class} then asks the next handler. *)
 
 module Make (H : Handler) : sig
   val v : H.t -> t

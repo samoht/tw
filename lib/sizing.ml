@@ -761,8 +761,6 @@ module Handler = struct
         style (Option.to_list (Parse.opaque_declaration "aspect-ratio" value))
     | Aspect_theme name -> aspect_theme' theme name
 
-  let err_not_utility = Error (`Msg "Not a sizing utility")
-
   let err_invalid_value name value =
     Error (`Msg ("Invalid " ^ name ^ " value: " ^ value))
 
@@ -842,8 +840,8 @@ module Handler = struct
         match (Parse.decimal_float w, Parse.decimal_float h) with
         | Some w, Some h when is_quarter_multiple w && is_quarter_multiple h ->
             Ok (Aspect_ratio (w, h))
-        | _ -> err_not_utility)
-    | _ -> err_not_utility
+        | _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let of_class theme class_name =
     let parse_sized prop v = parse_sized ~theme prop v in
@@ -873,11 +871,11 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         match Parse.arbitrary_declaration_value inner with
         | Some declared -> Ok (Aspect_arbitrary (inner, declared))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "aspect"; value ] when is_theme_aspect theme value ->
         Ok (Aspect_theme value)
     | [ "aspect"; value ] -> parse_aspect_ratio value
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let suborder = function
     | Sized (prop, v) ->

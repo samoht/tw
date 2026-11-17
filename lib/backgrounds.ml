@@ -555,8 +555,7 @@ module Handler = struct
     (* A [bg-] class shaped like a gradient is the gradients' to accept or
        refuse: a theme colour spelled the same way does not make it a background
        colour. *)
-    | _ when Gradients.Handler.owns_bg_class class_name ->
-        Error (`Msg "A gradient utility, not a background one")
+    | _ when Gradients.Handler.owns_bg_class class_name -> Utility.unclaimed
     | [ "bg"; "origin"; "border" ] -> Ok Bg_origin_border
     | [ "bg"; "origin"; "padding" ] -> Ok Bg_origin_padding
     | [ "bg"; "origin"; "content" ] -> Ok Bg_origin_content
@@ -802,7 +801,7 @@ module Handler = struct
         match Color.shade_of_strings ~theme rest with
         | Ok (color, shade) -> Ok (Bg (color, shade))
         | Error _ -> Error (`Msg "Invalid background color"))
-    | _ -> Error (`Msg "Unknown background class")
+    | _ -> Utility.unclaimed
 
   let examples =
     [

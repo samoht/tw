@@ -1410,7 +1410,7 @@ module Handler = struct
         | [ "via"; "none" ] -> Ok Via_none
         | "via" :: rest -> parse_gradient_color ~theme Via rest
         | "to" :: rest -> parse_gradient_color ~theme To rest
-        | _ -> Error (`Msg "Not a gradient utility"))
+        | _ -> Utility.unclaimed)
 
   (* background-image is the one property a gradient sets that is not one of its
      own variables. [bg-linear-to-b] writes it inside the rule it carries beside

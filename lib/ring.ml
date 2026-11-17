@@ -618,8 +618,6 @@ module Handler = struct
           style ~property_rules:shadow_property_rules
             [ d; Css.box_shadows box_shadow_vars ]
 
-  let err_not_utility = Error (`Msg "Not a ring utility")
-
   let parse_ring_bracket ~theme kind v =
     let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let inner = Parse.bracket_inner base_str in
@@ -643,11 +641,11 @@ module Handler = struct
                [ring-[3px]/50]. *)
             match (parse_bracket_width_opt inner, opacity) with
             | Some _, Color.No_opacity -> Ok (Ring_bracket_length inner)
-            | Some _, _ -> err_not_utility
+            | Some _, _ -> Utility.unclaimed
             | None, _ -> (
                 match Parse.arbitrary_declaration_value inner with
                 | Some value -> Ok (Ring_raw (inner, value, opacity))
-                | None -> err_not_utility)))
+                | None -> Utility.unclaimed)))
     | `Ring_offset -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -665,11 +663,11 @@ module Handler = struct
         | None -> (
             match (parse_bracket_width_opt inner, opacity) with
             | Some _, Color.No_opacity -> Ok (Ring_offset_bracket_length inner)
-            | Some _, _ -> err_not_utility
+            | Some _, _ -> Utility.unclaimed
             | None, _ -> (
                 match Parse.arbitrary_declaration_value inner with
                 | Some value -> Ok (Ring_offset_raw (inner, value, opacity))
-                | None -> err_not_utility)))
+                | None -> Utility.unclaimed)))
     | `Inset_ring -> (
         match Color.parse_bracket_hint inner with
         | Some (Color.Typed_var var_part) -> (
@@ -687,11 +685,11 @@ module Handler = struct
         | None -> (
             match (parse_bracket_width_opt inner, opacity) with
             | Some _, Color.No_opacity -> Ok (Inset_ring_bracket_length inner)
-            | Some _, _ -> err_not_utility
+            | Some _, _ -> Utility.unclaimed
             | None, _ -> (
                 match Parse.arbitrary_declaration_value inner with
                 | Some value -> Ok (Inset_ring_raw (inner, value, opacity))
-                | None -> err_not_utility)))
+                | None -> Utility.unclaimed)))
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -722,7 +720,7 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Ring_current
-        | Color.No_opacity -> err_not_utility
+        | Color.No_opacity -> Utility.unclaimed
         | _ -> Ok (Ring_current_opacity opacity))
     | [ "ring"; v ]
       when String.length v > 0
@@ -744,7 +742,7 @@ module Handler = struct
             match opacity with
             | Color.No_opacity -> Ok (Ring_color (c, s))
             | _ -> Ok (Ring_color_opacity (c, s, opacity)))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "ring"; "offset"; "transparent" ] -> Ok Ring_offset_transparent
     | [ "ring"; "offset"; "inherit" ] -> Ok Ring_offset_inherit
     | [ "ring"; "offset"; value ]
@@ -761,7 +759,7 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Ring_offset_current
-        | Color.No_opacity -> err_not_utility
+        | Color.No_opacity -> Utility.unclaimed
         | _ -> Ok (Ring_offset_current_opacity opacity))
     | [ "ring"; "offset"; v ]
       when String.length v > 0
@@ -783,21 +781,21 @@ module Handler = struct
             match opacity with
             | Color.No_opacity -> Ok (Ring_offset_color (c, s))
             | _ -> Ok (Ring_offset_color_opacity (c, s, opacity)))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "ring"; "offset"; n ] -> (
         match Parse.int_any n with
         | Ok width -> Ok (Ring_offset_width width)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "ring"; color; shade ] -> (
         match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
         | Ok (c, s, Color.No_opacity) -> Ok (Ring_color (c, s))
         | Ok (c, s, opacity) -> Ok (Ring_color_opacity (c, s, opacity))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "ring"; "offset"; color; shade ] -> (
         match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
         | Ok (c, s, Color.No_opacity) -> Ok (Ring_offset_color (c, s))
         | Ok (c, s, opacity) -> Ok (Ring_offset_color_opacity (c, s, opacity))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "inset"; "ring" ] -> Ok Inset_ring_default
     | [ "inset"; "ring"; "transparent" ] -> Ok Inset_ring_transparent
     | [ "inset"; "ring"; "inherit" ] -> Ok Inset_ring_inherit
@@ -815,7 +813,7 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Inset_ring_current
-        | Color.No_opacity -> err_not_utility
+        | Color.No_opacity -> Utility.unclaimed
         | _ -> Ok (Inset_ring_current_opacity opacity))
     | [ "inset"; "ring"; v ]
       when String.length v > 0
@@ -835,17 +833,17 @@ module Handler = struct
             match opacity with
             | Color.No_opacity -> Ok (Inset_ring_color (c, s))
             | _ -> Ok (Inset_ring_color_opacity (c, s, opacity)))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "inset"; "ring"; n ] -> (
         match Parse.int_any n with
         | Ok width -> Ok (Inset_ring_width width)
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "inset"; "ring"; color; shade ] -> (
         match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
         | Ok (c, s, Color.No_opacity) -> Ok (Inset_ring_color (c, s))
         | Ok (c, s, opacity) -> Ok (Inset_ring_color_opacity (c, s, opacity))
-        | Error _ -> err_not_utility)
-    | _ -> err_not_utility
+        | Error _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Ring_none -> "ring-0"

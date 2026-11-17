@@ -12,8 +12,8 @@
 
     Parsing contract (`of_string`):
     - Accepts tokens like ["border"], ["border"; "t"], ["rounded"; "md"],
-      ["ring"; "2"], ["outline"; "offset"; "4"]. Unknown tokens yield `Error
-      (`Msg "Not a border utility")`. *)
+      ["ring"; "2"], ["outline"; "offset"; "4"]. Unknown tokens yield
+      [Utility.unclaimed]. *)
 
 module Css = Cascade.Css
 
@@ -749,8 +749,6 @@ module Handler = struct
     | Neg_outline_offset n -> neg_outline_offset n
     | Neg_outline_offset_var v -> neg_outline_offset_var_style v
 
-  let err_not_utility = Error (`Msg "Not a border utility")
-
   (* Parse the side/corner segment of a class into the corners it rounds. *)
   let corner_of_string = function
     | "s" -> Some Corner.Start
@@ -956,14 +954,14 @@ module Handler = struct
           || is_line_width_keyword s
         in
         match width_bracket_value ~looks_like_width inner with
-        | None -> err_not_utility
+        | None -> Utility.unclaimed
         | Some value -> (
             match parse_border_width value with
             | Some w -> Ok (Border_width_bracket (inner, w))
             | None -> (
                 match hinted_token_stream inner with
                 | Some raw -> Ok (Border_width_raw (inner, raw))
-                | None -> err_not_utility)))
+                | None -> Utility.unclaimed)))
     | [ "border"; side; v ] when is_border_side side && Parse.is_bracket_value v
       -> (
         let inner = Parse.bracket_inner v in
@@ -974,24 +972,24 @@ module Handler = struct
           || is_line_width_keyword s
         in
         match width_bracket_value ~looks_like_width inner with
-        | None -> err_not_utility
+        | None -> Utility.unclaimed
         | Some value -> (
             match parse_border_width value with
             | Some w -> Ok (Border_side_width_bracket (side, inner, w))
             | None -> (
                 match hinted_token_stream inner with
                 | Some raw -> Ok (Border_side_width_raw (side, inner, raw))
-                | None -> err_not_utility)))
+                | None -> Utility.unclaimed)))
     (* Border radius utilities (parametric). [rounded] / [rounded-<size>] target
        all corners; [rounded-<pos>] / [rounded-<pos>-<size>] target a side or
        corner. Sizes and positions are disjoint token sets. *)
     (* The bare [rounded] and [rounded-<pos>] inline the deprecated [--radius]
        token, so a [@theme] block that removed it leaves them no utility. *)
-    | [ "rounded" ] when Scheme.is_removed theme "radius" -> err_not_utility
+    | [ "rounded" ] when Scheme.is_removed theme "radius" -> Utility.unclaimed
     | [ "rounded"; pos ]
       when Option.is_some (corner_of_string pos)
            && Scheme.is_removed theme "radius" ->
-        err_not_utility
+        Utility.unclaimed
     | [ "rounded" ] -> Ok (Rounded (Corner.All, Rsz_default))
     | [ "rounded"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
@@ -1000,7 +998,7 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some raw -> Ok (Rounded (Corner.All, Rsz_raw (inner, raw)))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | [ "rounded"; tok ] -> (
         match rounded_size_of_string tok with
         | Some size -> Ok (Rounded (Corner.All, size))
@@ -1010,7 +1008,7 @@ module Handler = struct
             | None ->
                 if is_theme_radius theme tok then
                   Ok (Rounded (Corner.All, Rsz_theme tok))
-                else err_not_utility))
+                else Utility.unclaimed))
     | [ "rounded"; pos; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         match (corner_of_string pos, parse_length inner) with
@@ -1018,14 +1016,14 @@ module Handler = struct
         | Some pos, None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some raw -> Ok (Rounded (pos, Rsz_raw (inner, raw)))
-            | None -> err_not_utility)
-        | None, _ -> err_not_utility)
+            | None -> Utility.unclaimed)
+        | None, _ -> Utility.unclaimed)
     | [ "rounded"; pos; size ] -> (
         match (corner_of_string pos, rounded_size_of_string size) with
         | Some pos, Some size -> Ok (Rounded (pos, size))
         | Some pos, None when is_theme_radius theme size ->
             Ok (Rounded (pos, Rsz_theme size))
-        | _ -> err_not_utility)
+        | _ -> Utility.unclaimed)
     | [ "outline" ] -> Ok Outline
     | [ "outline"; "0" ] -> Ok Outline_0
     | [ "outline"; n ]
@@ -1054,13 +1052,13 @@ module Handler = struct
                 | _ -> (
                     match hinted_token_stream inner with
                     | Some raw -> Ok (Outline_width_raw (inner, raw))
-                    | None -> err_not_utility)))
+                    | None -> Utility.unclaimed)))
         | None ->
             if starts "var(" inner then
               (* Bare var() defaults to color for outline, not width *)
-              err_not_utility
-            else if starts "color:" inner then err_not_utility
-            else if starts "#" inner then err_not_utility
+              Utility.unclaimed
+            else if starts "color:" inner then Utility.unclaimed
+            else if starts "#" inner then Utility.unclaimed
             else
               (* Only accept if it looks like a number/length/percentage, not a
                  named color like "black" *)
@@ -1076,8 +1074,8 @@ module Handler = struct
                 | None -> (
                     match parse_length inner with
                     | Some (Pct _) -> Ok (Outline_width_dropped inner)
-                    | _ -> err_not_utility)
-              else err_not_utility)
+                    | _ -> Utility.unclaimed)
+              else Utility.unclaimed)
     (* outline-none/solid/dashed/dotted/double handled by
        Outline_style_handler *)
     | [ "outline"; "hidden" ] -> Ok Outline_hidden
@@ -1089,24 +1087,24 @@ module Handler = struct
         else
           match Parse.arbitrary_declaration_value inner with
           | Some raw -> Ok (Outline_offset_raw (inner, raw))
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
     | [ "outline"; "offset"; n ] -> (
         match Parse.decimal_int n with
         | Some i when i >= 0 -> Ok (Outline_offset i)
-        | _ -> err_not_utility)
+        | _ -> Utility.unclaimed)
     (* Negative outline offset: -outline-offset-N starts with empty string *)
     | "" :: "outline" :: "offset" :: rest when rest <> [] -> (
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
           if Parse.is_var inner then Ok (Neg_outline_offset_var inner)
-          else err_not_utility
+          else Utility.unclaimed
         else
           match Parse.decimal_int value with
           | Some i when i > 0 -> Ok (Neg_outline_offset i)
-          | _ -> err_not_utility)
+          | _ -> Utility.unclaimed)
     (* ring* handled in Ring *)
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Border -> "border"
@@ -1249,8 +1247,6 @@ module Outline_style_handler = struct
     | None_ -> 30003
     | Solid -> 30004
 
-  let err_not_utility = Error (`Msg "Not an outline style utility")
-
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -1259,7 +1255,7 @@ module Outline_style_handler = struct
     | [ "outline"; "double" ] -> Ok Double
     | [ "outline"; "none" ] -> Ok None_
     | [ "outline"; "solid" ] -> Ok Solid
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Dashed -> "outline-dashed"

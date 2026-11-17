@@ -23,7 +23,6 @@ module Handler = struct
   (* Font stretch sorts in the priority-26 band the late text families share,
      right after font style. *)
   let priority _ = 26
-  let err_not_utility = Error (`Msg "Not a font-stretch utility")
   let ( >|= ) = Parse.( >|= )
 
   let of_class _theme class_name =
@@ -42,7 +41,7 @@ module Handler = struct
         let n = String.sub n 0 (String.length n - 1) in
         Parse.int_bounded ~name:"font-stretch" ~min:50 ~max:200 n >|= fun i ->
         Percent i
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Ultra_condensed -> "font-stretch-ultra-condensed"

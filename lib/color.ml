@@ -260,7 +260,7 @@ module Handler = struct
     | "text" :: _
       when Result.is_ok (Typography.Typography_early.of_class theme class_name)
       ->
-        Error (`Msg ("Not a text colour: " ^ class_name))
+        Utility.unclaimed
     | [ "text"; "transparent" ] -> Ok Text_transparent
     | [ "text"; "inherit" ] -> Ok Text_inherit
     | [ "text"; current_str ]
@@ -537,7 +537,7 @@ module Handler = struct
         match shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Placeholder (color, shade))
         | Error e -> Error e)
-    | _ -> Error (`Msg "Not a color utility")
+    | _ -> Utility.unclaimed
 
   (** Text color utilities *)
 

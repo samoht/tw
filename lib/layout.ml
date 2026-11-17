@@ -63,7 +63,7 @@ module Screen_reader_handler = struct
     match parts with
     | [ "sr"; "only" ] -> Ok Sr_only
     | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
-    | _ -> Error (`Msg "Not a screen reader utility")
+    | _ -> Utility.unclaimed
 
   let examples = []
 end
@@ -765,7 +765,7 @@ module Handler = struct
     | [ "break"; "inside"; "avoid" ] -> Ok Break_inside_avoid
     | [ "break"; "inside"; "avoid"; "column" ] -> Ok Break_inside_avoid_column
     | [ "break"; "inside"; "avoid"; "page" ] -> Ok Break_inside_avoid_page
-    | _ -> Error (`Msg "Not a layout utility")
+    | _ -> Utility.unclaimed
 
   let examples =
     [

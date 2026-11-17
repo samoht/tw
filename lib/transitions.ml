@@ -680,7 +680,7 @@ module Handler = struct
             match Parse.arbitrary_declaration_value inner with
             | Some value -> Ok (Ease_arbitrary (inner, `Raw value))
             | None -> Error (`Msg "Invalid ease value")))
-    | _ -> Error (`Msg "Not a transition utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Transition_none -> "transition-none"

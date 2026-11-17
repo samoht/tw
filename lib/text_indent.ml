@@ -20,7 +20,6 @@ module Handler = struct
   (* Tailwind ranks [text-indent] at 282, between text-align and vertical-align,
      so it sorts with them at priority 24. *)
   let priority _ = 24
-  let err_not_utility = Error (`Msg "Not a text-indent utility")
 
   (* A data-type hint chooses which longhand a bracket lands in and says nothing
      about the value. [indent-] and [underline-offset-] each write one longhand,
@@ -42,20 +41,20 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some raw -> Ok (Indent_raw (inner, raw))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
         let inner = Parse.bracket_inner n in
-        if arbitrary_length_after_hint inner = None then err_not_utility
+        if arbitrary_length_after_hint inner = None then Utility.unclaimed
         else Ok (Indent_neg_arbitrary inner)
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Indent f)
-        | Ok _ | Error _ -> err_not_utility)
+        | Ok _ | Error _ -> Utility.unclaimed)
     | [ ""; "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Indent_neg f)
-        | Ok _ | Error _ -> err_not_utility)
-    | _ -> err_not_utility
+        | Ok _ | Error _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Indent n -> "indent-" ^ Spacing.pp_spacing_suffix (`Rem (n *. 0.25))

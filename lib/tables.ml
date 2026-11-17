@@ -13,7 +13,7 @@
     - Accepts tokens like ["border"; "collapse"], ["border"; "separate"],
       ["border"; "spacing"; n], ["border"; "spacing"; "x"; n],
       ["border"; "spacing"; "y"; n], ["table"; "auto"], ["table"; "fixed"].
-    - Unknown tokens yield `Error (`Msg "Not a table utility")`. *)
+    - Unknown tokens yield [Utility.unclaimed]. *)
 
 module Css = Cascade.Css
 
@@ -44,7 +44,6 @@ module Handler = struct
   let name = "tables"
 
   let priority _ = 8
-  let err_not_utility = Error (`Msg "Not a table utility")
 
   (** CSS variables for border-spacing - initialized to 0 in the properties
       layer. Tailwind emits these first; a negative property_order with no
@@ -229,11 +228,11 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some value -> Ok (Border_spacing_arb (inner, `Raw value))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | [ "border"; "spacing"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing f)
-        | Ok _ | Error _ -> err_not_utility)
+        | Ok _ | Error _ -> Utility.unclaimed)
     | [ "border"; "spacing"; "x"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         match Parse.arbitrary_length inner with
@@ -241,11 +240,11 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some value -> Ok (Border_spacing_x_arb (inner, `Raw value))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | [ "border"; "spacing"; "x"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-x" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_x f)
-        | Ok _ | Error _ -> err_not_utility)
+        | Ok _ | Error _ -> Utility.unclaimed)
     | [ "border"; "spacing"; "y"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         match Parse.arbitrary_length inner with
@@ -253,16 +252,16 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some value -> Ok (Border_spacing_y_arb (inner, `Raw value))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | [ "border"; "spacing"; "y"; n ] -> (
         match Parse.spacing_value ~name:"border-spacing-y" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Border_spacing_y f)
-        | Ok _ | Error _ -> err_not_utility)
+        | Ok _ | Error _ -> Utility.unclaimed)
     | [ "table"; "auto" ] -> Ok Table_auto
     | [ "table"; "fixed" ] -> Ok Table_fixed
     | [ "caption"; "top" ] -> Ok Caption_top
     | [ "caption"; "bottom" ] -> Ok Caption_bottom
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Border_collapse -> "border-collapse"

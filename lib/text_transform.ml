@@ -13,7 +13,6 @@ module Handler = struct
   (* Tailwind ranks [text-transform] after the colour block, in the priority-26
      band the late text families share. *)
   let priority _ = 26
-  let err_not_utility = Error (`Msg "Not a text-transform utility")
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -22,7 +21,7 @@ module Handler = struct
     | [ "lowercase" ] -> Ok Lowercase
     | [ "capitalize" ] -> Ok Capitalize
     | [ "normal"; "case" ] -> Ok Normal_case
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Uppercase -> "uppercase"

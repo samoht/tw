@@ -1139,7 +1139,6 @@ module Handler = struct
         drop_shadow_bracket_var_opacity v op
 
   let ( >|= ) = Parse.( >|= )
-  let err_not_utility = Error (`Msg "Not a filter utility")
 
   (* Whether a modifier names an [--opacity-*] token. Tailwind reads no alpha
      off one on a drop-shadow size and compiles nothing for the class, where a
@@ -1159,8 +1158,8 @@ module Handler = struct
               Parse.arbitrary_declaration_value (Parse.bracket_inner base)
             with
             | Some value -> Ok (Drop_shadow_raw (base, value))
-            | None -> err_not_utility))
-    | op when named_alpha op -> err_not_utility
+            | None -> Utility.unclaimed))
+    | op when named_alpha op -> Utility.unclaimed
     | op -> (
         match drop_shadow_bodies base with
         | Some bodies -> Ok (Drop_shadow_arbitrary_opacity (base, bodies, op))
@@ -1168,7 +1167,7 @@ module Handler = struct
             match drop_shadow_arbitrary_value base with
             | Option.Some (Css.Drop_shadow (Css.Var _) as size) ->
                 Ok (Drop_shadow_var_opacity (base, size, op))
-            | Option.Some _ | Option.None -> err_not_utility))
+            | Option.Some _ | Option.None -> Utility.unclaimed))
 
   (* A bracket that reads as a colour, or carries a [color:] hint, is the
      shadow's colour, as [shadow-[...]] reads its bracket; anything else, a bare
@@ -1255,7 +1254,7 @@ module Handler = struct
   let parse_blur theme target rest =
     let name = String.concat "-" rest in
     match (rest, blur_size_of_name name) with
-    | [], _ when Scheme.is_removed theme "blur" -> err_not_utility
+    | [], _ when Scheme.is_removed theme "blur" -> Utility.unclaimed
     | [], _ -> Ok (Blur target)
     | [ "none" ], _ -> Ok (Blur_none target)
     | [ _ ], Some size -> Ok (Blur_size (target, size))
@@ -1269,7 +1268,7 @@ module Handler = struct
             | Some value -> Ok (Blur_raw (target, s, value))
             | None ->
                 Error (`Msg ("Invalid " ^ prefix target ^ "blur value: " ^ s))))
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   (* [hue-rotate-N], [-hue-rotate-N] and their bracket forms. *)
   let parse_hue_rotate target ~neg rest =
@@ -1284,32 +1283,32 @@ module Handler = struct
         | Option.None, false -> (
             match Parse.arbitrary_declaration_value spelling with
             | Some value -> Ok (Hue_rotate_raw (target, spelling, value))
-            | None -> err_not_utility)
-        | Option.None, true -> err_not_utility)
+            | None -> Utility.unclaimed)
+        | Option.None, true -> Utility.unclaimed)
     | [ n ] when neg ->
         Parse.int_pos ~name:(prefix target ^ "hue-rotate") n >|= fun x ->
         Hue_rotate (target, -x)
     | [ n ] -> Parse.int_any n >|= fun x -> Hue_rotate (target, x)
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let parse_drop_shadow theme = function
     (* The bare [drop-shadow] inlines the deprecated [--drop-shadow] token, and
        a sized drop shadow under an opacity inlines its own, so a token the
        [@theme] block removed is refused. *)
     | [ "drop"; "shadow" ] when Scheme.is_removed theme "drop-shadow" ->
-        err_not_utility
+        Utility.unclaimed
     | [ "drop"; "shadow"; n ]
       when match fst (Color.parse_opacity_modifier n) with
            | ("xs" | "sm" | "md" | "lg" | "xl" | "2xl") as size ->
                Scheme.is_removed theme ("drop-shadow-" ^ size)
            | _ -> false ->
-        err_not_utility
+        Utility.unclaimed
     (* Drop shadow with opacity modifier on the base: drop-shadow/25 *)
     | [ "drop"; s ]
       when String.starts_with ~prefix:"shadow/" s && String.length s > 7 -> (
         let _, opacity = Color.parse_opacity_modifier ~theme s in
         match opacity with
-        | Color.No_opacity -> err_not_utility
+        | Color.No_opacity -> Utility.unclaimed
         | op -> Ok (Drop_shadow_opacity op))
     (* Drop shadow *)
     | [ "drop"; "shadow" ] -> Ok Drop_shadow
@@ -1349,15 +1348,15 @@ module Handler = struct
             | Error _ when drop_shadow_theme_bodies ~theme full <> Option.None
               ->
                 Ok (Drop_shadow_named full)
-            | Error _ -> err_not_utility)
+            | Error _ -> Utility.unclaimed)
         | op -> (
             match drop_shadow_scale_body base with
-            | Option.Some _ when named_alpha op -> err_not_utility
+            | Option.Some _ when named_alpha op -> Utility.unclaimed
             | Option.Some _ -> Ok (Drop_shadow_size_opacity (base, op))
             | Option.None -> (
                 if base = "" then Ok (Drop_shadow_opacity op)
                 else if drop_shadow_theme_bodies ~theme base <> Option.None then
-                  if named_alpha op then err_not_utility
+                  if named_alpha op then Utility.unclaimed
                   else Ok (Drop_shadow_named_opacity (base, op))
                 else if base = "inherit" then
                   Ok (Drop_shadow_keyword_color_opacity (Css.Inherit, base, op))
@@ -1374,8 +1373,8 @@ module Handler = struct
                   with
                   | Ok (c, shade, _) ->
                       Ok (Drop_shadow_color_opacity (c, shade, op))
-                  | Error _ -> err_not_utility)))
-    | _ -> err_not_utility
+                  | Error _ -> Utility.unclaimed)))
+    | _ -> Utility.unclaimed
 
   let amount_of_name n =
     List.find_opt (fun f -> String.equal (func_name (f :> func)) n) amounts
@@ -1399,30 +1398,30 @@ module Handler = struct
         | Option.None -> (
             match declaration s with
             | Some raw -> Ok (Chain_raw (target, s, raw))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | "blur" :: rest -> parse_blur theme target rest
     | "hue" :: "rotate" :: rest -> parse_hue_rotate target ~neg:false rest
     | "drop" :: _ when target = Filter -> parse_drop_shadow theme parts
     | [ "opacity"; s ] when target = Backdrop && Parse.is_bracket_value s -> (
         match declaration s with
         | Some _ -> Ok (Backdrop_opacity_arbitrary s)
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "opacity"; n ] when target = Backdrop -> (
         match Parse.decimal_float n with
         | Some f when f >= 0. -> Ok (Backdrop_opacity f)
-        | _ -> err_not_utility)
+        | _ -> Utility.unclaimed)
     | name :: rest -> (
         match (amount_of_name name, rest) with
         | Some f, [ s ] when Parse.is_bracket_value s -> (
             match declaration s with
             | Some _ -> Ok (Amount_arbitrary (target, f, s))
-            | None -> err_not_utility)
+            | None -> Utility.unclaimed)
         | Some f, [ n ] ->
             Parse.int_pos ~name:(prefix target ^ name) n >|= fun x ->
             Amount (target, f, x)
         | Some f, [] when has_bare_form f -> Ok (Amount (target, f, 100))
-        | _ -> err_not_utility)
-    | [] -> err_not_utility
+        | _ -> Utility.unclaimed)
+    | [] -> Utility.unclaimed
 
   let of_class theme class_name =
     match Parse.split_class class_name with

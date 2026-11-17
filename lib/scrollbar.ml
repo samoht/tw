@@ -195,7 +195,7 @@ module Handler = struct
         match Color.parse_opacity_modifier ?theme current_str with
         | "current", Color.No_opacity -> Ok (mk Current)
         | "current", op -> Ok (mk (Current_opacity op))
-        | _ -> Error (`Msg "Not a scrollbar utility"))
+        | _ -> Utility.unclaimed)
     | [ v ]
       when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ?theme v))
       -> (
@@ -206,7 +206,7 @@ module Handler = struct
         | None -> (
             match (op, Parse.arbitrary_declaration_value inner) with
             | Color.No_opacity, Some value -> Ok (mk (Raw (base, value)))
-            | _ -> Error (`Msg "Not a scrollbar utility")))
+            | _ -> Utility.unclaimed))
     | parts when List.exists Color.has_opacity parts -> (
         match Color.shade_and_opacity_of_strings ?theme parts with
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))
@@ -228,7 +228,7 @@ module Handler = struct
         parse_color ~theme (fun s -> Thumb s) rest
     | "scrollbar" :: "track" :: rest ->
         parse_color ~theme (fun s -> Track s) rest
-    | _ -> Error (`Msg "Not a scrollbar utility")
+    | _ -> Utility.unclaimed
 
   let examples = [ Width_auto; Gutter_auto; Thumb Current; Track Current ]
 end
