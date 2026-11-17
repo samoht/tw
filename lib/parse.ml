@@ -545,14 +545,22 @@ let call_body name s =
 
 let split_top_level sep s =
   let len = String.length s in
+  let rec after_string q i =
+    if i >= len then len
+    else if s.[i] = '\\' then after_string q (i + 2)
+    else if s.[i] = q then i + 1
+    else after_string q (i + 1)
+  in
   let rec go depth start i acc =
     if i >= len then List.rev (String.sub s start (len - start) :: acc)
     else
       match s.[i] with
-      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
-      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
       | c when c = sep && depth = 0 ->
           go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | '\\' -> go depth start (i + 2) acc
+      | ('"' | '\'') as q -> go depth start (after_string q (i + 1)) acc
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
       | _ -> go depth start (i + 1) acc
   in
   go 0 0 0 []

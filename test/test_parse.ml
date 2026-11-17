@@ -627,9 +627,21 @@ let test_holds_math_function () =
   check false "url(x.png) center";
   check false "abs(1)"
 
+(* Tailwind's segmenting skips a quoted string and an escaped character, so a
+   separator inside either stays in its piece. *)
+let test_split_top_level () =
+  let check expected s =
+    Alcotest.(check (list string)) s expected (Tw.Parse.split_top_level ',' s)
+  in
+  check [ "a"; "b(c,d)" ] "a,b(c,d)";
+  check [ {|'a,1'|}; "b" ] {|'a,1',b|};
+  check [ {|"a\",b"|}; "c" ] {|"a\",b",c|};
+  check [ {|a\,b|}; "c" ] {|a\,b,c|}
+
 let tests =
   Alcotest.
     [
+      test_case "split at a top-level separator" `Quick test_split_top_level;
       test_case "math function anywhere in a value" `Quick
         test_holds_math_function;
       test_case "underscore escape" `Quick test_underscore_escape;

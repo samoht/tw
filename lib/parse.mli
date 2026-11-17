@@ -359,10 +359,11 @@ val shadow_layer : string -> (Cascade.Css.length list * shadow_colour) option
     {!decode_underscores} first. *)
 
 val split_top_level : char -> string -> string list
-(** [split_top_level sep s] splits [s] on [sep] where no bracket is open, so a
-    [sep] inside [(...)], [[...]] or [{...}] stays in its piece. Always yields
-    one piece more than the separators it split on; a closing bracket with no
-    opener is passed over. *)
+(** [split_top_level sep s] splits [s] on [sep] where no bracket or string is
+    open, so a [sep] inside [(...)], [[...]], [{...}], a quoted string or
+    escaped by a backslash stays in its piece. Always yields one piece more than
+    the separators it split on; a closing bracket with no opener is passed over.
+*)
 
 val replace_shadow_colours : (string -> string) -> string -> string
 (** [replace_shadow_colours wrap value] is the shadow list [value] with the
