@@ -240,7 +240,7 @@ module Handler = struct
      [auto-rows-min] sorts before [grid-cols-3]. *)
   let suborder = function
     (* Grid auto columns (10000-10099) *)
-    (* Order: spacing (numeric) → arbitrary → keywords alphabetical *)
+    (* Order: spacing (numeric) -> arbitrary -> keywords alphabetical *)
     | Auto_cols_spacing _ -> 10000
     | Auto_cols_arbitrary _ -> 10001
     | Auto_cols_auto -> 10002
@@ -261,7 +261,7 @@ module Handler = struct
     | Auto_rows_max -> 10204
     | Auto_rows_min -> 10205
     (* Grid template columns (11000-11999) *)
-    (* Order: numeric → arbitrary → keywords alphabetical *)
+    (* Order: numeric -> arbitrary -> keywords alphabetical *)
     | Grid_cols n -> 11000 + n
     | Grid_cols_arbitrary _ -> 11800
     | Grid_cols_none -> 11900

@@ -50,8 +50,8 @@ let test_source_inline () =
     ~absent:[]
 
 (* An entrypoint saved with CR LF line ends compiles as the LF one does: CSS
-   Syntax 3 §3.3 turns CR LF, a lone CR and FF into LF before the stream is
-   read, so no directive reader ever sees the CR. *)
+   Syntax 3 section 3.3 turns CR LF, a lone CR and FF into LF before the stream
+   is read, so no directive reader ever sees the CR. *)
 let test_crlf_entrypoint () =
   check_rules
     (compiled "crlf"

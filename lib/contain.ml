@@ -53,9 +53,9 @@ module Handler = struct
         | Some suffix -> "contain-" ^ suffix
         | None -> "contain-none")
 
-  (* Channel variables for composable contain — these generate @property rules
-     and initial-value declarations in the properties layer. property_order
-     groups them together; they use syntax: "*" with no initial-value. *)
+  (* Channel variables for composable contain. They generate @property rules and
+     initial-value declarations in the properties layer. property_order groups
+     them together; they use syntax: "*" with no initial-value. *)
   let tw_contain_size_var =
     Var.channel ~needs_property:true ~property_order:50 Css.Value
       "tw-contain-size"

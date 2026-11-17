@@ -139,7 +139,7 @@ module Handler = struct
     | Tracking_theme name -> "tracking-" ^ name
 
   let suborder = function
-    (* Tracking — negative first, then arbitrary, then named *)
+    (* Tracking: negative first, then arbitrary, then named *)
     | Neg_tracking_arbitrary _ -> 8245
     | Neg_tracking_raw _ -> 8245
     | Neg_tracking_var _ -> 8250

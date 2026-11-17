@@ -106,8 +106,8 @@ let segments name =
 (* Separate the variants a project declared with [@custom-variant] from the rest
    of the class. They cannot go through [Tw.of_string], which only knows the
    built-in variants, so they are re-emitted as [@variant] blocks for [expand]
-   to expand. A declared variant is picked out wherever it sits in the chain —
-   [lg:dark:flex] as much as [dark:lg:flex] — and the built-in prefixes stay
+   to expand. A declared variant is picked out wherever it sits in the chain
+   ([lg:dark:flex] as much as [dark:lg:flex]), and the built-in prefixes stay
    attached to the utility, which keeps their media queries wrapped around the
    declared variant's selector. *)
 let split_declared defs name =

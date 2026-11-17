@@ -153,7 +153,7 @@ module Handler = struct
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
   (* space-x-px / space-y-px: the gap is a literal 1px (not a spacing multiple),
-     so there is no --spacing declaration; the reverse mechanism wraps ±1px
+     so there is no --spacing declaration; the reverse mechanism wraps +/-1px
      directly, matching Tailwind. *)
   let space_px ~axis ~negative
       (reverse_var : Css.number_percentage Var.property_default)

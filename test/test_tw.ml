@@ -864,7 +864,7 @@ let transforms_3d () =
 let content_variants () =
   check_list [ before [ content_none ] ];
   check_list [ after [ content_none ] ];
-  (* NOTE: Using ASCII character instead of Unicode (→) because Tailwind v4
+  (* NOTE: Using ASCII character instead of Unicode (->) because Tailwind v4
      doesn't support Unicode in class names *)
   check_list [ before [ content ">" ] ];
   check_list [ after [ content "*" ] ]

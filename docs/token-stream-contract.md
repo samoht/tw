@@ -75,7 +75,7 @@ the leading run is the hint's: `z-[color:red:blue]` writes `red:blue`. A hint a
 family does not know still counts as one, and drops to that family's last
 resort with no reading tried on what follows: `mask-[bogus:2em]` is a
 `mask-image` where the bare `mask-[2em]` is a `mask-position`. A class that
-names its longhand already, such as `mask-size-[…]`, takes any hint and uses
+names its longhand already, such as `mask-size-[...]`, takes any hint and uses
 the value after it. An empty hint names no utility at all, and neither does a
 bracket left holding nothing but blank space, so `z-[:5]` and `z-[_]` are
 refusals.
@@ -106,160 +106,160 @@ a length such as `10px` is a sixth. To check a family, run the shapes through
 
 | family | longhand Tailwind falls through to |
 | --- | --- |
-| `accent-[…]` | `accent-color` |
-| `align-[…]` | `vertical-align` |
-| `backdrop-filter-[…]` | `-webkit-backdrop-filter` |
-| `basis-[…]` | `flex-basis` |
-| `bg-[…]` | `background-color` |
-| `bg-position-[…]` | `background-position` |
-| `bg-size-[…]` | `background-size` |
-| `block-[…]` | `block-size` |
-| `bottom-[…]` | `bottom` |
-| `caret-[…]` | `caret-color` |
-| `col-[…]` | `grid-column` |
-| `col-end-[…]` | `grid-column-end` |
-| `col-span-[…]` | `grid-column` |
-| `col-start-[…]` | `grid-column-start` |
-| `cursor-[…]` | `cursor` |
-| `decoration-[…]` | `text-decoration-color` |
-| `fill-[…]` | `fill` |
-| `filter-[…]` | `filter` |
-| `font-[…]` | `font-family` |
-| `font-features-[…]` | `font-feature-settings` |
-| `gap-[…]` | `gap` |
-| `gap-x-[…]` | `column-gap` |
-| `gap-y-[…]` | `row-gap` |
-| `h-[…]` | `height` |
-| `indent-[…]` | `text-indent` |
-| `inline-[…]` | `inline-size` |
-| `inset-[…]` | `inset` |
-| `inset-be-[…]` | `inset-block-end` |
-| `inset-bs-[…]` | `inset-block-start` |
-| `inset-e-[…]` | `inset-inline-end` |
-| `inset-s-[…]` | `inset-inline-start` |
-| `inset-x-[…]` | `inset-inline` |
-| `inset-y-[…]` | `inset-block` |
-| `left-[…]` | `left` |
-| `list-[…]` | `list-style-type` |
-| `list-image-[…]` | `list-style-image` |
-| `m-[…]` | `margin` |
-| `mask-b-from-[…]` | `mask-image` |
-| `mask-b-to-[…]` | `mask-image` |
-| `mask-conic-from-[…]` | `mask-image` |
-| `mask-conic-to-[…]` | `mask-image` |
-| `mask-l-from-[…]` | `mask-image` |
-| `mask-l-to-[…]` | `mask-image` |
-| `mask-linear-from-[…]` | `mask-image` |
-| `mask-linear-to-[…]` | `mask-image` |
-| `mask-r-from-[…]` | `mask-image` |
-| `mask-r-to-[…]` | `mask-image` |
-| `mask-radial-at-[…]` | `(custom properties only)` |
-| `mask-radial-from-[…]` | `mask-image` |
-| `mask-radial-to-[…]` | `mask-image` |
-| `mask-t-from-[…]` | `mask-image` |
-| `mask-t-to-[…]` | `mask-image` |
-| `mask-x-from-[…]` | `mask-image` |
-| `mask-x-to-[…]` | `mask-image` |
-| `mask-y-from-[…]` | `mask-image` |
-| `mask-y-to-[…]` | `mask-image` |
-| `max-block-[…]` | `max-block-size` |
-| `max-h-[…]` | `max-height` |
-| `max-inline-[…]` | `max-inline-size` |
-| `max-w-[…]` | `max-width` |
-| `mb-[…]` | `margin-bottom` |
-| `mbe-[…]` | `margin-block-end` |
-| `mbs-[…]` | `margin-block-start` |
-| `me-[…]` | `margin-inline-end` |
-| `min-block-[…]` | `min-block-size` |
-| `min-h-[…]` | `min-height` |
-| `min-inline-[…]` | `min-inline-size` |
-| `min-w-[…]` | `min-width` |
-| `ml-[…]` | `margin-left` |
-| `mr-[…]` | `margin-right` |
-| `ms-[…]` | `margin-inline-start` |
-| `mt-[…]` | `margin-top` |
-| `mx-[…]` | `margin-inline` |
-| `my-[…]` | `margin-block` |
-| `object-[…]` | `object-position` |
-| `order-[…]` | `order` |
-| `origin-[…]` | `transform-origin` |
-| `outline-[…]` | `outline-color` |
-| `outline-offset-[…]` | `outline-offset` |
-| `p-[…]` | `padding` |
-| `pb-[…]` | `padding-bottom` |
-| `pbe-[…]` | `padding-block-end` |
-| `pbs-[…]` | `padding-block-start` |
-| `pe-[…]` | `padding-inline-end` |
-| `perspective-[…]` | `perspective` |
-| `perspective-origin-[…]` | `perspective-origin` |
-| `pl-[…]` | `padding-left` |
-| `pr-[…]` | `padding-right` |
-| `ps-[…]` | `padding-inline-start` |
-| `pt-[…]` | `padding-top` |
-| `px-[…]` | `padding-inline` |
-| `py-[…]` | `padding-block` |
-| `right-[…]` | `right` |
-| `rotate-x-[…]` | `transform` |
-| `rotate-y-[…]` | `transform` |
-| `rotate-z-[…]` | `transform` |
-| `rounded-[…]` | `border-radius` |
-| `rounded-b-[…]` | `border-bottom-right-radius` |
-| `rounded-bl-[…]` | `border-bottom-left-radius` |
-| `rounded-br-[…]` | `border-bottom-right-radius` |
-| `rounded-e-[…]` | `border-start-end-radius` |
-| `rounded-ee-[…]` | `border-end-end-radius` |
-| `rounded-es-[…]` | `border-end-start-radius` |
-| `rounded-l-[…]` | `border-top-left-radius` |
-| `rounded-r-[…]` | `border-top-right-radius` |
-| `rounded-s-[…]` | `border-start-start-radius` |
-| `rounded-se-[…]` | `border-start-end-radius` |
-| `rounded-ss-[…]` | `border-start-start-radius` |
-| `rounded-t-[…]` | `border-top-left-radius` |
-| `rounded-tl-[…]` | `border-top-left-radius` |
-| `rounded-tr-[…]` | `border-top-right-radius` |
-| `row-[…]` | `grid-row` |
-| `row-end-[…]` | `grid-row-end` |
-| `row-span-[…]` | `grid-row` |
-| `row-start-[…]` | `grid-row-start` |
-| `scroll-m-[…]` | `scroll-margin` |
-| `scroll-mb-[…]` | `scroll-margin-bottom` |
-| `scroll-mbe-[…]` | `scroll-margin-block-end` |
-| `scroll-mbs-[…]` | `scroll-margin-block-start` |
-| `scroll-me-[…]` | `scroll-margin-inline-end` |
-| `scroll-ml-[…]` | `scroll-margin-left` |
-| `scroll-mr-[…]` | `scroll-margin-right` |
-| `scroll-ms-[…]` | `scroll-margin-inline-start` |
-| `scroll-mt-[…]` | `scroll-margin-top` |
-| `scroll-mx-[…]` | `scroll-margin-inline` |
-| `scroll-my-[…]` | `scroll-margin-block` |
-| `scroll-p-[…]` | `scroll-padding` |
-| `scroll-pb-[…]` | `scroll-padding-bottom` |
-| `scroll-pbe-[…]` | `scroll-padding-block-end` |
-| `scroll-pbs-[…]` | `scroll-padding-block-start` |
-| `scroll-pe-[…]` | `scroll-padding-inline-end` |
-| `scroll-pl-[…]` | `scroll-padding-left` |
-| `scroll-pr-[…]` | `scroll-padding-right` |
-| `scroll-ps-[…]` | `scroll-padding-inline-start` |
-| `scroll-pt-[…]` | `scroll-padding-top` |
-| `scroll-px-[…]` | `scroll-padding-inline` |
-| `scroll-py-[…]` | `scroll-padding-block` |
-| `size-[…]` | `width` |
-| `stroke-[…]` | `stroke` |
-| `text-[…]` | `color` |
-| `text-shadow-[…]` | `text-shadow` |
-| `top-[…]` | `top` |
-| `transform-[…]` | `transform` |
-| `translate-[…]` | `translate` |
-| `translate-x-[…]` | `translate` |
-| `translate-y-[…]` | `translate` |
-| `underline-offset-[…]` | `text-underline-offset` |
-| `w-[…]` | `width` |
-| `will-change-[…]` | `will-change` |
-| `zoom-[…]` | `zoom` |
+| `accent-[...]` | `accent-color` |
+| `align-[...]` | `vertical-align` |
+| `backdrop-filter-[...]` | `-webkit-backdrop-filter` |
+| `basis-[...]` | `flex-basis` |
+| `bg-[...]` | `background-color` |
+| `bg-position-[...]` | `background-position` |
+| `bg-size-[...]` | `background-size` |
+| `block-[...]` | `block-size` |
+| `bottom-[...]` | `bottom` |
+| `caret-[...]` | `caret-color` |
+| `col-[...]` | `grid-column` |
+| `col-end-[...]` | `grid-column-end` |
+| `col-span-[...]` | `grid-column` |
+| `col-start-[...]` | `grid-column-start` |
+| `cursor-[...]` | `cursor` |
+| `decoration-[...]` | `text-decoration-color` |
+| `fill-[...]` | `fill` |
+| `filter-[...]` | `filter` |
+| `font-[...]` | `font-family` |
+| `font-features-[...]` | `font-feature-settings` |
+| `gap-[...]` | `gap` |
+| `gap-x-[...]` | `column-gap` |
+| `gap-y-[...]` | `row-gap` |
+| `h-[...]` | `height` |
+| `indent-[...]` | `text-indent` |
+| `inline-[...]` | `inline-size` |
+| `inset-[...]` | `inset` |
+| `inset-be-[...]` | `inset-block-end` |
+| `inset-bs-[...]` | `inset-block-start` |
+| `inset-e-[...]` | `inset-inline-end` |
+| `inset-s-[...]` | `inset-inline-start` |
+| `inset-x-[...]` | `inset-inline` |
+| `inset-y-[...]` | `inset-block` |
+| `left-[...]` | `left` |
+| `list-[...]` | `list-style-type` |
+| `list-image-[...]` | `list-style-image` |
+| `m-[...]` | `margin` |
+| `mask-b-from-[...]` | `mask-image` |
+| `mask-b-to-[...]` | `mask-image` |
+| `mask-conic-from-[...]` | `mask-image` |
+| `mask-conic-to-[...]` | `mask-image` |
+| `mask-l-from-[...]` | `mask-image` |
+| `mask-l-to-[...]` | `mask-image` |
+| `mask-linear-from-[...]` | `mask-image` |
+| `mask-linear-to-[...]` | `mask-image` |
+| `mask-r-from-[...]` | `mask-image` |
+| `mask-r-to-[...]` | `mask-image` |
+| `mask-radial-at-[...]` | `(custom properties only)` |
+| `mask-radial-from-[...]` | `mask-image` |
+| `mask-radial-to-[...]` | `mask-image` |
+| `mask-t-from-[...]` | `mask-image` |
+| `mask-t-to-[...]` | `mask-image` |
+| `mask-x-from-[...]` | `mask-image` |
+| `mask-x-to-[...]` | `mask-image` |
+| `mask-y-from-[...]` | `mask-image` |
+| `mask-y-to-[...]` | `mask-image` |
+| `max-block-[...]` | `max-block-size` |
+| `max-h-[...]` | `max-height` |
+| `max-inline-[...]` | `max-inline-size` |
+| `max-w-[...]` | `max-width` |
+| `mb-[...]` | `margin-bottom` |
+| `mbe-[...]` | `margin-block-end` |
+| `mbs-[...]` | `margin-block-start` |
+| `me-[...]` | `margin-inline-end` |
+| `min-block-[...]` | `min-block-size` |
+| `min-h-[...]` | `min-height` |
+| `min-inline-[...]` | `min-inline-size` |
+| `min-w-[...]` | `min-width` |
+| `ml-[...]` | `margin-left` |
+| `mr-[...]` | `margin-right` |
+| `ms-[...]` | `margin-inline-start` |
+| `mt-[...]` | `margin-top` |
+| `mx-[...]` | `margin-inline` |
+| `my-[...]` | `margin-block` |
+| `object-[...]` | `object-position` |
+| `order-[...]` | `order` |
+| `origin-[...]` | `transform-origin` |
+| `outline-[...]` | `outline-color` |
+| `outline-offset-[...]` | `outline-offset` |
+| `p-[...]` | `padding` |
+| `pb-[...]` | `padding-bottom` |
+| `pbe-[...]` | `padding-block-end` |
+| `pbs-[...]` | `padding-block-start` |
+| `pe-[...]` | `padding-inline-end` |
+| `perspective-[...]` | `perspective` |
+| `perspective-origin-[...]` | `perspective-origin` |
+| `pl-[...]` | `padding-left` |
+| `pr-[...]` | `padding-right` |
+| `ps-[...]` | `padding-inline-start` |
+| `pt-[...]` | `padding-top` |
+| `px-[...]` | `padding-inline` |
+| `py-[...]` | `padding-block` |
+| `right-[...]` | `right` |
+| `rotate-x-[...]` | `transform` |
+| `rotate-y-[...]` | `transform` |
+| `rotate-z-[...]` | `transform` |
+| `rounded-[...]` | `border-radius` |
+| `rounded-b-[...]` | `border-bottom-right-radius` |
+| `rounded-bl-[...]` | `border-bottom-left-radius` |
+| `rounded-br-[...]` | `border-bottom-right-radius` |
+| `rounded-e-[...]` | `border-start-end-radius` |
+| `rounded-ee-[...]` | `border-end-end-radius` |
+| `rounded-es-[...]` | `border-end-start-radius` |
+| `rounded-l-[...]` | `border-top-left-radius` |
+| `rounded-r-[...]` | `border-top-right-radius` |
+| `rounded-s-[...]` | `border-start-start-radius` |
+| `rounded-se-[...]` | `border-start-end-radius` |
+| `rounded-ss-[...]` | `border-start-start-radius` |
+| `rounded-t-[...]` | `border-top-left-radius` |
+| `rounded-tl-[...]` | `border-top-left-radius` |
+| `rounded-tr-[...]` | `border-top-right-radius` |
+| `row-[...]` | `grid-row` |
+| `row-end-[...]` | `grid-row-end` |
+| `row-span-[...]` | `grid-row` |
+| `row-start-[...]` | `grid-row-start` |
+| `scroll-m-[...]` | `scroll-margin` |
+| `scroll-mb-[...]` | `scroll-margin-bottom` |
+| `scroll-mbe-[...]` | `scroll-margin-block-end` |
+| `scroll-mbs-[...]` | `scroll-margin-block-start` |
+| `scroll-me-[...]` | `scroll-margin-inline-end` |
+| `scroll-ml-[...]` | `scroll-margin-left` |
+| `scroll-mr-[...]` | `scroll-margin-right` |
+| `scroll-ms-[...]` | `scroll-margin-inline-start` |
+| `scroll-mt-[...]` | `scroll-margin-top` |
+| `scroll-mx-[...]` | `scroll-margin-inline` |
+| `scroll-my-[...]` | `scroll-margin-block` |
+| `scroll-p-[...]` | `scroll-padding` |
+| `scroll-pb-[...]` | `scroll-padding-bottom` |
+| `scroll-pbe-[...]` | `scroll-padding-block-end` |
+| `scroll-pbs-[...]` | `scroll-padding-block-start` |
+| `scroll-pe-[...]` | `scroll-padding-inline-end` |
+| `scroll-pl-[...]` | `scroll-padding-left` |
+| `scroll-pr-[...]` | `scroll-padding-right` |
+| `scroll-ps-[...]` | `scroll-padding-inline-start` |
+| `scroll-pt-[...]` | `scroll-padding-top` |
+| `scroll-px-[...]` | `scroll-padding-inline` |
+| `scroll-py-[...]` | `scroll-padding-block` |
+| `size-[...]` | `width` |
+| `stroke-[...]` | `stroke` |
+| `text-[...]` | `color` |
+| `text-shadow-[...]` | `text-shadow` |
+| `top-[...]` | `top` |
+| `transform-[...]` | `transform` |
+| `translate-[...]` | `translate` |
+| `translate-x-[...]` | `translate` |
+| `translate-y-[...]` | `translate` |
+| `underline-offset-[...]` | `text-underline-offset` |
+| `w-[...]` | `width` |
+| `will-change-[...]` | `will-change` |
+| `zoom-[...]` | `zoom` |
 
-Three rows are not a fall-through to one longhand. `mask-radial-at-[…]`,
-`col-span-[…]` and `row-span-[…]` write custom properties or a shorthand, so
-read the CLI directly before changing them. And `font-[…]` falls through to
+Three rows are not a fall-through to one longhand. `mask-radial-at-[...]`,
+`col-span-[...]` and `row-span-[...]` write custom properties or a shorthand, so
+read the CLI directly before changing them. And `font-[...]` falls through to
 two: a value opening with `var()`, a number, a value holding math, and one with
 a comma piece that opens with a digit are a `font-weight` beside
 `--tw-font-weight`, so `font-[10px]` is a weight where `font-[foo]` is a
@@ -278,18 +278,18 @@ The hint comes off in two places and nowhere else.
 token stream, so such a family passes the whole bracket and gets the value
 back. `Parse.value_after_hint` peels it for a family whose reader is typed, so
 the value stays typed where a last resort would not keep it. The sizing,
-padding, margin, gap, inset and scroll families call it, as do `rounded-[…]`,
-`outline-offset-[…]` and the four colour families in `lib/color.ml`.
+padding, margin, gap, inset and scroll families call it, as do `rounded-[...]`,
+`outline-offset-[...]` and the four colour families in `lib/color.ml`.
 `Parse.data_type_hint` is the same scan on its own, for a family that routes on
 which hint was written. Peeling in the family and passing the remainder peels
 twice, and `mask-[bogus:foo:2em]` is where that shows.
 
 A family that writes one longhand takes any hint, so `w-[foo:10px]` is a width
 and `accent-[foo:red]` an accent colour. A family that writes several routes on
-the name, and the names are the family's own. `border-[…]` reads `length:` and
-`line-width:` as the width and every other hint as the colour. `outline-[…]`
+the name, and the names are the family's own. `border-[...]` reads `length:` and
+`line-width:` as the width and every other hint as the colour. `outline-[...]`
 reads `length:`, `number:` and `percentage:` as the width and does not know
-`line-width:`, so `outline-[line-width:2px]` is an `outline-color`. `bg-[…]`
+`line-width:`, so `outline-[line-width:2px]` is an `outline-color`. `bg-[...]`
 spells its position hint two ways, `position:` and `percentage:`. Read the
 family off the CLI before adding a name to it.
 
@@ -297,7 +297,7 @@ The colour families (`text-`, `outline-`, `border-` and its per-side longhands,
 `fill-`, `stroke-`, `accent-`, `caret-`, `placeholder-` and `bg-`) write a
 bracket no reader took into their colour, which is each one's last resort. So
 `text-[foo:1.25rem]`, `text-[notacolour]`, `outline-[foo:red]` and a malformed
-hex all reach the sheet. `bg-[…]` runs its bracket through a size, a position,
+hex all reach the sheet. `bg-[...]` runs its bracket through a size, a position,
 an image and a url reader, each forwarding its own value, so only an unhinted
 bracket reaches the colour. That fall-through takes one bracket value only, or
 `bg-[10px][20px]` would be accepted as a single declaration. An opacity
@@ -320,8 +320,8 @@ reader takes it: `-z-[foo:2]` is `z-index: calc(2 * -1)`.
 `Parse.negated_declaration_value` writes that spelling, so a family whose
 typed reader declines a negated bracket passes the value
 `arbitrary_declaration_value` returns through it. Two families differ.
-`-bg-conic-[…]` writes its bracket unnegated, as `bg-conic-[…]` does, and
-`-bg-linear-[…]` names a utility only for a number with a lower-case angle
+`-bg-conic-[...]` writes its bracket unnegated, as `bg-conic-[...]` does, and
+`-bg-linear-[...]` names a utility only for a number with a lower-case angle
 unit or a value after an `angle:` hint.
 
 ## Open gaps
@@ -329,11 +329,11 @@ unit or a value after an `angle:` hint.
 These families refuse shapes the CLI writes out. Each is a defect against the
 contract.
 
-- `text-shadow-[…]` refuses a bracket Tailwind reads as a colour that no
+- `text-shadow-[...]` refuses a bracket Tailwind reads as a colour that no
   colour reader takes, such as `#zz`, because the CLI mixes the raw token into
   the colour channel. And `text-shadow-[color:foo]` writes `var(--foo)` where
   the CLI mixes `foo` itself.
-- `space-x-[…]` and `space-y-[…]`, negated or not, refuse every bracket that
+- `space-x-[...]` and `space-y-[...]`, negated or not, refuse every bracket that
   is not a length or a `var()`. Tailwind writes the value inside the margin
   pair's `calc()`, and cascade's `length` has no case that keeps tokens it
   cannot read.

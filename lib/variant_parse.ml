@@ -703,7 +703,7 @@ let bracket_value_patterns s =
 
 let bracket_patterns s = bracket_named_patterns s @ bracket_value_patterns s
 
-(* Try supports-<property> shorthand: supports-grid → Supports_property
+(* Try supports-<property> shorthand: supports-grid -> Supports_property
    "grid" *)
 let try_supports_shorthand s =
   if
@@ -949,10 +949,10 @@ let lookup_simple theme s =
 
 (* Try looking up a custom breakpoint (e.g., "10xl", "min-10xl", "max-10xl") *)
 let try_custom_breakpoint breakpoints s =
-  (* Direct name: e.g., "10xl" → Custom_responsive *)
+  (* Direct name: e.g., "10xl" -> Custom_responsive *)
   if List.mem s breakpoints then Some (Custom_responsive s)
   else if String.starts_with ~prefix:"min-" s && String.length s > 4 then
-    (* min-<name>: e.g., "min-10xl" → Min_custom *)
+    (* min-<name>: e.g., "min-10xl" -> Min_custom *)
     let name = String.sub s 4 (String.length s - 4) in
     if List.mem name breakpoints then Some (Min_custom name) else None
   else if String.starts_with ~prefix:"max-" s && String.length s > 4 then

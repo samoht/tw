@@ -1,10 +1,10 @@
-(** CSS rule extraction — converts Tailwind utility classes into {!Output.t}
+(** CSS rule extraction: converts Tailwind utility classes into {!Output.t}
     values.
 
     This is the bridge between the high-level utility DSL ({!Utility.t}) and the
     low-level CSS output type ({!Output.t}). For every utility class, possibly
-    wrapped in modifiers (responsive breakpoints, pseudo-classes, dark mode, …),
-    {!outputs} walks the modifier stack and emits the appropriate CSS rule
+    wrapped in modifiers (responsive breakpoints, pseudo-classes, dark mode,
+    ...), {!outputs} walks the modifier stack and emits the appropriate CSS rule
     variant.
 
     Typical call chain:
@@ -23,7 +23,7 @@ val outputs : ?theme:Scheme.t -> Utility.t -> Output.t list
 (** [outputs ?theme u] extracts the CSS rules for utility [u], reading any theme
     values it needs from [theme] (default {!Scheme.default}).
 
-    Returns a list because a single utility can produce more than one rule — for
+    Returns a list because a single utility can produce more than one rule: for
     example a container utility emits one plain rule plus one [@media] rule per
     breakpoint. *)
 

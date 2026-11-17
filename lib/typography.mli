@@ -29,28 +29,28 @@ val text_xl : t
 (** [text_xl] sets font-size to extra-large. *)
 
 val text_2xl : t
-(** [text_2xl] sets font-size to 2× extra-large. *)
+(** [text_2xl] sets font-size to 2x extra-large. *)
 
 val text_3xl : t
-(** [text_3xl] sets font-size to 3× extra-large. *)
+(** [text_3xl] sets font-size to 3x extra-large. *)
 
 val text_4xl : t
-(** [text_4xl] sets font-size to 4× extra-large. *)
+(** [text_4xl] sets font-size to 4x extra-large. *)
 
 val text_5xl : t
-(** [text_5xl] sets font-size to 5× extra-large. *)
+(** [text_5xl] sets font-size to 5x extra-large. *)
 
 val text_6xl : t
-(** [text_6xl] sets font-size to 6× extra-large. *)
+(** [text_6xl] sets font-size to 6x extra-large. *)
 
 val text_7xl : t
-(** [text_7xl] sets font-size to 7× extra-large. *)
+(** [text_7xl] sets font-size to 7x extra-large. *)
 
 val text_8xl : t
-(** [text_8xl] sets font-size to 8× extra-large. *)
+(** [text_8xl] sets font-size to 8x extra-large. *)
 
 val text_9xl : t
-(** [text_9xl] sets font-size to 9× extra-large. *)
+(** [text_9xl] sets font-size to 9x extra-large. *)
 
 val font_thin : t
 (** [font_thin] sets font-weight to 100. *)

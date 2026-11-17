@@ -360,7 +360,7 @@ module Handler = struct
     | Decoration_bracket_pct_var _ -> 30000
     | Decoration_auto -> 30010
     | Decoration_from_font -> 30010
-    (* Underline offset — negatives first, then positives, then auto *)
+    (* Underline offset: negatives first, then positives, then auto *)
     | Underline_offset_neg_px px -> 50000 + int_of_float px
     | Underline_offset_neg_arbitrary _ | Underline_offset_neg_raw _ -> 59989
     | Underline_offset_neg_var _ -> 59990

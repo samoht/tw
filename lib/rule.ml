@@ -28,7 +28,7 @@ module Rules_selector = struct
   let replace_class_in_selector ~old_class ~new_class =
     replace_class_with ~old_class ~replacement:(Css.Selector.Class new_class)
 
-  (* The class a modifier's selector carries — the base class with the variant
+  (* The class a modifier's selector carries: the base class with the variant
      prefixed. It does not always sit at the top: the child variant nests it
      inside an [:is] with a child combinator, and a group variant puts the
      anchor class beside it. So look for the class derived from [base_class]
@@ -1270,8 +1270,9 @@ let handle_not_bracket content base_class props =
   else if
     String.starts_with ~prefix:"@supports" content && String.length content > 9
   then
-    (* Supports bracket: not-[@supports(display:grid)] → @supports not
-       (display:grid), and a doubly negated condition → the condition itself. *)
+    (* Supports bracket: not-[@supports(display:grid)] -> @supports not
+       (display:grid), and a doubly negated condition -> the condition
+       itself. *)
     let rule condition =
       supports_query ~condition ~selector:(Css.Selector.Class modified_class)
         ~props ~base_class:modified_class ()
@@ -1442,7 +1443,7 @@ let handle_group_peer_named inner name base_class props =
   let sel = compound [ Class modified_class; is_ [ group_rel ] ] in
   [ regular ~selector:sel ~props ~base_class:modified_class () ]
 
-(* Compound [extra] onto the subject of [sel] — its rightmost compound — so a
+(* Compound [extra] onto the subject of [sel] (its rightmost compound), so a
    variant decorates the element the selector actually matches. *)
 let rec attach_to_subject extra sel =
   let open Css.Selector in
@@ -1452,7 +1453,7 @@ let rec attach_to_subject extra sel =
   | Compound parts -> compound (parts @ extra)
   | other -> compound (other :: extra)
 
-(* Arbitrary selector: [&_p] → .class p. The inner rule may already carry
+(* Arbitrary selector: [&_p] -> .class p. The inner rule may already carry
    structure around its class ([first:] adds a [:first-child]), and that
    structure belongs on whatever element this variant makes the subject: for
    [[&_p]:first:] Tailwind matches the first [p], not a [p] under a first
@@ -1662,7 +1663,7 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
       max_custom_rule ?theme ~inner_has_hover name base_class selector props
   | Style.Container query ->
       container_rule ?theme ~inner_has_hover query base_class selector props
-  (* :not(), :not-bracket, group-not, peer-not — handled in
+  (* :not(), :not-bracket, group-not, peer-not: handled in
      apply_modifier_to_rule for multi-rule support *)
   | Style.Not _ | Style.Not_bracket _ | Style.Group_not _ | Style.Peer_not _ ->
       regular ~selector ~props ~base_class ()
@@ -2627,7 +2628,7 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
           (* @media stays nested on base rule, skip here *)
           []
         else if Css.is_nested_supports stmt then
-          (* @supports → hoist to Supports_query entries *)
+          (* @supports -> hoist to Supports_query entries *)
           match Css.as_supports stmt with
           | Some (condition, statements) ->
               extract_supports_outputs ~class_name ~sel ?merge_key condition
@@ -2648,7 +2649,7 @@ let extract_style_with_rules ~sel ~class_name ?merge_key ~props rule_list =
   in
   (* If the rule_list contains regular rules (forms plugin, gradient utilities),
      they come first so custom selectors precede the base props rule. Otherwise,
-     base comes first to maintain fallback → @supports cascade order. *)
+     base comes first to maintain fallback -> @supports cascade order. *)
   if !has_regular_rules then ordered_entries @ base_rule
   else base_rule @ ordered_entries
 

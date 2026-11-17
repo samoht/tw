@@ -412,11 +412,11 @@ module Typography_early = struct
       Text_bracket_fs_raw of string * string
 
   and lh_modifier =
-    | Spacing of int (* /6 → calc(var(--spacing) * 6) *)
-    | No_leading (* /none → line-height: 1 *)
-    | Named of string (* /snug → var(--leading-snug) *)
-    | Bracket of string * Css.line_height (* /[4px] → 4px *)
-    | Var_shorthand of string (* /(--lh) → var(--lh) *)
+    | Spacing of int (* /6 -> calc(var(--spacing) * 6) *)
+    | No_leading (* /none -> line-height: 1 *)
+    | Named of string (* /snug -> var(--leading-snug) *)
+    | Bracket of string * Css.line_height (* /[4px] -> 4px *)
+    | Var_shorthand of string (* /(--lh) -> var(--lh) *)
 
   let name = "typography_early"
 
@@ -979,7 +979,7 @@ module Typography_early = struct
     | Text_sm -> 2011
     | Text_xl -> 2012
     | Text_xs -> 2013
-    (* Named size with line-height modifier — same suborder as base size *)
+    (* Named size with line-height modifier: same suborder as base size *)
     | Text_named_lh (name, _) -> (
         match name with
         | "2xl" -> 2001
@@ -1000,9 +1000,9 @@ module Typography_early = struct
        Tailwind orders it. *)
     | Text_theme _ -> 2014
     | Text_theme_lh _ -> 2014
-    (* Bracket font-size without modifier — after named sizes *)
+    (* Bracket font-size without modifier: after named sizes *)
     | Text_bracket_fs _ | Text_bracket_fs_raw _ -> 2100
-    (* Leading comes third — numeric first, then arbitrary, then named
+    (* Leading comes third: numeric first, then arbitrary, then named
        (alphabetical: loose, none, normal, relaxed, snug, tight) *)
     | Leading n -> 3000 + n
     | Leading_step f -> 3000 + int_of_float (f *. 10.)
@@ -1553,11 +1553,11 @@ module Typography_early = struct
     | Font_bracket_family_quoted (_, decoded) ->
         let n = String.length decoded in
         if n >= 2 && decoded.[0] = '"' && decoded.[n - 1] = '"' then
-          (* font-["arial_rounded"] → the decoded text is one quoted family
+          (* font-["arial_rounded"] -> the decoded text is one quoted family
              name; strip the quotes cascade's own printer adds back. *)
           style [ font_family (Name (String.sub decoded 1 (n - 2))) ]
         else
-          (* font-["liga"_0x10] → not a single quoted name. The decoded text
+          (* font-["liga"_0x10] -> not a single quoted name. The decoded text
              already carries its own quoting (a quoted string mixed with other
              tokens); tokenize it and pass the tokens through rather than
              wrapping the whole string in one more layer of quotes. *)
@@ -1639,7 +1639,7 @@ module Typography_early = struct
         in
         style [ font_feature_settings (Var var_ref) ]
     | Font_features_bare_var v ->
-        (* bare_var_inner "(--my-features)" → "--my-features"; strip the --
+        (* bare_var_inner "(--my-features)" -> "--my-features"; strip the --
            prefix since var_ref adds it *)
         let inner = Parse.bare_var_inner v in
         let bare_name = Option.value ~default:inner (Parse.bare_name inner) in

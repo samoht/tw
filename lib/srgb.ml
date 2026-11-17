@@ -164,7 +164,7 @@ let hex_with_alpha hex_str opacity_percent =
   let alpha = int_of_float ((opacity_percent /. 100.0 *. 255.0) +. 0.5) in
   let alpha_clamped = max 0 (min 255 alpha) in
   let full = hex_clean ^ Pp.hex_byte alpha_clamped in
-  (* Shorten #RRGGBBAA → #RGBA when each pair is identical *)
+  (* Shorten #RRGGBBAA -> #RGBA when each pair is identical *)
   let len = String.length full in
   let shortened =
     if
@@ -198,8 +198,7 @@ let hex_to_oklab_alpha hex alpha : Css.color =
   match hex_to_rgb hex with
   | Some rgb ->
       let l, a, b = rgb_to_oklab rgb in
-      (* Raw floats — precision is controlled at CSS emission time in
-         pp_oklab *)
+      (* Raw floats: precision is controlled at CSS emission time in pp_oklab *)
       Css.oklaba l a b alpha
   | None -> Css.hex hex
 
@@ -247,14 +246,14 @@ let shorten_hex_str hex_str =
     let a1 = hex_no_hash.[6] and a2 = hex_no_hash.[7] in
     if r1 = r2 && g1 = g2 && b1 = b2 && a1 = a2 then (
       if a1 = 'f' || a1 = 'F' then (
-        (* #RRGGBBFF → #RGB when fully opaque *)
+        (* #RRGGBBFF -> #RGB when fully opaque *)
         let short = Bytes.create 3 in
         Bytes.set short 0 r1;
         Bytes.set short 1 g1;
         Bytes.set short 2 b1;
         Bytes.unsafe_to_string short)
       else
-        (* #RRGGBBAA → #RGBA *)
+        (* #RRGGBBAA -> #RGBA *)
         let short = Bytes.create 4 in
         Bytes.set short 0 r1;
         Bytes.set short 1 g1;
@@ -262,7 +261,7 @@ let shorten_hex_str hex_str =
         Bytes.set short 3 a1;
         Bytes.unsafe_to_string short)
     else if (a1 = 'f' || a1 = 'F') && (a2 = 'f' || a2 = 'F') then
-      (* #RRGGBBFF → #RRGGBB when fully opaque *)
+      (* #RRGGBBFF -> #RRGGBB when fully opaque *)
       String.sub hex_no_hash 0 6
     else hex_no_hash
   else if len = 6 then

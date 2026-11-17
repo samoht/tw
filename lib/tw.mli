@@ -52,7 +52,7 @@ type color = Color.color
 
 (** {1:tailwind_colors Tailwind colors}
 
-    Base colors map to the Tailwind v4 palette (shades 50–950). Use
+    Base colors map to the Tailwind v4 palette (shades 50-950). Use
     [bg color shade], [text color shade], and [border_color color shade] to
     produce utilities.
 
@@ -161,7 +161,7 @@ val rgb : int -> int -> int -> color
 (** {2 Preflight}
     @see <https://tailwindcss.com/docs/preflight> Preflight *)
 
-(** Preflight provides Tailwind’s base CSS reset. It is included automatically
+(** Preflight provides Tailwind's base CSS reset. It is included automatically
     when generating full CSS with this library. *)
 
 val preflight :
@@ -333,7 +333,7 @@ val box_decoration_slice : t
 
 val block : t
 (** [block] makes the element a block; it takes full width and stacks
-    vertically. Default for div, p, h1–h6. *)
+    vertically. Default for div, p, h1-h6. *)
 
 val inline : t
 (** [inline] makes the element inline; it flows with text and its width is based
@@ -1125,7 +1125,7 @@ val place_self_stretch : t
     @see <https://tailwindcss.com/docs/padding> Padding *)
 
 val p : int -> t
-(** [p n] sets padding (inner spacing) on all sides using Tailwind scale (n ×
+(** [p n] sets padding (inner spacing) on all sides using Tailwind scale (n x
     0.25rem).
 
     Examples:
@@ -1220,7 +1220,7 @@ val pl_full : t
     @see <https://tailwindcss.com/docs/margin> Margin *)
 
 val m : int -> t
-(** [m n] sets margin (outer spacing) on all sides using Tailwind scale (n ×
+(** [m n] sets margin (outer spacing) on all sides using Tailwind scale (n x
     0.25rem).
 
     Examples:
@@ -1309,7 +1309,7 @@ val space_y' : float -> t
     @see <https://tailwindcss.com/docs/width> Width *)
 
 val w : int -> t
-(** [w n] sets element width using Tailwind scale (n × 0.25rem). *)
+(** [w n] sets element width using Tailwind scale (n x 0.25rem). *)
 
 val w' : float -> t
 (** [w' n] is {!w} for a half-step scale value (e.g. [w' 0.5] for [w-0.5]). *)
@@ -1420,7 +1420,7 @@ val max_w_screen_2xl : t
     @see <https://tailwindcss.com/docs/height> Height *)
 
 val h : int -> t
-(** [h n] sets element height using Tailwind scale (n × 0.25rem). *)
+(** [h n] sets element height using Tailwind scale (n x 0.25rem). *)
 
 val h' : float -> t
 (** [h' n] is {!h} for a half-step scale value. *)
@@ -1472,7 +1472,7 @@ val max_h_full : t
     @see <https://tailwindcss.com/docs/size> Size *)
 
 val size : int -> t
-(** [size n] sets both width and height using Tailwind scale (n × 0.25rem). *)
+(** [size n] sets both width and height using Tailwind scale (n x 0.25rem). *)
 
 val size' : float -> t
 (** [size' n] is {!size} for a half-step scale value (e.g. [size' 0.5] for
@@ -1528,16 +1528,16 @@ val text_xl : t
 (** [text_xl] sets extra large text (20px) for section introductions. *)
 
 val text_2xl : t
-(** [text_2xl] sets 2× large text size (1.5rem). *)
+(** [text_2xl] sets 2x large text size (1.5rem). *)
 
 val text_3xl : t
-(** [text_3xl] sets 3× large text size (1.875rem). *)
+(** [text_3xl] sets 3x large text size (1.875rem). *)
 
 val text_4xl : t
-(** [text_4xl] sets 4× large text size (2.25rem). *)
+(** [text_4xl] sets 4x large text size (2.25rem). *)
 
 val text_5xl : t
-(** [text_5xl] sets 5× large text size (3rem). *)
+(** [text_5xl] sets 5x large text size (3rem). *)
 
 (** {2 Font Smoothing}
     @see <https://tailwindcss.com/docs/font-smoothing> Font Smoothing *)
@@ -1617,7 +1617,7 @@ val lining_nums : t
 (** [lining_nums] uses lining numbers. *)
 
 val oldstyle_nums : t
-(** [oldstyle_nums] uses old‑style (text) figures. *)
+(** [oldstyle_nums] uses old-style (text) figures. *)
 
 val proportional_nums : t
 (** [proportional_nums] uses proportional width numbers. *)
@@ -1978,10 +1978,10 @@ val hyphens_auto : t
     @see <https://tailwindcss.com/docs/content> Content *)
 
 val content_none : t
-(** [content_none] clears pseudo‑element content. *)
+(** [content_none] clears pseudo-element content. *)
 
 val content : string -> t
-(** [content value] sets pseudo‑element content to [value]. *)
+(** [content value] sets pseudo-element content to [value]. *)
 
 (** {1 Backgrounds} *)
 
@@ -2205,10 +2205,10 @@ val border_xl : t
 (** [border_xl] sets extra large border (8px). *)
 
 val border_2xl : t
-(** [border_2xl] sets 2× large border (8px). *)
+(** [border_2xl] sets 2x large border (8px). *)
 
 val border_3xl : t
-(** [border_3xl] sets 3× large border (8px). *)
+(** [border_3xl] sets 3x large border (8px). *)
 
 val border_full : t
 (** [border_full] sets full border (8px). *)
@@ -2333,13 +2333,13 @@ val rounded_xl : t
 (** [rounded_xl] sets extra rounded corners (12px). *)
 
 val rounded_2xl : t
-(** [rounded_2xl] sets 2× rounded corners (16px). *)
+(** [rounded_2xl] sets 2x rounded corners (16px). *)
 
 val rounded_3xl : t
-(** [rounded_3xl] sets 3× rounded corners (24px). *)
+(** [rounded_3xl] sets 3x rounded corners (24px). *)
 
 val rounded_4xl : t
-(** [rounded_4xl] sets 4× rounded corners (32px). *)
+(** [rounded_4xl] sets 4x rounded corners (32px). *)
 
 val rounded_full : t
 (** [rounded_full] sets fully rounded corners (9999px). Makes circles/pills. *)
@@ -2370,13 +2370,13 @@ val rounded_t_xl : t
 (** [rounded_t_xl] sets extra large rounding on top corners. *)
 
 val rounded_t_2xl : t
-(** [rounded_t_2xl] sets 2× rounding on top corners. *)
+(** [rounded_t_2xl] sets 2x rounding on top corners. *)
 
 val rounded_t_3xl : t
-(** [rounded_t_3xl] sets 3× rounding on top corners. *)
+(** [rounded_t_3xl] sets 3x rounding on top corners. *)
 
 val rounded_t_4xl : t
-(** [rounded_t_4xl] sets 4× rounding on top corners. *)
+(** [rounded_t_4xl] sets 4x rounding on top corners. *)
 
 val rounded_t_full : t
 (** [rounded_t_full] sets full rounding on top corners. *)
@@ -2403,13 +2403,13 @@ val rounded_r_xl : t
 (** [rounded_r_xl] sets extra large rounding on right corners. *)
 
 val rounded_r_2xl : t
-(** [rounded_r_2xl] sets 2× rounding on right corners. *)
+(** [rounded_r_2xl] sets 2x rounding on right corners. *)
 
 val rounded_r_3xl : t
-(** [rounded_r_3xl] sets 3× rounding on right corners. *)
+(** [rounded_r_3xl] sets 3x rounding on right corners. *)
 
 val rounded_r_4xl : t
-(** [rounded_r_4xl] sets 4× rounding on right corners. *)
+(** [rounded_r_4xl] sets 4x rounding on right corners. *)
 
 val rounded_r_full : t
 (** [rounded_r_full] sets full rounding on right corners. *)
@@ -2436,13 +2436,13 @@ val rounded_b_xl : t
 (** [rounded_b_xl] sets extra large rounding on bottom corners. *)
 
 val rounded_b_2xl : t
-(** [rounded_b_2xl] sets 2× rounding on bottom corners. *)
+(** [rounded_b_2xl] sets 2x rounding on bottom corners. *)
 
 val rounded_b_3xl : t
-(** [rounded_b_3xl] sets 3× rounding on bottom corners. *)
+(** [rounded_b_3xl] sets 3x rounding on bottom corners. *)
 
 val rounded_b_4xl : t
-(** [rounded_b_4xl] sets 4× rounding on bottom corners. *)
+(** [rounded_b_4xl] sets 4x rounding on bottom corners. *)
 
 val rounded_b_full : t
 (** [rounded_b_full] sets full rounding on bottom corners. *)
@@ -2469,13 +2469,13 @@ val rounded_l_xl : t
 (** [rounded_l_xl] sets extra large rounding on left corners. *)
 
 val rounded_l_2xl : t
-(** [rounded_l_2xl] sets 2× rounding on left corners. *)
+(** [rounded_l_2xl] sets 2x rounding on left corners. *)
 
 val rounded_l_3xl : t
-(** [rounded_l_3xl] sets 3× rounding on left corners. *)
+(** [rounded_l_3xl] sets 3x rounding on left corners. *)
 
 val rounded_l_4xl : t
-(** [rounded_l_4xl] sets 4× rounding on left corners. *)
+(** [rounded_l_4xl] sets 4x rounding on left corners. *)
 
 val rounded_l_full : t
 (** [rounded_l_full] sets full rounding on left corners. *)
@@ -2506,13 +2506,13 @@ val rounded_tl_xl : t
 (** [rounded_tl_xl] sets extra large rounding on top-left corner. *)
 
 val rounded_tl_2xl : t
-(** [rounded_tl_2xl] sets 2× rounding on top-left corner. *)
+(** [rounded_tl_2xl] sets 2x rounding on top-left corner. *)
 
 val rounded_tl_3xl : t
-(** [rounded_tl_3xl] sets 3× rounding on top-left corner. *)
+(** [rounded_tl_3xl] sets 3x rounding on top-left corner. *)
 
 val rounded_tl_4xl : t
-(** [rounded_tl_4xl] sets 4× rounding on top-left corner. *)
+(** [rounded_tl_4xl] sets 4x rounding on top-left corner. *)
 
 val rounded_tl_full : t
 (** [rounded_tl_full] sets full rounding on top-left corner. *)
@@ -2539,13 +2539,13 @@ val rounded_tr_xl : t
 (** [rounded_tr_xl] sets extra large rounding on top-right corner. *)
 
 val rounded_tr_2xl : t
-(** [rounded_tr_2xl] sets 2× rounding on top-right corner. *)
+(** [rounded_tr_2xl] sets 2x rounding on top-right corner. *)
 
 val rounded_tr_3xl : t
-(** [rounded_tr_3xl] sets 3× rounding on top-right corner. *)
+(** [rounded_tr_3xl] sets 3x rounding on top-right corner. *)
 
 val rounded_tr_4xl : t
-(** [rounded_tr_4xl] sets 4× rounding on top-right corner. *)
+(** [rounded_tr_4xl] sets 4x rounding on top-right corner. *)
 
 val rounded_tr_full : t
 (** [rounded_tr_full] sets full rounding on top-right corner. *)
@@ -2572,13 +2572,13 @@ val rounded_br_xl : t
 (** [rounded_br_xl] sets extra large rounding on bottom-right corner. *)
 
 val rounded_br_2xl : t
-(** [rounded_br_2xl] sets 2× rounding on bottom-right corner. *)
+(** [rounded_br_2xl] sets 2x rounding on bottom-right corner. *)
 
 val rounded_br_3xl : t
-(** [rounded_br_3xl] sets 3× rounding on bottom-right corner. *)
+(** [rounded_br_3xl] sets 3x rounding on bottom-right corner. *)
 
 val rounded_br_4xl : t
-(** [rounded_br_4xl] sets 4× rounding on bottom-right corner. *)
+(** [rounded_br_4xl] sets 4x rounding on bottom-right corner. *)
 
 val rounded_br_full : t
 (** [rounded_br_full] sets full rounding on bottom-right corner. *)
@@ -2605,13 +2605,13 @@ val rounded_bl_xl : t
 (** [rounded_bl_xl] sets extra large rounding on bottom-left corner. *)
 
 val rounded_bl_2xl : t
-(** [rounded_bl_2xl] sets 2× rounding on bottom-left corner. *)
+(** [rounded_bl_2xl] sets 2x rounding on bottom-left corner. *)
 
 val rounded_bl_3xl : t
-(** [rounded_bl_3xl] sets 3× rounding on bottom-left corner. *)
+(** [rounded_bl_3xl] sets 3x rounding on bottom-left corner. *)
 
 val rounded_bl_4xl : t
-(** [rounded_bl_4xl] sets 4× rounding on bottom-left corner. *)
+(** [rounded_bl_4xl] sets 4x rounding on bottom-left corner. *)
 
 val rounded_bl_full : t
 (** [rounded_bl_full] sets full rounding on bottom-left corner. *)
@@ -2646,7 +2646,7 @@ val shadow_xl : t
 (** [shadow_xl] applies an extra large shadow. *)
 
 val shadow_2xl : t
-(** [shadow_2xl] applies a 2× large shadow. *)
+(** [shadow_2xl] applies a 2x large shadow. *)
 
 val shadow_inner : t
 (** [shadow_inner] applies an inset shadow for a pressed/sunken effect. *)
@@ -3037,10 +3037,10 @@ val blur_xl : t
 (** [blur_xl] applies an extra large blur (24px). *)
 
 val blur_2xl : t
-(** [blur_2xl] applies a 2× large blur (40px). *)
+(** [blur_2xl] applies a 2x large blur (40px). *)
 
 val blur_3xl : t
-(** [blur_3xl] applies a 3× large blur (64px). *)
+(** [blur_3xl] applies a 3x large blur (64px). *)
 
 val grayscale : int -> t
 (** [grayscale n] sets the grayscale filter (0-100). *)
@@ -3110,10 +3110,10 @@ val backdrop_blur_xl : t
 (** [backdrop_blur_xl] applies an extra large backdrop blur (24px). *)
 
 val backdrop_blur_2xl : t
-(** [backdrop_blur_2xl] applies a 2× large backdrop blur (40px). *)
+(** [backdrop_blur_2xl] applies a 2x large backdrop blur (40px). *)
 
 val backdrop_blur_3xl : t
-(** [backdrop_blur_3xl] applies a 3× large backdrop blur (64px). *)
+(** [backdrop_blur_3xl] applies a 3x large backdrop blur (64px). *)
 
 (** {1 Tables} *)
 
@@ -3431,30 +3431,30 @@ val at_container_named : string -> t
     [container-name: name]. *)
 
 val container_sm : t list -> t
-(** [container_sm styles] applies [styles] when container is ≥640px wide. *)
+(** [container_sm styles] applies [styles] when container is >=640px wide. *)
 
 val container_md : t list -> t
-(** [container_md styles] applies [styles] when container is ≥768px wide. *)
+(** [container_md styles] applies [styles] when container is >=768px wide. *)
 
 val container_lg : t list -> t
-(** [container_lg styles] applies [styles] when container is ≥1024px wide. *)
+(** [container_lg styles] applies [styles] when container is >=1024px wide. *)
 
 val container_xl : t list -> t
-(** [container_xl styles] applies [styles] when container is ≥1280px wide. *)
+(** [container_xl styles] applies [styles] when container is >=1280px wide. *)
 
 val container_2xl : t list -> t
-(** [container_2xl styles] applies [styles] when container is ≥1536px wide. *)
+(** [container_2xl styles] applies [styles] when container is >=1536px wide. *)
 
 val container_query : ?name:string -> int -> t list -> t
-(** [container_query 500 styles] applies styles when container is ≥500px.
+(** [container_query 500 styles] applies styles when container is >=500px.
     [container_query ~name:"sidebar" 500 styles] targets a named container. *)
 
 val animate_none : t
 (** [animate_none] applies no animation. *)
 
 val animate_spin : t
-(** [animate_spin] spins the element 360° continuously. Perfect for loading
-    spinners. *)
+(** [animate_spin] spins the element 360 degrees continuously. Perfect for
+    loading spinners. *)
 
 val animate_ping : t
 (** [animate_ping] scales and fades out like a radar ping. Great for
@@ -3965,7 +3965,7 @@ val not_sr_only : t
 
 val prose : t
 (** [prose] applies default prose styling for article-like content.
-    Automatically styles h1–h6, p, ul, ol, blockquote, code, and more.
+    Automatically styles h1-h6, p, ul, ol, blockquote, code, and more.
 
     Example:
     {[
@@ -3982,7 +3982,7 @@ val prose_xl : t
 (** [prose_xl] applies extra large prose styling (1.25rem base font). *)
 
 val prose_2xl : t
-(** [prose_2xl] applies 2× large prose styling (1.5rem base font). *)
+(** [prose_2xl] applies 2x large prose styling (1.5rem base font). *)
 
 val prose_lead : t
 (** [prose_lead] applies lead paragraph styling for prose. *)
@@ -4223,9 +4223,9 @@ val to_css :
     - {i Accessibility}: sr-only, not-sr-only
 
     Within each category, utilities maintain a stable order. Variants (hover:,
-    sm:, etc.) are applied with responsive breakpoints in ascending order (sm →
-    md → lg → xl → 2xl) and state modifiers in Tailwind's predetermined priority
-    order.
+    sm:, etc.) are applied with responsive breakpoints in ascending order (sm ->
+    md -> lg -> xl -> 2xl) and state modifiers in Tailwind's predetermined
+    priority order.
 
     Rendering choices such as variable inlining, minification, and optimization
     are handled by {!Css.to_string}.
