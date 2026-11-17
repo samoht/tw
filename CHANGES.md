@@ -51,6 +51,9 @@
 
 - `Utility.unclaimed` is the answer a handler's `of_class` gives a class it
   does not claim, shared by every handler in place of its own message (#921).
+- `Color.hex_to_oklch_css` and `Color.to_oklch_css` raise `Invalid_argument`
+  on a string that is not a hex colour instead of returning it unchanged
+  (#926).
 
 ## 1.2.1 (12/11/2026)
 

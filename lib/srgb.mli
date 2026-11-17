@@ -61,8 +61,9 @@ val hex_with_alpha : string -> float -> string
     Returns #RRGGBBAA format. The opacity is a percentage (0-100). *)
 
 val hex_to_oklch_css : string -> string
-(** [hex_to_oklch_css hex] is the [oklch()] spelling of [hex], or [hex] itself
-    when it does not parse. *)
+(** [hex_to_oklch_css hex] is the [oklch()] spelling of [hex].
+
+    @raise Invalid_argument if [hex] is not a hex colour. *)
 
 val hex_to_oklab_alpha : string -> float -> Css.color
 (** [hex_to_oklab_alpha hex alpha] converts a hex color to an oklab CSS color

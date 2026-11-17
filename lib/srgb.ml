@@ -208,7 +208,7 @@ let oklch_to_css oklch =
 let hex_to_oklch_css hex =
   match hex_to_rgb hex with
   | Some rgb -> oklch_to_css (rgb_to_oklch rgb)
-  | None -> hex (* Fallback to original hex if parsing fails *)
+  | None -> invalid_arg ("hex_to_oklch_css: " ^ hex ^ " is not a hex colour")
 
 let hex_to_oklab_alpha hex alpha : Css.color =
   match hex_to_rgb hex with
