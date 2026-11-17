@@ -161,6 +161,72 @@ let test_not_bracket_unreadable_selector_rejected () =
       "not-[@media_print]:flex";
     ]
 
+(* [not-data-] negates the selector [data-] builds, and Tailwind 4.3.3 reads it
+   so: [:not([data-state=open])] for [not-data-[state=open]]. A value no
+   attribute selector can hold compiles to nothing there, so tw refuses the
+   class rather than building the attribute name [data-[0.5ch]] and raising. *)
+let test_not_data_negates_data () =
+  check_utilities "not-data-active:flex"
+    {|.not-data-active\:flex:not([data-active]){display:flex}|};
+  check_utilities "not-data-[foo]:flex"
+    {|.not-data-\[foo\]\:flex:not([data-foo]){display:flex}|};
+  check_utilities "not-data-[state=open]:flex"
+    {|.not-data-\[state\=open\]\:flex:not([data-state=open]){display:flex}|};
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Flex.Handler))
+    [
+      "not-data-[0.5ch]:flex";
+      "not-data-[a;b]:flex";
+      "not-data-0.5ch:flex";
+      "not-data-foo/bar:flex";
+    ]
+
+(* [not-nth-] negates the selector the [nth-] variant builds, whichever of the
+   four it is: Tailwind writes [:not(:nth-of-type(3))] for [not-nth-of-type-3],
+   and nothing for [not-nth-foo]. *)
+let test_not_nth_negates_nth () =
+  check_utilities "not-nth-3:flex"
+    {|.not-nth-3\:flex:not(:nth-child(3)){display:flex}|};
+  check_utilities "not-nth-last-3:flex"
+    {|.not-nth-last-3\:flex:not(:nth-last-child(3)){display:flex}|};
+  check_utilities "not-nth-of-type-3:flex"
+    {|.not-nth-of-type-3\:flex:not(:nth-of-type(3)){display:flex}|};
+  check_utilities "not-nth-last-of-type-[2n+1]:flex"
+    {|.not-nth-last-of-type-\[2n\+1\]\:flex:not(:nth-last-of-type(odd)){display:flex}|};
+  Test_helpers.check_invalid_input (module Tw.Flex.Handler) "not-nth-foo:flex";
+  (* Tailwind writes [:not(:nth-child(0.5ch))], a selector browsers refuse, so
+     refusing the class loses nothing, as for [nth-[abc]]. *)
+  match Tw.of_string "not-nth-[0.5ch]:flex" with
+  | Ok u -> Alcotest.failf "not-nth-[0.5ch]:flex parsed as %s" (Tw.pp u)
+  | Error _ -> ()
+
+(* A bare [aria-] name and a [group-not-] or [peer-not-] bracket are built into
+   a selector at render time, so a name or a bracket the selector grammar
+   refuses is refused where the class is parsed. Tailwind compiles nothing for
+   [aria-0.5ch], [peer-not-[a;b]] and an at-rule bracket, and writes
+   [:not(:is(()))] for [group-not-[()]], a selector browsers refuse. A bare
+   [group-data-] name is taken as written, as Tailwind takes it, rather than
+   underscore-decoded into a name no selector holds. *)
+let test_unbuildable_scoped_selectors () =
+  check_utilities "group-data-a_b:flex"
+    {|.group-data-a_b\:flex:is(:where(.group)[data-a_b] *){display:flex}|};
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Flex.Handler))
+    [
+      "aria-0.5ch:flex";
+      "not-aria-0.5ch:flex";
+      "not-in-aria-0.5ch:flex";
+      "peer-not-[a;b]:flex";
+      "group-not-[@media_print]:flex";
+      "peer-not-[@supports(display:grid)]/n:flex";
+    ];
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
+      | Error _ -> ())
+    [ "group-not-[()]:flex"; "group-not-[0.5ch]/n:flex" ]
+
 (* An nth-* bracket holds an An+B expression and a supports- bracket holds an
    @supports condition; both are taken verbatim, so content the CSS grammar has
    no production for escapes as a parse error out of the selector or condition
@@ -396,6 +462,10 @@ let tests =
     test_case "supports condition text" `Quick test_supports_condition_text;
     test_case "not-[selector] unreadable content rejected" `Quick
       test_not_bracket_unreadable_selector_rejected;
+    test_case "not-data negates data" `Quick test_not_data_negates_data;
+    test_case "not-nth negates nth" `Quick test_not_nth_negates_nth;
+    test_case "unbuildable scoped selectors" `Quick
+      test_unbuildable_scoped_selectors;
     test_case "silent empty variants rejected" `Quick
       test_silent_empty_variants_rejected;
   ]
