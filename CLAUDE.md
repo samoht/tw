@@ -454,7 +454,7 @@ and the fields it keys on.
 ⚠️ **CRITICAL**: If `--diff` or cssdiff reports **"No differences found"** but there ARE actual differences in the CSS output, this is **NOT** a known limitation to work around. It is a **bug in the cssdiff tool that MUST be fixed before doing any other work**.
 
 **Do NOT:**
-- Mark tests as "effectively passing" when cssdiff fails to detect real differences
+- Mark tests as "effectively passing" when cssdiff misses a difference between the two sheets
 - Proceed with utility implementation while cssdiff is broken
 - Treat cssdiff bugs as acceptable limitations
 
