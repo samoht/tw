@@ -1088,6 +1088,20 @@ let test_var_shadow_takes_a_modifier () =
       composes_box_shadow;
     ]
 
+(* A shadow no reader takes, which is any value after a hint the family does not
+   know, still has its colour routed through the colour channel, the way
+   Tailwind picks that colour out of the tokens. *)
+let test_unread_shadow_colour () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "shadow-[foo:red]";
+      "shadow-[foo:1px_2px]";
+      "shadow-[red_foo]";
+      "shadow-[1px_2px_3px_4px_5px]";
+      "inset-shadow-[foo:red]";
+      "inset-shadow-[red_foo]";
+    ]
+
 let tests =
   [
     test_case "bracket data-type hint reads the value" `Quick
@@ -1161,6 +1175,7 @@ let tests =
     test_case "arbitrary opacity token stream" `Quick
       test_arbitrary_opacity_token_stream;
     test_case "effects render like Tailwind" `Slow rendering_matches_tailwind;
+    test_case "unread shadow colour" `Quick test_unread_shadow_colour;
   ]
 
 let suite = ("effects", tests)

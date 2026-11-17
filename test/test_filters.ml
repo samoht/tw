@@ -764,6 +764,17 @@ let test_unknown_hint_is_not_the_value () =
       "backdrop-opacity-[foo:0.5]";
     ]
 
+(* A shadow no reader takes, which is any value after a hint the family does not
+   know, still has its colour routed through the colour channel, the way
+   Tailwind picks that colour out of the tokens. *)
+let test_unread_drop_shadow_colour () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "drop-shadow-[foo:red]";
+      "drop-shadow-[foo:0_0_2px_red]";
+      "drop-shadow-[red_foo]";
+    ]
+
 let tests =
   [
     test_case "drop-shadow arbitrary opacity" `Quick
@@ -814,6 +825,7 @@ let tests =
     test_case "project blur token" `Quick test_project_blur_token;
     test_case "unknown hint is not the value" `Quick
       test_unknown_hint_is_not_the_value;
+    test_case "unread drop shadow colour" `Quick test_unread_drop_shadow_colour;
   ]
 
 let suite = ("filters", tests)
