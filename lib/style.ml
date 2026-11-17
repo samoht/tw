@@ -748,12 +748,8 @@ let rec pp_modifier = function
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
   | In_state (_, name) -> "in-" ^ name
-  | Group_not (inner, None) -> "group-not-" ^ pp_modifier inner
-  | Group_not (inner, Some name) ->
-      String.concat "" [ "group-not-"; pp_modifier inner; "/"; name ]
-  | Peer_not (inner, None) -> "peer-not-" ^ pp_modifier inner
-  | Peer_not (inner, Some name) ->
-      String.concat "" [ "peer-not-"; pp_modifier inner; "/"; name ]
+  | Group_not (inner, name) -> pp_scoped_not "group" inner name
+  | Peer_not (inner, name) -> pp_scoped_not "peer" inner name
   | Data_bracket expr -> "data-[" ^ expr ^ "]"
   (* The spelling as written: [[dragging]] for the bracket form, [dragging] for
      the bare shorthand. Both mean the same attribute, but the class names
@@ -788,6 +784,17 @@ let rec pp_modifier = function
   | Custom_variant (token, _) -> token
   | Container_style (token, _) -> token
   | Prose_element name -> "prose-" ^ name
+
+(* A scoped negation holds a bracket as the selector it negates, so the bracket
+   is spelled [[...]]: [group-not-[.foo]], not [group-not-not-[.foo]]. *)
+and pp_scoped_not marker inner name =
+  let inner =
+    match inner with
+    | Not_bracket content -> "[" ^ content ^ "]"
+    | m -> pp_modifier m
+  in
+  let name = match name with None -> "" | Some n -> "/" ^ n in
+  String.concat "" [ marker; "-not-"; inner; name ]
 
 let rec pp = function
   | Style { props; _ } ->

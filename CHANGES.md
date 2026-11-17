@@ -106,6 +106,10 @@
   with a leading combinator, such as `in-[>p]`, is refused. A `not-[...]`
   bracket holding a complex selector or a list goes through `:is()`, as
   `:not(:is(p~span))` (#948).
+- A `group-not-[...]` or `peer-not-[...]` bracket under an outer `not-`,
+  `has-` or `in-` keeps its class name and its negation:
+  `not-group-not-[.foo]` is `:not(:is(:where(.group):not(.foo) *))`, where
+  it was named `not-group-not-not-[.foo]` and matched `.foo` (#949).
 
 ### OCaml API
 
