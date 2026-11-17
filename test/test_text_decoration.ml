@@ -290,8 +290,15 @@ let test_var_prefixed_bracket () =
       "underline-offset-[var(--a),foo]";
     ]
 
+(* A hint the family does not know names no reading of its own, so Tailwind
+   writes the value after it the way it writes the unhinted bracket. *)
+let test_unknown_hint () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "decoration-[foo:red]"; "decoration-[foo:2px]" ]
+
 let tests =
   [
+    Alcotest.test_case "unknown hint" `Quick test_unknown_hint;
     Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "text decoration" `Quick test_text_decoration;

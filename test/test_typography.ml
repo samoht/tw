@@ -860,8 +860,15 @@ let test_var_prefixed_bracket () =
       "leading-[var(--a),foo]";
     ]
 
+(* A hint the family does not know names no reading of its own, so Tailwind
+   writes the value after it the way it writes the unhinted bracket. *)
+let test_unknown_hint () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "font-[foo:bold]"; "font-[foo:600]"; "font-[foo:Inter]" ]
+
 let tests =
   [
+    Alcotest.test_case "unknown hint" `Quick test_unknown_hint;
     Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;

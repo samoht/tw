@@ -65,25 +65,13 @@ let test_arbitrary_lengths () =
       "--tw-text-shadow-alpha: 50%";
       "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .5))";
     ];
-  Test_helpers.check_invalid_class
-    ~why:
-      (Test_helpers.Diverges
-         "Tailwind writes the word into the shadow as its colour, which the \
-          browser drops; tw refuses the class")
-    "text-shadow-[0_bogus_2px]"
+  Test_helpers.check_class_matches_tailwind "text-shadow-[0_bogus_2px]"
 
 (* An arbitrary text-shadow takes a colour function for its colour, the same as
    the box-shadow utilities. The reader knew only a [#] hex and a var(), so a
    function made the whole value stop being a shadow. A static one folds to its
    hex form; one with a channel that has no byte value stays as written. *)
 let test_arbitrary_color_function () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes rgb(zz) through as a shadow colour the browser \
-            drops; tw refuses the class")
-  in
   (* The whole declaration, offsets included: an affix on the colour slot said
      nothing about the lengths in front of it. *)
   let emits cls shadow =
@@ -105,7 +93,7 @@ let test_arbitrary_color_function () =
       "text-shadow:0 1px \
        var(--tw-text-shadow-color,oklab(62.79553606%.22486306 .1258463/.5))";
     ];
-  rejected "text-shadow-[0_1px_rgb(zz)]"
+  Test_helpers.check_class_matches_tailwind "text-shadow-[0_1px_rgb(zz)]"
 
 (* A colour no hex spells takes the modifier's alpha in place of its own, as
    Tailwind's [oklab(from <colour> l a b / <alpha>)] does, and the relative form
@@ -132,14 +120,6 @@ let test_arbitrary_colour_opacity () =
        b/var(--x)))";
     ]
 
-let wraps_an_unknown_colour =
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "Tailwind wraps the unknown word in var(--tw-text-shadow-color, ...); \
-          the shadow reader takes only colours it can read")
-    (module Tw.Text_shadow.Handler)
-
 let colour_channel_holds_a_token =
   Test_helpers.check_invalid_input
     ~why:
@@ -161,8 +141,8 @@ let test_arbitrary_named_colour () =
   emits "text-shadow-[0_1px_2px_currentColor]"
     "text-shadow:0 1px 2px var(--tw-text-shadow-color,currentcolor)";
   (* Tailwind wraps the one word that is neither a length nor a colour as the
-     shadow's colour, which the shadow reader cannot hold. *)
-  wraps_an_unknown_colour "text-shadow-[0_1px_notacolour]"
+     shadow's colour. *)
+  Test_helpers.check_class_matches_tailwind "text-shadow-[0_1px_notacolour]"
 
 (* A [#] value is only a colour when what follows is a hex spelling, both as the
    whole bracket and as the colour of an arbitrary shadow. The reader kept the
@@ -174,7 +154,7 @@ let test_invalid_bracket_hex () =
   colour_channel_holds_a_token "text-shadow-[#]";
   colour_channel_holds_a_token "text-shadow-[#12345]";
   colour_channel_holds_a_token "text-shadow-[#zz]/50";
-  wraps_an_unknown_colour "text-shadow-[0_1px_2px_#zz]";
+  Test_helpers.check_class_matches_tailwind "text-shadow-[0_1px_2px_#zz]";
   (* A bare colour writes the channel twice, unguarded then mixed. *)
   Test_helpers.check_declarations "text-shadow-[#abc]"
     [
@@ -445,8 +425,28 @@ let test_var_prefixed_bracket () =
   List.iter Test_helpers.check_class_matches_tailwind
     [ "text-shadow-[var(--a)_1px]"; "text-shadow-[var(--a),foo]" ]
 
+(* A hint the family does not know still says the bracket is a shadow, and the
+   value after it is read as one: Tailwind picks its colour out of the
+   tokens. *)
+let test_unknown_hint () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "text-shadow-[foo:red]";
+      "text-shadow-[foo:0_0_2px_red]";
+      "text-shadow-[foo:bar]";
+    ];
+  (* Under a modifier the colour takes the alpha in a relative colour, which
+     Tailwind's minifier folds to an [oklab()] literal; the generator writes
+     this. *)
+  Test_helpers.check_declarations ~minify:false "text-shadow-[foo:red]/50"
+    [
+      "--tw-text-shadow-alpha: 50%";
+      "text-shadow: var(--tw-text-shadow-color,oklab(from red l a b / 50%))";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "unknown hint" `Quick test_unknown_hint;
     Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     Alcotest.test_case "colour hint takes a colour" `Quick
       test_colour_hint_takes_a_colour;
