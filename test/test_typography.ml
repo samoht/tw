@@ -691,25 +691,40 @@ let test_bracket_font_size_candidate_band () =
   Test_helpers.check_class_order ~test_name:"bracket font-size candidate band"
     [ "text-base"; "text-[13px]/6"; "text-9xl"; "text-2xl" ]
 
-(* A font family is idents or quoted strings; the docs' [<value>] placeholder
-   used to be quoted into font-family: "<value>". *)
-let test_invalid_font_family () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes the docs placeholder through as a font-family the \
-            browser drops; tw refuses the class")
+(* Tailwind's [font-[...]] is a font-family when the hint names a family or,
+   unhinted, when the value is no number, holds no math, and has a comma piece
+   that neither opens with a digit nor is a var(); every other bracket is a
+   font-weight. A value neither grammar reads is written as the author spelled
+   it, so the browser drops it and the selector stays. *)
+let test_font_bracket_routes_like_tailwind () =
+  let weight cls value =
+    check_declarations ~minify:false cls
+      [ "--tw-font-weight: " ^ value; "font-weight: " ^ value ]
   in
-  let accepted cls =
-    match Tw.of_string cls with
-    | Ok _ -> ()
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+  let family cls value =
+    check_declarations ~minify:false cls [ "font-family: " ^ value ]
   in
-  rejected "font-[<value>]";
-  accepted "font-[ui-sans-serif]";
-  accepted "font-[var(--x)]";
-  accepted "font-[600]"
+  weight "font-[600]" "600";
+  weight "font-[10px]" "10px";
+  weight "font-[50%]" "50%";
+  weight "font-[calc(1+2)]" "calc(1 + 2)";
+  weight "font-[foo_calc(1+2)]" "foo calc(1 + 2)";
+  weight "font-[foo,10px]" "foo,10px";
+  weight {|font-["a",1x]|} {|"a",1x|};
+  weight "font-[number:foo]" "foo";
+  weight "font-[bogus:foo]" "foo";
+  family "font-[foo]" "foo";
+  family "font-[.5em]" ".5em";
+  family "font-[<value>]" "<value>";
+  family "font-[url(x.png)_center]" "url(x.png) center";
+  family "font-[family-name:10px]" "10px";
+  family "font-[ui-sans-serif]" "ui-sans-serif";
+  Alcotest.(check string)
+    "the class keeps its hint" "font-[bogus:foo]"
+    (Tw.pp (Result.get_ok (Tw.of_string "font-[bogus:foo]")));
+  Test_helpers.check_invalid_input
+    (module Tw.Typography.Typography_early)
+    "font-[a;b]"
 
 (* A quoted bracket font family carries its own quoting; Tailwind passes the
    decoded text through rather than wrapping it in one more layer of quotes.
@@ -735,19 +750,15 @@ let test_font_bracket_family_comma_list () =
 
 (* Integers in a class name are plain decimal here too: the leading modifier
    [text-lg/0x10] was read as /16 and the font-weight bracket [font-[0x10]] as
-   16, so tw painted a weight where Tailwind, which passes [0x10] through for
-   the browser to drop, paints nothing. *)
+   16, so tw painted a weight where Tailwind passes [0x10] through for the
+   browser to drop. *)
 let test_non_decimal_integers () =
   let rejected =
     Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "text-lg/0x10";
-  Test_helpers.check_invalid_class
-    ~why:
-      (Test_helpers.Diverges
-         "Tailwind passes 0x10 through as a font-weight the browser drops; tw \
-          refuses the class")
-    "font-[0x10]";
+  check_declarations ~minify:false "font-[0x10]"
+    [ "--tw-font-weight: 0x10"; "font-weight: 0x10" ];
   let accepted cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
@@ -845,7 +856,8 @@ let tests =
     test_case "non-decimal integers" `Quick test_non_decimal_integers;
     test_case "project font and leading tokens" `Quick
       test_project_font_and_leading_tokens;
-    test_case "invalid font family" `Quick test_invalid_font_family;
+    test_case "font bracket routes like Tailwind" `Quick
+      test_font_bracket_routes_like_tailwind;
     test_case "font bracket family quoted" `Quick
       test_font_bracket_family_quoted;
     test_case "font bracket family comma list" `Quick

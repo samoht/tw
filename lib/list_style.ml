@@ -12,6 +12,7 @@ module Handler = struct
     | Decimal
     | Bracket_var of string
     | Bracket of string * Css.list_style_type
+    | Bracket_raw of string * string
     | Inside
     | Outside
     | Image_none
@@ -37,7 +38,10 @@ module Handler = struct
           Css.parse_list_style_type (Parse.decode_arbitrary_value inner)
         with
         | Some t -> Ok (Bracket (inner, t))
-        | None -> Utility.unclaimed)
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Bracket_raw (inner, raw))
+            | None -> Utility.unclaimed))
     | [ "list"; "none" ] -> Ok None
     | [ "list"; "disc" ] -> Ok Disc
     | [ "list"; "decimal" ] -> Ok Decimal
@@ -71,7 +75,7 @@ module Handler = struct
     | Disc -> "list-disc"
     | Decimal -> "list-decimal"
     | Bracket_var s -> "list-[" ^ s ^ "]"
-    | Bracket (raw, _) -> "list-[" ^ raw ^ "]"
+    | Bracket (raw, _) | Bracket_raw (raw, _) -> "list-[" ^ raw ^ "]"
     | Inside -> "list-inside"
     | Outside -> "list-outside"
     | Image_none -> "list-image-none"
@@ -86,7 +90,8 @@ module Handler = struct
        (~3M). Position, type, and image form separate property bands; candidate
        names settle ties inside each band. *)
     | Inside | Outside -> 2_000_000
-    | Bracket_var _ | Bracket _ | Decimal | Disc | None -> 2_010_000
+    | Bracket_var _ | Bracket _ | Bracket_raw _ | Decimal | Disc | None ->
+        2_010_000
     | Image_bracket_var _ | Image_bracket _ | Image_raw _ | Image_none
     | Image_url _ ->
         2_020_000
@@ -155,6 +160,8 @@ module Handler = struct
     | Decimal -> list_decimal
     | Bracket_var s -> list_bracket_var s
     | Bracket (_, t) -> style [ list_style_type t ]
+    | Bracket_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "list-style-type" v))
     | Inside -> list_inside
     | Outside -> list_outside
     | Image_none -> list_image_none ()

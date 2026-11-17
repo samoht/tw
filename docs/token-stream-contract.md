@@ -258,7 +258,11 @@ a length such as `10px` is a sixth. To check a family, run the shapes through
 
 Three rows are not a fall-through to one longhand. `mask-radial-at-[…]`,
 `col-span-[…]` and `row-span-[…]` write custom properties or a shorthand, so
-read the CLI directly before changing them.
+read the CLI directly before changing them. And `font-[…]` falls through to
+two: a value opening with `var()`, a number, a value holding math, and one with
+a comma piece that opens with a digit are a `font-weight` beside
+`--tw-font-weight`, so `font-[10px]` is a weight where `font-[foo]` is a
+family.
 
 ## Token streams and hints
 
@@ -324,8 +328,6 @@ unit or a value after an `angle:` hint.
 These families refuse shapes the CLI writes out. Each is a defect against the
 contract.
 
-- `font-[…]`, `list-[…]` and `will-change-[…]` refuse a length, `calc(1+2)`
-  and a `url()` with a word after it.
 - `decoration-[…]` refuses an identifier, a dashed identifier, `calc(1+2)` and
   a `url()` with a word after it.
 - `text-shadow-[…]` refuses every shape but a colour keyword.
