@@ -52,6 +52,9 @@
   property order and skips a custom or unknown one, as Tailwind does. One
   that wrote such a property first sorted after every other utility, and one
   that wrote `color` before `display` sorted with the colours (#938).
+- In inline mode, the default for `-s`, a custom property an `@utility` sets
+  is kept, as Tailwind keeps it, where it was resolved away: `--x` went from
+  `.foo{--x:1;color:red}` and `.bar{--y:1}` disappeared (#941).
 
 ### Variants
 

@@ -165,8 +165,15 @@ let render_css ~(opts : gen_opts) stylesheet =
            resolved with them. Only a declaration holding a [calc()] with no
            variable left is folded, and only exactly: the pass is not a
            minifier, so a colour or a keyword keeps the spelling it was
-           generated with. *)
-        let resolved = Tw.Css.inline_vars ~inline_runtime:true stylesheet in
+           generated with. A custom property a declared utility sets is the
+           project's, read by CSS this sheet does not hold, and stays. *)
+        let keep_vars =
+          Tw_tools.Custom_utility.custom_properties
+            (Entrypoint.entry_utility_defs opts.input_css_path)
+        in
+        let resolved =
+          Tw.Css.inline_vars ~keep_vars ~inline_runtime:true stylesheet
+        in
         let static_calc d =
           Tw.Css.vars_of_declarations [ d ] = []
           && Re.execp calc_re (Tw.Css.declaration_value ~minify:true d)
