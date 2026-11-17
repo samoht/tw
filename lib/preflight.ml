@@ -412,7 +412,6 @@ let firefox_form_resets () =
 (** Buttons need specific styles *)
 let button_specific_resets () =
   [
-    (* Complex selector - temporary workaround *)
     rule
       ~selector:Selector.(list [ button; input_button_types ])
       [ appearance Button ];

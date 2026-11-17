@@ -1086,7 +1086,6 @@ let base_layer ?theme ?supports ?(forms_base = false) () =
 
 (* Property helpers are centralized in Property module *)
 let partition_properties = Property.split
-let dedup_properties = Property.dedup
 let initial_values_of = Property.initial_values
 
 (* Browser detection condition for properties layer. Detects browsers that need
@@ -1351,7 +1350,7 @@ let properties_layer metadata fallback_order first_usage_order
   let property_rules, other_statements =
     partition_properties explicit_property_rules_statements
   in
-  let deduplicated = dedup_properties property_rules in
+  let deduplicated = Property.dedup property_rules in
   let initial_values = initial_values_of deduplicated in
 
   if deduplicated = [] && initial_values = [] then (Css.empty, [])
