@@ -44,9 +44,9 @@ let test_int_constructor () =
     "int spacing" (`Rem 1.0) (int 4)
 
 (* A named spacing renders as [var(--spacing-<name>)], so the utility has to
-   declare the token as well as reference it: padding and gap used to emit the
-   reference alone, which renders as nothing. Tailwind emits the binding for
-   every one of these classes given the same @theme. *)
+   declare the token as well as reference it; a reference alone renders as
+   nothing. Tailwind emits the binding for every one of these classes given the
+   same @theme. *)
 let test_named_spacing_declares_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-form", "1rem") ]

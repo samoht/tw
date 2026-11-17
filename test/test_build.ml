@@ -82,10 +82,9 @@ let check_properties_layer () =
   check bool "has --tw-ring-offset-width" true
     (List.mem "--tw-ring-offset-width" vars)
 
-(* Regression: a theme color referenced only inside a compound variant's nested
-   media (hover:dark:text-white puts var(--color-white) two media levels deep)
-   must still be declared in the theme layer. The var collection used to stop at
-   the first level and miss it, so --color-white got pruned. *)
+(* A theme color referenced only inside a compound variant's nested media
+   (hover:dark:text-white puts var(--color-white) two media levels deep) is
+   still declared in the theme layer: the var collection walks every level. *)
 let check_compound_variant_theme_var () =
   let u =
     match Tw.of_string "hover:dark:text-white" with
@@ -96,10 +95,9 @@ let check_compound_variant_theme_var () =
   check bool "theme layer declares --color-white" true
     (has_var_in_layer "--color-white" "theme" css)
 
-(* Regression: a compound [supports-] variant nests its rule in an [@supports]
-   block, and the tokens the utility sets live in there with it. The theme walk
-   used to descend into [@media], [@layer] and [@container] only, so the token
-   went undeclared and the rule read a [var()] nothing defined. *)
+(* A compound [supports-] variant nests its rule in an [@supports] block, and
+   the tokens the utility sets live in there with it. The theme walk descends
+   into [@supports] too, so the token is declared. *)
 let check_supports_variant_theme_token () =
   let u =
     match Tw.of_string "md:supports-[display:grid]:aspect-video" with
@@ -181,8 +179,6 @@ let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
   in
   sheet
 
-(* layer_block is now available in Css module *)
-
 let supports_block (stmts : Css.statement list) : Css.statement list option =
   List.find_map
     (fun s ->
@@ -194,8 +190,6 @@ let first_rule_decls (stmts : Css.statement list) : Css.declaration list option
   List.find_map
     (fun s -> match Css.as_rule s with Some (_, ds, _) -> Some ds | _ -> None)
     stmts
-
-(* custom_prop_names is now available in Css module *)
 
 let property_rule_names (sheet : Css.t) : string list =
   Css.statements sheet
@@ -294,10 +288,8 @@ let check_property_rules_order () =
   in
   check bool "@property after utilities" true (first_prop_idx > util_idx)
 
-(* Regression: --tw-space-y-reverse must sort AFTER the transform group in
-   @property, matching Tailwind (which places it after --tw-translate-* and
-   before --tw-border-style). It previously carried a negative property_order
-   with no family, which forced it ahead of the transforms. *)
+(* --tw-space-y-reverse sorts after the transform group in @property, as
+   Tailwind places it: after --tw-translate-* and before --tw-border-style. *)
 let check_space_reverse_after_transforms () =
   let sheet =
     Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4 ]
@@ -322,9 +314,9 @@ let index_of_prop names n =
   in
   loop 0 names
 
-(* Regression: Tailwind emits @property --tw-border-spacing-* first in @layer
-   properties, ahead of the transforms. A negative property_order with no family
-   sorts them there. *)
+(* Tailwind emits @property --tw-border-spacing-* first in @layer properties,
+   ahead of the transforms. A negative property_order with no family sorts them
+   there. *)
 let check_border_spacing_first () =
   let names =
     property_rule_names
@@ -335,8 +327,8 @@ let check_border_spacing_first () =
   check bool "--tw-border-spacing-x before --tw-translate-x" true
     (index_of "--tw-border-spacing-x" < index_of "--tw-translate-x")
 
-(* Regression: @property --tw-outline-style sorts after the ring group and
-   before the filters, not with the border-style block. *)
+(* @property --tw-outline-style sorts after the ring group and before the
+   filters, not with the border-style block. *)
 let check_outline_style_after_ring () =
   let outline =
     match Tw.of_string "outline" with Ok u -> u | Error (`Msg m) -> fail m
@@ -351,11 +343,11 @@ let check_outline_style_after_ring () =
   check bool "--tw-outline-style before --tw-blur" true
     (index_of "--tw-outline-style" < index_of "--tw-blur")
 
-(* Regression: content-none uses a literal [content: none] and must NOT register
-   @property --tw-content, matching Tailwind (which emits it only for content
-   utilities that reference var(--tw-content), and for before/after
-   pseudo-elements). The value variant content-["x"] does reference the var and
-   keeps the @property rule. *)
+(* content-none uses a literal [content: none] and registers no @property
+   --tw-content, as Tailwind does (which emits it only for content utilities
+   that reference var(--tw-content), and for before/after pseudo-elements). The
+   value variant content-["x"] does reference the var and keeps the @property
+   rule. *)
 let check_content_none_no_property () =
   let none_names =
     property_rule_names (Tw.to_css ~base:false ~layers:true [ Tw.content_none ])
@@ -535,9 +527,8 @@ let test_theme_layer_media_refs () =
     (List.exists (fun v -> v = "--text-xl--line-height") all_vars)
 
 (* A token the project's own [@theme] declared and a utility only reads has
-   nothing else in the sheet to declare it, so the theme layer has to. Before,
-   only the catalogued colours and [--spacing] were emitted that way, and a
-   reference to any other project token named a variable with no value. *)
+   nothing else in the sheet to declare it, so the theme layer does, for every
+   project token and not only the catalogued colours and [--spacing]. *)
 let test_theme_layer_emits_read_project_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("brand-ink", "#123456") ]
@@ -1103,10 +1094,8 @@ let check_spacing_zero_prune () =
     Tw.Build.to_css ~config [ utility ] |> Css.to_string ~minify:true
   in
   let check_zero name property utility =
-    (* The whole list. The substring this replaces was [property ^ ":0"], which
-       matched [padding:0px] on its prefix, so it could not have told a zero
-       length from any value starting with one. The CLI writes [0px] and so does
-       tw. *)
+    (* The whole list, since a substring [property ^ ":0"] cannot tell a zero
+       length from any value starting with one. The CLI writes [0px]. *)
     Test_helpers.check_declarations name [ property ^ ":0px" ];
     (* The carrier is a [:root] binding, which [declarations_of_class] leaves
        out by design, so its absence cannot be read off the list above and this
@@ -1133,7 +1122,7 @@ let check_nested_spacing_keeps_runtime_carrier () =
   in
   let css = Tw.to_css ~base:false [ utility ] |> Css.to_string ~minify:true in
   (* The whole list: the carrier has to survive in both margin declarations,
-     which a single search of the sheet for [var(--spacing)] never said. *)
+     which a single search of the sheet for [var(--spacing)] cannot say. *)
   Test_helpers.check_declarations "space-x-2.5"
     [
       "--tw-space-x-reverse:0";
@@ -1148,9 +1137,8 @@ let check_nested_spacing_keeps_runtime_carrier () =
     (Astring.String.is_infix ~affix:"--spacing:" css)
 
 (* A utility that only REFERENCES a theme colour token via var() (here an
-   arbitrary bg-[color:var(--color-red-500)]) must still emit that token in
-   @layer theme; the build used to collect only tokens utilities set. A
-   non-theme var stays out. *)
+   arbitrary bg-[color:var(--color-red-500)]) still emits that token in @layer
+   theme, as a token a utility sets does. A non-theme var stays out. *)
 let test_referenced_theme_token () =
   let css cls =
     match Tw.of_string cls with

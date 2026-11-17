@@ -186,8 +186,8 @@ let test_out_of_gamut_oklch () =
     (rgb_to_hex (oklch_to_rgb blue_500))
 
 (* The alpha byte is appended to the six RGB digits, so a shorthand hex has to
-   be expanded first: [#fff] with 10% alpha gave the five-digit [#fff1a], which
-   cascade now rejects outright. *)
+   be expanded first: appending to [#fff] would give the five-digit [#fff1a],
+   which cascade rejects. *)
 let test_shorthand_hex_alpha () =
   Alcotest.(check string)
     "a three-digit hex expands before the alpha" "#ffffff1a"

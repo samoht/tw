@@ -91,11 +91,9 @@ let z_auto_style ?theme () =
   | None -> Style.style [ Css.z_index Auto ]
 
 (* An [object-[...]] value that is not a var() reference is a <position>, read
-   with cascade's grammar for it rather than a local one. Splitting on the space
-   and reading each side as a length took the two-length and one-length forms
-   and nothing else, so every keyword the grammar allows was refused. The
-   [bg-position-] bracket reads the same CSS type through the same reader; the
-   two families must not disagree about what a position is. *)
+   with cascade's grammar for it rather than a local one. The [bg-position-]
+   bracket reads the same CSS type through the same reader; the two families
+   must not disagree about what a position is. *)
 let parse_object_position raw : Css.position_value option =
   let cursor = Cascade.Cursor.of_string (Parse.decode_arbitrary_value raw) in
   match
@@ -548,9 +546,9 @@ module Handler = struct
     | Object_raw (_, v) ->
         style (Option.to_list (Parse.opaque_declaration "object-position" v))
     | Object_arbitrary bracket -> (
-        (* Only a var() reference names a variable; anything else is a position
-           value, which [object-[50%]] used to turn into [var(--50)]. [of_class]
-           refused an empty hint, so the peel succeeds here. *)
+        (* Only a var() reference names a variable; anything else, [50%]
+           included, is a position value. [of_class] rejects an empty hint, so
+           the peel succeeds here. *)
         let raw =
           Option.value (Parse.value_after_hint bracket) ~default:bracket
         in

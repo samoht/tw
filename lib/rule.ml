@@ -684,9 +684,8 @@ let route_has_modifier modifier ~selector base_class props =
     | _ -> failwith "Invalid has modifier"
   in
   (* A shorthand is one of the state names, spelled bare; anything else was
-     written in brackets and keeps them in the class name. Deciding this by
-     punctuation alone read a bare type selector like [has-[a]] as the state
-     name [a] and dropped the brackets. *)
+     written in brackets and keeps them in the class name, so a bare type
+     selector like [has-[a]] is not read as a state name. *)
   let is_shorthand = Style.is_has_shorthand raw_str in
   let selector_str =
     if is_shorthand then resolve_has_shorthand raw_str else raw_str
@@ -2465,7 +2464,7 @@ and apply_modifier_to_starting_style ?theme modifier ~selector ~props
           ~nested:(started selector props :: nested)
           ()
     (* A container or supports variant wraps the [@starting-style] block the way
-       a media one does; [@md:starting:flex] used to lose the block. *)
+       a media one does, so [@md:starting:flex] keeps the block. *)
     | (Container_query { selector; props; nested; _ } as wrapper)
     | (Supports_query { selector; props; nested; _ } as wrapper) ->
         nest_inside_at_rule

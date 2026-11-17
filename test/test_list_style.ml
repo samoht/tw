@@ -11,10 +11,9 @@ let test_list_style () =
   check "list-outside";
   check "list-image-none"
 
-(* A bracket list-style value is read with the CSS parser rather than a
-   hand-rolled keyword table: list-[square] and list-image-[url(...)] used to be
-   unknown classes. A name the keyword table does not know is a
-   [<counter-style-name>], which CSS Lists 3 sec. 3.3 admits as any
+(* A bracket list-style value is read with the CSS parser, so list-[square] and
+   list-image-[url(...)] are utilities. A name that is no list-style keyword is
+   a [<counter-style-name>], which CSS Lists 3 sec. 3.3 admits as any
    [<custom-ident>], so it reads as the author's own [@counter-style]. *)
 let test_bracket_list_style () =
   check_declarations "list-[square]" [ "list-style-type:square" ];

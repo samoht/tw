@@ -128,7 +128,7 @@ module Handler = struct
     | Break_keep -> 8310
     (* Overflow wrap - not real Tailwind utility names ([overflow-wrap-normal]
        etc. rather than [wrap-normal]); real tailwindcss generates nothing for
-       them, so there is no oracle order to match. Left where they were. *)
+       them, so there is no oracle order to match. *)
     | Overflow_wrap_normal -> 9300
     | Overflow_wrap_anywhere -> 9301
     | Overflow_wrap_break_word -> 9302

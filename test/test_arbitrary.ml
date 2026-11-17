@@ -65,8 +65,8 @@ let test_theme_dot_notation () =
     "theme() class round-trips" g
     (Tw.pp (Result.get_ok (Tw.of_string g)))
 
-(* A var-valued colour with /opacity used to raise invalid_arg; it now emits an
-   oklab color-mix under @supports, with a fallback, type-safely. *)
+(* A var-valued colour with /opacity emits an oklab color-mix under @supports,
+   with a fallback. *)
 let test_var_color_opacity () =
   (* The fallback arm leaves the var() bare, the shape the CLI writes. *)
   Test_helpers.check_declarations ~minify:false "[color:var(--my-color)]/50"
@@ -75,13 +75,13 @@ let test_var_color_opacity () =
       "color: color-mix(in oklab, var(--my-color) 50%, transparent)";
     ]
 
-(* Arbitrary-value underscores encode spaces before the colour is parsed. The
-   plain declaration path already decoded them; the /opacity path did not. *)
+(* Arbitrary-value underscores encode spaces before the colour is parsed, on the
+   /opacity path as on the plain declaration path. *)
 let test_encoded_space_color_opacity () =
   (* The whole list, which also says the modifier decodes the colour once: the
      mix names the decoded rgb(), not the undecoded spelling. A mix of a colour
-     and a percentage is written once, as the CLI writes it; tw wrote an sRGB
-     twin of its own before it. *)
+     and a percentage is written once, as the CLI writes it, with no sRGB
+     twin. *)
   Test_helpers.check_declarations ~minify:false "[color:rgb(255_0_0)]/50"
     [ "color: color-mix(in oklab, rgb(255 0 0) 50%, transparent)" ];
   (* A var() alpha needs the polyfill pair, the bare colour in the open. The
@@ -119,11 +119,11 @@ let test_no_crash () =
    wrong is silent: the sheet grows a rule no markup can ever match, and every
    oracle that compares declarations reads the two sheets as equal.
 
-   Two shipped bugs had exactly this shape - a class name re-printed through a
-   CSS printer that drops a leading zero, and one rebuilt from a parsed length
-   that had stopped at a comment - so the sweep runs the payloads that produce
-   it across every family taking a bracket value, every arbitrary property, and
-   every variant that brackets a breakpoint or a selector.
+   A class name re-printed through a CSS printer that drops a leading zero, or
+   rebuilt from a parsed length that stops at a comment, has this shape, so the
+   sweep runs those payloads across every family taking a bracket value, every
+   arbitrary property, and every variant that brackets a breakpoint or a
+   selector.
 
    Refusal is a legitimate answer and is not counted. The one thing asserted is
    that nothing is accepted under a name it cannot be selected by. *)
@@ -211,7 +211,7 @@ let test_adversarial_value_sweep () =
     "the known gaps are exactly the ones still open" known_selector_gaps names
 
 (* Tailwind's [--spacing(N)] shorthand reads the spacing scale, so it has to be
-   expanded here too: the value used to reach the sheet verbatim. *)
+   expanded here too rather than reach the sheet verbatim. *)
 let test_property_spacing_fn () =
   Test_helpers.check_declarations ~minify:false "[--gap:--spacing(10)]"
     [ "--gap: calc(var(--spacing) * 10)" ]
@@ -235,16 +235,14 @@ let test_alpha_fn () =
           (Tw.of_string "[--checkered-bg:--alpha(var(--color-gray-950)/10%)]")))
 
 (* A bare number in [--alpha()] is the fraction Tailwind scales to a percentage,
-   in an arbitrary property as in a colour utility; the reader took [0.2] for
-   [0.2%]. *)
+   in an arbitrary property as in a colour utility: [0.2] is [20%]. *)
 let test_alpha_fn_bare_number () =
   Test_helpers.check_declarations ~minify:false "[color:--alpha(red/0.2)]"
     [ "color: color-mix(in oklab, red 20%, transparent)" ]
 
 (* An [--alpha()] whose alpha reads a custom property mixes that property, in an
-   arbitrary property as in a colour utility. The reader took only a percentage
-   alpha, so the class was refused. The pair is the one the [/(--o)] modifier
-   writes: the bare colour in the open, the mix behind the guard. *)
+   arbitrary property as in a colour utility. The pair is the one the [/(--o)]
+   modifier writes: the bare colour in the open, the mix behind the guard. *)
 let test_alpha_fn_var_alpha () =
   check "[color:--alpha(red/var(--o))]";
   Test_helpers.check_declarations ~minify:false "[color:--alpha(red/var(--o))]"
@@ -258,9 +256,7 @@ let test_alpha_fn_var_alpha () =
 
 (* Tailwind substitutes [--alpha()] wherever it stands in a value, as it does
    [--spacing()]: a shadow or a gradient spelling one reads on with the
-   [color-mix()] in its place. The call was read only as the whole value, and
-   the guard that refuses a surviving call ran over the undecoded text, where
-   [1px_--alpha] is one token, so the call reached the sheet as written. *)
+   [color-mix()] in its place, never the call as written. *)
 let test_alpha_fn_inside_a_value () =
   check "[box-shadow:0_0_0_1px_--alpha(red/50%)]";
   Test_helpers.check_declarations ~minify:false
@@ -280,8 +276,8 @@ let test_alpha_fn_inside_a_value () =
 let test_alpha_fn_with_modifier () =
   check "[color:--alpha(red/50%)]/25";
   (* Both mixes are nested. Neither reads a custom property or [currentcolor],
-     so a browser resolves the value on its own and Tailwind writes it once; tw
-     wrote an sRGB twin in the open that Tailwind's polyfill never writes. *)
+     so a browser resolves the value on its own and Tailwind writes it once,
+     with no sRGB twin in the open. *)
   Test_helpers.check_declarations ~minify:false "[color:--alpha(red/50%)]/25"
     [
       "color: color-mix(in oklab, color-mix(in oklab, red 50%, transparent) \
@@ -294,7 +290,7 @@ let test_var_opacity_spelling () =
   check "[color:red]/[var(--x)]";
   check "[color:red]/(--x)";
   (* The mix reads a custom property, so the open form is its first colour, as
-     it is for every other family; tw wrote the mix in sRGB there. *)
+     it is for every other family, not the mix in sRGB. *)
   Test_helpers.check_declarations ~minify:false "[color:red]/(--x)"
     [ "color: red"; "color: color-mix(in oklab, red var(--x), transparent)" ]
 
@@ -303,9 +299,8 @@ let test_var_opacity_spelling () =
    value the mix stands: the declaration is written with each such mix replaced
    by its first colour in the open, and as written behind the colour-mix guard.
    A mix reading only theme tokens has them inlined, in sRGB, in the open. A mix
-   a browser resolves on its own is written once. tw wrote the mix alone
-   wherever it stood inside a longer value, and the typed colour arm wrote an
-   sRGB twin for every modifier, guarded or not. *)
+   a browser resolves on its own is written once. The rule holds inside a longer
+   value and on the typed colour arm. *)
 let test_mix_polyfill () =
   let pair cls ~open_ ~guarded =
     Test_helpers.check_declarations ~minify:false cls [ open_; guarded ]
@@ -354,10 +349,8 @@ let test_mix_polyfill () =
     [ "box-shadow: 0 0 0 1px " ^ mix "red" "50%" ]
 
 (* A modifier reading a custom property mixes that property into the guarded
-   value on a bracket [var()] colour as on a plain one. The var arm folded the
-   modifier to a percentage, which a var() has none of, so the mix said [100%]
-   and the modifier was dropped. The fallback keeps the var() bare, the shape
-   the CLI writes. *)
+   value on a bracket [var()] colour as on a plain one. The fallback keeps the
+   var() bare, the shape the CLI writes. *)
 let test_var_colour_opacity_var () =
   let mixed cls property =
     Test_helpers.check_declarations ~minify:false cls
@@ -373,10 +366,7 @@ let test_var_colour_opacity_var () =
 
 (* A named [--opacity-*] token reads as [var(--opacity-half)] and nothing else,
    in the guarded mix, and as the percentage the theme binds it to in the srgb
-   fallback. The token's value is a percentage, which the reader took for a
-   float and could not read, so the fallback said [100%] and the reference grew
-   a second fallback, [var(--half-opacity)], that Tailwind never writes. The var
-   arm folded the token to [100%] outright. *)
+   fallback. Tailwind writes no second fallback on the reference. *)
 let test_named_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
@@ -451,8 +441,7 @@ let test_property_underscore_escape () =
 
 (* A []] the value quotes belongs to the value, so the scan for the closing
    bracket reads strings the way the CSS tokeniser does. Tailwind emits
-   [content: 'a]b'] for the first of these; a scan blind to quotes stopped at
-   the []] inside the string and refused the class. *)
+   [content: 'a]b'] for the first of these. *)
 let test_quoted_closing_bracket () =
   check "[content:'a]b']";
   check "[--x:'a]b']";

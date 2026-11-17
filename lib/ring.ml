@@ -268,10 +268,9 @@ module Handler = struct
     let d = Var.set ring_offset_color_var color in
     style (decls @ [ d ])
 
-  (* One unit table, read once. [parse_bracket_width] is the option form with
-     the zero the callers that cannot fail fall back to; the two used to be
-     written out separately and agreed only by hand, so adding a unit to one
-     alone would have reintroduced a silently-zero width. *)
+  (* One unit table, read once. [parse_bracket_width] is
+     [parse_bracket_width_opt] with the zero fallback of the callers that cannot
+     fail, so both accept the same units. *)
   let plain_bracket_width value : Css.length option =
     let suffixed suffix mk =
       let n = String.length suffix in

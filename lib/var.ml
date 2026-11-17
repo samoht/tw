@@ -421,10 +421,9 @@ let bracket ?fallback name =
         else None
   in
   (* [Parse.extract_var_name] leaves malformed references alone. Arbitrary
-     values historically also use [var(--...)] as a wrapper around a raw
-     custom-property name, where a loose closer belongs to that name. Retain
-     that interpretation only after the CSS reference reader has rejected the
-     whole string. *)
+     values also use [var(--...)] as a wrapper around a raw custom-property
+     name, where a loose closer belongs to that name. Retain that interpretation
+     only after the CSS reference reader has rejected the whole string. *)
   let raw_name =
     let prefix = "var(--" in
     let len = String.length name in

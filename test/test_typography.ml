@@ -120,8 +120,7 @@ let test_named_text_size () =
   in
   round_trips "text-huge";
   round_trips "text-huge/7";
-  (* The whole list, which is where "sets no line height" is said: it used to be
-     a second search for a property that must not appear. *)
+  (* The whole list: the bare size sets no line height. *)
   Test_helpers.check_declarations ~theme "text-huge"
     [ "font-size:var(--text-huge)" ];
   Test_helpers.check_declarations ~theme "text-huge/7"
@@ -233,9 +232,7 @@ let test_named_font_family () =
 
 (* A family may carry [--font-<name>--font-feature-settings] and
    [--font-variation-settings] beside it. Each is a token of its own that the
-   utility reads, or the value itself when the block is inline; the feature
-   settings were inlined whatever the block said, and the variation settings
-   were not read at all. *)
+   utility reads, or the value itself when the block is inline. *)
 let test_named_font_family_sub_tokens () =
   let theme =
     Tw.Scheme.with_overrides
@@ -286,7 +283,8 @@ let test_text_bracket_size_invalid () =
     rejects (module Tw.Text_overflow.Handler) input;
     rejects (module Tw.Line_breaking.Handler) input
   in
-  (* Regression: these used to silently emit font-size: var(--<garbage>). *)
+  (* None of these is read as a variable name: no font-size:
+     var(--<garbage>). *)
   bad "text-[1A202C]";
   (* Hex-looking, missing '#' *)
   bad "text-[FF0000]";
@@ -307,8 +305,7 @@ let test_bracket_length_units () =
 
 (* The [/leading] modifier on a text size and the standalone [leading-[...]]
    utility read an arbitrary line-height with one reader, so they agree on every
-   spelling. The modifier used to render anything but px, rem or a bare number
-   as a zero, collapsing the line box under a selector that matched. *)
+   spelling, never a zero that collapses the line box. *)
 let test_arbitrary_leading () =
   (* The standalone utility sets the channel and reads it back; the modifier
      writes the line height beside the size it decorates. *)
@@ -426,9 +423,8 @@ let late_typography_colour_block_order () =
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. Both families here write one longhand, so every hint lands
    there and the length reader is handed what follows it; the hint stays in the
-   class name, which is what the markup carries. The readers were given the hint
-   as well, read nothing, and the classes were refused where Tailwind emits
-   [text-indent: 4px] and [text-underline-offset: 4px].
+   class name, which is what the markup carries. Tailwind emits [text-indent:
+   4px] and [text-underline-offset: 4px].
 
    The negated forms parse the same way and are left out here: they diverge on
    the value's spelling, not on the hint, and they do so with no hint at all.
@@ -440,9 +436,7 @@ let test_typography_brackets_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          (* The whole list, which is where "lands in one longhand" is said: an
-             affix passes just as well beside a second declaration the hint was
-             not supposed to produce. *)
+          (* The whole list: the hint lands in one longhand. *)
           Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("indent-[length:4px]", "text-indent: 4px");
@@ -619,9 +613,7 @@ let test_text_bracket_functions () =
    that property, and a mix a browser without [color-mix()] cannot read has the
    colour itself in the open, whether the mix was spelled with [--alpha()] or by
    hand: Tailwind writes the first colour where a var() in the mix resolves to
-   nothing. The bracket reader took only a percentage alpha, so the class was
-   refused, and a hand-written mix with a var() alpha wrote the mix alone with
-   no fallback beside it. *)
+   nothing. *)
 let test_text_bracket_alpha_var () =
   let mixed cls =
     Test_helpers.check_declarations ~minify:false cls
@@ -646,7 +638,7 @@ let test_text_bracket_alpha_var () =
 
 (* A [url()] argument is left verbatim, so a file name keeps the [_] it is
    written with. [list-image-] and [content-] read their bracket through the
-   arbitrary-value decoder, which used to turn every [_] into a space. *)
+   arbitrary-value decoder, which leaves the [_] of a [url()] alone. *)
 let test_bracket_url_underscore () =
   check_declarations "list-image-[url('a_b.png')]"
     [ "list-style-image:url(a_b.png)" ];
@@ -737,8 +729,7 @@ let test_font_bracket_routes_like_tailwind () =
 let test_font_bracket_family_quoted () =
   (* one layer of quotes, which minified prints as a bare two-word family *)
   check_declarations {|font-["arial_rounded"]|} [ "font-family:arial rounded" ];
-  (* The whole declaration, which is where "never double-quoted" is said: it
-     used to be a search for a spelling that must not appear. *)
+  (* The whole declaration: never double-quoted. *)
   check_declarations {|font-["liga"_0x10]|} [ {|font-family:"liga" 0x10|} ]
 
 (* A comma-separated bracket family list ([font-[Papyrus,fantasy]]) is a
@@ -748,10 +739,9 @@ let test_font_bracket_family_quoted () =
 let test_font_bracket_family_comma_list () =
   check_declarations "font-[Papyrus,fantasy]" [ "font-family:Papyrus,fantasy" ]
 
-(* Integers in a class name are plain decimal here too: the leading modifier
-   [text-lg/0x10] was read as /16 and the font-weight bracket [font-[0x10]] as
-   16, so tw painted a weight where Tailwind passes [0x10] through for the
-   browser to drop. *)
+(* Integers in a class name are plain decimal here too: [text-lg/0x10] is
+   refused rather than read as [/16], and Tailwind passes [font-[0x10]] through
+   for the browser to drop. *)
 let test_non_decimal_integers () =
   let rejected =
     Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
@@ -776,9 +766,7 @@ let test_project_font_and_leading_tokens () =
     Test_helpers.theme_entry "--font-weight-chonk: 900; --leading-roomy: 2.5;"
   in
   let theme = Tw_tools.Entry_theme.of_css entry in
-  (* Channel then property, and nothing else: "channel variable included" is
-     what this test is for, and a pair of affixes says each is present without
-     saying the utility writes only the two. *)
+  (* Channel then property, and nothing else. *)
   let emits cls channel prop token =
     Test_helpers.check_declarations ~theme ~minify:false cls
       [ channel ^ ": var(" ^ token ^ ")"; prop ^ ": var(" ^ token ^ ")" ]

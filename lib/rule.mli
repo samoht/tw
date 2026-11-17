@@ -48,8 +48,8 @@ val compute_variant_order :
 (** [compute_variant_order ?theme ~selector base_class] computes the sort key
     for modifier-prefixed rules. Returns 0 for plain rules; non-zero for rules
     carrying a [not-*] or variant prefix. [selector] supplies the modifiers that
-    [base_class] no longer carries, and [theme] the variants the project
-    declared, its breakpoints among them. Used internally by {!Build}. *)
+    [base_class] does not carry, and [theme] the variants the project declared,
+    its breakpoints among them. Used internally by {!Build}. *)
 
 val modifier_to_rule :
   ?inner_has_hover:bool ->

@@ -57,8 +57,7 @@ let arbitrary_var_fallbacks () =
     (Astring.String.is_infix ~affix:"cursor:var(--c,var(--d))"
        (inline_css "cursor-[var(--c,var(--d))]"));
   check (list string) "paren outer reference" [ "--top" ] (refs "top-(--top,0)");
-  (* The affix here stopped at the comma, so it said the reference survived but
-     not what the fallback became. *)
+  (* The whole declaration: the reference survives and so does its fallback. *)
   Test_helpers.check_declarations "top-(--top,0)" [ "top:var(--top,0)" ];
   (* The whole value here too, for the same reason. *)
   check bool "paren shorthand inline keeps its override point" true
@@ -126,11 +125,10 @@ let var_in_theme_layer () =
 
 (* Tailwind spells one custom-property zero two ways: [--tw-ring-offset-width:
    0px] in the properties layer's bulk declaration, but [initial-value: 0] in
-   its own [@property] rule (checked 2026-08-29 against the real CLI). Every
-   other zero-initialised [Length] variable (border-spacing-x/y) gets "0" in
-   both places, and the canonical [--diff] comparison treats "0" and "0px" as
-   the same length, so a regression here would not show up there - only this
-   pinned literal catches it. *)
+   its own [@property] rule. Every other zero-initialised [Length] variable
+   (border-spacing-x/y) gets "0" in both places. The canonical [--diff]
+   comparison treats "0" and "0px" as the same length, so only this pinned
+   literal holds the spelling. *)
 let ring_offset_width_properties_layer_spelling () =
   let css =
     match Tw.of_string "ring-2" with

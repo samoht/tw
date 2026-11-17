@@ -382,10 +382,8 @@ let resolve_command name =
    option tests rely on to stand a stub in front of the real one; reversing it
    would make the binary's own pin unconditional and take that away.
 
-   The fallback is for the case that used to fail outright: run from a directory
-   with no [node_modules] above it, discovery found nothing and the run died
-   reporting the pinned CLI "not installed", even though the binary was built in
-   a tree carrying it. Note this is the opposite order from [tmp_root], which
+   The fallback covers a run from a directory with no [node_modules] above it,
+   where the tree the binary was built in still carries the pinned CLI. Note this is the opposite order from [tmp_root], which
    writes scratch files and must not put them in a checkout the caller merely
    happens to stand in. Either answer still has to satisfy
    [command_is_required], so a tree pinning the wrong version is declined rather

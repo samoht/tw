@@ -22,13 +22,12 @@
 
 module Tailwind_gen = Tw_tools.Tailwind_gen
 
-(* Measured 2026-09-03 over [classlist.txt], 4825 classes of tailwindcss.com, at
-   the PR #667 + #668 stack against cascade main at 3a007e5b. Both keys and
+(* Counted over [classlist.txt], the classes of tailwindcss.com. Both keys and
    grouping come out of cascade's printer, so the number is only comparable
    against the cascade a run was built with, and every run prints which one that
-   was. CI pins cascade main through opam; a local [cascade/] symlink sitting on
-   someone's branch is the first thing to check when the count moves for no
-   reason in the sort code.
+   is. CI builds against the opam cascade; a local [cascade/] symlink on another
+   branch is the first thing to check when the count moves for no reason in the
+   sort code.
 
    [pairs] is pinned as a floor as well: a sheet that lost most of its rules
    would otherwise have nothing left to be out of order, and the gate would read

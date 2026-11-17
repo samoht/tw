@@ -5,7 +5,6 @@ module Css = Cascade.Css
 
 (* We work with Utility.t instead of Style.t *)
 open Style
-(** We still need Style.modifier type *)
 
 (** Helper to build class selectors *)
 let build_class prefix cls = Css.Selector.Class (prefix ^ cls)

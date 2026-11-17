@@ -215,9 +215,8 @@ let test_typed () =
   Test_helpers.check_typed_class "break-before-column" Tw.break_before_column;
   Test_helpers.check_typed_class "break-inside-avoid" Tw.break_inside_avoid
 
-(* [object-[50%]] is a position, not a variable name: it used to come out as
-   [object-position: var(--50)]. [z-auto] writes the keyword, since no theme
-   declares [--z-index-auto]. *)
+(* [object-[50%]] is a position, not a variable name. [z-auto] writes the
+   keyword, since no theme declares [--z-index-auto]. *)
 let test_object_and_z_values () =
   let has cls decl = Test_helpers.check_declarations cls [ decl ] in
   has "object-[50%]" "object-position:50%";
@@ -272,9 +271,7 @@ let test_arbitrary_token_stream () =
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [object-] writes one longhand, so every hint lands there and
    the position reader is handed what follows it; the hint stays in the class
-   name, which is what the markup carries. The reader was given the hint as
-   well, read nothing, and the class was refused where Tailwind writes the value
-   through.
+   name, which is what the markup carries. Tailwind writes the value through.
 
    A percentage rather than a keyword, because [object-[top]] is refused with no
    hint involved: the position reader here takes no keyword, which is a separate
@@ -291,10 +288,8 @@ let test_object_bracket_peels_a_hint () =
     [ "object-[position:50%]"; "object-[foo:50%]" ]
 
 (* [object-[...]] takes the whole CSS <position> grammar, as Tailwind does and
-   as the [bg-position-] bracket already did: an edge keyword, a pair of them, a
-   keyword with an offset, a var() and a math function. The reader here split on
-   spaces and read each side as a length, so every keyword form was refused and
-   only the two-length and one-length cases resolved. *)
+   as the [bg-position-] bracket does: an edge keyword, a pair of them, a
+   keyword with an offset, a var() and a math function. *)
 let test_object_bracket_position_grammar () =
   List.iter
     (fun (cls, decl) ->

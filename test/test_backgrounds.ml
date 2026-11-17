@@ -39,12 +39,8 @@ let test_of_string_invalid () =
   gradient "from-red-500";
   invalid "bg-linear-0x45"
 
-(* bg-[image:<gradient>] emits the literal background-image; it used to wrap the
-   value in a bogus var(--radial-gradient(...)). var() and url() image values
-   are unchanged. *)
-(* Regression: keyword background-size values under a [length:...] hint
-   (bg-[length:cover]) used to fall through to background-size:auto because
-   parse_bracket_size only handled numeric lengths. *)
+(* A keyword background-size value under a [length:...] hint (bg-[length:cover])
+   is the keyword. *)
 let test_bracket_length_keywords () =
   Test_helpers.check_declarations ~minify:false "bg-[length:cover]"
     [ "background-size: cover" ];
@@ -53,9 +49,7 @@ let test_bracket_length_keywords () =
 
 (* Tailwind substitutes [--alpha()] and [--spacing()] wherever they stand in an
    arbitrary value, so a gradient spelling one is the image with the
-   [color-mix()] in its place. The image reader decoded underscores alone, so
-   the gradient was no image and fell to the colour, which wrote the gradient
-   into [background-color]. *)
+   [color-mix()] in its place, written to [background-image]. *)
 let test_bracket_gradient_alpha_fn () =
   Test_helpers.check_declarations ~minify:false
     "bg-[linear-gradient(--alpha(red/50%),blue)]"
@@ -73,8 +67,7 @@ let test_bracket_gradient_alpha_fn () =
 (* Tailwind's colour-mix polyfill applies to a bracket image the way it applies
    to any declaration: a gradient whose stop is a [color-mix()] reading a custom
    property or [currentcolor] is written with the mix's first colour in the open
-   and as written behind the colour-mix guard, hinted or not. tw wrote the mix
-   alone. *)
+   and as written behind the colour-mix guard, hinted or not. *)
 let test_bracket_image_mix_polyfill () =
   let pair cls ~open_ ~guarded =
     Test_helpers.check_declarations ~minify:false cls
@@ -97,9 +90,8 @@ let test_bracket_image_mix_polyfill () =
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [bg-position-] and [bg-size-] each write one longhand, so
    every hint lands there and the reader is handed what follows it; the hint
-   stays in the class name, which is what the markup carries. Both readers were
-   given the hint as well, read nothing, and the classes were refused where
-   Tailwind writes the value through. *)
+   stays in the class name, which is what the markup carries. Tailwind writes
+   the value through. *)
 let test_bg_position_and_size_peel_a_hint () =
   List.iter
     (fun (cls, decl) ->
@@ -107,9 +99,8 @@ let test_bg_position_and_size_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          (* The whole list, which is where "lands in one longhand" is actually
-             said: an affix passes just as well beside a second declaration the
-             hint was not supposed to produce. *)
+          (* The whole list, which is where "lands in one longhand" is said: an
+             affix also passes beside a second declaration. *)
           Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("bg-position-[position:50%]", "background-position: 50%");
@@ -129,8 +120,7 @@ let test_bg_position_bracket_keyword_length () =
     [ "background-position: left top" ]
 
 (* A background-position bracket takes the whole CSS grammar: a single edge
-   keyword, and the four-value edge/offset form. Both used to fall through the
-   hand-rolled parser to a silent [center]. *)
+   keyword, and the four-value edge/offset form. *)
 let test_bracket_position_grammar () =
   let writes cls value =
     Test_helpers.check_declarations ~minify:false cls
@@ -140,15 +130,14 @@ let test_bracket_position_grammar () =
   writes "bg-[position:left_10px_top_20px]" "left 10px top 20px";
   writes "bg-position-[top]" "top";
   writes "bg-[top]" "top";
-  (* the lengths form is unchanged *)
+  (* the lengths form *)
   writes "bg-[position:120px_120px]" "120px 120px";
   writes "bg-position-[center_-100px]" "50% -100px"
 
 (* A bracket value the property cannot take goes to that property anyway: the
    hint chose the longhand, and the browser discards what it cannot read. What
-   is ruled out is the two answers that are neither - [bg-[image:...]] used to
-   emit an empty rule and [bg-[position:...]] a plausible-looking [center], so
-   the class silently painted something it never asked for. *)
+   is ruled out is an answer that is neither: an empty rule, or a substituted
+   value such as [center]. *)
 let test_invalid_bracket_value () =
   let accepted cls =
     match Tw.of_string cls with
@@ -253,23 +242,20 @@ let rendering_matches_tailwind () =
     ~test_name:"backgrounds render like Tailwind"
     (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
 
-(* An arbitrary url() with its own quotes must not be double-wrapped: tw used to
-   emit the broken url("'/img/x.png'"); it now canonicalises to a valid
-   url(). *)
+(* An arbitrary url() with its own quotes is not double-wrapped: it
+   canonicalises to a valid url(). *)
 let test_bg_arbitrary_url () =
   List.iter
     (fun cls ->
-      (* The whole declaration, so the double-quoting this test was written for
-         is ruled out by the value rather than by a second search for a string
-         that must not appear. *)
+      (* The whole declaration, so the value itself rules out double quoting. *)
       Test_helpers.check_declarations ~minify:false cls
         [ "background-image: url(/img/x.png)" ])
     [
       "bg-[url('/img/x.png')]";
       "bg-[url(\"/img/x.png\")]";
       "bg-[url(/img/x.png)]";
-      (* The image: data-type hint forces background-image; the url() must not
-         be mis-read as a var (it used to emit var(--url(/img/x.png))). *)
+      (* The image: data-type hint forces background-image; the url() is not
+         read as a var. *)
       "bg-[image:url(/img/x.png)]";
     ]
 
@@ -278,7 +264,7 @@ let test_bg_arbitrary_url () =
    folded into a literal colour. *)
 let test_bg_var_opacity () =
   (* Both arms: an unguarded fallback leaving the var() bare, then the mix under
-     @supports. The affix this replaces named only the second. *)
+     @supports. *)
   Test_helpers.check_declarations ~minify:false "bg-[var(--x)]/50"
     [
       "background-color: var(--x)";
@@ -294,8 +280,7 @@ let test_arbitrary_underscore_escape () =
 
 (* A [url()] is CSS source, so a [\]] in it is one character of the URL, not a
    backslash of its own: [url(a\]b)] and [url(a]b)] name the same file, and
-   Tailwind emits the first verbatim. tw used to hand cascade the backslash as
-   well and emit the double-escaped url("a\\]b"). *)
+   Tailwind emits the first verbatim, with no second escape. *)
 let test_bracket_url_escape () =
   let has cls decl =
     Test_helpers.check_declarations ~minify:false cls [ decl ]
@@ -309,9 +294,8 @@ let test_bracket_url_escape () =
   has "bg-[url('a_b.png')]" "background-image: url(a_b.png)"
 
 (* A data-type hint says how to read the value written after it; it does not
-   make that value the name of a custom property. [bg-[color:red]] wrote
-   [background-color: var(--red)] where Tailwind writes [background-color:
-   red]. *)
+   make that value the name of a custom property: Tailwind writes
+   [bg-[color:red]] as [background-color: red]. *)
 let test_bracket_data_type_hint_reads_the_value () =
   check_declarations "bg-[color:red]" [ "background-color:red" ];
   check_declarations "bg-[url:url(a.png)]" [ "background-image:url(a.png)" ];

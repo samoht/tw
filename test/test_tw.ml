@@ -452,15 +452,13 @@ let responsive_breakpoints () =
 
 (* [theme(colors.<name>.<shade>)] resolves against the threaded theme, not the
    default palette: a project that overrides [--color-red-500] gets its own
-   colour back, the way [bg-red-500] already does. tw used to answer with the
-   built-in oklch, so one class read the override and the other did not. *)
+   colour back, the way [bg-red-500] does. *)
 let theme_function_reads_the_project_palette () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#123456") ]
   in
-  (* The whole declaration. The affixes these replace searched the sheet for a
-     hex and for the text "oklch", which the theme bindings the class drags in
-     supply on their own. *)
+  (* The whole declaration: the theme bindings the class drags in carry a hex
+     and an oklch of their own. *)
   Test_helpers.check_declarations ~theme ~minify:false
     "[color:theme(colors.red.500)]" [ "color: #123456" ];
   Test_helpers.check_declarations ~theme ~minify:false
@@ -468,9 +466,7 @@ let theme_function_reads_the_project_palette () =
     [ "color: oklch(62.3% .214 259.815)" ]
 
 (* [theme(colors.<name>.<shade>/<alpha>)] mixes the alpha into whatever value
-   the theme bound the colour to, the way Tailwind does. The alpha was spliced
-   in by chopping the value's closing paren, so a project that bound its palette
-   entry to a hex kept the colour and silently lost the alpha. *)
+   the theme bound the colour to, a hex included, the way Tailwind does. *)
 let theme_function_alpha_reads_any_palette_value () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#ef4444") ]
@@ -492,12 +488,10 @@ let theme_function_alpha_reads_any_palette_value () =
     (Result.is_error (Tw.of_string ~theme "[color:theme(colors.red.500/abc)]"))
 
 (* [theme()] resolves against the project's own binding and the resolved value
-   is written back into the class string, which reads a bare [_] as a space. A
-   project that binds a palette entry to a variable whose name carries an
-   underscore lost it: [var(--brand_red)] came back as [var(--brand red)], which
-   names a different variable, and an arbitrary property carrying it was dropped
-   outright. Tailwind v4.3.3 emits [var(--brand_red)] for the same theme, under
-   the class the source spells. *)
+   is written back into the class string, which reads a bare [_] as a space. The
+   underscore of a variable name survives that: Tailwind v4.3.3 emits
+   [var(--brand_red)], not [var(--brand red)], under the class the source
+   spells. *)
 let theme_function_keeps_an_underscore () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -956,9 +950,6 @@ let ordering_complex_card () =
     ]
 
 (* ===== MISSING FEATURE TESTS ===== *)
-(* These tests exercise features that may have incomplete typed API or known
-   diffs against real Tailwind. They serve as regression targets: once the
-   underlying implementation is fixed, the test should pass. *)
 
 let typed_utility_surface () =
   check_module Layout.clear_left;
@@ -1236,12 +1227,7 @@ let divide_color () =
   check (require_parse "divide-red-600")
 
 (* -- 4. Decoration skip ink ----------------------------------------------- *)
-(* text-decoration-skip-ink is a CSS property controlling ink skipping around
-   descenders. Tailwind v4 has decoration-skip-ink-auto and
-   decoration-skip-ink-none.
-   NOTE: Currently rejected by of_string (API gap). *)
-
-(* decoration-skip-ink was dropped in Tailwind v4. Verify we reject it. *)
+(* Tailwind v4 has no [decoration-skip-ink-*] utility. *)
 let decoration_skip_ink () =
   Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
     "decoration-skip-ink-auto";
@@ -1249,9 +1235,6 @@ let decoration_skip_ink () =
     "decoration-skip-ink-none"
 
 (* -- 5. Word break utilities ---------------------------------------------- *)
-(* These have typed API and should already work. Test them for completeness
-   and parity. *)
-
 let word_break_utilities () =
   check break_normal;
   check break_words;
@@ -1342,9 +1325,7 @@ let bg_shades color shade_list =
   List.map (fun shade -> bg ~shade color) shade_list
 
 (* An inline style is not a rule, so [declarations_of_class] cannot read it; the
-   string itself is the assertion. It used to be three searches for a property
-   name, which said nothing about any value and passed on a sheet where every
-   one of them was empty. *)
+   string itself is the assertion. *)
 let inline_styles () =
   Alcotest.(check string)
     "the whole inline style"
@@ -1352,9 +1333,7 @@ let inline_styles () =
      color: #fff"
     (to_inline_style [ p 4; bg blue; text white ])
 
-(* Four utilities together write four rules and no more. The searches this
-   replaces were for [.p-4] and friends anywhere in the text, which the selector
-   [.p-40] satisfies just as well. *)
+(* Four utilities together write four rules and no more. *)
 let style_combination () =
   let css = to_css [ p 4; bg blue; text white; rounded_lg ] in
   Alcotest.(check (list string))
@@ -1369,9 +1348,7 @@ let style_combination () =
 let paren_var_shorthand () =
   let writes cls decl selector =
     Test_helpers.check_declarations ~minify:false cls [ decl ];
-    (* The whole selector, which is where "keeps the paren spelling, not the
-       bracket form" is actually said: the bracket form was ruled out by a
-       second search for a string that must not appear. *)
+    (* The whole selector keeps the paren spelling, not the bracket form. *)
     match Tw.of_string cls with
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
     | Ok u ->
@@ -1783,12 +1760,10 @@ let unknown_class_keeps_source_order () =
 
 (* A [@theme] block that removes a token takes every utility reading it: a
    namespace reset such as [--text-*: initial] leaves [text-lg] no size to
-   write, and Tailwind compiles nothing for the candidate. The palette and the
-   breakpoints refused theirs already; every other family let the utility
-   through, reading a variable the theme layer no longer declares, or, where the
-   family inlines the token's value, writing the default as if the block had
-   said nothing. A utility of another family, and a static utility whose theme
-   token stands only in a [var()] fallback, is untouched. *)
+   write, and Tailwind compiles nothing for the candidate. Every family refuses
+   it, whether it reads the token through a variable or inlines its value. A
+   utility of another family, and a static utility whose theme token stands only
+   in a [var()] fallback, is untouched. *)
 let test_removed_token_refuses_its_readers () =
   let refused namespace classes =
     let entry = Test_helpers.theme_entry ("--" ^ namespace ^ ": initial;") in
@@ -1897,8 +1872,6 @@ let core_tests =
     test_case "order: transitions" `Quick ordering_transitions;
     test_case "order: with variants" `Quick ordering_with_variants;
     test_case "order: complex card" `Quick ordering_complex_card;
-    (* Missing feature tests — expected to fail until features are
-       implemented *)
     test_case "fractional spacing" `Slow fractional_spacing;
     test_case "fractional translate" `Slow fractional_translate;
     test_case "fractional width/height" `Slow fractional_width_height;

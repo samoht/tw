@@ -107,10 +107,8 @@ let test_removed_breakpoint_drops_its_variants () =
     (Result.is_ok (Tw.of_string ~theme "tablet:flex"))
 
 (* [--breakpoint-md: initial] removes the one breakpoint, and Tailwind emits
-   nothing for [md:flex]. The built-in table let it go, and the custom
-   breakpoints then took it back: [initial] reads as a length, so the removed
-   token was a custom breakpoint of that width, and the sheet carried [@media
-   (min-width: initial)], a query no browser honours. *)
+   nothing for [md:flex]. [initial] is not a breakpoint width, so no [@media
+   (min-width: initial)] query, which no browser honours, takes its place. *)
 let test_removed_single_breakpoint_drops_its_variants () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("breakpoint-md", "initial") ]
@@ -524,12 +522,11 @@ let test_valid_bracket_modifiers () =
     {|@supports(display:grid){.supports-\[display\:grid\]\:flex{display:flex}}|}
 
 (* A [supports-[...]] condition that is not a bare [prop:value] pair goes to the
-   condition reader whole. [not(display:grid)] was split at its colon into the
-   property [not(display] and the value [grid)], which cascade refused with a
-   [Failure] out of a pure render, exit 125. Tailwind 4.3.3 writes [@supports
-   not (display:grid)], spacing a keyword the function-token spelling would hide
-   from the [@supports] grammar, and passes [selector(...)] through. A condition
-   the grammar has no production for is refused, not raised. *)
+   condition reader whole, so [not(display:grid)] is not split at its colon.
+   Tailwind 4.3.3 writes [@supports not (display:grid)], spacing a keyword the
+   function-token spelling would hide from the [@supports] grammar, and passes
+   [selector(...)] through. A condition the grammar has no production for is
+   refused, not raised. *)
 let test_supports_condition_text () =
   check_utilities "supports-[not(display:grid)]:flex"
     {|@supports not (display:grid){.supports-\[not\(display\:grid\)\]\:flex{display:flex}}|};

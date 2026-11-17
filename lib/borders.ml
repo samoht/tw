@@ -532,8 +532,7 @@ module Handler = struct
   let outline_style_var =
     (* Tailwind emits @property --tw-outline-style after the ring group and
        before the filters. property_order 21 places it just after
-       --tw-ring-offset-shadow (20) in the cross-family comparison; the earlier
-       value of 0 wrongly sorted it ahead of the whole ring/border block. *)
+       --tw-ring-offset-shadow (20) in the cross-family comparison. *)
     Var.property_default Css.Outline_style
       ~initial:(Solid : Css.outline_style)
       ~property_order:21 ~family:`Border "tw-outline-style"

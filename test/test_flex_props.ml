@@ -3,8 +3,6 @@ open Alcotest
 let check = Test_helpers.check_handler_roundtrip (module Tw.Flex_props.Handler)
 
 let of_string_valid () =
-  (* Note: Direction and Wrap utilities are now in Flex_layout module *)
-
   (* Flex shortcuts *)
   check "flex-1";
   check "flex-auto";
@@ -166,9 +164,7 @@ let test_basis_arbitrary_keeps_the_authored_spelling () =
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [basis-] writes one longhand, so every hint lands there and
    the flex-basis reader is handed what follows it; the hint stays in the class
-   name, which is what the markup carries. The reader used to be given the hint
-   as well, so it read nothing and the class was refused where Tailwind emits
-   [flex-basis: 10px]. *)
+   name, which is what the markup carries. Tailwind emits [flex-basis: 10px]. *)
 let test_basis_arbitrary_peels_a_hint () =
   List.iter
     (fun cls ->

@@ -22,7 +22,6 @@ let test_widths () =
   check "w-max";
   check "w-fit";
   check "w-auto";
-  (* Large sizes - the bug that was fixed *)
   check "w-10";
   check "w-32";
   check "w-64";
@@ -187,13 +186,12 @@ let test_logical_size_fractions () =
   check_declarations "max-inline-3/4" [ "max-inline-size:calc(3/4*100%)" ];
   check_declarations "min-inline-2/3" [ "min-inline-size:calc(2/3*100%)" ]
 
-(* aspect-square inlines the 1/1 ratio in v4; it used to emit aspect-ratio:
-   var(--aspect-square) with a stray --aspect-square theme token that bare
-   Tailwind does not define. *)
+(* aspect-square inlines the 1/1 ratio in v4: bare Tailwind defines no
+   --aspect-square theme token. *)
 let test_aspect_square_inlined () =
   let css = Tw.(to_css [ aspect_square ]) |> Tw.Css.to_string ~minify:true in
-  (* The exact list already says the utility references no var. What it cannot
-     say is that no token was minted for it, which is a :root binding. *)
+  (* The exact list says the utility references no var; the search says no :root
+     binding is minted for it. *)
   check_declarations "aspect-square" [ "aspect-ratio:1" ];
   Alcotest.check bool "aspect-square emits no --aspect-square token" false
     (Astring.String.is_infix ~affix:"--aspect-square" css)
@@ -331,11 +329,10 @@ let aspect_candidate_order_matches_tailwind () =
     ]
 
 (* Tailwind interleaves spacing and fractions by magnitude: w-0.5, w-1, w-1.5,
-   w-1/2, w-1/3, w-2, w-2/3, w-3/4. tw used to sort all fractions ahead of all
-   spacing (a flat offset), reversing conflicting rules (both set width). Order
-   is the claim, so positions are read back: the canonical differ against the
-   CLI's minified sheet also reads lightningcss's rounded 33.3333% as a value
-   the exact calc(1/3 * 100%) is not. *)
+   w-1/2, w-1/3, w-2, w-2/3, w-3/4, and both set width, so the order decides
+   which one wins. Order is the claim, so positions are read back: the canonical
+   differ against the CLI's minified sheet also reads lightningcss's rounded
+   33.3333% as a value the exact calc(1/3 * 100%) is not. *)
 let fraction_interleave_matches_tailwind () =
   let classes =
     Test_helpers.shuffle
@@ -422,19 +419,17 @@ let test_arbitrary_calc () =
   check_declarations "w-[calc(100vh-4rem)]" [ "width:calc(100vh - 4rem)" ]
 
 (* A width fraction is read as a percentage, from any denominator: Tailwind has
-   no fixed scale here, and w-3/8 used to be an unknown class. *)
+   no fixed scale here. *)
 let test_any_fraction_denominator () =
   check_declarations "w-3/8" [ "width:calc(3/8*100%)" ];
   check_declarations "w-7/9" [ "width:calc(7/9*100%)" ]
 
-(* A [/] inside a bracket belongs to the value, not to a fraction: the fraction
-   branch used to claim w-[calc(2px/2)] and reject it. *)
+(* A [/] inside a bracket belongs to the value, not to a fraction. *)
 let test_bracket_keeps_its_slash () =
   check_declarations "w-[calc(2px/2)]" [ "width:calc(2px/2)" ];
   check_declarations "w-1/2" [ "width:calc(1/2*100%)" ]
 
-(* The px step exists on the logical sizes too: block-px and inline-px used to
-   be unknown classes. *)
+(* The px step exists on the logical sizes too. *)
 let test_logical_px_step () =
   check_declarations "block-px" [ "block-size:1px" ];
   check_declarations "inline-px" [ "inline-size:1px" ]

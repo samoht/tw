@@ -33,9 +33,9 @@ module Handler = struct
         in
         (* v4 has content-none, arbitrary content-[...], and content-<token>
            when the @theme defines --content-<token>. A bare word like
-           content-wrapper with no such token is not a utility (it used to be
-           wrongly accepted). An unquoted bracket (content-[attr(before)])
-           carries a function value, parsed as a content list. *)
+           content-wrapper with no such token is not a utility. An unquoted
+           bracket (content-[attr(before)]) carries a function value, parsed as
+           a content list. *)
         if bracket_quoted '"' then
           let value = String.sub joined 2 (String.length joined - 4) in
           Ok (Content value)

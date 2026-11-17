@@ -25,9 +25,8 @@ let test_invalid () =
     "scrollbar-gutter-foo"
 
 (* [scrollbar-color] reads the two custom properties the same utility declares.
-   Both names were written out three times over in one file, so a rename of
-   either handle would leave the property referenced but never set, and the
-   scrollbar would fall back to the browser's colours. *)
+   A property referenced but never set makes the scrollbar fall back to the
+   browser's colours. *)
 let test_declares_what_it_references () =
   let sheet =
     let classes = [ "scrollbar-thumb-red-500"; "scrollbar-track-gray-200" ] in
@@ -67,9 +66,7 @@ let test_declares_what_it_references () =
     (names ~read:true)
 
 (* Tailwind writes [transparent] into the custom property, and the optimizer
-   folds a token stream to [#0000]. Spelling the keyword as text therefore
-   produced the fold it was written to avoid, and the roundtrip checks above
-   never looked at the value. *)
+   folds a token stream to [#0000], so the keyword is typed, not text. *)
 let test_transparent_keeps_its_keyword () =
   let css =
     match Tw.of_string "scrollbar-thumb-transparent" with

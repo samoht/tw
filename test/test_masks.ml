@@ -47,8 +47,7 @@ let test_typed () =
 
 (* [mask-[<image>]] takes any background-image, not only a linear-gradient. *)
 let test_bracket_image () =
-  (* The whole list. A mask utility aliases its property for WebKit, so the
-     affix this replaces was satisfied by the unaliased arm alone. *)
+  (* The whole list, since a mask utility aliases its property for WebKit. *)
   Test_helpers.check_declarations "mask-[radial-gradient(white,black)]"
     [
       "-webkit-mask-image:radial-gradient(white,black)";
@@ -58,9 +57,7 @@ let test_bracket_image () =
   check "mask-[conic-gradient(white,black)]";
   check "mask-[linear-gradient(white,black)]"
 
-(* A mask takes one image and one position per layer, comma-separated. The
-   single-[url(...)] reading used to swallow the comma, and a position list was
-   rejected outright. *)
+(* A mask takes one image and one position per layer, comma-separated. *)
 let test_bracket_layer_list () =
   (* Read unminified. What is under test is that the list keeps both layers, and
      minified spelling is not that question: a [%] ends a percentage token, so
@@ -155,9 +152,8 @@ let test_bracket_falls_through_to_a_longhand () =
       "mask-[10px:2em]";
     ]
 
-(* mask-size-[...], mask-[size:...] and mask-[length:...] only read px, %, and
-   rem before; every CSS length unit does now, matching real Tailwind's
-   mask-size-[2em]. *)
+(* mask-size-[...], mask-[size:...] and mask-[length:...] read every CSS length
+   unit, as Tailwind reads mask-size-[2em]. *)
 let test_bracket_size_units () =
   let has cls =
     Test_helpers.check_declarations cls
@@ -168,8 +164,7 @@ let test_bracket_size_units () =
   has "mask-[length:2em]"
 
 (* A mask-position bracket takes the whole CSS grammar, the same as
-   background-position: a single edge keyword and the edge/offset form. Both
-   used to fall through the hand-rolled parser to a silent [center]. *)
+   background-position: a single edge keyword and the edge/offset form. *)
 let test_bracket_position_grammar () =
   (* Unminified, so the assertions read as the grammar they are about. Compact
      spelling belongs to the minifier: [10px 20px] keeps its space while [30%

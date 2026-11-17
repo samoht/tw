@@ -300,8 +300,8 @@ module Handler = struct
         ("place-self-center-safe", place_self_center_safe, 76002)
     | Place_self_end_safe -> ("place-self-end-safe", place_self_end_safe, 76004)
 
-  (* Every constructor, for the class-name lookup. A missing entry costs a class
-     that no longer parses, which the round-trip test reports. *)
+  (* Every constructor, for the class-name lookup. A constructor missing here
+     has no class that parses to it, which the round-trip test reports. *)
   let all =
     [
       (* Justify content *)

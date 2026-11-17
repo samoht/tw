@@ -56,10 +56,9 @@ let candidate_order () =
   Test_helpers.check_class_order ~test_name:"padding candidate order"
     [ "py-2"; "py-1.25"; "py-1.5"; "py-1" ]
 
-(* Each step multiplies the spacing scale by its own number. The substring
-   [*64)] this used to look for is in [calc(var(--spacing)*64)] and in a dozen
-   other values, so it said little about what the class writes; the whole
-   declaration is what the CLI is held to. *)
+(* Each step multiplies the spacing scale by its own number. The whole
+   declaration is what the CLI is held to: a substring such as [*64)] occurs in
+   a dozen other values. *)
 let test_css_values () =
   Test_helpers.check_declarations "p-64" [ "padding:calc(var(--spacing)*64)" ];
   Test_helpers.check_declarations "p-4" [ "padding:calc(var(--spacing)*4)" ];
@@ -83,9 +82,9 @@ let test_arbitrary_length_grammar () =
   check "px-[50%]";
   check "p-[calc(var(--spacing-6)-1px)]"
 
-(* Tailwind's [--spacing(N)] shorthand can appear inside an arbitrary value; it
-   is not CSS, so the whole utility used to drop out. Expanding it also has to
-   pull [--spacing] into the theme layer, which only colour tokens reached. *)
+(* Tailwind's [--spacing(N)] shorthand can appear inside an arbitrary value. It
+   is not CSS, so it is expanded, and the expansion pulls [--spacing] into the
+   theme layer. *)
 let test_arbitrary_spacing_fn () =
   let css cls =
     match Tw.of_string cls with
@@ -101,8 +100,7 @@ let test_arbitrary_spacing_fn () =
     (Astring.String.is_infix ~affix:"--spacing:.25rem"
        (css "py-[calc(--spacing(2)+1px)]"))
 
-(* The [']-suffixed sibling of each int constructor takes a half-step float; the
-   int base keeps emitting what it always did. *)
+(* The [']-suffixed sibling of each int constructor takes a half-step float. *)
 let typed_prime () =
   let open Tw in
   check_typed_class "p-0.5" (p' 0.5);

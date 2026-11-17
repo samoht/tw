@@ -1631,8 +1631,6 @@ val diagonal_fractions : t
 val stacked_fractions : t
 (** [stacked_fractions] uses stacked fraction glyphs. *)
 
-(* moved: Text Indent and Vertical Align subsections now appear later *)
-
 (** {2 Letter Spacing}
     @see <https://tailwindcss.com/docs/letter-spacing> Letter Spacing *)
 
@@ -2035,8 +2033,6 @@ val bg_current : t
 (** [bg_current] sets background color to match the element's text color. If the
     element has [text ~shade:500 blue], the background will also be blue-500.
     Useful for icons and decorative elements that should match text. *)
-
-(* Text color declarations moved under Typography → Color. *)
 
 (** {2 Background Image}
     @see <https://tailwindcss.com/docs/background-image> Background Image *)
@@ -2619,8 +2615,6 @@ val rounded_bl_4xl : t
 
 val rounded_bl_full : t
 (** [rounded_bl_full] sets full rounding on bottom-left corner. *)
-
-(* Table-related utilities moved under the Tables section. *)
 
 (** {1 Effects} *)
 
@@ -3958,8 +3952,8 @@ val sr_only : t
     accessible. *)
 
 val not_sr_only : t
-(** [not_sr_only] reverses {!val-sr_only}; it makes previously
-    screen-reader-only content visible. *)
+(** [not_sr_only] reverses {!val-sr_only}: it makes screen-reader-only content
+    visible again. *)
 
 (** {1 Prose Typography}
 
@@ -4173,8 +4167,6 @@ module Variant_order = Variant_order
 
 module Var = Var
 (** CSS variable tracking and generation *)
-
-(* Version module is now in the css library *)
 
 val theme_token_rename : theme:Scheme.t -> (string -> string) option
 (** [theme_token_rename ~theme] is the custom-property rename a [prefix(tw)]

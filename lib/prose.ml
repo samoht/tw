@@ -12,7 +12,6 @@ open Css
 type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
 
-(* Create prose variables using the new API *)
 let prose_body_var = Var.channel Color "tw-prose-body"
 let prose_headings_var = Var.channel Color "tw-prose-headings"
 let prose_lead_var = Var.channel Color "tw-prose-lead"
@@ -139,22 +138,13 @@ let with_after selector =
   Css.Selector.compound [ selector; Css.Selector.After Css.Selector.Single ]
 
 let radius len = Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
-
-(* blockquote paragraph pseudo-element selectors were only used in removed
-   duplicates *)
 let blockquote_code = blockquote ++ code
 let thead_th_code = thead ++ th ++ code
 let pre_code = pre ++ code
 let thead_th = thead ++ th
 let tbody_tr = tbody ++ tr
 let tbody_tr_last_child = tbody ++ (tr && last_child)
-
-(* tbody_td and tfoot_td now constructed inline *)
-(* picture_img now constructed inline *)
-(* ol_li and ul_li now constructed inline *)
-(* h2_code and h3_code now constructed inline in typography_rules *)
 let nested_lists = Css.Selector.list [ ul ++ ul; ul ++ ol; ol ++ ul; ol ++ ol ]
-(* These compound selectors are now constructed inline in typography_rules *)
 
 (* Theme record for all prose color variables *)
 type prose_theme = {

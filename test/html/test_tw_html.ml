@@ -299,8 +299,8 @@ let test_repeated_utilities_emit_one_sheet () =
   check string "sheet is the same" (sheet once) (sheet repeated)
 
 (* A class the parser does not recognise still reaches the rendered attribute -
-   a framework hook or a JS selector belongs there - but it is no longer
-   invisible: [unknown_classes] reports it so a typo can be caught. *)
+   a framework hook or a JS selector belongs there - and [unknown_classes]
+   reports it so a typo can be caught. *)
 let test_unknown_class_passes_through () =
   let elem = div ~at:[ At.v "class" "flex bg-blu-500 my-app-header" ] [] in
   check string "unknown names still rendered"

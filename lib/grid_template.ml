@@ -256,9 +256,8 @@ module Handler = struct
 
   (* Tailwind emits these five families in the alphabetical order of the CSS
      property each declares: grid-auto-columns, grid-auto-flow, grid-auto-rows,
-     grid-template-columns, grid-template-rows. The bands below follow that, not
-     the template-before-auto reading they used to have, which put
-     [auto-rows-min] after [grid-cols-3] where Tailwind puts it before. *)
+     grid-template-columns, grid-template-rows. The bands below follow that, so
+     [auto-rows-min] sorts before [grid-cols-3]. *)
   let suborder = function
     (* Grid auto columns (10000-10099) *)
     (* Order: spacing (numeric) → arbitrary → keywords alphabetical *)

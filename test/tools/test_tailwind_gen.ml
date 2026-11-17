@@ -70,12 +70,10 @@ let test_arbitrary_color_opacity_matches_cli () =
   check_class "accent-[#0088cc]/50";
   check_class "accent-[#0088cc]/25"
 
-(* Regression: candidates are fed to the real CLI verbatim, not inside an
-   escaped HTML class attribute. The attribute forced single quotes to the HTML
-   entity [&#39;], which the extractor read literally into the selector
-   ([.bg-\[url\(\&\#39\;...\)\]]), diverging from tw's [.bg-\[url\(\'...\'\)\]].
-   Arbitrary url() values with single quotes must round-trip with no entity
-   mangling. *)
+(* Candidates are fed to the real CLI verbatim, not inside an escaped HTML class
+   attribute, whose [&#39;] entity the extractor would read literally into the
+   selector. Arbitrary url() values with single quotes round-trip as
+   [.bg-\[url\(\'...\'\)\]]. *)
 let test_arbitrary_url_matches_cli () =
   Test_helpers.require_tailwind_cli ();
   let cls = "bg-[url('/img/x.svg')]" in

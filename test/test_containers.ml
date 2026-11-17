@@ -65,8 +65,8 @@ let suborder_matches_tailwind () =
     ~test_name:"containers suborder matches Tailwind" shuffled
 
 (* A container-query variant keeps the raw bracket token in its class name, and
-   an outer variant wraps it rather than replacing it: the composition used to
-   fall through, so [sm:@max-md:X] lost its breakpoint entirely. *)
+   an outer variant wraps it rather than replacing it: [sm:@max-md:X] keeps its
+   breakpoint. *)
 let test_container_variant_composition () =
   let css cls =
     match Tw.of_string cls with
@@ -120,9 +120,8 @@ let test_theme_fn_container_query () =
 let test_variant_width_order () =
   (* Tailwind orders container variants like breakpoints: the @max-* negated
      lower bounds first and largest first, then the plain ones ascending, with a
-     named container interleaved at its own width. The variant order alone gave
-     every @-prefixed variant the same key, so they fell through to an
-     alphabetical comparison of the class prefix. *)
+     named container interleaved at its own width, not alphabetically by class
+     prefix. *)
   let classes =
     [
       "@md:flex";
@@ -208,8 +207,7 @@ let test_container_reads_the_breakpoint_scale () =
 (* A size query reads the width the project's [@theme] binds to
    [--container-<size>], as [max-w-<size>] does: under [--container-lg: 40rem]
    Tailwind writes [@lg:flex] as [@container (width >= 40rem)], and its [@max-]
-   twin as the negation. The scale was a fixed table, so the query kept 32rem
-   while [max-w-lg] took the project's width. *)
+   twin as the negation. *)
 let test_container_size_reads_the_theme () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("container-lg", "40rem") ]
@@ -231,8 +229,7 @@ let test_container_size_reads_the_theme () =
 
 (* A size the project declares as [--container-<name>] names a query the way the
    built-in scale does, under [@min-], [@max-] and a [/name] tail, and sorts
-   among the built-in sizes by its width, as Tailwind sorts it. It was an
-   unknown modifier, where [max-w-<name>] read the token. *)
+   among the built-in sizes by its width, as Tailwind sorts it. *)
 let test_container_theme_size () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default

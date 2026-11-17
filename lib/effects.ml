@@ -232,9 +232,8 @@ module Handler = struct
            ())
       ~universal:true ~property_order:20 ~family:`Ring "tw-ring-offset-shadow"
 
-  (* Note: ring_width_var was removed - Tailwind v4 embeds the width directly in
-     the --tw-ring-shadow calc() expression instead of using a separate
-     variable *)
+  (* No ring-width variable: Tailwind v4 writes the width directly into the
+     --tw-ring-shadow calc() expression. *)
 
   (* ============ Shared shadow helpers ============ *)
 

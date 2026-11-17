@@ -47,8 +47,8 @@ module Handler = struct
     | Y_contain -> ("y-contain", style [ overscroll_behavior_y Contain ], 607)
     | Y_none -> ("y-none", style [ overscroll_behavior_y None ], 608)
 
-  (* Every constructor, for the class-name lookup. A missing entry costs a class
-     that no longer parses, which the round-trip test reports. *)
+  (* Every constructor, for the class-name lookup. A missing entry leaves a
+     class that does not parse, which the round-trip test reports. *)
   let all =
     [
       Auto; Contain; None_; X_auto; X_contain; X_none; Y_auto; Y_contain; Y_none;

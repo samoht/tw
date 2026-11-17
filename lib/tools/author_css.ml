@@ -107,11 +107,9 @@ let render_nested_utilities ~classes stmts =
    rules - [@supports], [@media] - is not one of those: it nests with what it
    holds.
 
-   The theme block used to be dropped here rather than hoisted, so
-   [@apply rounded-lg] emitted a rule reading [var(--radius-lg)] with nothing
-   in the sheet declaring it. Colours and spacing hid it for a long time: those
-   two are rescued downstream by [Build.referenced_theme_decls], so only the
-   families carrying their own namespace showed the defect. *)
+   The theme block is hoisted, not dropped: [@apply rounded-lg] reads
+   [var(--radius-lg)], and [Build.referenced_theme_decls] restores only the
+   colour and spacing tokens downstream. *)
 let stands_at_top stmt =
   match Css.statement_selector stmt with
   | Some sel -> not (Css.Selector.exists_class (fun _ -> true) sel)
@@ -271,7 +269,7 @@ let replace_all ~needle ~by hay =
 (* A rule that is the bare [&] alone, as a media variant wraps the probe in,
    adds a nesting level the utility's own body cannot survive: its [@variant
    before] and the [@supports] an opacity colour emits end up three deep and the
-   sheet no longer parses. That level goes, so the slot takes its place; a [&]
+   sheet does not parse. That level goes, so the slot takes its place; a [&]
    that ends a longer selector, [:where([data-stack]) &], is the rule's own and
    stays. *)
 let drop_bare_amp_rules hay =

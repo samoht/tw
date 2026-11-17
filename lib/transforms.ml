@@ -677,11 +677,10 @@ module Handler = struct
   (** {1 Perspective and origin} *)
 
   (* A project that declares [--perspective-none] chooses the length the utility
-     resolves to, so read its value with the CSS length grammar rather than a
-     px-only test whose failure arm was a fabricated zero. A value the grammar
-     cannot read falls back to the utility's own meaning and still reaches the
-     sheet unaltered, since the theme layer restores the project's own text over
-     the bound value. *)
+     resolves to, so read its value with the CSS length grammar, any unit
+     included. A value the grammar cannot read falls back to the utility's own
+     meaning and still reaches the sheet unaltered, since the theme layer
+     restores the project's own text over the bound value. *)
   let perspective_none ?theme () =
     match Scheme.theme_value theme "perspective-none" with
     | Some value ->
@@ -830,10 +829,9 @@ module Handler = struct
 
      [transform-cpu] writes what [transform] writes, and [transform-gpu] adds
      translateZ(0) for GPU acceleration. The [@property] block for the five
-     channels belongs to [transform] alone, though: Tailwind declares them there
-     and neither of the other two carries them, so asking for the rules there
-     put a whole [@layer properties] in a sheet whose only transform utility was
-     one of those. *)
+     channels belongs to [transform] alone: Tailwind declares them there, so a
+     sheet whose only transform utility is [transform-cpu] or [transform-gpu]
+     has no [@layer properties]. *)
   let transform = style ~property_rules:rotate_skew_props [ rotate_skew_chain ]
   let transform_cpu = style [ rotate_skew_chain ]
   let transform_gpu = style [ transforms (Translate_z Zero :: chain_refs) ]

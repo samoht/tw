@@ -349,9 +349,8 @@ module Handler = struct
         Theme.register_default var (Css.Px px : Css.length))
       blur_sizes
 
-  (* Both targets bind the unified v4 [--blur-<size>] token and reference it;
-     Tailwind dropped the separate [--backdrop-blur-*] tokens, so the default
-     theme ships only [--blur-*]. *)
+  (* Both targets bind the v4 [--blur-<size>] token and reference it: Tailwind
+     v4's default theme has no [--backdrop-blur-*] tokens. *)
   let blur_sized target size =
     let _, theme_var, default_px = blur_size size in
     let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
@@ -819,8 +818,7 @@ module Handler = struct
     let scheme = Scheme.or_default theme in
     (* srgb fallback: the scheme hex when defined, else the colour resolved
        directly (oklch), matching Tailwind. The default scheme has no hex
-       colours, so the old [Scheme.hex_color]-only path raised on every
-       drop-shadow-<color>. *)
+       colours, so the oklch branch is the common one. *)
     let fallback_color =
       match Scheme.hex_color scheme color_name with
       | Option.Some hex -> Css.hex hex
@@ -1365,8 +1363,8 @@ module Handler = struct
                 Ok (Drop_shadow_color (c, shade))
             | Ok (c, shade, op) -> Ok (Drop_shadow_color_opacity (c, shade, op))
             (* Otherwise treat it as a custom [--drop-shadow-<name>] theme
-               token. Without such a token the class names nothing: it used to
-               parse and then emit an empty rule. *)
+               token. Without such a token the class names nothing and is not a
+               utility. *)
             | Error _ when drop_shadow_theme_bodies ~theme full <> Option.None
               ->
                 Ok (Drop_shadow_named full)
