@@ -44,6 +44,10 @@
   that cannot stand in a declaration or opens with an empty hint, as Tailwind
   does: `-mask-conic-[}]` raised out of `to_css` and `mask-linear-[a;b]`
   compiled (#951).
+- `space-x-[...]` and `space-y-[...]` take a `var()` and, negated, any length
+  or `var()`, as Tailwind does: `-space-x-[3px]` writes
+  `calc(calc(3px * -1) * var(--tw-space-x-reverse))` where tw refused the
+  class (#952).
 - A bracket opening with a data-type hint the family does not know writes only
   the value after the hint, as Tailwind does: `transition-[foo:color]` sets
   `transition-property: color`, not `foo:color`. This holds for `transition-`,

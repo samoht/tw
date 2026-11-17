@@ -174,8 +174,22 @@ let typed_negative () =
       ignore (gap_x' (-0.5)));
   check_typed_class "gap-0" (gap 0)
 
+(* A [space-*] bracket holding a length or a [var()] takes either sign, with the
+   value after any hint, as Tailwind writes it. *)
+let test_space_bracket_lengths () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "space-x-[var(--x)]";
+      "space-y-[foo:var(--x)]";
+      "-space-x-[3px]";
+      "-space-y-[50%]";
+      "-space-x-[var(--x)]";
+      "-space-y-[foo:3px]";
+    ]
+
 let tests =
   [
+    test_case "space bracket lengths" `Quick test_space_bracket_lengths;
     test_case "typed constructors: negative size" `Quick typed_negative;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;
