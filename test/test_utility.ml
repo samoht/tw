@@ -69,18 +69,6 @@ let test_deduplicate_empty () =
   let result = deduplicate [] in
   check int "empty list dedup" 0 (List.length result)
 
-(* Test CSS parsing - commented out as css_of_string was removed *)
-(* let test_css_of_string_valid () =
-  match Tw.Utility.css_of_string ".test { color: red; }" with
-  | Ok _ -> check bool "can parse CSS" true true
-  | Error _ -> fail "Failed to parse valid CSS"
-
-(* Test CSS parsing with invalid input *)
-let test_css_of_string_invalid () =
-  match Tw.Utility.css_of_string ".test { color }" with
-  | Ok _ -> fail "Should not parse invalid CSS"
-  | Error _ -> check bool "rejects invalid CSS" true true *)
-
 (* Test Utility.order returns correct priority and suborder *)
 let test_order_priorities () =
   let open Tw.Utility in
@@ -402,8 +390,6 @@ let tests =
     test_case "theme_bound carries a binding" `Quick test_theme_bound;
     test_case "deduplicate preserves order" `Quick test_deduplicate;
     test_case "deduplicate handles empty list" `Quick test_deduplicate_empty;
-    (* test_case "css_of_string valid input" `Quick test_css_of_string_valid; *)
-    (* test_case "css_of_string invalid input" `Quick test_css_of_string_invalid; *)
     test_case "order_of_property" `Quick test_order_of_property;
     test_case "order_of_property skips a vendor prefix" `Quick
       test_order_of_property_skips_vendor_prefix;
