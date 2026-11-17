@@ -368,15 +368,6 @@ let check_content_none_no_property () =
   check bool "content value keeps @property --tw-content" true
     (List.mem "--tw-content" value_names)
 
-let test_resolve_dependencies () =
-  (* Dependency resolution is now handled automatically by
-     Css.vars_of_declarations This test is kept for compatibility but
-     simplified *)
-  let _vars = [ "--color-blue-500"; "--spacing-4" ] in
-  (* Just check that the vars exist *)
-  check bool "has color var" true (String.length "--color-blue-500" > 0);
-  check bool "has spacing var" true (String.length "--spacing-4" > 0)
-
 let test_inline_no_vars_defaults () =
   (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
      rounded_sm which sets a default on its CSS var. *)
@@ -461,15 +452,6 @@ let test_inline_vs_variables_diff () =
     (has_var_in_declarations vars_decls);
   check bool "inline: no var()" false
     (has_var_in_declarations ~inline:true inline_decls)
-
-let test_resolve_deps_dedup_queue () =
-  (* Deduplication is now handled automatically by Css.vars_of_declarations This
-     test is kept for compatibility but simplified *)
-  let vars = [ "--text-xl"; "--text-xl"; "--text-xl-line-height" ] in
-  (* Just verify the vars exist - dedup happens in Css.vars_of_declarations *)
-  check bool "has text-xl var" true (List.mem "--text-xl" vars);
-  check bool "has text-xl line-height var" true
-    (List.mem "--text-xl-line-height" vars)
 
 (* Where [sheet] declares each of [vars], in the order the sheet declares them.
    The theme layer is the only place a [--name:] declaration appears; every
@@ -1413,14 +1395,11 @@ let tests =
       check_outline_style_after_ring;
     test_case "content-none emits no @property --tw-content" `Quick
       check_content_none_no_property;
-    test_case "resolve_dependencies" `Quick test_resolve_dependencies;
     test_case "inline_no_var_in_css_for_defaults" `Quick
       test_inline_no_vars_defaults;
     test_case "inline_style_no_var_for_defaults" `Quick
       test_inline_style_no_vars;
     test_case "inline_vs_variables_diff" `Quick test_inline_vs_variables_diff;
-    test_case "resolve_dependencies_dedup_and_queue" `Quick
-      test_resolve_deps_dedup_queue;
     test_case "theme layer family order" `Quick check_theme_layer_family_order;
     test_case "theme_layer_collects_media_refs" `Quick
       test_theme_layer_media_refs;

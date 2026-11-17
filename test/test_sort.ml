@@ -2,7 +2,6 @@ module Css = Cascade.Css
 open Alcotest
 open Tw.Color
 open Tw.Backgrounds
-open Tw.Padding
 
 (* OCaml 4.14 compat *)
 let index f lst =
@@ -125,175 +124,11 @@ let test_deterministic_ordering () =
   | first :: rest ->
       List.iter (fun css -> check string "deterministic output" first css) rest
 
-let test_cascade_order_violation () =
-  (* CSS cascade rule: when selectors have equal specificity, the last one in
-     source order wins. Sorting breaks this! *)
-
-  (* Example 1: User intentionally puts p-2 after p-4 to override *)
-  let user_intent = [ p 4; p 2 ] in
-  (* User wants p-2 to win *)
-
-  (* Extract the rules and convert to pairs *)
-  let rules = user_intent |> List.concat_map Tw.Rule.outputs in
-
-  (* Get selector strings from the rules *)
-  let selectors =
-    List.map
-      (fun rule ->
-        match rule with
-        | Tw.Output.Regular { selector; _ } -> Css.Selector.to_string selector
-        | _ -> "")
-      rules
-  in
-
-  Fmt.pr "@.=== CSS Cascade Order Violation Test ===@.";
-  Fmt.pr "User wrote: [ p 4; p 2 ] (expecting p-2 to override p-4)@.";
-  Fmt.pr "Extracted selectors: %a@."
-    (Fmt.list ~sep:(Fmt.any ", ") Fmt.string)
-    selectors;
-
-  (* Find the p-4 and p-2 selectors *)
-  let is_p4 sel = sel = ".p-4" in
-  let is_p2 sel = sel = ".p-2" in
-
-  let index f lst =
-    let rec go i = function
-      | [] -> None
-      | x :: _ when f x -> Some i
-      | _ :: rest -> go (i + 1) rest
-    in
-    go 0 lst
-  in
-  let p4_idx = index is_p4 selectors in
-  let p2_idx = index is_p2 selectors in
-
-  match (p4_idx, p2_idx) with
-  | Some i, Some j when i > j ->
-      Alcotest.fail
-        "CASCADE VIOLATION: p-4 comes after p-2, but user specified p-2 AFTER \
-         p-4!"
-  | Some i, Some j ->
-      Fmt.pr "Correct order preserved: p-4 at index %d, p-2 at index %d@." i j
-  | _ -> Alcotest.fail "Could not find both p-4 and p-2 selectors in output"
-
-let test_cascade_prose_separation () =
-  (* Test showing how sorting breaks intentional separation of .prose rules *)
-
-  (* Extract prose rules to see their structure *)
-  let rules = Tw.Rule.ordered_outputs Tw.Prose.prose in
-  let pairs = Tw.Build.selector_props_pairs rules in
-
-  Fmt.pr "@.=== Prose Rule Separation Test ===@.";
-  Fmt.pr "Prose generates %d rules total@." (List.length pairs);
-
-  (* Count how many .prose rules there are *)
-  let prose_rules =
-    List.filter (fun (sel, _, _) -> Css.Selector.to_string sel = ".prose") pairs
-  in
-
-  Fmt.pr "Found %d rules with selector .prose@." (List.length prose_rules);
-
-  (* Apply of_grouped to see what happens *)
-  let sorted_output = Tw.Build.of_grouped pairs in
-
-  (* Find .prose rules in sorted output *)
-  let sorted_prose_indices =
-    List.mapi
-      (fun i stmt ->
-        match Css.statement_selector stmt with
-        | Some sel when Css.Selector.to_string sel = ".prose" -> Some i
-        | _ -> None)
-      sorted_output
-    |> List.filter_map Fun.id
-  in
-
-  Fmt.pr "After of_grouped: .prose rules at indices %a@."
-    (Fmt.list ~sep:(Fmt.any ", ") Fmt.int)
-    sorted_prose_indices;
-
-  (* Check if prose rules became adjacent *)
-  match sorted_prose_indices with
-  | i :: j :: _ when j = i + 1 ->
-      Fmt.pr "WARNING: .prose rules are now ADJACENT (indices %d and %d)!@." i j;
-      Fmt.pr
-        "This means the optimizer will merge them, breaking the intended \
-         separation.@."
-  | _ -> Fmt.pr "Prose rules remain separated in output@."
-
+(* Tailwind orders two classes setting the same property by name, so bg-blue-500
+   precedes bg-red-500 whatever order they were written in. *)
 let test_cascade_color_override () =
-  (* Real-world example: user wants to override a color *)
-  let styles =
-    [
-      bg blue;
-      (* Initial color *)
-      text white;
-      (* Some other styles *)
-      bg red;
-      (* Override the background to red *)
-    ]
-  in
-
-  (* Extract rules *)
-  let rules = styles |> List.concat_map Tw.Rule.ordered_outputs in
-  let pairs = Tw.Build.selector_props_pairs rules in
-
-  Fmt.pr "@.=== Color Override Cascade Test ===@.";
-  Fmt.pr "User intent: bg-blue-500, text-white, bg-red-500 (red should win)@.";
-  Fmt.pr "Original pairs: %d rules@." (List.length pairs);
-
-  (* Check original order *)
-  let original_selectors = List.map (fun (sel, _, _) -> sel) pairs in
-  let orig_blue_idx =
-    let rec go i = function
-      | [] -> None
-      | sel :: _ when Css.Selector.to_string sel = ".bg-blue-500" -> Some i
-      | _ :: rest -> go (i + 1) rest
-    in
-    go 0 original_selectors
-  in
-  let orig_red_idx =
-    let rec go i = function
-      | [] -> None
-      | sel :: _ when Css.Selector.to_string sel = ".bg-red-500" -> Some i
-      | _ :: rest -> go (i + 1) rest
-    in
-    go 0 original_selectors
-  in
-
-  (match (orig_blue_idx, orig_red_idx) with
-  | Some bi, Some ri ->
-      Fmt.pr "Original order: blue at %d, red at %d (correct)@." bi ri
-  | _ -> Fmt.pr "Could not find both colors in original@.");
-
-  (* Apply of_grouped to see if order changes *)
-  let sorted_output = Tw.Build.of_grouped pairs in
-  let sorted_selectors =
-    List.map
-      (fun stmt ->
-        match Css.statement_selector stmt with
-        | Some sel -> Css.Selector.to_string sel
-        | None -> "")
-      sorted_output
-  in
-
-  let sorted_blue_idx =
-    index (fun sel -> sel = ".bg-blue-500") sorted_selectors
-  in
-  let sorted_red_idx =
-    index (fun sel -> sel = ".bg-red-500") sorted_selectors
-  in
-
-  match (sorted_blue_idx, sorted_red_idx) with
-  | Some bi, Some ri when bi > ri ->
-      Fmt.pr
-        "CASCADE VIOLATION: After sorting, bg-blue-500 (%d) comes AFTER \
-         bg-red-500 (%d)!@."
-        bi ri;
-      Fmt.pr "This breaks the user's intention - red should override blue!@.";
-      Alcotest.fail "Sorting reversed cascade order"
-  | Some bi, Some ri ->
-      Fmt.pr "After sorting: blue at %d, red at %d (order preserved)@." bi ri
-  | _ -> Fmt.pr "Could not find both colors in sorted output@."
+  Test_helpers.check_ordering_matches ~test_name:"background colour override"
+    Tw.[ bg blue; text white; bg red ]
 
 (* Test typography utilities come before color utilities *)
 let test_typography_before_color () =
@@ -3300,10 +3135,6 @@ let rules_of_grouped_prose_bug () =
   let output_rules = Tw.Build.of_grouped grouped_pairs in
   let prose_rules = count_prose_rules output_rules in
 
-  Fmt.pr "@.=== test_rules_of_grouped_prose_bug ===@.";
-  Fmt.pr "Input: 3 grouped pairs (2 .prose + 1 descendant)@.";
-  Fmt.pr "Expected: 2 .prose rules in output@.";
-  Fmt.pr "Actual: %d .prose rules in output@." (List.length prose_rules);
   check int "number of .prose rules" 2 (List.length prose_rules);
   check int "total output rules" 3 (List.length output_rules)
 
@@ -3318,9 +3149,6 @@ let tests =
     test_case "utilities layer color order" `Quick
       test_utilities_layer_color_order;
     test_case "deterministic ordering" `Quick test_deterministic_ordering;
-    (* CSS Cascade order tests - ensures source order is preserved *)
-    test_case "source order preservation" `Quick test_cascade_order_violation;
-    test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
     (* Utility group ordering *)
     test_case "typography before color" `Quick test_typography_before_color;

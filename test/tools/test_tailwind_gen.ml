@@ -7,8 +7,7 @@ open Tw_tools.Tailwind_gen
    runner: catching it would report a broken harness as a pass. *)
 let test_check_available () =
   Test_helpers.require_tailwind_cli ();
-  check_tailwindcss_available ();
-  check bool "tailwindcss available" true true
+  check_tailwindcss_available ()
 
 let rec dir_containing name dir =
   if Sys.file_exists (Filename.concat dir name) then Some dir
