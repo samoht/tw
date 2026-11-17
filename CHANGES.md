@@ -32,6 +32,10 @@
 - A `!`-prefixed utility that only the project's `@theme` makes valid, such as
   `!bg-brand`, sorts with its family rather than after every other utility
   (#920).
+- A bare opacity above 100, such as `opacity-110`, compiles to `opacity:1.1`
+  as Tailwind writes it, where tw refused it, and the opacity utilities sort
+  by class name the way Tailwind's do, `opacity-12.5` before `opacity-12.25`
+  (#939).
 
 ### Project stylesheets
 
