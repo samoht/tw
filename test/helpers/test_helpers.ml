@@ -1297,23 +1297,45 @@ let rejection_claim = function
   | Diverges why -> "Tailwind emits for it and tw does not: " ^ why
 
 (* The corpus [check_negative_premises] asks the CLI about, filled as the
-   negative tests run. One entry per class however many handlers refuse it. *)
-let negatives : (string, rejection) Hashtbl.t = Hashtbl.create 128
+   negative tests run: one entry per entrypoint and class, however many handlers
+   refuse the class. [None] is Tailwind's default theme. *)
+let negatives : (string option * string, rejection) Hashtbl.t =
+  Hashtbl.create 128
 
+(* The corpus grouped by entrypoint, so the CLI compiles each one once. *)
 let negative_corpus () =
-  Hashtbl.fold (fun cls why acc -> (cls, why) :: acc) negatives []
-  |> List.sort (fun (a, _) (b, _) -> String.compare a b)
+  let groups = Hashtbl.create 8 in
+  Hashtbl.iter
+    (fun (entry, cls) why ->
+      let classes = Option.value ~default:[] (Hashtbl.find_opt groups entry) in
+      Hashtbl.replace groups entry ((cls, why) :: classes))
+    negatives;
+  Hashtbl.fold
+    (fun entry classes acc ->
+      (entry, List.sort (fun (a, _) (b, _) -> String.compare a b) classes)
+      :: acc)
+    groups []
+  |> List.sort (fun (a, _) (b, _) -> Option.compare String.compare a b)
+
+let theme_entry decls =
+  Tw_tools.Tailwind_gen.entrypoint [] ^ "@theme { " ^ decls ^ " }\n"
 
 (** Generic test for invalid inputs - expects parsing to fail. [why] says what
     the rejection means, and is checked rather than taken on trust: the half
     that needs no CLI here, the Tailwind half in [check_negative_premises]. *)
-let check_invalid_input ?(why = Not_a_utility) (module H : Handler) input =
-  (match H.of_class Tw.Scheme.default input with
+let check_invalid_input ?(why = Not_a_utility) ?entry (module H : Handler) input
+    =
+  let theme =
+    match entry with
+    | None -> Tw.Scheme.default
+    | Some css -> Tw_tools.Entry_theme.of_css css
+  in
+  (match H.of_class theme input with
   | Ok _ -> Alcotest.fail ("Expected error for: " ^ input)
   | Error _ -> ());
   (* Whether tw as a whole knows the class. Only [Another_handler] says it does,
      and it is the one reason that does not make the class a tw gap. *)
-  let parses = Result.is_ok (Tw.of_string input) in
+  let parses = Result.is_ok (Tw.of_string ~theme input) in
   (match (why, parses) with
   | Another_handler, false ->
       Alcotest.failf
@@ -1323,7 +1345,7 @@ let check_invalid_input ?(why = Not_a_utility) (module H : Handler) input =
       Alcotest.failf "%s: Tw.of_string parses it, so \"%s\" is the wrong reason"
         input (rejection_claim why)
   | _ -> ());
-  Hashtbl.replace negatives input why
+  Hashtbl.replace negatives (entry, input) why
 
 module Any_utility = struct
   type t = Tw.t
@@ -1332,8 +1354,8 @@ module Any_utility = struct
   let to_class = Tw.pp
 end
 
-let check_invalid_class ?why cls =
-  check_invalid_input ?why (module Any_utility) cls
+let check_invalid_class ?why ?entry cls =
+  check_invalid_input ?why ?entry (module Any_utility) cls
 
 (* The class names a sheet's rules select on. Read off the parsed selectors
    rather than scanned for in the text: a non-ASCII or bracketed class is
@@ -1352,11 +1374,39 @@ let sheet_selectors css =
           | None -> acc)
         [] stylesheet
 
+(* The premises of one entrypoint's negative tests that Tailwind contradicts.
+   One generation covers them all: Tailwind's output for a set of classes is the
+   union of what it emits for each. *)
+let wrong_premises (entry, classes) =
+  let selectors =
+    sheet_selectors
+      (Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true
+         ?input_css:entry (List.map fst classes))
+  in
+  let emits cls =
+    List.exists (Css.Selector.exists_class (String.equal cls)) selectors
+  in
+  let name cls =
+    match entry with
+    | None -> cls
+    | Some entry -> Fmt.str "%s (under %S)" cls entry
+  in
+  List.filter_map
+    (fun (cls, why) ->
+      match (why, emits cls) with
+      | Not_a_utility, true ->
+          Fmt.kstr Option.some
+            "%s: filed as not a utility, but Tailwind emits a rule for it"
+            (name cls)
+      | (Another_handler | Diverges _), false ->
+          Fmt.kstr Option.some "%s: filed as \"%s\", but Tailwind emits nothing"
+            (name cls) (rejection_claim why)
+      | _ -> None)
+    classes
+
 (** Ask the pinned CLI whether Tailwind agrees with every negative test that has
     run. Nothing in [check_invalid_input] itself says Tailwind refuses the class
-    too, so a premise that is simply wrong passes on every run. One generation
-    covers the whole corpus: Tailwind's output for a set of classes is the union
-    of what it emits for each. *)
+    too, so a premise that is simply wrong passes on every run. *)
 let check_negative_premises () =
   require_tailwind_cli ();
   match negative_corpus () with
@@ -1367,35 +1417,17 @@ let check_negative_premises () =
       (* Alcotest files a test's own stderr under [_build/_tests/], so the count
          is reported at exit, where the summary line can be read beside it: a
          corpus this test says nothing about is a corpus nobody sizes. *)
-      let size = List.length corpus in
+      let size = List.length (List.concat_map snd corpus) in
+      let themes = List.length corpus in
       at_exit (fun () ->
-          Fmt.epr "@.%d negative test classes held to Tailwind's answer.@." size);
-      let selectors =
-        sheet_selectors
-          (Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true
-             (List.map fst corpus))
-      in
-      let emits cls =
-        List.exists (Css.Selector.exists_class (String.equal cls)) selectors
-      in
-      let wrong =
-        List.filter_map
-          (fun (cls, why) ->
-            match (why, emits cls) with
-            | Not_a_utility, true ->
-                Fmt.kstr Option.some
-                  "%s: filed as not a utility, but Tailwind emits a rule for it"
-                  cls
-            | (Another_handler | Diverges _), false ->
-                Fmt.kstr Option.some
-                  "%s: filed as \"%s\", but Tailwind emits nothing" cls
-                  (rejection_claim why)
-            | _ -> None)
-          corpus
-      in
+          Fmt.epr
+            "@.%d negative test classes under %d themes held to Tailwind's \
+             answer.@."
+            size themes);
+      let wrong = List.concat_map wrong_premises corpus in
       if wrong <> [] then
         Alcotest.failf "%d of %d negative tests disagree with Tailwind:\n%s"
-          (List.length wrong) (List.length corpus) (String.concat "\n" wrong)
+          (List.length wrong) size (String.concat "\n" wrong)
 
 let standard ~roundtrip ~invalid =
   Alcotest.
