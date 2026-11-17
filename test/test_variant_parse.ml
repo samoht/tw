@@ -19,10 +19,8 @@ let test_modifier_reads_one_token () =
   check bool "unknown" true (Tw.Variant_parse.modifier ~theme "unknown" = None);
   check bool "split name" true
     (Tw.Variant_parse.split_name "checked/name" = ("checked", Some "name"));
-  check bool "aria shorthand" true
-    (Tw.Variant_parse.is_aria_shorthand "checked");
-  check bool "not an aria shorthand" false
-    (Tw.Variant_parse.is_aria_shorthand "sort")
+  reads "aria-sort" (Tw.Style.Aria "sort");
+  reads "group-aria-[sort]" (Tw.Style.Group_aria ("[sort]", None))
 
 (* The bracket holds a length, so a word is not a breakpoint at all. *)
 let test_arbitrary_breakpoint_rejects_non_length () =

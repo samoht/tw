@@ -26,6 +26,11 @@
   exported: only their own module used them. `Tw.Color.of_string` and
   `Tw.Parse.fraction_pct` remain for callers of `of_string_exn` and
   `fraction_percent` (#923).
+- `Tw.Variant_parse.is_aria_shorthand` is removed: every named `aria-`
+  variant now reads the same way, and `Tw.Variant_parse.aria_attribute` gives
+  the attribute a spelling matches. `Tw.Style.Group_aria` and `Peer_aria` hold
+  the spelling as written, brackets included, and `Tw.Style.Aria` is the named
+  form (#946).
 
 ### Utilities
 
@@ -83,6 +88,13 @@
   selector can hold are refused too, where they raised, and a bare
   `group-data-*` name keeps its underscores, `[data-a_b]` for
   `group-data-a_b` (#937).
+- A named `aria-` variant matches any name as Tailwind does, `aria-foo` as
+  `[aria-foo="true"]` and under `group-`, `peer-`, `in-`, `has-` and `not-`
+  too, and a bracketed one is always an attribute expression, so
+  `aria-[busy]` keeps its class name and matches presence. A named `aria-` or
+  `data-` variant keeps its `_`: `aria-_`, `group-data-_` and `has-data-a_b`
+  compile instead of being refused, emitting `[data-]` or raising, and a name
+  no attribute can hold, such as `data-a.b`, is refused (#946).
 
 ### OCaml API
 

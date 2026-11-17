@@ -140,26 +140,47 @@ let split_name rest =
       if name <> "" then (base, Some name) else (rest, None)
   | None -> (rest, None)
 
-(* Try parsing has-shorthand modifiers like has-checked,
-   group-has-checked/name *)
-(* Known aria shorthand names that map to [aria-X=true] *)
-let is_aria_shorthand = function
-  | "busy" | "checked" | "disabled" | "expanded" | "hidden" | "pressed"
-  | "readonly" | "required" | "selected" ->
-      true
-  | _ -> false
+(* A plain identifier: what a group/peer name or a named aria or data attribute
+   may be spelled with. *)
+let is_plain_ident str =
+  str <> ""
+  && String.for_all
+       (fun c ->
+         (c >= 'a' && c <= 'z')
+         || (c >= 'A' && c <= 'Z')
+         || (c >= '0' && c <= '9')
+         || c = '-' || c = '_')
+       str
 
-(* Try parsing group-aria-*/peer-aria-* shorthand with optional /name *)
-let try_aria_shorthand s =
-  if String.starts_with ~prefix:"group-aria-" s && String.length s > 11 then
-    let rest = String.sub s 11 (String.length s - 11) in
-    let base, name = split_name rest in
-    if is_aria_shorthand base then Some (Group_aria (base, name)) else None
-  else if String.starts_with ~prefix:"peer-aria-" s && String.length s > 10 then
-    let rest = String.sub s 10 (String.length s - 10) in
-    let base, name = split_name rest in
-    if is_aria_shorthand base then Some (Peer_aria (base, name)) else None
-  else None
+(* Whether the selector constructor takes the attribute. *)
+let builds_attribute name matcher =
+  match Css.Selector.attribute name matcher with
+  | _ -> true
+  | exception Invalid_argument _ -> false
+
+(* A named [aria-X] or [data-X] is written into the attribute name as it stands:
+   no underscore decoding, since it is no arbitrary value, and only a plain
+   identifier the selector constructor builds, as Tailwind refuses
+   [aria-foo.bar] and [data-a\b]. *)
+let is_named_attribute ~prefix base =
+  is_plain_ident base && builds_attribute (prefix ^ base) Css.Selector.Presence
+
+(* [group-aria-X/name] and [peer-aria-X/name]: any name reads, as [aria-X]
+   does. *)
+let try_named_aria s =
+  let try_prefix prefix make =
+    let plen = String.length prefix in
+    if String.starts_with ~prefix s && String.length s > plen then
+      let base, name =
+        split_name (String.sub s plen (String.length s - plen))
+      in
+      if is_named_attribute ~prefix:"aria-" base then Some (make base name)
+      else None
+    else None
+  in
+  match try_prefix "group-aria-" (fun b n -> Group_aria (b, n)) with
+  | Some _ as r -> r
+  | None -> try_prefix "peer-aria-" (fun b n -> Peer_aria (b, n))
 
 let try_has_shorthand s =
   if String.starts_with ~prefix:"has-" s && String.length s > 4 then
@@ -194,18 +215,6 @@ let is_compound_selector inner =
       Cascade.Cursor.ws cursor;
       Cascade.Cursor.is_done cursor
 
-(* A plain identifier: what a group/peer name or a bare data attribute may be
-   spelled with. *)
-let is_plain_ident str =
-  str <> ""
-  && String.for_all
-       (fun c ->
-         (c >= 'a' && c <= 'z')
-         || (c >= 'A' && c <= 'Z')
-         || (c >= '0' && c <= '9')
-         || c = '-' || c = '_')
-       str
-
 (* An aria- or data- variant names an attribute: [aria-[modal]] matches
    [[aria-modal]]. An argument that leaves the name empty gives [[aria-]], a
    selector browsers parse and keep although nothing ever matches it, so it is
@@ -221,7 +230,7 @@ let try_bare_data s prefix make =
   if not (String.starts_with ~prefix s && String.length s > plen) then None
   else
     let base, name = split_name (String.sub s plen (String.length s - plen)) in
-    if is_plain_ident base && names_attribute base then Some (make base name)
+    if is_named_attribute ~prefix:"data-" base then Some (make base name)
     else None
 
 let extract_bracket_content_with_name ~prefix s =
@@ -416,11 +425,11 @@ let parse_aria_expr expr =
       in
       ("aria-" ^ attr, Css.Selector.Exact value)
 
-(* Whether the selector constructor takes the attribute. *)
-let builds_attribute name matcher =
-  match Css.Selector.attribute name matcher with
-  | _ -> true
-  | exception Invalid_argument _ -> false
+let aria_attribute spelling =
+  let n = String.length spelling in
+  if n > 1 && spelling.[0] = '[' && spelling.[n - 1] = ']' then
+    parse_aria_expr (String.sub spelling 1 (n - 2))
+  else ("aria-" ^ spelling, Css.Selector.Exact "true")
 
 (* An aria bracket names an attribute the rule builds from it, so a name the
    selector constructor refuses is refused here, at parse time. *)
@@ -619,10 +628,10 @@ let bracket_named_patterns s =
   [
     (fun () ->
       try_named "group-aria-[" ~extra:is_valid_aria_attr_expr (fun e n ->
-          Group_aria (e, n)));
+          Group_aria ("[" ^ e ^ "]", n)));
     (fun () ->
       try_named "peer-aria-[" ~extra:is_valid_aria_attr_expr (fun e n ->
-          Peer_aria (e, n)));
+          Peer_aria ("[" ^ e ^ "]", n)));
     (fun () ->
       try_attr "aria-[" ~extra:is_valid_aria_attr_expr (fun expr ->
           Aria_bracket expr));
@@ -1173,8 +1182,8 @@ let try_in_modifier s =
       | _ -> None
     else if
       String.starts_with ~prefix:"data-" rest
-      && String.length rest > 5
-      && not (String.contains rest '[')
+      && is_named_attribute ~prefix:"data-"
+           (String.sub rest 5 (String.length rest - 5))
     then Some (In_data (String.sub rest 5 (String.length rest - 5)))
     else
       (* [in-focus]: an ancestor in that state, the same state names the other
@@ -1235,24 +1244,16 @@ let try_not_modifier theme s =
    selector the render builds, so a name that selector refuses is refused
    here. *)
 let try_bare_data_aria s =
-  if
-    String.starts_with ~prefix:"data-" s
-    && String.length s > 5
-    && (not (String.contains s '['))
-    && (not (String.contains s '/'))
-    && builds_attribute s Css.Selector.Presence
-  then Some (Data_custom (String.sub s 5 (String.length s - 5), ""))
-  else if
-    String.starts_with ~prefix:"aria-" s
-    && String.length s > 5
-    && (not (String.contains s '['))
-    && not (String.contains s '/')
-  then
-    let expr = String.sub s 5 (String.length s - 5) in
-    if names_attribute expr && is_valid_aria_attr_expr expr then
-      Some (Aria_bracket expr)
+  let named prefix =
+    let plen = String.length prefix in
+    if String.starts_with ~prefix s && not (String.contains s '/') then
+      let base = String.sub s plen (String.length s - plen) in
+      if is_named_attribute ~prefix base then Some base else None
     else None
-  else None
+  in
+  match named "data-" with
+  | Some attr -> Some (Data_custom (attr, ""))
+  | None -> Option.map (fun name -> Aria name) (named "aria-")
 
 (* One name per variant @tailwindcss/typography registers. A name outside this
    set is not a variant there either, so the class is rejected rather than
@@ -1457,7 +1458,7 @@ let rec modifier ~(theme : Scheme.t) s : modifier option =
       (fun () -> lookup_simple theme s);
       (fun () -> try_container_query ~theme s);
       (fun () -> try_bracketed_modifier s);
-      (fun () -> try_aria_shorthand s);
+      (fun () -> try_named_aria s);
       (fun () -> try_has_shorthand s);
       (fun () -> try_has_variant ~theme s);
       (fun () -> try_numeric_nth s);
