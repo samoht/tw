@@ -610,6 +610,10 @@ module Handler = struct
             | Some _ -> Ok (Bracket_url inner)
             | None -> opaque class_name Longhand.Image inner)
         | _ when Parse.is_var inner -> Ok (Bracket_var inner)
+        (* Tailwind infers nothing from a value opening with var(), so it takes
+           the last resort. *)
+        | _ when String.starts_with ~prefix:"var(" inner ->
+            opaque class_name Longhand.Image inner
         (* A hint Tailwind does not know here settles the longhand all the same:
            it takes the last resort, and nothing is read from the value that
            follows it. The name is a run of [a-z] and [-], so [10px:2em] and

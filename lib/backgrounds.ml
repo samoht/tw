@@ -773,6 +773,12 @@ module Handler = struct
                   | Some raw -> Ok (Bg_bracket_raw_color (inner, raw))
                   | None -> Error (`Msg ("Unknown bg bracket url: " ^ inner))))
           | _ when Parse.is_var inner -> Ok (Bg_bracket_var inner)
+          (* Tailwind infers nothing from a value opening with var(), so it
+             takes the last resort. *)
+          | _ when String.starts_with ~prefix:"var(" inner -> (
+              match last_resort inner with
+              | Some raw -> Ok (Bg_bracket_raw_color (inner, raw))
+              | None -> Error (`Msg ("Unknown bg bracket value: " ^ inner)))
           | _ -> (
               (* Try parsing as background-image (gradients, urls,
                  comma-separated) *)

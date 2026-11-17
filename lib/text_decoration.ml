@@ -150,11 +150,15 @@ module Handler = struct
           (fun (v, o) -> Decoration_bracket_color_var_opacity (v, o))
           value
     | Some (_, value) -> bracket_color inner value opacity
-    | None when String.starts_with ~prefix:"var(" inner ->
+    | None when Parse.is_var inner ->
         var_with_opacity
           (fun v -> Decoration_bracket_var v)
           (fun (v, o) -> Decoration_bracket_var_opacity (v, o))
           inner
+    (* Tailwind infers nothing from a value opening with var(), and a colour is
+       its last resort. *)
+    | None when String.starts_with ~prefix:"var(" inner ->
+        bracket_color inner inner opacity
     | None ->
         let decoded = Parse.decode_arbitrary_value inner in
         if
