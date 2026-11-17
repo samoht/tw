@@ -1060,40 +1060,6 @@ module Handler = struct
           | Ok n -> Option.some (Spacing n)
           | Error _ -> Option.none)
 
-  (* Tailwind's own test for a math function: one of its names followed by a
-     paren anywhere in the value. *)
-  let math_functions =
-    [
-      "calc";
-      "min";
-      "max";
-      "clamp";
-      "mod";
-      "rem";
-      "sin";
-      "cos";
-      "tan";
-      "asin";
-      "acos";
-      "atan";
-      "atan2";
-      "pow";
-      "sqrt";
-      "hypot";
-      "log";
-      "exp";
-      "round";
-    ]
-
-  let contains ~sub s =
-    let n = String.length s and m = String.length sub in
-    let rec from i = i + m <= n && (String.sub s i m = sub || from (i + 1)) in
-    from 0
-
-  let has_math_call value =
-    String.contains value '('
-    && List.exists (fun f -> contains ~sub:(f ^ "(") value) math_functions
-
   (* The colour keywords Tailwind knows: the named colours, [transparent],
      [currentcolor] and the system colours, in any case. [inherit] is not
      one. *)
@@ -1117,7 +1083,7 @@ module Handler = struct
   type bracket_kind = Colour_stop | Percentage_stop | Position_stop
 
   let infer_kind value =
-    if Parse.is_var value || has_math_call value then Position_stop
+    if Parse.is_var value || Parse.holds_math_function value then Position_stop
     else
       match percentage_number value with
       | Some number when is_css_number number -> Percentage_stop

@@ -613,9 +613,25 @@ let test_alpha_fn_expands_in_place () =
   expands "--alpha(red)" "--alpha(red)";
   expands "--alpha(red/)" "--alpha(red/)"
 
+(* Tailwind's test is a name and a paren anywhere in the value, not a parse:
+   [foo_calc(1+2)] holds one, and so does [xcalc(1)]. *)
+let test_holds_math_function () =
+  let check expected s =
+    Alcotest.(check bool) s expected (Tw.Parse.holds_math_function s)
+  in
+  check true "calc(1 + 2)";
+  check true "foo calc(1 + 2)";
+  check true "min(1, 2) foo";
+  check true "xcalc(1)";
+  check false "calc";
+  check false "url(x.png) center";
+  check false "abs(1)"
+
 let tests =
   Alcotest.
     [
+      test_case "math function anywhere in a value" `Quick
+        test_holds_math_function;
       test_case "underscore escape" `Quick test_underscore_escape;
       test_case "--alpha() halves and a bare number alpha" `Quick
         test_alpha_call;

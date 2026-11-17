@@ -371,6 +371,38 @@ let is_css_non_math_function = function
   | "attr" | "env" | "url" | "var" -> true
   | _ -> false
 
+let tailwind_math_functions =
+  [
+    "calc";
+    "min";
+    "max";
+    "clamp";
+    "mod";
+    "rem";
+    "sin";
+    "cos";
+    "tan";
+    "asin";
+    "acos";
+    "atan";
+    "atan2";
+    "pow";
+    "sqrt";
+    "hypot";
+    "log";
+    "exp";
+    "round";
+  ]
+
+let contains ~sub s =
+  let n = String.length s and m = String.length sub in
+  let rec from i = i + m <= n && (String.sub s i m = sub || from (i + 1)) in
+  from 0
+
+let holds_math_function s =
+  String.contains s '('
+  && List.exists (fun f -> contains ~sub:(f ^ "(") s) tailwind_math_functions
+
 (* A math function stands for the value it computes, so a bracket opening with
    one denotes whatever the utility's numeric side takes. Utilities that tell a
    width from a colour by the bracket's first character need to know. *)

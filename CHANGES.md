@@ -89,6 +89,8 @@
 - The grid placement utilities name a bracket holding math as it was written:
   `col-[calc(1+2)]` printed the selector `.col-\[calc\(1_\+_2\)\]`, which no
   markup carries (#957).
+- `mask-[…]` reads only the math functions Tailwind knows as a position, so
+  `mask-[abs(1px)]` is a `mask-image` as it is in Tailwind (#958).
 
 ### Project stylesheets
 

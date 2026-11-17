@@ -265,6 +265,12 @@ val opaque_declaration : string -> string -> Cascade.Css.declaration option
     contract for arbitrary utilities, which deliberately emits some values that
     are invalid for [property]. *)
 
+val holds_math_function : string -> bool
+(** [holds_math_function s] is [true] when one of the math function names
+    Tailwind knows ([calc], [min], [clamp], ...) stands right before a [(]
+    anywhere in [s]. Tailwind reads such a bracket as a number or a length
+    whatever the rest of it holds, so this is the test that routes it. *)
+
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
     function ([calc], [min], [max], [clamp], ...). A utility whose bracket takes
