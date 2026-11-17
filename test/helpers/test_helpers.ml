@@ -416,15 +416,10 @@ let minimize_failing_case check_fails initial =
    headless Chromium, which a plain opam build has neither of, so the check
    skips when they are missing rather than being gated in dune. Set
    TW_BROWSER_TESTS=0 to opt out where they are present. *)
-let rec dir_containing name dir =
-  if Sys.file_exists (Filename.concat dir name) then Some dir
-  else
-    let parent = Filename.dirname dir in
-    if String.equal parent dir then None else dir_containing name parent
-
 (* Tests run from the build directory, which is itself inside the project, so
    the walk up finds the root whether or not dune sandboxed us. *)
-let project_root = lazy (dir_containing "node_modules" (Sys.getcwd ()))
+let project_root =
+  lazy (Tw_tools.Tailwind_gen.dir_containing "node_modules" (Sys.getcwd ()))
 
 (* Skipping is right on a developer machine with no browser, and wrong on CI,
    where it reports eight suites as finding no rendering difference because they
@@ -440,11 +435,6 @@ let unavailable test_name reason =
     Fmt.epr "browser rendering unavailable: %s@." reason;
     Alcotest.skip ()
   end
-
-let write_file path content =
-  let oc = open_out path in
-  output_string oc content;
-  close_out oc
 
 (* One directory per test, kept after the run: the two sheets and the page are
    what you need to reproduce a failure by hand, with [cascade diff --browser
@@ -618,6 +608,7 @@ let rendering_report ?inner ~test_name ~elements ~tailwind ~tw () =
   | Some root ->
       let dir = render_dir root test_name in
       let path name = Filename.concat dir name in
+      let write_file = Tw_tools.Tailwind_gen.write_file in
       write_file (path "page.html") html;
       write_file (path "tailwind.css") tailwind;
       write_file (path "tw.css") tw
@@ -1820,3 +1811,21 @@ let arbitrary_families =
     "z";
     "zoom";
   ]
+
+(* Every box-shadow utility composes the same five channels; only the channel it
+   sets ahead of this differs. *)
+let composes_box_shadow =
+  "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)"
+
+let theme_src =
+  "@import \"tailwindcss\" theme(static);\n\
+   @theme {\n\
+  \  --color-*: initial;\n\
+  \  --color-brand: red;\n\
+  \  --animate-flash: flash 2s;\n\
+  \  @keyframes flash { to { opacity: 0 } }\n\
+  \  --spacing: 0.3rem;\n\
+   }\n\
+   @theme inline {\n\
+  \  --font-x: var(--font-ext), system-ui;\n\
+   }\n"

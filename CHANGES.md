@@ -54,6 +54,7 @@
 - `Color.hex_to_oklch_css` and `Color.to_oklch_css` raise `Invalid_argument`
   on a string that is not a hex colour instead of returning it unchanged
   (#926).
+- `Tw.Parse.is_digit` tests for an ASCII digit (#936).
 
 ## 1.2.1 (12/11/2026)
 

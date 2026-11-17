@@ -37,8 +37,6 @@ let segment sep s =
   done;
   List.rev (Buffer.contents buf :: !pieces)
 
-let is_digit c = c >= '0' && c <= '9'
-
 (* A [<number>] as a candidate spells one: an optional sign, digits with at most
    one decimal point and at least one after it, and an optional exponent. *)
 let number_re =
@@ -79,7 +77,7 @@ let is_canonical_number text =
         ( String.sub text 0 i,
           Some (String.sub text (i + 1) (String.length text - i - 1)) )
   in
-  let digits s = s <> "" && String.for_all is_digit s in
+  let digits s = s <> "" && String.for_all Tw.Parse.is_digit s in
   digits whole
   && (String.length whole = 1 || whole.[0] <> '0')
   &&

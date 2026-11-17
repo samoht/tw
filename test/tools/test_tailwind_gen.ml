@@ -9,12 +9,6 @@ let test_check_available () =
   Test_helpers.require_tailwind_cli ();
   check_tailwindcss_available ()
 
-let rec dir_containing name dir =
-  if Sys.file_exists (Filename.concat dir name) then Some dir
-  else
-    let parent = Filename.dirname dir in
-    if String.equal parent dir then None else dir_containing name parent
-
 (* Every worktree points node_modules at the same installed tree. Going through
    npx makes concurrent gates coordinate through npm's shared cache even though
    the exact executable is already present and immutable. *)

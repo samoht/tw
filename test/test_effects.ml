@@ -2,12 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 
 let check = Test_helpers.check_handler_roundtrip (module Tw.Effects.Handler)
-
-(* Every box-shadow utility composes the same five channels; only the channel it
-   sets ahead of this differs. Naming it keeps the expectations below readable
-   without weakening them: it is one string, compared whole. *)
-let composes_box_shadow =
-  "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)"
+let composes_box_shadow = Test_helpers.composes_box_shadow
 
 let of_string_valid () =
   (* Box shadow *)

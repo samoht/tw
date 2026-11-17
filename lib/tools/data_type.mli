@@ -9,9 +9,6 @@ val segment : char -> string -> string list
     level, so a separator inside a bracket group or a quoted string belongs to
     the piece around it. *)
 
-val is_digit : char -> bool
-(** [is_digit c] is [true] when [c] is an ASCII digit. *)
-
 val is_positive_integer : string -> bool
 (** [is_positive_integer text] is [true] when [text] spells a whole number the
     way a round trip through a number leaves it: no sign, no redundant leading

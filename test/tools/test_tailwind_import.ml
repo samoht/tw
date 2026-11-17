@@ -1,21 +1,8 @@
 open Alcotest
 open Tw_tools.Tailwind_import
 
-let theme_src =
-  "@import \"tailwindcss\" theme(static);\n\
-   @theme {\n\
-  \  --color-*: initial;\n\
-  \  --color-brand: red;\n\
-  \  --animate-flash: flash 2s;\n\
-  \  @keyframes flash { to { opacity: 0 } }\n\
-  \  --spacing: 0.3rem;\n\
-   }\n\
-   @theme inline {\n\
-  \  --font-x: var(--font-ext), system-ui;\n\
-   }\n"
-
 let test_imports_static_theme () =
-  check bool "declared" true (imports_static_theme theme_src);
+  check bool "declared" true (imports_static_theme Test_helpers.theme_src);
   check bool "plain import" false
     (imports_static_theme "@import \"tailwindcss\";")
 

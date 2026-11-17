@@ -4,21 +4,8 @@ open Tw_tools.Entry_theme
 let string_list = list string
 let pair_list = list (pair string string)
 
-let theme_src =
-  "@import \"tailwindcss\" theme(static);\n\
-   @theme {\n\
-  \  --color-*: initial;\n\
-  \  --color-brand: red;\n\
-  \  --animate-flash: flash 2s;\n\
-  \  @keyframes flash { to { opacity: 0 } }\n\
-  \  --spacing: 0.3rem;\n\
-   }\n\
-   @theme inline {\n\
-  \  --font-x: var(--font-ext), system-ui;\n\
-   }\n"
-
 let test_theme_overrides () =
-  let tokens, inline = overrides_of_css theme_src in
+  let tokens, inline = overrides_of_css Test_helpers.theme_src in
   check pair_list "every token each block declares, in source order"
     [
       ("color-*", "initial");

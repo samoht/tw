@@ -1,5 +1,5 @@
-let is_digits s =
-  s <> "" && String.for_all (function '0' .. '9' -> true | _ -> false) s
+let is_digit = function '0' .. '9' -> true | _ -> false
+let is_digits s = s <> "" && String.for_all is_digit s
 
 let without_sign s =
   if s <> "" && s.[0] = '-' then String.sub s 1 (String.length s - 1) else s
@@ -534,7 +534,7 @@ let alpha_percent_of_number s =
       (String.sub s 0 1, String.sub s 1 (String.length s - 1))
     else ("", s)
   in
-  let all_digits = String.for_all (fun c -> c >= '0' && c <= '9') in
+  let all_digits = String.for_all is_digit in
   let int_part, frac =
     match String.split_on_char '.' digits with
     | [ i ] -> (i, "")
