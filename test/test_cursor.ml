@@ -1,5 +1,4 @@
 open Alcotest
-open Tw.Cursor.Handler
 
 let check parts =
   Test_helpers.check_handler_roundtrip
@@ -20,11 +19,9 @@ let of_string_valid () =
   check [ "cursor"; "grabbing" ]
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ class_name)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Cursor.Handler)
   in
 
   fail_maybe [ "cursor" ];

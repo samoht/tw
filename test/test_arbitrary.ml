@@ -1,5 +1,4 @@
 open Alcotest
-open Tw.Arbitrary.Handler
 
 let check = Test_helpers.check_handler_roundtrip (module Tw.Arbitrary.Handler)
 
@@ -20,11 +19,9 @@ let of_string_valid () =
   check "[display:flex]";
   check "[color:red]"
 
-let rejected cls =
-  match of_class Tw.Scheme.default cls with
-  | Ok result ->
-      failf "expected %s to be rejected, got %s" cls (to_class result)
-  | Error _ -> ()
+let rejected =
+  Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+    (module Tw.Arbitrary.Handler)
 
 let of_string_invalid () =
   rejected "";
@@ -408,16 +405,23 @@ let test_named_colour_value () =
   Test_helpers.check_declarations ~minify:false "[color:rebeccapurple]/50"
     [ "color: color-mix(in oklab, rebeccapurple 50%, transparent)" ];
   (* A value that names no colour has nothing to mix. *)
-  rejected "[color:notacolour]/50"
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind mixes the word into a color-mix() the browser drops; tw \
+          refuses a modifier with no colour to mix")
+    "[color:notacolour]/50"
 
 (* A [#...] value is only a colour when it is a hex spelling. A malformed one
    reaches the raising hex constructor from inside [of_class], so the exception
    escapes the parser itself. *)
 let test_invalid_hex_value () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the malformed hex through as a colour the browser \
+            drops; tw refuses the class")
   in
   rejected "[color:#zz]";
   rejected "[color:#]";
@@ -558,12 +562,7 @@ let generated_placeholders () =
    second declaration or close the current rule is not. *)
 let unsafe_values_are_rejected () =
   List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok utility ->
-          Alcotest.failf "expected %s to be rejected, got %s" cls
-            (Tw.pp utility)
-      | Error _ -> ())
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)
     [
       "border-spacing-[x;y]";
       "ease-[linear;color:red]";

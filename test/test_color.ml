@@ -557,9 +557,8 @@ let test_keyword_opacity_families () =
       "text-shadow-transparent/50";
     ];
   (* Tailwind has no inherited text-shadow-with-opacity candidate. *)
-  match Tw.of_string "text-shadow-inherit/50" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "text-shadow-inherit/50 should be rejected"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "text-shadow-inherit/50"
 
 (* A colour keyword carries its opacity modifier into a mix like any other
    colour. Only a fully opaque modifier collapses back to the bare keyword. *)
@@ -592,10 +591,7 @@ let test_keyword_opacity_mixes () =
    class. Tailwind rejects the candidate instead. *)
 let test_shadeless_colour_rejects_shade_segment () =
   List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s was renamed to %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)
     [ "bg-white-500/50"; "text-black-500/50"; "border-white-500/50" ]
 
 (* A palette family is not a colour on its own: Tailwind resolves [bg-red]
@@ -768,10 +764,7 @@ let test_multi_segment_theme_colour () =
 (* A name no [@theme] block declared is not a colour, whatever it looks like. *)
 let test_undeclared_theme_colour_rejected () =
   List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)
     [
       "bg-brand/50";
       "text-brand/50";
@@ -899,10 +892,12 @@ let test_bracket_hex_keeps_authored_spelling () =
    from inside [of_class], so a malformed hex escaped the parser as an exception
    instead of failing the match. *)
 let test_invalid_bracket_hex () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes a color-mix() around the malformed hex; tw refuses \
+            a modifier with no colour to mix")
   in
   let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
   (* The CLI writes a malformed hex through into every one of these families:

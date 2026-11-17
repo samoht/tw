@@ -59,9 +59,9 @@ let named_spacing_requires_theme_token () =
   (match Tw.Margin.Handler.of_class themed "my-form" with
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "my-form with theme rejected: %s" m);
-  match Tw.Margin.Handler.of_class Tw.Scheme.default "my-form" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "my-form without theme token should be rejected"
+  Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+    (module Tw.Margin.Handler)
+    "my-form"
 
 let suborder_matches_tailwind () =
   let open Tw in

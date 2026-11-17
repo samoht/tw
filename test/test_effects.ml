@@ -124,19 +124,19 @@ let test_filters_css_generation () =
 
 let of_string_invalid () =
   (* Invalid effects values *)
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Effects.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ class_name)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Effects.Handler)
   in
 
   fail_maybe [ "shadow"; "3xl" ];
   (* Invalid shadow size *)
-  fail_maybe [ "opacity"; "110" ];
-  (* Invalid opacity value *)
-  fail_maybe [ "unknown" ]
-(* Unknown effects type *)
+  fail_maybe [ "unknown" ];
+  (* Tailwind emits opacity: 1.1, which the browser clamps to 1, so this refusal
+     is a tw gap. *)
+  match Tw.Effects.Handler.of_class Tw.Scheme.default "opacity-110" with
+  | Ok _ -> fail "Expected error for: opacity-110"
+  | Error _ -> ()
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -827,12 +827,8 @@ let test_arbitrary_bracket_color_token_stream () =
    shade without checking it, so the class was accepted and then rendered a
    fabricated black or a reference to a variable no theme declares. *)
 let test_undefined_shade () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let accepted cls =
     match Tw.of_string cls with

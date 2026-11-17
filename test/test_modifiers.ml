@@ -473,10 +473,8 @@ let test_important_custom_properties () =
    left the selector reader to raise out of [to_css], a pure conversion, while
    the bracket form [has-[...]] validated its selector. *)
 let test_not_has_shorthand_selector () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let renders cls =
     match Tw.of_string cls with
@@ -678,10 +676,8 @@ let test_compound_negations () =
     {|.has-not-\[\.a\]\:flex:has(:not(.a)){display:flex}|};
   check_utilities "not-has-[.a]:flex"
     {|.not-has-\[\.a\]\:flex:not(:has(.a)){display:flex}|};
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   List.iter rejected
     [
@@ -715,10 +711,8 @@ let test_in_holds_any_selector_variant () =
     {|:where([data-x="1"]) .in-data-\[x\=1\]\:flex{display:flex}|};
   check_utilities "in-in-focus:flex"
     {|:where(:where(:focus) *) .in-in-focus\:flex{display:flex}|};
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   List.iter rejected [ "in-print:flex"; "in-md:flex"; "in-focus/x:flex" ]
 
@@ -1157,9 +1151,8 @@ let test_not_bracket_supports () =
     {|@supports not (display:grid){.not-\[\@supports\(display\:grid\)\]\:flex{display:flex}}|};
   has "not-[@supports_not_(display:grid)]:flex"
     {|@supports(display:grid){.not-\[\@supports_not_\(display\:grid\)\]\:flex{display:flex}}|};
-  match Tw.of_string "not-[@supports(display:grid)_and_(gap:1px)]:flex" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "a compound supports condition has no single negation"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "not-[@supports(display:grid)_and_(gap:1px)]:flex"
 
 (* Tailwind declares [content] once on a [before:]/[after:] rule and nests the
    colour [@supports] twin inside it, so the flattened twin carries the colour
@@ -1232,9 +1225,8 @@ let test_bracket_media_variant () =
   has "[@media(width>=600px)]:flex" "@media";
   has "[@media(width>=600px)]:flex"
     {|.\[\@media\(width\>\=600px\)\]\:flex{display:flex}|};
-  match Tw.of_string "[@media(]:flex" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "[@media(]:flex should be refused"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "[@media(]:flex"
 
 (* A [supports-<property>] test names the property the author wrote, even for a
    property browsers once shipped behind a vendor prefix: Tailwind emits
@@ -1306,10 +1298,8 @@ let test_not_container_negates_the_query () =
     {|@container not (width>=28rem){@media(hover:hover){.not-\@md\:hover\:flex:hover{display:flex}}}|};
   check_utilities "not-not-@md:flex"
     {|@container(width>=28rem){.not-not-\@md\:flex{display:flex}}|};
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   List.iter rejected
     [ "group-not-@md:flex"; "peer-not-md:flex"; "has-@md:flex" ]

@@ -261,10 +261,8 @@ let test_colour_opacity_var () =
    as 16 and emitted a rule selecting [.divide-x-16], a class the author never
    wrote; Tailwind emits nothing for it. *)
 let test_non_decimal_widths () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "divide-x-0x10";
   rejected "divide-y-0x10";

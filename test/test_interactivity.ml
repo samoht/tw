@@ -11,11 +11,9 @@ let test_scroll_snap () =
 
 let test_of_string_invalid () =
   (* Invalid interactivity utilities *)
-  let test_invalid input =
-    let class_name = String.concat "-" input in
-    match Tw.Interactivity.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let test_invalid =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Interactivity.Handler)
   in
 
   (* Invalid select values *)
@@ -92,10 +90,12 @@ let pointer_events_sorts_first () =
 (* [will-change] takes property names, so the docs' [<value>] placeholder is not
    one; it used to reach the sheet as will-change: <value>. *)
 let test_invalid_arbitrary_will_change () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the docs placeholder through as a will-change the \
+            browser drops; tw refuses the class")
   in
   let accepted cls =
     match Tw.of_string cls with

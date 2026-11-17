@@ -1329,6 +1329,16 @@ let check_invalid_input ?(why = Not_a_utility) (module H : Handler) input =
   | _ -> ());
   Hashtbl.replace negatives input why
 
+module Any_utility = struct
+  type t = Tw.t
+
+  let of_class theme s = Tw.of_string ~theme s
+  let to_class = Tw.pp
+end
+
+let check_invalid_class ?why cls =
+  check_invalid_input ?why (module Any_utility) cls
+
 (* The class names a sheet's rules select on. Read off the parsed selectors
    rather than scanned for in the text: a non-ASCII or bracketed class is
    escaped in the selector and spelled plainly in the class list, so a text scan

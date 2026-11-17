@@ -166,10 +166,8 @@ let test_not_bracket_unreadable_selector_rejected () =
    no production for escapes as a parse error out of the selector or condition
    reader. They are validated where data-[ and has-[ are. *)
 let test_invalid_bracket_modifiers () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "nth-[]:flex";
   rejected "nth-[abc]:flex";
@@ -183,28 +181,31 @@ let test_invalid_bracket_modifiers () =
    nothing ever matches. An underscore stands for a space, so it is empty
    too. *)
 let test_empty_attribute_brackets () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "aria-[]:flex";
   rejected "aria-[_]:flex";
-  rejected "aria-_:flex";
   rejected "group-aria-[]:flex";
   rejected "peer-aria-[]:flex";
   rejected "data-[]:flex";
   rejected "data-[_]:flex";
   rejected "group-data-[]:flex";
   rejected "peer-data-[]:flex";
-  rejected "group-data-_:flex";
-  rejected "peer-data-_:flex"
-
-let test_padded_attribute_brackets () =
-  let rejected cls =
+  (* Outside brackets Tailwind keeps [_] as written and emits [[aria-_=true]]
+     and [[data-_]], so these three refusals are a tw gap. *)
+  let refused cls =
     match Tw.of_string cls with
     | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
     | Error _ -> ()
+  in
+  refused "aria-_:flex";
+  refused "group-data-_:flex";
+  refused "peer-data-_:flex"
+
+let test_padded_attribute_brackets () =
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "aria-[_modal_]:flex";
   rejected "data-[_state=open_]:flex"
@@ -293,10 +294,8 @@ let test_data_bracket_operators () =
    reading the bracket as a selector tells them apart: a character scan that
    rejects every [~] rejects [[data-size~=large]] along with [p_~_span]. *)
 let test_bare_selector_variant_attribute_operators () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   check_utilities "[[data-size~=large]]:underline"
     {|.\[\[data-size\~\=large\]\]\:underline[data-size~=large]{text-decoration-line:underline}|};
@@ -309,10 +308,17 @@ let test_bare_selector_variant_attribute_operators () =
     {|.\[\[lang\|\=en\]\]\:underline[lang|=en]{text-decoration-line:underline}|};
   check_utilities "[[href^=https]]:underline"
     {|.\[\[href\^\=https\]\]\:underline[href^=https]{text-decoration-line:underline}|};
-  (* a combinator really is one, and none of these is a compound *)
-  rejected "[p_~_span]:underline";
+  (* a leading combinator is no compound *)
   rejected "[>img]:underline";
-  rejected "[.a_.b]:underline"
+  (* Tailwind wraps a complex selector in :is() and emits [:is(p~span)] and
+     [:is(.a .b)], so these two refusals are a tw gap. *)
+  let refused cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  refused "[p_~_span]:underline";
+  refused "[.a_.b]:underline"
 
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
@@ -340,9 +346,8 @@ let test_supports_condition_text () =
     {|@supports not (display:grid){.supports-\[not_\(display\:grid\)\]\:flex{display:flex}}|};
   check_utilities "supports-[selector(:has(a))]:flex"
     {|@supports selector(:has(a)){.supports-\[selector\(\:has\(a\)\)\]\:flex{display:flex}}|};
-  match Tw.of_string "supports-[display:)]:flex" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "supports-[display:)]:flex should be refused"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "supports-[display:)]:flex"
 
 (* A class that parses but renders no rule at all is worse than one that is
    refused: a typo in a variant name stays silent. Tailwind emits nothing for
@@ -351,10 +356,8 @@ let test_supports_condition_text () =
    knows a group negation cannot wrap a media query and answers with no rules,
    so the parser should not have accepted it. *)
 let test_silent_empty_variants_rejected () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "group-not-hover:flex";
   rejected "group-not-device-hocus:flex";

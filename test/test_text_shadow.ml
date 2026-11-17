@@ -65,19 +65,24 @@ let test_arbitrary_lengths () =
       "--tw-text-shadow-alpha: 50%";
       "text-shadow: 0 1ch 2px var(--tw-text-shadow-color, oklab(0% 0 0 / .5))";
     ];
-  match Tw.of_string "text-shadow-[0_bogus_2px]" with
-  | Ok _ -> Alcotest.fail "expected text-shadow-[0_bogus_2px] to be rejected"
-  | Error _ -> ()
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind writes the word into the shadow as its colour, which the \
+          browser drops; tw refuses the class")
+    "text-shadow-[0_bogus_2px]"
 
 (* An arbitrary text-shadow takes a colour function for its colour, the same as
    the box-shadow utilities. The reader knew only a [#] hex and a var(), so a
    function made the whole value stop being a shadow. A static one folds to its
    hex form; one with a channel that has no byte value stays as written. *)
 let test_arbitrary_color_function () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes rgb(zz) through as a shadow colour the browser \
+            drops; tw refuses the class")
   in
   (* The whole declaration, offsets included: an affix on the colour slot said
      nothing about the lengths in front of it. *)
@@ -133,10 +138,12 @@ let test_arbitrary_colour_opacity () =
    slot, failed to read as a length, and took the whole utility down with it. *)
 let test_arbitrary_named_colour () =
   let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the word through as a shadow colour the browser \
+            drops; tw refuses the class")
   in
   emits "text-shadow-[0_1px_2px_red]"
     "text-shadow:0 1px 2px var(--tw-text-shadow-color,red)";
@@ -153,10 +160,12 @@ let test_arbitrary_named_colour () =
    was rendered, so a malformed hex escaped as an exception instead of failing
    the parse. *)
 let test_invalid_bracket_hex () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the malformed hex through as a colour the browser \
+            drops; tw refuses the class")
   in
   rejected "text-shadow-[#zz]";
   rejected "text-shadow-[#]";

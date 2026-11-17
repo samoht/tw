@@ -17,12 +17,8 @@ let test_text_decoration () =
    shade without checking it, so the class was accepted and then referenced a
    variable no theme declares. *)
 let test_decoration_undefined_shade () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let accepted cls =
     match Tw.of_string cls with
@@ -89,10 +85,12 @@ let test_decoration_bracket_thickness () =
      and a [--spacing()] call both read as lengths. *)
   thickness "decoration-[calc(1rem_+_2px)]" "calc(1rem + 2px)";
   thickness "decoration-[--spacing(2)]" "calc(var(--spacing)*2)";
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the bracket through as a decoration colour the \
+            browser drops; tw refuses the class")
   in
   rejected "decoration-[.]";
   rejected "decoration-[1e]"
@@ -134,10 +132,8 @@ let test_decoration_shadeless_opacity () =
   in
   mixed "decoration-white/50" "#ffffff80" "--color-white";
   mixed "decoration-black/50" "#00000080" "--color-black";
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "decoration-2/50";
   rejected "decoration-nosuchcolor/50";
@@ -233,10 +229,12 @@ let test_decoration_bracket_named_color () =
    raising constructor from inside [of_class], so a malformed hex escaped the
    parser as an exception instead of failing the match. *)
 let test_invalid_decoration_bracket_hex () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the malformed hex through as a colour the browser \
+            drops; tw refuses the class")
   in
   rejected "decoration-[#zz]";
   rejected "decoration-[#]";

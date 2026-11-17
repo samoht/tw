@@ -169,9 +169,8 @@ let test_bracket_gradient_negated_angle_units () =
       "background-image: linear-gradient(var(--tw-gradient-stops, calc(100grad \
        * -1)))";
     ];
-  match Tw.of_string "-bg-linear-[to_bottom]" with
-  | Ok _ -> Alcotest.fail "expected -bg-linear-[to_bottom] to be rejected"
-  | Error _ -> ()
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "-bg-linear-[to_bottom]"
 
 (* The positive (non-negated) [bg-linear-[<value>]] bracket shares the same "is
    this a rad value" question as the negated form: a [String.ends_with
@@ -331,12 +330,8 @@ let test_gradient_stop_position_token_stream () =
    refused here; the ones it took used to raise out of [to_css], and the linear
    forms silently dropped the modifier instead. *)
 let test_gradient_interpolation () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let has cls shape position =
     Test_helpers.check_declarations ~minify:false cls
@@ -345,11 +340,16 @@ let test_gradient_interpolation () =
         "background-image: " ^ shape ^ "-gradient(var(--tw-gradient-stops))";
       ]
   in
-  (* A second modifier, a function, a leading dot or sign, and the empty
-     modifier: Tailwind emits nothing for any of them. *)
+  (* A second modifier, a function and the empty modifier: Tailwind emits
+     nothing for any of them. *)
   rejected "bg-conic-45/oklab/foo";
   rejected "bg-conic/foo(1)";
-  rejected "bg-conic/.5";
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind writes the modifier through as in .5, which the browser \
+          drops; tw refuses the class")
+    "bg-conic/.5";
   rejected "bg-conic/[]";
   rejected "bg-radial/foo(1)";
   (* An unknown colour space still names one. *)

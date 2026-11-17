@@ -15,11 +15,9 @@ let test_selects () =
 
 let test_of_string_invalid () =
   (* Invalid form utilities *)
-  let test_invalid input =
-    let class_name = String.concat "-" input in
-    match Tw.Forms.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ class_name)
-    | Error _ -> ()
+  let test_invalid =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Forms.Handler)
   in
 
   (* Invalid form types *)

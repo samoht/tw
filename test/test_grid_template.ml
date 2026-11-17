@@ -66,15 +66,14 @@ let of_string_valid () =
   check "grid-cols-[max(200px,50%)_1fr]"
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Grid_template.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Grid_template.Handler)
   in
-
-  fail_maybe [ "grid" ];
-  (* Missing subcommand *)
+  (* display: grid, which the grid handler owns *)
+  Test_helpers.check_invalid_parts ~why:Test_helpers.Another_handler
+    (module Tw.Grid_template.Handler)
+    [ "grid" ];
   fail_maybe [ "grid"; "cols" ];
   (* Missing value *)
   fail_maybe [ "grid"; "cols"; "invalid" ];

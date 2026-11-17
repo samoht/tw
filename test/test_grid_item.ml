@@ -34,11 +34,9 @@ let of_string_valid () =
   check "row-end-auto"
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Grid_item.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Grid_item.Handler)
   in
 
   fail_maybe [ "col" ];
@@ -140,10 +138,12 @@ let test_arbitrary_span_token_stream () =
    grammar cannot read is accepted and then raises out of [to_css], a pure
    conversion, so the rejection belongs at parse time. *)
 let test_invalid_arbitrary_grid_line () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the bracket through as a grid line the browser \
+            drops; tw refuses the class")
   in
   let renders cls =
     match Tw.of_string cls with

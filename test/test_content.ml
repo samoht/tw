@@ -21,9 +21,9 @@ let test_content () =
    word like content-wrapper with no token is rejected (it used to parse as a
    named content value, a false positive Tailwind does not emit). *)
 let test_content_named_requires_theme () =
-  (match Tw.Content.Handler.of_class Tw.Scheme.default "content-wrapper" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "content-wrapper should be rejected without a token");
+  Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+    (module Tw.Content.Handler)
+    "content-wrapper";
   let themed =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("content-slash", "\"/\"") ]
   in
