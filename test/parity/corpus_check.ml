@@ -25,10 +25,6 @@ module Source_directive = Tw_tools.Source_directive
 
 let ( // ) = Filename.concat
 let required name = Sys.getenv_opt name = Some "1"
-let read_file path = In_channel.with_open_bin path In_channel.input_all
-
-let write_file path contents =
-  Out_channel.with_open_bin path (fun oc -> output_string oc contents)
 
 let cases dir =
   Sys.readdir dir |> Array.to_list
@@ -50,13 +46,13 @@ let page_of_case dir name css =
    compare. *)
 let run_case ~tw ~render ~work dir name =
   let css_path = dir // name in
-  let css = read_file css_path in
+  let css = In_channel.with_open_bin css_path In_channel.input_all in
   let page =
     match page_of_case dir name css with
     | `Own path -> Some path
     | `Built html ->
         let path = work // (Filename.chop_suffix name ".css" ^ ".html") in
-        write_file path html;
+        Tw_tools.Tailwind_gen.write_file path html;
         Some path
     | `None -> None
   in
@@ -75,7 +71,7 @@ let run_case ~tw ~render ~work dir name =
           @ if render then [ "--html"; page ] else [])
       in
       let status = Sys.command cmd in
-      let report = read_file out in
+      let report = In_channel.with_open_bin out In_channel.input_all in
       if status = 0 then (
         Fmt.pr "ok   %s%s@." name (if render then "" else " (canonical only)");
         `Ok)

@@ -3,17 +3,6 @@ open Test_helpers
 
 let check = check_handler_roundtrip (module Tw.Borders.Handler)
 
-(* A theme token's value and a variant's selector are neither of them a
-   declaration, so the tests that turn on one compare the sheet whole.
-   [check_declarations] reads only the rules whose selector holds a [.], which
-   is what leaves both out. *)
-let sheet cls =
-  match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-
-let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
-
 let of_string_valid () =
   check "border";
   check "border-0";

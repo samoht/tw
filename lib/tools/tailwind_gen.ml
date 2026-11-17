@@ -1,9 +1,8 @@
 (** Tailwind CSS generation utilities for testing - extracted from test_tw.ml *)
 
 let write_file path content =
-  let oc = open_out path in
-  output_string oc content;
-  close_out oc
+  Out_channel.with_open_bin path (fun oc ->
+      Out_channel.output_string oc content)
 
 (* A candidate reaches the CLI by one of two routes, and they answer different
    questions. An [@source inline] entry goes to the engine, which is what tw's

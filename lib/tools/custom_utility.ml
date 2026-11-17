@@ -70,7 +70,7 @@ let is_named_value s =
   s <> ""
   && String.for_all
        (fun c ->
-         Data_type.is_digit c
+         Tw.Parse.is_digit c
          || (c >= 'a' && c <= 'z')
          || (c >= 'A' && c <= 'Z')
          || c = '_' || c = '.' || c = '%' || c = '-')

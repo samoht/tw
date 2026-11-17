@@ -3,11 +3,6 @@ open Alcotest
 
 let check = Test_helpers.check_handler_roundtrip (module Tw.Ring.Handler)
 
-(* A ring sets its own variable and composes the same five channels as every
-   other box-shadow utility. *)
-let composes_box_shadow =
-  "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)"
-
 let test_ring_of_string_valid () =
   check "ring";
   check "ring-0";
@@ -181,7 +176,7 @@ let test_ring_bracket_width_reads_its_variables () =
     [
       "--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(3px + \
        var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor)";
-      composes_box_shadow;
+      Test_helpers.composes_box_shadow;
     ];
   let css =
     match Tw.of_string "ring-[3px]" with

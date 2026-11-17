@@ -1,5 +1,13 @@
 (** Tailwind CSS generation utilities for testing *)
 
+val write_file : string -> string -> unit
+(** [write_file path content] writes [content] to [path] byte for byte,
+    replacing what was there. *)
+
+val dir_containing : string -> string -> string option
+(** [dir_containing name dir] is the nearest of [dir] and its ancestors that
+    holds an entry [name], if any. *)
+
 val entrypoint :
   ?project_css:string ->
   ?plugins:string list ->

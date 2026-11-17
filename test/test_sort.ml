@@ -3,15 +3,6 @@ open Alcotest
 open Tw.Color
 open Tw.Backgrounds
 
-(* OCaml 4.14 compat *)
-let index f lst =
-  let rec go i = function
-    | [] -> None
-    | x :: _ when f x -> Some i
-    | _ :: rest -> go (i + 1) rest
-  in
-  go 0 lst
-
 (* ===== Tests ===== *)
 
 (* Short, reusable helper *)
@@ -1786,16 +1777,10 @@ let test_known_inversions_are_exact () =
 (* Every module tw.ml includes exports utilities, and one with no pool entry is
    a family no seed can reach. Reading the include list back is what makes a new
    family a failure rather than a hole nobody thinks to look for. *)
-let rec dir_containing name dir =
-  if Sys.file_exists (Filename.concat dir name) then Some dir
-  else
-    let parent = Filename.dirname dir in
-    if String.equal parent dir then None else dir_containing name parent
-
 let included_modules () =
   let path = "lib/tw.ml" in
   let root =
-    match dir_containing path (Sys.getcwd ()) with
+    match Tw_tools.Tailwind_gen.dir_containing path (Sys.getcwd ()) with
     | Some r -> r
     | None -> Alcotest.failf "cannot find %s from %s" path (Sys.getcwd ())
   in
@@ -2736,7 +2721,7 @@ let utility_selectors sheet =
 let check_before what sheet first second =
   let selectors = utility_selectors sheet in
   let position sel =
-    match index (String.equal sel) selectors with
+    match List.find_index (String.equal sel) selectors with
     | Some i -> i
     | None -> Alcotest.failf "%s missing from the utilities layer" sel
   in

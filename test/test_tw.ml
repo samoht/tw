@@ -16,13 +16,6 @@ let generate_tw_css ?(minify = false) styles =
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 let canonical_stylesheet_css css = String.trim css
 
-(* File utilities *)
-let write_file path content =
-  let oc = open_out path in
-  Fun.protect
-    ~finally:(fun () -> close_out_noerr oc)
-    (fun () -> output_string oc content)
-
 (* A file name the class list can be read back out of, and that no other class
    list shares. The readable half keeps whatever is already safe in a path and
    folds the rest to [_], which alone collides ([p-4 m-2] and [p_4_m_2]) and is
@@ -68,8 +61,8 @@ let debug_files test_name tw_css tailwind_css =
   let tailwind_file =
     Filename.concat out_dir ("test_css_tailwind_" ^ test_name_slug ^ ".css")
   in
-  write_file tw_file tw_css;
-  write_file tailwind_file tailwind_css;
+  Tw_tools.Tailwind_gen.write_file tw_file tw_css;
+  Tw_tools.Tailwind_gen.write_file tailwind_file tailwind_css;
   (tw_file, tailwind_file)
 
 (* Failure reporting *)

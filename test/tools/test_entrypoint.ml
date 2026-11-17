@@ -547,12 +547,6 @@ let cases =
     case "transition-discrete" ~classes:[ "transition-discrete" ] (fenced "");
   ]
 
-let write_file path contents =
-  let oc = open_out path in
-  Fun.protect
-    ~finally:(fun () -> close_out_noerr oc)
-    (fun () -> output_string oc contents)
-
 let inline_source = function
   | [] -> ""
   | classes ->
@@ -581,6 +575,7 @@ let matches_cli case =
     ~finally:(fun () ->
       List.iter (fun p -> if Sys.file_exists p then Sys.remove p) written)
     (fun () ->
+      let write_file = Tw_tools.Tailwind_gen.write_file in
       List.iter (fun (p, contents) -> write_file p contents) case.files;
       write_file path (case.entry ^ inline_source case.classes);
       let tw = tw_sheet ~path case.classes in

@@ -12,14 +12,10 @@
    dune builds, and nothing else. [gen_order_fixture.ml] regenerates the file
    when the pinned tailwindcss moves. *)
 
-let read_file path =
-  let ic = open_in_bin path in
-  Fun.protect
-    ~finally:(fun () -> close_in_noerr ic)
-    (fun () -> really_input_string ic (in_channel_length ic))
-
 let lines path =
-  read_file path |> String.split_on_char '\n' |> List.filter (fun l -> l <> "")
+  In_channel.with_open_bin path In_channel.input_all
+  |> String.split_on_char '\n'
+  |> List.filter (fun l -> l <> "")
 
 let tw_sheet tw_bin =
   let out = Filename.temp_file ~temp_dir:"." "tw_frozen" ".css" in
@@ -30,7 +26,7 @@ let tw_sheet tw_bin =
       [ "--input-css"; "globals.css"; "--minify"; "classlist.txt" ]
   in
   if Sys.command cmd <> 0 then failwith ("failed to run " ^ tw_bin);
-  read_file out
+  In_channel.with_open_bin out In_channel.input_all
 
 let () =
   let tw_bin = Sys.argv.(1) in

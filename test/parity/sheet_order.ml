@@ -42,12 +42,6 @@ let pinned =
    off-version one fails instead. *)
 let required () = Sys.getenv_opt "TW_TAILWIND_TESTS" = Some "1"
 
-let read_file path =
-  let ic = open_in_bin path in
-  Fun.protect
-    ~finally:(fun () -> close_in_noerr ic)
-    (fun () -> really_input_string ic (in_channel_length ic))
-
 (* tw's half comes from the built binary rather than from the library, so what
    is measured is the sheet the documented command produces, entrypoint
    compilation and all. *)
@@ -60,7 +54,7 @@ let tw_sheet tw_bin =
       [ "--input-css"; "globals.css"; "--minify"; "classlist.txt" ]
   in
   if Sys.command cmd <> 0 then failwith ("failed to run " ^ tw_bin);
-  read_file out
+  In_channel.with_open_bin out In_channel.input_all
 
 let sample = 25
 

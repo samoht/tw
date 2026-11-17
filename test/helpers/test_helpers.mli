@@ -499,3 +499,11 @@ val sweep_one : string -> sweep_verdict
 val selectors_of_utility : Tw.t -> string list
 (** [selectors_of_utility u] is every selector [u] emits, nested rules inside
     [\@media], [\@supports], [\@container] and [\@layer] included. *)
+
+val composes_box_shadow : string
+(** [composes_box_shadow] is the minified [box-shadow] declaration every
+    box-shadow utility writes: the five shadow channels, composed in order. *)
+
+val theme_src : string
+(** [theme_src] is an entrypoint whose [\@theme] blocks reset the colours, add a
+    keyframed animation, set [--spacing] and declare an inline font. *)

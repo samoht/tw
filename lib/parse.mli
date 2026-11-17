@@ -5,6 +5,9 @@
     results. All functions return [result] with [`Msg] error messages instead of
     raising. *)
 
+val is_digit : char -> bool
+(** [is_digit c] is [true] when [c] is an ASCII digit. *)
+
 val decimal_int : string -> int option
 (** [decimal_int s] reads the canonical plain-decimal spelling of an integer.
     OCaml-only forms such as [0x10] and [1_0], and redundant leading zeroes, are
