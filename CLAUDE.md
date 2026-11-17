@@ -102,7 +102,9 @@ The `tw` binary supports three backend modes:
 **Important**: `--diff` mode always uses:
 - Variables mode (ignores `--inline` flag)
 - Base layer included (ignores `--no-base` flag)
-- Minified output (forces `--minify`; `--optimize` is passed through as given)
+- Tailwind's sheet before lightningcss minifies it, unless `--minify` or
+  `--optimize` is passed; each flag then reaches both tools, so the comparison
+  includes one minifier against the other
 - Canonical comparison with unused custom properties pruned, so the two sheets
   are compared for equivalence rather than byte-for-byte. `--diff-mode` selects
   a stricter mode (`tree` reports regrouping, `string` reports text).

@@ -152,10 +152,11 @@ A few things regularly mislead:
   Tailwind emits something `tw` does not.
 - **The summary counts containers, not rules.** "3 changed containers" can
   hide a hundred rules. `--limit=none` prints them all.
-- **`--minify` and `--optimize` apply to both sides of `--diff`.** `tw` then
-  minifies with cascade and Tailwind with lightningcss, so part of any
-  difference is one minifier against the other. Drop the flags before calling
-  something a `tw` bug.
+- **`--minify` and `--optimize` apply to both sides of `--diff`.** Without
+  them, `--diff` compares against Tailwind's sheet before lightningcss
+  processes it. With them, `tw` minifies with cascade and Tailwind with
+  lightningcss, so part of any difference is one minifier against the other.
+  Drop the flags before calling something a `tw` bug.
 - **A reorder the canonical diff ignores can still be a `tw` bug**, because
   Tailwind fixes an order the page does not depend on. `check_class_order` in
   `test/test_sort.ml` checks order within a family, and the rule-order check

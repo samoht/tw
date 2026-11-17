@@ -581,8 +581,6 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
     | None, _, `Default -> Variables (* files/scan default to variables *)
   in
-  (* Diff mode forces minified output; Cascade handles semantic comparison. *)
-  let resolved_minify = match backend with Diff -> true | _ -> minify in
   (* Build the renderer theme from the project's CSS entrypoint (its @theme), so
      a --diff over a real repo compares against the same tokens Tailwind uses.
      It is read again for every build, so a watch sees an edit to it. *)
@@ -595,7 +593,7 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     in
     let opts : gen_opts =
       {
-        minify = resolved_minify;
+        minify;
         optimize;
         quiet;
         css_mode = resolved_css_mode;
@@ -661,7 +659,10 @@ let base_flag =
         ])
 
 let minify_flag =
-  let doc = "Minify the generated CSS output" in
+  let doc =
+    "Minify the generated CSS output. Also passed to the Tailwind backend \
+     under --tailwind and --diff."
+  in
   Arg.(value & flag & info [ "m"; "minify" ] ~doc)
 
 let optimize_flag =

@@ -41,6 +41,15 @@
 - On Windows, an `@source` glob matches the files under its root and
   `@source not` takes its paths out, where both matched nothing (#916).
 
+### Command line
+
+- `tw --diff` compares against Tailwind's sheet before lightningcss minifies
+  it, as `docs/parity.md` defines the reference, rather than always passing
+  `--minify` to the CLI; `--minify` and `--optimize` still reach both tools when
+  given. A lightningcss quirk, such as the three `-webkit-text-decoration`
+  declarations it writes on Preflight's `a` rule, is no longer reported as a
+  `tw` difference (#TBD).
+
 ### Variants
 
 - An `aria-[...]` or `data-[...]` variant naming an attribute no selector can
