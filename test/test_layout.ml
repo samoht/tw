@@ -229,30 +229,27 @@ let test_object_and_z_values () =
     [ "object-position:<value>" ];
   has "z-auto" "z-index:auto"
 
-(* [z-[...]] takes a z-index. A bracket the z-index grammar cannot read is
-   accepted and then raises out of [to_css], a pure conversion, so the rejection
-   belongs at parse time. *)
-let test_invalid_arbitrary_z_index () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes calc(foo * -1), which the browser drops; tw \
-            refuses the class")
-  in
+(* [to_css] is a pure conversion, so a bracket [of_class] accepts renders
+   without raising. *)
+let test_arbitrary_z_index_renders () =
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  (* The negated form builds [calc(<inner> * -1)] from a typed z-index, so a
-     bracket the grammar cannot read still has nowhere to go. *)
-  rejected "-z-[foo]";
   renders "z-[13]";
   renders "z-[auto]";
   renders "z-[var(--x)]";
   renders "-z-[13]";
   renders "-z-[var(--x)]"
+
+(* A negated bracket the z-index grammar cannot read is [calc(<value> * -1)],
+   with the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-z-[foo]"; "-z-[red]"; "-z-[3px]"; "-z-[foo:2]"; "-z-[url(x.png)_center]";
+    ]
 
 (* The bracket is a token stream Tailwind hands to the declaration unvalidated.
    It goes through the arbitrary-value pipeline, not OCaml's number reader, so
@@ -340,7 +337,8 @@ let tests =
     test_case "isolation and float slots" `Quick isolation_and_float_slots;
     test_case "layout suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
-    test_case "invalid arbitrary z-index" `Quick test_invalid_arbitrary_z_index;
+    test_case "arbitrary z-index renders" `Quick test_arbitrary_z_index_renders;
+    test_case "negated z-index token stream" `Quick test_negated_token_stream;
     test_case "arbitrary z-index token stream" `Quick
       test_arbitrary_token_stream;
   ]

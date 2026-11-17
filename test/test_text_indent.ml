@@ -30,12 +30,24 @@ let test_typography_negated_arbitrary_is_a_calc () =
       ("-indent-[2rem]", "text-indent: calc(2rem * -1)");
     ]
 
+(* A negated bracket the length reader cannot read is [calc(<value> * -1)], with
+   the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-indent-[foo]";
+      "-indent-[45deg]";
+      "-indent-[foo:red]";
+      "-indent-[url(x.png)_center]";
+    ]
+
 let tests =
   [
     test_case "text indent" `Quick test_text_indent;
     test_case "text indent half-step" `Quick test_text_indent_prime;
     test_case "negated arbitrary length is a calc" `Quick
       test_typography_negated_arbitrary_is_a_calc;
+    test_case "negated token stream" `Quick test_negated_token_stream;
   ]
 
 let suite = ("text_indent", tests)
