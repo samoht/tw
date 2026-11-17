@@ -1,12 +1,10 @@
 (** Typed CSS variable definitions and CSS generation architecture.
 
-    This module provides a type-safe system for CSS custom properties that
-    generates CSS across multiple layers following Tailwind v4's architecture.
-
     {1 CSS Output Architecture}
 
-    The variable system generates CSS across multiple layers following Tailwind
-    v4's architecture. Each layer has its own deterministic ordering rules:
+    The variable system generates CSS custom properties across the layers of
+    Tailwind v4's architecture. Each layer has its own deterministic ordering
+    rules:
 
     {b Layer Ordering Rules (Tailwind v4, mirrored by tw):}
 
@@ -97,8 +95,8 @@
 
     {1 Variable Types and [@property] Rules}
 
-    The variable system has 4 constructors that map to clear, distinct
-    behaviors:
+    The variable system has 3 constructors: [theme], [property_default] and
+    [channel].
 
     {2 Constructor Rules}
 
@@ -114,33 +112,23 @@
     - Usage: Some utilities set it, others rely on the default
     - Example: [--tw-border-style] with initial [solid]
 
-    {b 3. [channel ~needs_property:false]} - Composition variables
+    {b 3. [channel]} - Composition variables
     - Layer: [@layer utilities]
-    - [@property]: {b Never generated}
+    - [@property]: {b Never generated} by default; with [~needs_property:true],
+      {b always generated without initial-value}
     - Usage: Multiple utilities set portions, aggregator combines them
-    - Example: [--tw-translate-x], [--tw-rotate] combined by [.transform]
-
-    {b 4. [channel ~needs_property:true]} - Animated composition variables
-    - Layer: [@layer utilities]
-    - [@property]: {b Always generated without initial-value}
-    - Usage: Same as channel but needs [@property] for animations
-    - Example: [--tw-font-weight], [--tw-shadow-color]
-
-    {b 5. [ref_only]} - Reference-only variables
-    - Layer: None (no declaration)
-    - [@property]: {b Never generated}
-    - Usage: Only referenced with explicit fallback, never set by our utilities
-    - Example: Variables from other libraries we reference but don't control
+    - Example: [--tw-translate-x], [--tw-rotate] combined by [.transform];
+      [--tw-font-weight], [--tw-shadow-color] with [~needs_property:true]
 
     {2 Simple Decision Tree}
 
     To choose the right constructor:
 
-    1. Is it a design token shared across utilities? → [theme] 2. Does it need a
-    default value for referencing utilities? → [property_default] 3. Is it only
-    referenced, never set by us? → [ref_only] 4. Otherwise it's a utility
-    variable → [channel]
-    - Add [~needs_property:true] only if it needs animation support
+    + Is it a design token shared across utilities? Use [theme].
+    + Does it need a default value for referencing utilities? Use
+      [property_default].
+    + Otherwise it is a utility variable: use [channel], with
+      [~needs_property:true] only if it needs animation support.
 
     {1 Inline Mode Requirements}
 
@@ -154,7 +142,6 @@
     - Theme variables: use the stored theme value
     - Property_default variables: use the [@property] initial value
     - Channel variables: use the identity/zero value (0px, 0deg, 1.0, etc.)
-    - Ref_only variables: use the fallback value
     - Always-set variables: use the bound value
 
     {2 Example: Variables vs Inline Mode}
@@ -386,10 +373,6 @@ type 'a property_default = ('a, [ `Property_default ]) t
 type 'a channel = ('a, [ `Channel ]) t
 (** Channel variables (Pattern 3) - composition variables *)
 
-type 'a ref_only = ('a, [ `Ref_only ]) t
-(** Reference-only variables (Pattern 4) - variables only referenced, never set
-*)
-
 (** {1 Core API} *)
 
 val theme :
@@ -445,12 +428,6 @@ val channel :
     block. Ideal for composition patterns where contributing utilities set
     declarations and aggregators reference values. *)
 
-val ref_only : 'a Css.kind -> string -> fallback:'a -> 'a ref_only
-(** [ref_only kind name ~fallback] creates a reference-only handle to a Utility
-    variable with a concrete fallback for inline mode. No declaration is
-    produced. This implements Pattern 4 - variables that are only referenced,
-    never set. *)
-
 val theme_ref : ?default:'a -> ?default_css:string -> string -> 'a Css.var
 (** [theme_ref ?default ?default_css name] creates a bare var reference to a
     theme variable. In variables mode, emits [var(--name)].
@@ -491,9 +468,9 @@ val binding_initial :
     ([--name: initial]). Used by the [*-initial] and [via-none] utilities, which
     clear a channel var instead of setting it to a typed value. *)
 
-val reference : ('a, [< `Ref_only | `Property_default ]) t -> 'a Css.var
-(** [reference var] creates a reference to a variable. For ref_only and
-    property_default variables only. *)
+val reference : ('a, [< `Property_default ]) t -> 'a Css.var
+(** [reference var] is a reference to [var] whose inline value is its
+    [\@property] initial value. *)
 
 val reference_with_fallback : ('a, [< `Theme | `Channel ]) t -> 'a -> 'a Css.var
 (** [reference_with_fallback var fallback_value] creates a variable reference
