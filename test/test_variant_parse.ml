@@ -257,17 +257,64 @@ let test_empty_attribute_brackets () =
   rejected "data-[]:flex";
   rejected "data-[_]:flex";
   rejected "group-data-[]:flex";
-  rejected "peer-data-[]:flex";
-  (* Outside brackets Tailwind keeps [_] as written and emits [[aria-_=true]]
-     and [[data-_]], so these three refusals are a tw gap. *)
-  let refused cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  rejected "peer-data-[]:flex"
+
+(* A named aria- or data- variant writes its name into the attribute as it
+   stands: [_] is no space outside brackets, and any name reads, not only the
+   ARIA states tw knows. A bare aria name matches [="true"]; in brackets it is
+   an attribute expression, so [aria-[busy]] matches presence. A name no
+   attribute selector can hold is refused, as Tailwind refuses it. *)
+let test_named_attribute_variants () =
+  check_utilities "aria-_:flex" {|.aria-_\:flex[aria-_=true]{display:flex}|};
+  check_utilities "group-data-_:flex"
+    {|.group-data-_\:flex:is(:where(.group)[data-_] *){display:flex}|};
+  check_utilities "peer-data-_:flex"
+    {|.peer-data-_\:flex:is(:where(.peer)[data-_]~*){display:flex}|};
+  check_utilities "aria-foo:flex"
+    {|.aria-foo\:flex[aria-foo=true]{display:flex}|};
+  check_utilities "not-aria-a_b:flex"
+    {|.not-aria-a_b\:flex:not([aria-a_b=true]){display:flex}|};
+  check_utilities "in-aria-a_b:flex"
+    {|:where([aria-a_b=true]) .in-aria-a_b\:flex{display:flex}|};
+  check_utilities "aria-foo_bar:flex"
+    {|.aria-foo_bar\:flex[aria-foo_bar=true]{display:flex}|};
+  check_utilities "group-aria-foo/x:flex"
+    {|.group-aria-foo\/x\:flex:is(:where(.group\/x)[aria-foo=true] *){display:flex}|};
+  check_utilities "peer-aria-_:flex"
+    {|.peer-aria-_\:flex:is(:where(.peer)[aria-_=true]~*){display:flex}|};
+  check_utilities "in-aria-foo:flex"
+    {|:where([aria-foo=true]) .in-aria-foo\:flex{display:flex}|};
+  check_utilities "has-aria-foo:flex"
+    {|.has-aria-foo\:flex:has([aria-foo=true]){display:flex}|};
+  check_utilities "not-aria-foo:flex"
+    {|.not-aria-foo\:flex:not([aria-foo=true]){display:flex}|};
+  check_utilities "aria-[busy]:flex"
+    {|.aria-\[busy\]\:flex[aria-busy]{display:flex}|};
+  check_utilities "group-aria-[checked]:flex"
+    {|.group-aria-\[checked\]\:flex:is(:where(.group)[aria-checked] *){display:flex}|};
+  check_utilities "peer-aria-[busy]:flex"
+    {|.peer-aria-\[busy\]\:flex:is(:where(.peer)[aria-busy]~*){display:flex}|};
+  check_utilities "not-aria-[busy]:flex"
+    {|.not-aria-\[busy\]\:flex:not([aria-busy]){display:flex}|};
+  check_utilities "group-data-a_b:flex"
+    {|.group-data-a_b\:flex:is(:where(.group)[data-a_b] *){display:flex}|};
+  check_utilities "has-data-_:flex"
+    {|.has-data-_\:flex:has([data-_]){display:flex}|};
+  check_utilities "has-data-a_b:flex"
+    {|.has-data-a_b\:flex:has([data-a_b]){display:flex}|};
+  check_utilities "group-has-data-a_b:flex"
+    {|.group-has-data-a_b\:flex:is(:where(.group):has([data-a_b]) *){display:flex}|};
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
-  refused "aria-_:flex";
-  refused "group-data-_:flex";
-  refused "peer-data-_:flex"
+  rejected "aria-foo.bar:flex";
+  rejected {|aria-a\b:flex|};
+  rejected "aria-foo/x:flex";
+  rejected "data-a.b:flex";
+  rejected "group-data-a.b:flex";
+  rejected "in-data-a.b:flex";
+  rejected "has-data-a.b:flex";
+  rejected "group-data-[a_b]:flex"
 
 let test_padded_attribute_brackets () =
   let rejected =
@@ -450,6 +497,7 @@ let tests =
       test_removed_single_breakpoint_drops_its_variants;
     test_case "invalid bracket modifiers" `Quick test_invalid_bracket_modifiers;
     test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
+    test_case "named attribute variants" `Quick test_named_attribute_variants;
     test_case "padded attribute brackets" `Quick test_padded_attribute_brackets;
     test_case "unbuildable attribute names" `Quick
       test_unbuildable_attribute_names;
