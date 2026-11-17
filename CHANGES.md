@@ -36,6 +36,10 @@
   as Tailwind writes it, where tw refused it, and the opacity utilities sort
   by class name the way Tailwind's do, `opacity-12.5` before `opacity-12.25`
   (#939).
+- A `--theme()` reference with an alpha, such as
+  `bg-[--theme(--color-red-500/25%)]`, compiles to the `color-mix()` of the
+  token at that alpha Tailwind writes, where tw refused it. `theme()` and
+  `--theme()` also read a `var()` alpha and a space after the slash (#940).
 
 ### Project stylesheets
 
