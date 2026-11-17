@@ -91,7 +91,7 @@ module Handler = struct
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
-    | None -> Error (`Msg "Not an overflow utility")
+    | None -> Utility.unclaimed
 
   let examples = [ Auto; X_auto; Y_auto ]
 end

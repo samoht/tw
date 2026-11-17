@@ -258,8 +258,8 @@ module Handler = struct
                 (* Try as arbitrary value *)
                 match parse_arbitrary value with
                 | Some value -> Ok { kind; negative; axis; value }
-                | None -> Error (`Msg "Not a scroll utility")))
-        | _ -> Error (`Msg "Not a scroll utility"))
+                | None -> Utility.unclaimed))
+        | _ -> Utility.unclaimed)
     (* Handle block-start/end with longer axis names: scroll-mbs-4 *)
     | [ "scroll"; kind_axis; value2; value3 ]
     | [ ""; "scroll"; kind_axis; value2; value3 ] -> (
@@ -290,9 +290,9 @@ module Handler = struct
             | Error _ -> (
                 match parse_arbitrary value3 with
                 | Some value -> Ok { kind; negative; axis; value }
-                | None -> Error (`Msg "Not a scroll utility")))
-        | _ -> Error (`Msg "Not a scroll utility"))
-    | _ -> Error (`Msg "Not a scroll utility")
+                | None -> Utility.unclaimed))
+        | _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let examples =
     [

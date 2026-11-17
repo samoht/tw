@@ -2118,7 +2118,7 @@ module Handler = struct
     | [ "prose"; "2xl" ] -> Ok Prose_2xl
     | [ "lead" ] -> Ok Lead
     | [ "not"; "prose" ] -> Ok Not_prose
-    | _ -> Error (`Msg "Not a prose size utility")
+    | _ -> Utility.unclaimed
 
   let suborder = function
     (* Prose sorts among the priority-2 margin utilities exactly where Tailwind
@@ -2170,7 +2170,7 @@ module Color_Handler = struct
     | [ "prose"; "stone" ] -> Ok `Stone
     | [ "prose"; "invert" ] -> Ok `Invert
     | [ "prose"; "orange" ] -> Ok `Orange
-    | _ -> Error (`Msg "Not a prose color utility")
+    | _ -> Utility.unclaimed
 
   let suborder = function
     (* Prose color utilities come after text colors (20000-29999). The gray

@@ -216,17 +216,17 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         match Parse.arbitrary_declaration_value inner with
         | Some raw -> Ok (Raw (inner, raw))
-        | None -> Error (`Msg "Not a cursor utility"))
+        | None -> Utility.unclaimed)
     | [ "cursor"; name ] when not (List.mem_assoc cls of_class_map) ->
         (* A theme token name is an identifier: [cursor-[<value>]] is not
            one. *)
         if Parse.is_valid_theme_name name && Parse.is_ident name then
           Ok (Theme name)
-        else Error (`Msg "Not a cursor utility")
+        else Utility.unclaimed
     | _ -> (
         match List.assoc_opt cls of_class_map with
         | Some t -> Ok t
-        | None -> Error (`Msg "Not a cursor utility"))
+        | None -> Utility.unclaimed)
 
   let examples = [ Keyword Auto ]
 end

@@ -710,7 +710,7 @@ module Handler = struct
     | [ ""; "end"; "full" ] -> Ok Neg_end_full
     | [ "end"; n ] -> step_or_arbitrary Side.End n
     | [ ""; "end"; n ] -> neg_step_or_arbitrary Side.End n
-    | _ -> Error (`Msg "Not a position utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Position_static -> "static"

@@ -14,8 +14,7 @@
 
     Parsing contract (`of_string`):
     - Accepts ["justify"; ...], ["items"; ...], ["content"; ...], ["self"; ...],
-      ["place"; ...]. Unknown tokens yield `Error (`Msg "Not an alignment
-      utility")`. *)
+      ["place"; ...]. Unknown tokens yield [Utility.unclaimed]. *)
 
 module Css = Cascade.Css
 
@@ -409,7 +408,7 @@ module Handler = struct
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
-    | None -> Error (`Msg "Not an alignment utility")
+    | None -> Utility.unclaimed
 
   let examples =
     [

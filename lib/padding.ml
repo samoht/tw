@@ -190,28 +190,27 @@ module Handler = struct
     | [ prefix; arb ] when String.starts_with ~prefix:"[" arb -> (
         match (padding_axis_of_prefix prefix, parse_arbitrary arb) with
         | Some axis, Some value -> Ok { axis; value }
-        | _ -> Error (`Msg "Not a padding utility"))
+        | _ -> Utility.unclaimed)
     (* Standard parsing via Spacing *)
     | _ -> (
         match Spacing.parse_class_parts parts with
         | Some (true, _, _) ->
             (* Padding doesn't support negative values *)
-            Error (`Msg "Not a padding utility")
+            Utility.unclaimed
         | Some (false, prefix, value) -> (
-            if Spacing.is_margin_prefix prefix then
-              Error (`Msg "Not a padding utility")
+            if Spacing.is_margin_prefix prefix then Utility.unclaimed
             else
               match Spacing.axis_of_prefix prefix with
-              | None -> Error (`Msg "Not a padding utility")
+              | None -> Utility.unclaimed
               | Some axis -> (
                   match
                     Spacing.parse_value_string ~theme ~allow_auto:false value
                   with
-                  | None -> Error (`Msg "Not a padding utility")
+                  | None -> Utility.unclaimed
                   | Some (#spacing as spacing_val) ->
                       Ok { axis; value = Standard spacing_val }
-                  | Some `Auto -> Error (`Msg "Not a padding utility")))
-        | None -> Error (`Msg "Not a padding utility"))
+                  | Some `Auto -> Utility.unclaimed))
+        | None -> Utility.unclaimed)
 
   let examples =
     [

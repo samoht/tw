@@ -1360,7 +1360,7 @@ module Handler = struct
         if not (Parse.is_declaration_value size_value) then
           Error (`Msg ("Invalid mask-radial size: " ^ size_value))
         else Ok (Radial_size (Arbitrary_size size_value))
-    | _ -> Error (`Msg "Not a mask gradient utility")
+    | _ -> Utility.unclaimed
 
   let format_value = function
     | Spacing n ->

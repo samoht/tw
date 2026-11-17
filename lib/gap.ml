@@ -439,20 +439,19 @@ module Handler = struct
   let of_class theme class_name =
     let parse_gap_value value = parse_gap_value ~theme value in
     let parts = Parse.split_class class_name in
-    let err_not_utility = Error (`Msg "Not a gap utility") in
     let parse_class = function
       | [ "gap"; value ] -> (
           match parse_gap_value value with
           | Some v -> Ok (Gap { axis = `All; value = v })
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | [ "gap"; "x"; value ] -> (
           match parse_gap_value value with
           | Some v -> Ok (Gap { axis = `X; value = v })
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | [ "gap"; "y"; value ] -> (
           match parse_gap_value value with
           | Some v -> Ok (Gap { axis = `Y; value = v })
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | [ "space"; "x"; value ] -> (
           if value = "reverse" then Ok Space_x_reverse
           else if value = "px" then
@@ -471,7 +470,7 @@ module Handler = struct
                            axis = `X;
                            value = `Rem (n *. 0.25);
                          })
-                | Ok _ | Error _ -> err_not_utility))
+                | Ok _ | Error _ -> Utility.unclaimed))
       | [ "space"; "y"; value ] -> (
           if value = "reverse" then Ok Space_y_reverse
           else if value = "px" then
@@ -490,7 +489,7 @@ module Handler = struct
                            axis = `Y;
                            value = `Rem (n *. 0.25);
                          })
-                | Ok _ | Error _ -> err_not_utility))
+                | Ok _ | Error _ -> Utility.unclaimed))
       | [ ""; "space"; "x"; value ] -> (
           if value = "px" then
             Ok (Space { negative = true; axis = `X; value = `Px })
@@ -500,7 +499,7 @@ module Handler = struct
                 Ok
                   (Space
                      { negative = true; axis = `X; value = `Rem (n *. 0.25) })
-            | Ok _ | Error _ -> err_not_utility)
+            | Ok _ | Error _ -> Utility.unclaimed)
       | [ ""; "space"; "y"; value ] -> (
           if value = "px" then
             Ok (Space { negative = true; axis = `Y; value = `Px })
@@ -510,8 +509,8 @@ module Handler = struct
                 Ok
                   (Space
                      { negative = true; axis = `Y; value = `Rem (n *. 0.25) })
-            | Ok _ | Error _ -> err_not_utility)
-      | _ -> err_not_utility
+            | Ok _ | Error _ -> Utility.unclaimed)
+      | _ -> Utility.unclaimed
     in
     parse_class parts
 

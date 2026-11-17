@@ -25,7 +25,6 @@ module Handler = struct
   (* Tailwind ranks the list-style properties at 48, by cursor and resize at
      priority 11. *)
   let priority _ = 11
-  let err_not_utility = Error (`Msg "Not a list-style utility")
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -38,7 +37,7 @@ module Handler = struct
           Css.parse_list_style_type (Parse.decode_arbitrary_value inner)
         with
         | Some t -> Ok (Bracket (inner, t))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "list"; "none" ] -> Ok None
     | [ "list"; "disc" ] -> Ok Disc
     | [ "list"; "decimal" ] -> Ok Decimal
@@ -60,12 +59,12 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some raw -> Ok (Image_raw (inner, raw))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
     | "list" :: "image" :: rest when rest <> [] ->
         let url = String.concat "-" rest in
         if Parse.is_valid_theme_name url then Ok (Image_url url)
-        else err_not_utility
-    | _ -> err_not_utility
+        else Utility.unclaimed
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | None -> "list-none"

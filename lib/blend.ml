@@ -117,8 +117,6 @@ module Handler = struct
     | Bg_blend_color -> bg_blend_color
     | Bg_blend_luminosity -> bg_blend_luminosity
 
-  let err_not_utility = Error (`Msg "Not a blend utility")
-
   let of_class _theme class_name =
     match Parse.split_class class_name with
     | [ "mix"; "blend"; "normal" ] -> Ok Mix_blend_normal
@@ -155,7 +153,7 @@ module Handler = struct
     | [ "bg"; "blend"; "saturation" ] -> Ok Bg_blend_saturation
     | [ "bg"; "blend"; "color" ] -> Ok Bg_blend_color
     | [ "bg"; "blend"; "luminosity" ] -> Ok Bg_blend_luminosity
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Mix_blend_normal -> "mix-blend-normal"

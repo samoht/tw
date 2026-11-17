@@ -13,14 +13,13 @@ module Handler = struct
   (* The smoothing rules sit in the priority-26 band the late text families
      share, ahead of the placeholder pseudo-element rules. *)
   let priority _ = 26
-  let err_not_utility = Error (`Msg "Not a font-smoothing utility")
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "antialiased" ] -> Ok Antialiased
     | [ "subpixel"; "antialiased" ] -> Ok Subpixel_antialiased
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Antialiased -> "antialiased"

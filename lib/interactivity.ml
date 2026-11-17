@@ -9,16 +9,14 @@
 
     Parsing contract (`of_string`):
     - Accepts tokens like ["select"; "none"], ["scroll"; "smooth"],
-      ["snap"; "x"], ["resize"; "y"], etc. Unknown tokens yield `Error (`Msg
-      "Not an interactivity utility")`. *)
+      ["snap"; "x"], ["resize"; "y"], etc. Unknown tokens yield
+      [Utility.unclaimed]. *)
 
 module Css = Cascade.Css
 
 module Handler = struct
   open Style
   open Css
-
-  let err_not_utility = Error (`Msg "Not an interactivity utility")
 
   type t =
     | Select_none
@@ -288,7 +286,7 @@ module Handler = struct
              |> List.for_all (fun p ->
                  Parse.is_ident (Parse.decode_underscores p |> String.trim))
         then Ok (Will_change_arbitrary inner)
-        else err_not_utility
+        else Utility.unclaimed
     | [ "group" ] -> Ok Group
     | [ "peer" ] -> Ok Peer
     | [ "scheme"; "dark" ] -> Ok Scheme_dark
@@ -297,7 +295,7 @@ module Handler = struct
     | [ "scheme"; "normal" ] -> Ok Scheme_normal
     | [ "scheme"; "only"; "dark" ] -> Ok Scheme_only_dark
     | [ "scheme"; "only"; "light" ] -> Ok Scheme_only_light
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Select_none -> "select-none"

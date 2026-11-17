@@ -3,7 +3,6 @@
 module Css = Cascade.Css
 
 (** Error helper *)
-let err_not_utility = Error (`Msg "Not an SVG utility")
 
 (* How wide one of the three suborder groups below is. A suborder is a plain
    [int], 32 bits under js_of_ocaml, so a name packs seven bits per character
@@ -330,7 +329,7 @@ module Handler = struct
            still reaches [fill]. An opacity modifier has nothing to mix. *)
         match (opacity, Parse.arbitrary_declaration_value base_inner) with
         | Color.No_opacity, Some raw -> Ok (Fill_bracket_raw (base_inner, raw))
-        | _ -> err_not_utility)
+        | _ -> Utility.unclaimed)
 
   let parse_bracket_stroke_color ~theme v =
     let base_str, opacity = Color.parse_opacity_modifier ~theme v in
@@ -354,12 +353,12 @@ module Handler = struct
            the width reader above, so declining them here keeps one class from
            being claimed twice. *)
         match Parse.data_type_hint base_inner with
-        | Some (("length" | "number" | "percentage"), _) -> err_not_utility
+        | Some (("length" | "number" | "percentage"), _) -> Utility.unclaimed
         | _ -> (
             match (opacity, Parse.arbitrary_declaration_value base_inner) with
             | Color.No_opacity, Some raw ->
                 Ok (Stroke_bracket_raw (base_inner, raw))
-            | _ -> err_not_utility))
+            | _ -> Utility.unclaimed))
 
   (* Parse bracket value for stroke width: [1.5], [12px], [50%], [2em],
      [calc(1rem_+_2px)], [length:var(...)], [number:var(...)],
@@ -387,7 +386,7 @@ module Handler = struct
                    width, forwarded verbatim. *)
                 match Parse.arbitrary_declaration_value inner with
                 | Some raw -> Ok (Stroke_width_raw (inner, raw))
-                | None -> err_not_utility)))
+                | None -> Utility.unclaimed)))
     | None -> (
         match Parse.arbitrary_length inner with
         | Some length -> Ok (Stroke_width_bracket (inner, length))
@@ -398,7 +397,7 @@ module Handler = struct
                compares. *)
             match float_of_string_opt inner with
             | Some f -> Ok (Stroke_width_bracket (inner, Px f))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -474,7 +473,7 @@ module Handler = struct
         match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Stroke_color (color, shade))
         | Error e -> Error e)
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let examples = [ Fill_none; Stroke_none; Stroke_0 ]
 end

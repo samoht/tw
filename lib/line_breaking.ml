@@ -40,7 +40,6 @@ module Handler = struct
      white-space at 290-295, after letter-spacing (289) and inside the
      priority-26 band the late text families share. *)
   let priority _ = 26
-  let err_not_utility = Error (`Msg "Not a line-breaking utility")
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -65,7 +64,7 @@ module Handler = struct
     | [ "hyphens"; "none" ] -> Ok Hyphens_none
     | [ "hyphens"; "manual" ] -> Ok Hyphens_manual
     | [ "hyphens"; "auto" ] -> Ok Hyphens_auto
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Whitespace_normal -> "whitespace-normal"

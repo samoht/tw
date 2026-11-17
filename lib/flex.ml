@@ -27,14 +27,12 @@ module Handler = struct
     | Flex -> 3
     | Inline_flex -> 9
 
-  let err_not_utility = Error (`Msg "Not a flex display utility")
-
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "flex" ] -> Ok Flex
     | [ "inline"; "flex" ] -> Ok Inline_flex
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function Flex -> "flex" | Inline_flex -> "inline-flex"
   let examples = [ Flex ]
