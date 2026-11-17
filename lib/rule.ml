@@ -635,15 +635,15 @@ let route_data_bracket_modifier modifier ~selector base_class props =
     | Style.Peer_data (s, n) -> (`Peer_data, s, n)
     | _ -> failwith "Invalid data bracket modifier"
   in
-  (* [raw_str] is the spelling: [[state=open]] bracketed, [dragging] bare. The
-     expression to parse is the same either way. *)
-  let expr =
+  (* [raw_str] is the spelling: [[state=open]] bracketed, [dragging] bare. Only
+     the bracket is an expression, underscore-decoded; a bare name is taken as
+     written, so [group-data-a_b] matches [[data-a_b]]. *)
+  let attr_name, attr_match, attr_flag =
     let n = String.length raw_str in
     if n > 1 && raw_str.[0] = '[' && raw_str.[n - 1] = ']' then
-      String.sub raw_str 1 (n - 2)
-    else raw_str
+      Variant_parse.parse_data_expr (String.sub raw_str 1 (n - 2))
+    else ("data-" ^ raw_str, Css.Selector.Presence, None)
   in
-  let attr_name, attr_match, attr_flag = Variant_parse.parse_data_expr expr in
   let open Css.Selector in
   let class_part = raw_str in
   match kind with
