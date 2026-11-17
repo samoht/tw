@@ -283,10 +283,15 @@ type modifier =
   | Aria_bracket of string
       (** [aria-[expr]] — arbitrary aria attribute, e.g. "modal", "valuenow=1"
       *)
+  | Aria of string
+      (** [aria-X] — a named aria attribute, matched as [[aria-X="true"]] *)
   | Group_aria of string * string option
-      (** [group-aria-X/name] — group aria variant with optional name *)
+      (** [group-aria-X/name] — group aria variant with optional name. The
+          spelling as written: [[modal]] for the bracket form, [busy] for a
+          name. *)
   | Peer_aria of string * string option
-      (** [peer-aria-X/name] — peer aria variant with optional name *)
+      (** [peer-aria-X/name] — peer aria variant with optional name, spelled as
+          {!constructor-Group_aria}'s *)
   | Named_group of modifier * string
       (** [group-X/name] — a state variant on a named group *)
   | Named_peer of modifier * string
@@ -760,6 +765,7 @@ let rec pp_modifier = function
   | Peer_data (spelling, Some name) ->
       String.concat "" [ "peer-data-"; spelling; "/"; name ]
   | Aria_bracket expr -> "aria-[" ^ expr ^ "]"
+  | Aria name -> "aria-" ^ name
   | Group_aria (expr, None) -> "group-aria-" ^ expr
   | Group_aria (expr, Some name) ->
       String.concat "" [ "group-aria-"; expr; "/"; name ]

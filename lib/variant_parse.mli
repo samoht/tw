@@ -85,11 +85,6 @@ val container_query_theme_decls : Style.container_query -> Css.declaration list
 
 (** {1 ARIA and Data Attributes} *)
 
-val is_aria_shorthand : string -> bool
-(** [is_aria_shorthand name] returns [true] if [name] is a known ARIA shorthand
-    attribute (e.g., "checked", "expanded", "hidden") that maps to
-    [aria-X=true]. *)
-
 val parse_aria_expr : string -> string * Css.Selector.attribute_match
 (** [parse_aria_expr expr] reads an [aria-[expr]] bracket body into the
     attribute name (["aria-" ^ name]) and its match: [modal] is
@@ -97,6 +92,11 @@ val parse_aria_expr : string -> string * Css.Selector.attribute_match
     Underscores stand for spaces and [\_] for a literal underscore, as in any
     arbitrary value; quotes around the value are dropped, since the selector
     printer writes its own. *)
+
+val aria_attribute : string -> string * Css.Selector.attribute_match
+(** [aria_attribute spelling] is the attribute an aria variant matches, from its
+    spelling as written: a name [busy] is [("aria-busy", Exact "true")], a
+    bracket [[busy]] is read by {!parse_aria_expr}. *)
 
 val parse_data_expr :
   string ->

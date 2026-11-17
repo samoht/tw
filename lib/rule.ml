@@ -411,12 +411,11 @@ let container_rule ?theme ?(inner_has_hover = false) ?(negated = false)
     substitution {!Modifiers.nest_selector} performs for [group-[...]] /
     [peer-[...]] templates, via {!Cascade.Nest.substitute}. The boolean records
     whether that substitution happened, because Tailwind leaves the resulting
-    complex selector outside [:is()]. *)
+    complex selector outside [:is()]. A bracket's [_] is decoded by the caller;
+    a shorthand's text is CSS already, and a [data-] name in it keeps its
+    underscores. *)
 let has_relative_selector s =
-  let unresolved =
-    Css.Selector.read_relative
-      (Cascade.Cursor.of_string (Parse.decode_underscores s))
-  in
+  let unresolved = Css.Selector.read_relative (Cascade.Cursor.of_string s) in
   let has_nesting =
     Css.Selector.any
       (function Css.Selector.Nesting -> true | _ -> false)
@@ -457,12 +456,13 @@ let wrap_has_bracket_selector ~has_nesting =
    stored: a state name resolves to its pseudo-class, anything else is already a
    selector. *)
 let has_inner_selector raw =
-  let str =
-    if Style.is_has_shorthand raw then resolve_has_shorthand raw else raw
-  in
-  let sel, has_nesting = has_relative_selector str in
-  if Style.is_has_shorthand raw then sel
-  else wrap_has_bracket_selector ~has_nesting sel
+  if Style.is_has_shorthand raw then
+    fst (has_relative_selector (resolve_has_shorthand raw))
+  else
+    let sel, has_nesting =
+      has_relative_selector (Parse.decode_underscores raw)
+    in
+    wrap_has_bracket_selector ~has_nesting sel
 
 (* The [/name] a named group or peer variant carries in its class name. *)
 let named_modifier_suffix = function None -> "" | Some n -> "/" ^ n
@@ -504,7 +504,12 @@ let route_regular ~selector ~base_class ~modified_class ~modified ?has_hover
 let has_like_selector kind ?name ?shorthand ?(has_hover = false) ~selector
     selector_str base_class props =
   let open Css.Selector in
-  let parsed_selector, has_nesting = has_relative_selector selector_str in
+  let parsed_selector, has_nesting =
+    has_relative_selector
+      (match shorthand with
+      | Some _ -> selector_str
+      | None -> Parse.decode_underscores selector_str)
+  in
   (* A bracket value is one arbitrary selector and is wrapped when it is not
      already relative. The [hocus] shorthand is genuinely two selectors and
      stays a list. *)
@@ -705,20 +710,17 @@ let route_has_modifier modifier ~selector base_class props =
 
 (* Route aria variants to appropriate handler *)
 let route_aria_modifier modifier ~selector base_class props =
-  let kind, raw_str, name_opt =
+  (* [class_part] is the spelling: [[modal]] bracketed, [busy] named. *)
+  let kind, class_part, name_opt =
     match modifier with
-    | Style.Aria_bracket s -> (`Aria, s, None)
+    | Style.Aria name -> (`Aria, name, None)
+    | Style.Aria_bracket s -> (`Aria, "[" ^ s ^ "]", None)
     | Style.Group_aria (s, n) -> (`Group_aria, s, n)
     | Style.Peer_aria (s, n) -> (`Peer_aria, s, n)
     | _ -> failwith "Invalid aria modifier"
   in
   let open Css.Selector in
-  let is_shorthand = Variant_parse.is_aria_shorthand raw_str in
-  let aria_attr, aria_match =
-    if is_shorthand then ("aria-" ^ raw_str, Exact "true")
-    else Variant_parse.parse_aria_expr raw_str
-  in
-  let class_part = if is_shorthand then raw_str else "[" ^ raw_str ^ "]" in
+  let aria_attr, aria_match = Variant_parse.aria_attribute class_part in
   match kind with
   | `Aria ->
       let class_name = "aria-" ^ class_part ^ ":" ^ base_class in
@@ -990,12 +992,10 @@ let attribute_condition = function
   | Style.Data_bracket expr ->
       let name, matcher, flag = Variant_parse.parse_data_expr expr in
       Some [ Css.Selector.attribute ?flag name matcher ]
+  | Style.Aria name ->
+      Some [ Css.Selector.attribute ("aria-" ^ name) (Exact "true") ]
   | Style.Aria_bracket expr ->
-      let name, matcher =
-        if Variant_parse.is_aria_shorthand expr then
-          ("aria-" ^ expr, Css.Selector.Exact "true")
-        else Variant_parse.parse_aria_expr expr
-      in
+      let name, matcher = Variant_parse.parse_aria_expr expr in
       Some [ Css.Selector.attribute name matcher ]
   | Style.Aria_selected ->
       Some [ Css.Selector.attribute "aria-selected" (Exact "true") ]
@@ -1789,15 +1789,15 @@ let dispatch_modifier ?theme ?(inner_has_hover = false) modifier base_class
         ~combinator:Css.Selector.Subsequent_sibling inner name ~selector
         base_class props
   (* Aria bracket and group/peer aria variants *)
-  | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _
+  | Style.Aria _ | Style.Aria_bracket _ | Style.Group_aria _ | Style.Peer_aria _
   | Style.Aria_checked | Style.Aria_expanded | Style.Aria_selected
   | Style.Aria_disabled ->
       let modifier =
         match modifier with
-        | Style.Aria_checked -> Style.Aria_bracket "checked"
-        | Style.Aria_expanded -> Style.Aria_bracket "expanded"
-        | Style.Aria_selected -> Style.Aria_bracket "selected"
-        | Style.Aria_disabled -> Style.Aria_bracket "disabled"
+        | Style.Aria_checked -> Style.Aria "checked"
+        | Style.Aria_expanded -> Style.Aria "expanded"
+        | Style.Aria_selected -> Style.Aria "selected"
+        | Style.Aria_disabled -> Style.Aria "disabled"
         | m -> m
       in
       route_aria_modifier modifier ~selector base_class props
