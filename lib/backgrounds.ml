@@ -934,16 +934,22 @@ module Handler = struct
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
+  (* A negated angle as a literal, the [-45deg] Tailwind's [calc()] spelling
+     folds to. A typed [calc()] prints with no space before [in] once minified,
+     and folding it afterwards leaves [-45deg/**/in]: a custom property is a
+     token sequence, so the whitespace token Tailwind's spelling carries has to
+     be there in tw's. Negating the integer keeps [-bg-linear-0] at [0deg]. *)
+  let negated_angle angle_deg : Css.gradient_direction =
+    Angle (Deg (float_of_int (-angle_deg)))
+
   (** [-bg-linear-{angle}] - negated angle with [@supports] *)
   let bg_linear_angle_neg' angle_deg =
-    let angle_calc : Css.gradient_direction =
-      Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
+    let angle = negated_angle angle_deg in
+    let angle_interp : Css.gradient_direction =
+      With_interpolation (angle, In (Oklab, None))
     in
-    let angle_calc_interp : Css.gradient_direction =
-      With_interpolation (angle_calc, In (Oklab, None))
-    in
-    let base_decl = Var.set gradient_position_var angle_calc in
-    let interp_decl = Var.set gradient_position_var angle_calc_interp in
+    let base_decl = Var.set gradient_position_var angle in
+    let interp_decl = Var.set gradient_position_var angle_interp in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
@@ -959,11 +965,9 @@ module Handler = struct
 
   (** [-bg-linear-{angle}/interp] *)
   let bg_linear_angle_neg_interp' angle_deg ci_opt interp_css =
-    let angle_calc : Css.gradient_direction =
-      Angle (Calc (Expr (Val (Deg (float_of_int angle_deg)), Mul, Num (-1.0))))
-    in
-    let base_decl = Var.set gradient_position_var angle_calc in
-    let interp_decl = gradient_interp_decl angle_calc ci_opt interp_css in
+    let angle = negated_angle angle_deg in
+    let base_decl = Var.set gradient_position_var angle in
+    let interp_decl = gradient_interp_decl angle ci_opt interp_css in
     let rules = gradient_direction_rules ~base_decl ~interp_decl in
     style ~property_rules:gradient_property_rules ~rules:(Some rules) []
 
