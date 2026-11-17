@@ -280,6 +280,19 @@ let test_arbitrary_angle () =
 let test_radial_size_underscore_escape () =
   has {|mask-radial-[var(--a\_b)]|} "--tw-mask-radial-size: var(--a_b);"
 
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "mask-linear-[foo:45deg]";
+      "-mask-linear-[foo:45deg]";
+      "mask-conic-[foo:45deg]";
+      "-mask-conic-[foo:45deg]";
+      "mask-radial-[foo:10px]";
+      "mask-radial-at-[foo:25%]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
@@ -303,6 +316,8 @@ let tests =
       Alcotest.test_case "arbitrary angle" `Quick test_arbitrary_angle;
       Alcotest.test_case "arbitrary stop decodes" `Quick
         test_arbitrary_stop_decodes;
+      Alcotest.test_case "unknown hint is not the value" `Quick
+        test_unknown_hint_is_not_the_value;
     ]
 
 let suite = ("mask_gradient", tests)

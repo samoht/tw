@@ -566,11 +566,8 @@ module Handler = struct
 
   (* An arbitrary [mask-radial-at-[30%_30%]] is a position value, so it goes
      through the value printer rather than reaching the sheet as written. *)
-  let radial_at_position raw : Css.position_value option =
-    match
-      String.split_on_char ' ' (Parse.decode_arbitrary_value raw)
-      |> List.filter (fun s -> s <> "")
-    with
+  let radial_at_position value : Css.position_value option =
+    match String.split_on_char ' ' value |> List.filter (fun s -> s <> "") with
     | [ x; y ] -> (
         match (Css.parse_length x, Css.parse_length y) with
         | Some xv, Some yv -> Some (XY (xv, yv))
@@ -588,14 +585,15 @@ module Handler = struct
   let build_radial_at_style pos =
     match pos with
     | Bracket s -> (
-        match radial_at_position s with
+        let value = bracket_value s in
+        match radial_at_position value with
         | Some p -> style [ set radial_position_var p ]
         | None ->
             style
               [
                 custom_property ~layer:"utilities"
                   (Var.css_name radial_position_var)
-                  s;
+                  value;
               ])
     | Keyword s ->
         style
@@ -643,7 +641,7 @@ module Handler = struct
       | Closest_side -> set radial_size_var Closest_side
       | Farthest_corner -> set radial_size_var Farthest_corner
       | Farthest_side -> set radial_size_var Farthest_side
-      | Arbitrary_size s -> radial_size_decl s
+      | Arbitrary_size s -> radial_size_decl (bracket_value s)
     in
     (* Arbitrary sizes get full mask setup with property_rules, keywords just
        set the variable without property rules *)
@@ -711,8 +709,10 @@ module Handler = struct
        is; negated it is spelled out, because a typed [calc] over an invalid
        operand loses the spaces around the operator that both tools write. *)
     | Arb s ->
+        let s = bracket_value s in
         set var (Option.value (arbitrary_angle s) ~default:(invalid_angle s))
     | Arb_neg s -> (
+        let s = bracket_value s in
         match arbitrary_angle s with
         | Some a -> set var (negated a)
         | None ->
@@ -1299,10 +1299,8 @@ module Handler = struct
           (* The channel is this family's longhand, so a bracket no position
              reader took still reaches it; [build_radial_at_style] already
              writes such a bracket verbatim. *)
-          if
-            radial_at_position inner = None
-            && Parse.arbitrary_declaration_value inner = None
-          then Error (`Msg ("Invalid mask-radial-at position: " ^ position))
+          if Parse.arbitrary_declaration_value inner = None then
+            Error (`Msg ("Invalid mask-radial-at position: " ^ position))
           else Ok (Radial_at (Bracket inner))
         else
           (* Validate keyword positions: top, bottom, left, right, center and
@@ -1355,11 +1353,10 @@ module Handler = struct
     | [ "mask"; "radial"; "farthest"; "side" ] -> Ok (Radial_size Farthest_side)
     (* mask-radial-[size] - arbitrary size *)
     | [ "mask"; "radial"; arb ] when Parse.is_bracket_value arb ->
-        let size_value = Parse.bracket_inner arb in
-        let size_value = Parse.decode_underscores size_value in
-        if not (Parse.is_declaration_value size_value) then
-          Error (`Msg ("Invalid mask-radial size: " ^ size_value))
-        else Ok (Radial_size (Arbitrary_size size_value))
+        let inner = Parse.bracket_inner arb in
+        if Parse.arbitrary_declaration_value inner = None then
+          Error (`Msg ("Invalid mask-radial size: " ^ inner))
+        else Ok (Radial_size (Arbitrary_size inner))
     | _ -> Utility.unclaimed
 
   let format_value = function
@@ -1411,10 +1408,7 @@ module Handler = struct
     | Radial_size Closest_side -> "mask-radial-closest-side"
     | Radial_size Farthest_corner -> "mask-radial-farthest-corner"
     | Radial_size Farthest_side -> "mask-radial-farthest-side"
-    | Radial_size (Arbitrary_size s) ->
-        (* The size is held decoded, so the bracket it goes back into spells a
-           space [_] and an underscore [\_]. *)
-        "mask-radial-[" ^ Parse.encode_underscores s ^ "]"
+    | Radial_size (Arbitrary_size s) -> "mask-radial-[" ^ s ^ "]"
 
   let examples = [ Linear_angle (Int 0) ]
 end

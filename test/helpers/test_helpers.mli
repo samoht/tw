@@ -121,6 +121,10 @@ val check_ordering_matches :
     classes it is given. The whole-sheet answer is {!sheet_order_gap}, which the
     gate in [test/parity/] pins at zero. *)
 
+val check_class_matches_tailwind : string -> unit
+(** [check_class_matches_tailwind cls] is {!check_ordering_matches} on the one
+    class [cls], and fails when tw refuses [cls]. *)
+
 val tree_diff_css :
   expected:string -> actual:string -> Cascade_diff.Css_compare.t
 (** [tree_diff_css ~expected ~actual] compares two sheets structurally, in mode

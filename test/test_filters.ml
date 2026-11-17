@@ -744,6 +744,26 @@ let test_drop_shadow_named_alpha_on_size () =
       chain;
     ]
 
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "brightness-[foo:2]";
+      "contrast-[foo:150%]";
+      "grayscale-[foo:50%]";
+      "invert-[foo:0.5]";
+      "saturate-[foo:2]";
+      "sepia-[foo:var(--x)]";
+      "backdrop-brightness-[foo:2]";
+      "backdrop-contrast-[foo:2]";
+      "backdrop-grayscale-[foo:50%]";
+      "backdrop-invert-[foo:0.5]";
+      "backdrop-saturate-[foo:2]";
+      "backdrop-sepia-[foo:50%]";
+      "backdrop-opacity-[foo:0.5]";
+    ]
+
 let tests =
   [
     test_case "drop-shadow arbitrary opacity" `Quick
@@ -792,6 +812,8 @@ let tests =
       project_drop_shadow_size_order;
     test_case "drop-shadow candidate order" `Slow drop_shadow_candidate_order;
     test_case "project blur token" `Quick test_project_blur_token;
+    test_case "unknown hint is not the value" `Quick
+      test_unknown_hint_is_not_the_value;
   ]
 
 let suite = ("filters", tests)

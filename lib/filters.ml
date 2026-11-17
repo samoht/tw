@@ -42,9 +42,9 @@ module Handler = struct
     | Blur_raw of target * string * string
     | Blur_theme of string (* filter only: radius from a --blur-* token *)
     | Amount of target * amount * int
-    | Amount_arbitrary of target * amount * string
+    | Amount_arbitrary of target * amount * string * string
     | Backdrop_opacity of float
-    | Backdrop_opacity_arbitrary of string
+    | Backdrop_opacity_arbitrary of string * string
     | Hue_rotate of target * int
     (* The author's bracket text travels with the angle it denotes, so the class
        name is spelled exactly as it was written. *)
@@ -439,11 +439,10 @@ module Handler = struct
     | `Sepia -> Css.Sepia np
 
   (* A bracket amount: a number or percentage, else forwarded verbatim. *)
-  let amount_arbitrary target (f : scaled) s =
-    let inner = Parse.bracket_inner s in
-    match parse_bracket_numpct_opt inner with
+  let amount_arbitrary target (f : scaled) value =
+    match parse_bracket_numpct_opt value with
     | Some np -> set target (f :> func) (amount_filter f np)
-    | None -> set_raw target (f :> func) (Parse.decode_arbitrary_value inner)
+    | None -> set_raw target (f :> func) value
 
   let amount target (f : scaled) pct =
     set target (f :> func) (amount_filter f (Pct pct))
@@ -1092,9 +1091,11 @@ module Handler = struct
     | Blur_arbitrary (target, _, len) -> set target `Blur (Css.Blur len)
     | Blur_raw (target, _, value) -> set_raw target `Blur value
     | Amount (target, f, n) -> amount target (f :> scaled) (float_of_int n)
-    | Amount_arbitrary (target, f, s) -> amount_arbitrary target (f :> scaled) s
+    | Amount_arbitrary (target, f, _, value) ->
+        amount_arbitrary target (f :> scaled) value
     | Backdrop_opacity n -> amount Backdrop `Opacity n
-    | Backdrop_opacity_arbitrary s -> amount_arbitrary Backdrop `Opacity s
+    | Backdrop_opacity_arbitrary (_, value) ->
+        amount_arbitrary Backdrop `Opacity value
     | Hue_rotate (target, n) ->
         set target `Hue_rotate (Css.Hue_rotate (make_angle n))
     | Hue_rotate_arbitrary (target, _, angle) ->
@@ -1218,7 +1219,7 @@ module Handler = struct
     | Blur_raw (t, _, _) ->
         slot t `Blur
     | Blur_theme _ -> slot Filter `Blur
-    | Amount (t, f, _) | Amount_arbitrary (t, f, _) -> slot t (f :> func)
+    | Amount (t, f, _) | Amount_arbitrary (t, f, _, _) -> slot t (f :> func)
     | Backdrop_opacity _ | Backdrop_opacity_arbitrary _ ->
         slot Backdrop `Opacity
     | Hue_rotate (t, _)
@@ -1404,7 +1405,7 @@ module Handler = struct
     | "drop" :: _ when target = Filter -> parse_drop_shadow theme parts
     | [ "opacity"; s ] when target = Backdrop && Parse.is_bracket_value s -> (
         match declaration s with
-        | Some _ -> Ok (Backdrop_opacity_arbitrary s)
+        | Some value -> Ok (Backdrop_opacity_arbitrary (s, value))
         | None -> Utility.unclaimed)
     | [ "opacity"; n ] when target = Backdrop -> (
         match Parse.decimal_float n with
@@ -1414,7 +1415,7 @@ module Handler = struct
         match (amount_of_name name, rest) with
         | Some f, [ s ] when Parse.is_bracket_value s -> (
             match declaration s with
-            | Some _ -> Ok (Amount_arbitrary (target, f, s))
+            | Some value -> Ok (Amount_arbitrary (target, f, s, value))
             | None -> Utility.unclaimed)
         | Some f, [ n ] ->
             Parse.int_pos ~name:(prefix target ^ name) n >|= fun x ->
@@ -1445,13 +1446,14 @@ module Handler = struct
         prefix t ^ func_name (f :> func)
     | Amount (t, f, n) ->
         prefix t ^ func_name (f :> func) ^ "-" ^ string_of_int n
-    | Amount_arbitrary (t, f, s) -> prefix t ^ func_name (f :> func) ^ "-" ^ s
+    | Amount_arbitrary (t, f, s, _) ->
+        prefix t ^ func_name (f :> func) ^ "-" ^ s
     | Backdrop_opacity n ->
         "backdrop-opacity-"
         ^
         if Float.is_integer n then string_of_int (Float.to_int n)
         else Css.Pp.string_of_float n
-    | Backdrop_opacity_arbitrary s -> "backdrop-opacity-" ^ s
+    | Backdrop_opacity_arbitrary (s, _) -> "backdrop-opacity-" ^ s
     | Hue_rotate (t, n) ->
         let sign = if n < 0 then "-" else "" in
         sign ^ prefix t ^ "hue-rotate-" ^ string_of_int (abs n)

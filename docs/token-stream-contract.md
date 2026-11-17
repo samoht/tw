@@ -320,14 +320,6 @@ contract.
   a `url()` with a word after it.
 - `text-shadow-[…]` refuses every shape but a colour keyword.
 
-Some families carry the hint into the sheet. `transition-[…]`, `bg-conic-[…]`
-and the `brightness-`, `contrast-`, `grayscale-`, `saturate-` and `sepia-`
-filters call `arbitrary_declaration_value` to decide whether the class exists
-and then build the declaration from the raw bracket again, so
-`transition-[foo:color]` writes `transition-property: foo:color` where the CLI
-writes `color`. Each needs the `(spelling, value)` payload the other families
-carry, so that `to_class` keeps the hint and `to_style` does not.
-
 `shadow-[foo:red]` reaches the shadow reader as `red` and writes
 `--tw-shadow: red`, where the CLI writes
 `--tw-shadow: var(--tw-shadow-color, red)`. In the CLI the hint sends the
