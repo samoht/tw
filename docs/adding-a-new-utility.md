@@ -1,10 +1,10 @@
 Title: CSS Variables in Utilities - The Variable Pattern System
 
-This doc explains the CSS variable patterns used in Tailwind CSS v4 and how to implement them correctly in OCaml. There are 4 core variable types (`Var.theme`, `Var.property_default`, `Var.channel`, `Var.ref_only`) with 5 usage patterns. Each pattern has specific use cases and constraints.
+This doc explains the CSS variable patterns used in Tailwind CSS v4 and how to implement them correctly in OCaml. There are 3 variable constructors (`Var.theme`, `Var.property_default`, `Var.channel`) with 4 usage patterns. Each pattern has specific use cases and constraints.
 
 ## The Variable Patterns
 
-Every CSS variable in our system follows one of these patterns (4 variable types, 5 usage patterns):
+Every CSS variable in our system follows one of these patterns (3 variable constructors, 4 usage patterns):
 
 ### Pattern 1: Theme Variables
 **Purpose**: Design tokens set once in theme layer, referenced by utilities
@@ -24,13 +24,7 @@ Every CSS variable in our system follows one of these patterns (4 variable types
 **Layer**: Set in `@layer utilities` by individual utilities
 **Usage**: Declare with `Var.channel kind name`. Contributing utilities use `Var.binding`; aggregator references the channels (with fallbacks for inline mode)
 
-### Pattern 4: Ref_only Variables
-**Purpose**: Variables that utilities only reference (with fallback), never set
-**Examples**: `--tw-shadow-color`, `--tw-ring-color`
-**Layer**: Not set by referencing utilities (set elsewhere)
-**Usage**: Create with `Var.ref_only kind name ~fallback:value`, then use `Var.reference var` (fallback is built-in); never set in the referencing module
-
-### Pattern 5: Always-set Variables (variant of Pattern 3)
+### Pattern 4: Always-set Variables (variant of Pattern 3)
 **Purpose**: Variables that are always set when used
 **Examples**: `--tw-font-weight` in font utilities
 **Layer**: Set in `@layer utilities`
@@ -43,26 +37,24 @@ Use this decision tree:
 1. **Is it a design token shared across utilities?** → Pattern 1 (Theme)
 2. **Does it need a default that some utilities override?** → Pattern 2 (Property_default)
 3. **Do multiple utilities contribute to compose a value?** → Pattern 3 (Channel)
-4. **Do utilities only reference it, never set it?** → Pattern 4 (Ref_only)
-5. **Is it always set when used?** → Pattern 5 (Always-set)
+4. **Is it always set when used?** → Pattern 4 (Always-set)
 
 ## Key Building Blocks
 
 - `Var.theme`: defines a Theme variable (design token) with explicit `~order`
 - `Var.property_default`: defines a Utility variable with typed @property defaults
-- `Var.channel`: defines a Utility composition variable without @property
-- `Var.ref_only`: defines a variable that's only referenced (fallback built-in)
+- `Var.channel`: defines a Utility composition variable, with @property only
+  under `~needs_property:true`
 
-- `Var.binding`: creates both declaration and reference (Patterns 1, 3, 5)
+- `Var.binding`: creates both declaration and reference (Patterns 1, 3, 4)
   - Returns `(declaration, var_ref)` tuple
   - Declaration sets the variable
   - Reference uses it
 
 - `Var.reference`: creates only reference without declaration (Pattern 2)
-  - For `property_default` variables - uses built-in @property default
-  - For `ref_only` variables - uses built-in fallback
+  - For `property_default` variables only - uses built-in @property default
 
-- `Var.reference_with_fallback`: creates reference with explicit fallback (Patterns 3, 4)
+- `Var.reference_with_fallback`: creates reference with explicit fallback (Pattern 3)
   - Use for `channel` variables when you need a fallback value
   - Signature: `Var.reference_with_fallback var fallback_value`
 
@@ -148,29 +140,7 @@ let transform_all =
   ]
 ```
 
-### Pattern 4: Ref_only Variables (Shadows)
-```ocaml
-(* Variable that's only referenced, never set by shadows - use Var.channel *)
-let shadow_color_var = Var.channel Css.Color "tw-shadow-color"
-
-(* Shadow utilities reference with fallback using reference_with_fallback *)
-let shadow_sm =
-  let color_ref = Var.reference_with_fallback shadow_color_var (Css.hex "#0000001a") in
-  Style.style [
-    box_shadow (Shadow {
-      h_offset = Px 0.; v_offset = Px 1.;
-      blur = Some (Px 3.); spread = Some (Px 0.);
-      color = Some (Var color_ref)
-    })
-  ]
-
-(* Color utilities set the variable (in different module) *)
-let shadow_red_500 =
-  let decl, _ = Var.binding shadow_color_var (Css.hex "#ef4444") in
-  Style.style [ decl ]
-```
-
-### Pattern 5: Always-set Variables (Font Weight)
+### Pattern 4: Always-set Variables (Font Weight)
 ```ocaml
 (* Variable always set when used *)
 let font_weight_var = Var.channel Css.Font_weight "tw-font-weight"
@@ -241,8 +211,7 @@ Ask yourself these questions in order:
 1. **Is it a design token?** (font size, color, spacing) → Pattern 1 (Theme)
 2. **Does it have a default that some utilities override?** (border-style: solid) → Pattern 2 (Property_default)
 3. **Do multiple utilities contribute parts?** (transforms, filters) → Pattern 3 (Channel)
-4. **Do utilities only reference it, never set it?** (shadow-color, ring-color) → Pattern 4 (Ref_only)
-5. **Otherwise** → Pattern 5 (Always-set)
+4. **Otherwise** → Pattern 4 (Always-set)
 
 ### Step 2: Implement According to Pattern
 
@@ -259,14 +228,9 @@ Ask yourself these questions in order:
 **Pattern 3 (Channel)**:
 - Use `Var.channel kind name`
 - Contributing utilities: `Var.binding` to set channel
-- Aggregator: `Var.reference` with fallback to compose
+- Aggregator: `Var.reference_with_fallback` to compose
 
-**Pattern 4 (Ref_only)**:
-- Use `Var.ref_only kind name ~fallback`
-- Reference with `Var.reference`
-- Never set (only referenced with built-in fallback)
-
-**Pattern 5 (Always-set)**:
+**Pattern 4 (Always-set)**:
 - Use `Var.channel kind name`
 - Always use `Var.binding` to set and reference
 
@@ -283,7 +247,7 @@ Good references
 - Typography font sizes: `lib/typography.ml` (Theme variables with `Var.theme`)
 - Typography font weight: `lib/typography.ml` (@property registration pattern)
 - Borders pattern: `lib/borders.ml` (setting vs referencing utilities)
-- Shadow utilities: `lib/effects.ml` (using `Var.reference` with fallback)
+- Shadow utilities: `lib/effects.ml` (using `Var.reference_with_fallback`)
 - Layer assembly: `lib/build.ml` (`theme_layer_of`, `properties_layer`)
 - Module shape for a utility family: `lib/utility.mli`
 
@@ -403,27 +367,7 @@ let aggregate =
   ]
 ```
 
-### Pattern 4: Ref_only Template
-```ocaml
-(* Variable only referenced, never set here - use Var.channel *)
-let color_override_var = Var.channel Css.Color "tw-my-color"
-
-(* Reference with fallback using reference_with_fallback *)
-let my_colored_thing =
-  let color_ref =
-    Var.reference_with_fallback color_override_var (Css.hex "#0000001a")
-  in
-  Style.style [
-    background_color (Var color_ref)
-  ]
-
-(* Set elsewhere (different module) *)
-let my_thing_red =
-  let decl, _ = Var.binding color_override_var (Css.hex "#ff0000") in
-  Style.style [ decl ]
-```
-
-### Pattern 5: Always-set Template
+### Pattern 4: Always-set Template
 ```ocaml
 (* Variable always set when used *)
 let my_value_var =
