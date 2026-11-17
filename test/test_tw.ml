@@ -755,7 +755,14 @@ let theme_function_custom_property_alpha () =
       "color:color-mix(in oklab,var(--color-red-500) 25%,transparent)";
     ];
   Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
-    "bg-[--theme(--color-nope/25%)]"
+    "bg-[--theme(--color-nope/25%)]";
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind mixes a non-colour token too and writes padding: \
+          color-mix(in oklab, var(--spacing) 25%, transparent), which no \
+          browser accepts; tw takes an alpha on a colour token only")
+    "p-[--theme(--spacing/25%)]"
 
 (* The inlining spelling reads the same alphas: a [var()] alpha mixes the
    resolved colour at that percentage, and a space may follow the slash. A space
