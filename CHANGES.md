@@ -59,7 +59,7 @@
 
 ### Utilities
 
-- Fix parsing of large margin, gap, scroll-margin, sizing and `leading` utilites (#902).
+- Fix parsing of large margin, gap, scroll-margin, sizing and `leading` utilities (#902).
 
 ### Project stylesheets
 
