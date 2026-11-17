@@ -54,20 +54,6 @@ let rec first_class_of_statement stmt =
           | Some (_, inner) -> List.find_map first_class_of_statement inner
           | None -> None))
 
-(* Where a declared utility sorts: the slot of the property it writes first. *)
-let rec slot_of_statement stmt =
-  match Css.as_rule stmt with
-  | Some (_, d :: _, _) ->
-      Tw.Utility.order_of_property (Css.Declaration.property_key d)
-  | Some (_, [], _) -> None
-  | None -> (
-      match Css.as_media stmt with
-      | Some (_, inner) -> List.find_map slot_of_statement inner
-      | None -> (
-          match Css.as_supports stmt with
-          | Some (_, inner) -> List.find_map slot_of_statement inner
-          | None -> None))
-
 let routed_template ~theme derived name =
   match Hashtbl.find_opt derived name with
   | Some template -> template
@@ -169,51 +155,76 @@ let routed_variant_defs defs derived =
 let routed_owner owner stmt =
   match owner with Some _ -> owner | None -> first_class_of_statement stmt
 
-let group_routed_rules ~own_order rules =
+let group_routed_rules rules =
   let group = Hashtbl.create 8 in
-  let order_of = Hashtbl.create 8 in
   let classless = ref [] in
   List.iter
     (fun (owner, stmt) ->
       match routed_owner owner stmt with
       | None -> classless := stmt :: !classless
-      | Some cls -> (
+      | Some cls ->
           let prev = Option.value ~default:[] (Hashtbl.find_opt group cls) in
-          Hashtbl.replace group cls (prev @ [ stmt ]);
-          if (not (Hashtbl.mem own_order cls)) && not (Hashtbl.mem order_of cls)
-          then
-            match slot_of_statement stmt with
-            | Some order -> Hashtbl.add order_of cls order
-            | None -> ()))
+          Hashtbl.replace group cls (prev @ [ stmt ]))
     rules;
-  (group, order_of, List.rev !classless)
+  (group, List.rev !classless)
 
-let routed_slot ~own_order ~order_of cls =
-  match Hashtbl.find_opt own_order cls with
-  | Some order -> order
-  | None ->
-      Option.value ~default:(max_int, max_int) (Hashtbl.find_opt order_of cls)
+let compare_pair (p1, s1) (p2, s2) =
+  match Int.compare p1 p2 with 0 -> Int.compare s1 s2 | c -> c
 
-(* Tailwind counts every declaration in a utility's AST, including ones in
-   nested rules and at-rules. [Css.fold] follows every kind of nested block, so
-   this does not need a brittle list of the block at-rules cascade knows. *)
-let routed_declaration_count stmts =
+let fold_declarations f acc stmts =
   Css.fold
-    (fun count stmt ->
+    (fun acc stmt ->
       match Css.as_rule stmt with
-      | Some (_, declarations, _) -> count + List.length declarations
+      | Some (_, declarations, _) -> List.fold_left f acc declarations
       | None -> (
           match Css.as_declarations stmt with
-          | Some declarations -> count + List.length declarations
-          | None -> count))
-    0 (Css.v stmts)
+          | Some declarations -> List.fold_left f acc declarations
+          | None -> acc))
+    acc (Css.v stmts)
 
-let compare_routed_entries ~own_order ~order_of (c1, stmts1) (c2, stmts2) =
-  let p1, s1 = routed_slot ~own_order ~order_of c1 in
-  let p2, s2 = routed_slot ~own_order ~order_of c2 in
-  let priority = Int.compare p1 p2 in
-  let suborder = if priority <> 0 then priority else Int.compare s1 s2 in
-  if suborder <> 0 then suborder
+(* Where a declared utility sorts: the earliest slot among the properties it
+   writes, nested rules included. Tailwind places it by the lowest index its
+   properties have in its property order and skips a property the order does not
+   list, such as a custom property. *)
+let declared_slot stmts =
+  fold_declarations
+    (fun earliest d ->
+      match Tw.Utility.order_of_property (Css.Declaration.property_key d) with
+      | None -> earliest
+      | Some slot -> (
+          match earliest with
+          | Some e when compare_pair e slot <= 0 -> earliest
+          | _ -> Some slot))
+    None stmts
+
+(* A built-in utility under a declared variant keeps its own order. *)
+let routed_slot ~own_order cls stmts =
+  match Hashtbl.find_opt own_order cls with
+  | Some _ as order -> order
+  | None -> declared_slot stmts
+
+(* Tailwind sorts a utility none of whose properties its order lists at
+   [Infinity], after every utility that has one. [max_int] is that place among
+   the [(priority, suborder)] pairs the sheet sorts on. *)
+let sheet_slot = function Some slot -> slot | None -> (max_int, max_int)
+
+(* Tailwind counts every declaration in a utility's AST, including ones in
+   nested rules and at-rules. *)
+let routed_declaration_count stmts =
+  fold_declarations (fun count _ -> count + 1) 0 stmts
+
+(* A slot sorts before no slot, as an index sorts before Tailwind's
+   [Infinity]. *)
+let compare_slot a b =
+  match (a, b) with
+  | Some a, Some b -> compare_pair a b
+  | Some _, None -> -1
+  | None, Some _ -> 1
+  | None, None -> 0
+
+let compare_routed_entries (c1, slot1, stmts1) (c2, slot2, stmts2) =
+  let slot = compare_slot slot1 slot2 in
+  if slot <> 0 then slot
   else
     let count =
       Int.compare
@@ -231,11 +242,13 @@ let unwrapped_first stmts =
   in
   plain @ wrapped
 
-let ordered_routed_entries ~own_order ~order_of group =
+let ordered_routed_entries ~own_order group =
   Hashtbl.fold
-    (fun cls stmts acc -> (cls, unwrapped_first stmts) :: acc)
+    (fun cls stmts acc ->
+      let stmts = unwrapped_first stmts in
+      (cls, routed_slot ~own_order cls stmts, stmts) :: acc)
     group []
-  |> List.sort (compare_routed_entries ~own_order ~order_of)
+  |> List.sort compare_routed_entries
 
 let routed_statements ~block_count ~own_order stmts =
   (* [@layer properties], [@property] and [@keyframes] sit beside the utilities
@@ -251,16 +264,14 @@ let routed_statements ~block_count ~own_order stmts =
         || Css.as_keyframes stmt <> None)
       stmts
   in
-  let group, order_of, classless = group_routed_rules ~own_order rules in
-  (* A declared utility whose first property tw has no slot for still belongs
-     among the utilities, at the end, so it goes over with the rest: sorted with
-     them, and read by the theme layer for the tokens it names. A statement
-     naming no class at all has nothing to sort by, and gets a utilities layer
-     of its own after them. *)
+  let group, classless = group_routed_rules rules in
+  (* A declared utility with no slot still belongs among the utilities, at the
+     end, so it goes over with the rest: sorted with them, and read by the theme
+     layer for the tokens it names. A statement naming no class at all has
+     nothing to sort by, and gets a utilities layer of its own after them. *)
   let ordered =
-    ordered_routed_entries ~own_order ~order_of group
-    |> List.map (fun (cls, stmts) ->
-        (cls, routed_slot ~own_order ~order_of cls, stmts))
+    ordered_routed_entries ~own_order group
+    |> List.map (fun (cls, slot, stmts) -> (cls, sheet_slot slot, stmts))
   in
   let unplaced =
     if classless = [] then [] else [ Css.layer ~name:[ "utilities" ] classless ]
