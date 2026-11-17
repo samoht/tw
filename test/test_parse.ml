@@ -613,6 +613,13 @@ let test_alpha_fn_expands_in_place () =
   expands "--alpha(red)" "--alpha(red)";
   expands "--alpha(red/)" "--alpha(red/)"
 
+let test_is_number () =
+  let check expected s =
+    Alcotest.(check bool) s expected (Tw.Parse.is_number s)
+  in
+  List.iter (check true) [ "1"; "1.5"; ".5"; "-2"; "+3"; "1e3"; "1.5E-2" ];
+  List.iter (check false) [ ""; "1."; "0x10"; "10px"; "1e"; "-"; "." ]
+
 (* Tailwind's test is a name and a paren anywhere in the value, not a parse:
    [foo_calc(1+2)] holds one, and so does [xcalc(1)]. *)
 let test_holds_math_function () =
@@ -642,6 +649,7 @@ let tests =
   Alcotest.
     [
       test_case "split at a top-level separator" `Quick test_split_top_level;
+      test_case "a number as Tailwind spells it" `Quick test_is_number;
       test_case "math function anywhere in a value" `Quick
         test_holds_math_function;
       test_case "underscore escape" `Quick test_underscore_escape;

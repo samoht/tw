@@ -265,6 +265,12 @@ val opaque_declaration : string -> string -> Cascade.Css.declaration option
     contract for arbitrary utilities, which deliberately emits some values that
     are invalid for [property]. *)
 
+val is_number : string -> bool
+(** [is_number s] is [true] when [s] is a number as Tailwind spells one: an
+    optional sign, digits with at most one point and a digit after it, and an
+    optional exponent. [1.5], [.5], [-2] and [1e3] are numbers; [1.], [0x10] and
+    [10px] are not. *)
+
 val holds_math_function : string -> bool
 (** [holds_math_function s] is [true] when one of the math function names
     Tailwind knows ([calc], [min], [clamp], ...) stands right before a [(]

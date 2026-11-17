@@ -371,6 +371,22 @@ let is_css_non_math_function = function
   | "attr" | "env" | "url" | "var" -> true
   | _ -> false
 
+let is_number s =
+  let n = String.length s in
+  let digit i = i < n && s.[i] >= '0' && s.[i] <= '9' in
+  let rec digits i = if digit i then digits (i + 1) else i in
+  let signed i = if i < n && (s.[i] = '+' || s.[i] = '-') then i + 1 else i in
+  let i = signed 0 in
+  let j = digits i in
+  let j = if j < n && s.[j] = '.' then digits (j + 1) else j in
+  if not (j > i && digit (j - 1)) then false
+  else if j = n then true
+  else if s.[j] = 'e' || s.[j] = 'E' then
+    let k = signed (j + 1) in
+    let l = digits k in
+    l > k && l = n
+  else false
+
 let tailwind_math_functions =
   [
     "calc";
