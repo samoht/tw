@@ -535,10 +535,10 @@ module Handler = struct
       | None when Parse.is_valid_theme_name n && is_named_inset theme n ->
           Ok (Neg_pos_named (side, n))
       | None -> (
-          (* [calc(<value> * -1)] is what a negated arbitrary writes whatever
-             the unit, and a value no reader took is no exception. *)
-          match bracket_token_stream n with
-          | Some raw -> Ok (Neg_pos_raw (side, n, "calc(" ^ raw ^ " * -1)"))
+          match
+            Option.bind (bracket_token_stream n) Parse.negated_declaration_value
+          with
+          | Some raw -> Ok (Neg_pos_raw (side, n, raw))
           | None -> Error (`Msg "invalid"))
     in
     (* A fraction, then the side's own scale, then the shared tail. Every inset

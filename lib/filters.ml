@@ -51,6 +51,7 @@ module Handler = struct
     | Hue_rotate_arbitrary of target * string * Css.angle
     | Hue_rotate_raw of target * string * string
     | Neg_hue_rotate_arbitrary of target * string * Css.angle
+    | Neg_hue_rotate_raw of target * string * string
     | Drop_shadow
     | Drop_shadow_xs
     | Drop_shadow_sm
@@ -1110,7 +1111,9 @@ module Handler = struct
         set target `Hue_rotate (Css.Hue_rotate (make_angle n))
     | Hue_rotate_arbitrary (target, _, angle) ->
         set target `Hue_rotate (Css.Hue_rotate angle)
-    | Hue_rotate_raw (target, _, value) -> set_raw target `Hue_rotate value
+    | Hue_rotate_raw (target, _, value) | Neg_hue_rotate_raw (target, _, value)
+      ->
+        set_raw target `Hue_rotate value
     | Neg_hue_rotate_arbitrary (target, _, angle) ->
         set target `Hue_rotate (Css.Hue_rotate (neg_angle angle))
     | Drop_shadow -> drop_shadow_ ()
@@ -1235,7 +1238,8 @@ module Handler = struct
     | Hue_rotate (t, _)
     | Hue_rotate_arbitrary (t, _, _)
     | Hue_rotate_raw (t, _, _)
-    | Neg_hue_rotate_arbitrary (t, _, _) ->
+    | Neg_hue_rotate_arbitrary (t, _, _)
+    | Neg_hue_rotate_raw (t, _, _) ->
         slot t `Hue_rotate
     | Drop_shadow_opacity _ -> 2690
     | Drop_shadow_size_opacity _ -> 2692
@@ -1295,7 +1299,14 @@ module Handler = struct
             match Parse.arbitrary_declaration_value spelling with
             | Some value -> Ok (Hue_rotate_raw (target, spelling, value))
             | None -> Utility.unclaimed)
-        | Option.None, true -> Utility.unclaimed)
+        | Option.None, true -> (
+            match
+              Option.bind
+                (Parse.arbitrary_declaration_value spelling)
+                Parse.negated_declaration_value
+            with
+            | Some value -> Ok (Neg_hue_rotate_raw (target, spelling, value))
+            | None -> Utility.unclaimed))
     | [ n ] when neg ->
         Parse.int_pos ~name:(prefix target ^ "hue-rotate") n >|= fun x ->
         Hue_rotate (target, -x)
@@ -1469,7 +1480,8 @@ module Handler = struct
         sign ^ prefix t ^ "hue-rotate-" ^ string_of_int (abs n)
     | Hue_rotate_arbitrary (t, spelling, _) | Hue_rotate_raw (t, spelling, _) ->
         prefix t ^ "hue-rotate-[" ^ spelling ^ "]"
-    | Neg_hue_rotate_arbitrary (t, spelling, _) ->
+    | Neg_hue_rotate_arbitrary (t, spelling, _)
+    | Neg_hue_rotate_raw (t, spelling, _) ->
         "-" ^ prefix t ^ "hue-rotate-[" ^ spelling ^ "]"
     | Drop_shadow -> "drop-shadow"
     | Drop_shadow_xs -> "drop-shadow-xs"

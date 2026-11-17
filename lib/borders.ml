@@ -139,6 +139,7 @@ module Handler = struct
     | Outline_offset_raw of string * string
     | Neg_outline_offset of int
     | Neg_outline_offset_var of string (* -outline-offset-[var(--value)] *)
+    | Neg_outline_offset_raw of string * string
 
   let name = "borders"
 
@@ -151,7 +152,7 @@ module Handler = struct
     | Outline_width_dropped _ | Outline_width_var _ | Outline_width_raw _
     | Outline_hidden | Outline_offset _ | Outline_offset_var _
     | Outline_offset_arbitrary _ | Outline_offset_raw _ | Neg_outline_offset _
-    | Neg_outline_offset_var _ ->
+    | Neg_outline_offset_var _ | Neg_outline_offset_raw _ ->
         28
     | _ -> 19
 
@@ -748,6 +749,8 @@ module Handler = struct
         | None -> style [ Css.outline_offset (Px 0.) ])
     | Neg_outline_offset n -> neg_outline_offset n
     | Neg_outline_offset_var v -> neg_outline_offset_var_style v
+    | Neg_outline_offset_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "outline-offset" v))
 
   (* Parse the side/corner segment of a class into the corners it rounds. *)
   let corner_of_string = function
@@ -886,7 +889,7 @@ module Handler = struct
     | Outline_width_var _ -> 2010
     (* Outline offset — negatives before positives *)
     | Neg_outline_offset n -> 2200 + n
-    | Neg_outline_offset_var _ -> 2209
+    | Neg_outline_offset_var _ | Neg_outline_offset_raw _ -> 2209
     | Outline_offset n -> 2210 + n
     | Outline_offset_var _ -> 2299
     | Outline_offset_arbitrary _ | Outline_offset_raw _ -> 2215
@@ -1098,7 +1101,14 @@ module Handler = struct
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
           if Parse.is_var inner then Ok (Neg_outline_offset_var inner)
-          else Utility.unclaimed
+          else
+            match
+              Option.bind
+                (Parse.arbitrary_declaration_value inner)
+                Parse.negated_declaration_value
+            with
+            | Some raw -> Ok (Neg_outline_offset_raw (inner, raw))
+            | None -> Utility.unclaimed
         else
           match Parse.decimal_int value with
           | Some i when i > 0 -> Ok (Neg_outline_offset i)
@@ -1191,7 +1201,8 @@ module Handler = struct
     | Outline_offset_arbitrary v | Outline_offset_raw (v, _) ->
         "outline-offset-[" ^ v ^ "]"
     | Neg_outline_offset n -> "-outline-offset-" ^ string_of_int n
-    | Neg_outline_offset_var v -> "-outline-offset-[" ^ v ^ "]"
+    | Neg_outline_offset_var v | Neg_outline_offset_raw (v, _) ->
+        "-outline-offset-[" ^ v ^ "]"
 
   let examples =
     [

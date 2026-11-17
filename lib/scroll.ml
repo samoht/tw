@@ -135,12 +135,13 @@ module Handler = struct
         in
         style [ scroll_prop kind axis len ]
     | Arbitrary_raw (_, value) ->
-        (* [calc(<value> * -1)] is what a negated arbitrary writes whatever the
-           unit, and a value no reader took is no exception. *)
-        let value = if negative then "calc(" ^ value ^ " * -1)" else value in
+        let value =
+          if negative then Parse.negated_declaration_value value else Some value
+        in
         style
           (Option.to_list
-             (Parse.opaque_declaration (scroll_property kind axis) value))
+             (Option.bind value
+                (Parse.opaque_declaration (scroll_property kind axis))))
     | Arbitrary_var (_, var_str) ->
         let bare_name = Parse.extract_var_name var_str in
         let len : Css.length =

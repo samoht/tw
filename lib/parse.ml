@@ -820,6 +820,9 @@ let wrap_declaration_value ~before ~after value =
       let closed_comment = before ^ value ^ "*/" ^ after in
       if is_declaration_value closed_comment then Some closed_comment else None
 
+let negated_declaration_value value =
+  wrap_declaration_value ~before:"calc(" ~after:" * -1)" value
+
 let opaque_declaration property value =
   if value <> "" && is_declaration_value value then
     Cascade.Css.Declaration.parse_opaque_declaration property value
