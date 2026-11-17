@@ -83,58 +83,18 @@ let extract_base_utility class_name_no_pseudo =
     | last :: _ -> last
     | [] -> class_name_no_pseudo
   in
-  (* Strip a leading [!] important marker so [!flex] orders like [flex] rather
-     than failing to parse and falling to the default (last) order. *)
+  (* A leading [!] marks the same utility: [!flex] is [flex]. *)
   if String.length base > 0 && base.[0] = '!' then
     String.sub base 1 (String.length base - 1)
   else base
 
-(** Parse utility and get ordering, with fallback for non-utility classes *)
-let parse_utility_order base_utility =
-  match Utility.base_of_class Scheme.default base_utility with
-  | Ok u -> Utility.order u
-  | Error _ ->
-      (* Some selectors (like .group, .peer, .container) are marker classes that
-         don't parse as utilities. Give them a default low priority. *)
-      (9999, 0)
-
-(** Compute conflict resolution order from selector string using the AST. Parses
-    the selector, finds the first class token (ignoring pseudo-tokens), strips
-    modifier prefixes (e.g., "hover:"), and maps to Utility.order. Falls back to
-    a default low priority when no class is found. *)
-let conflict_order selector =
-  let sel = Css.Selector.read (Cascade.Cursor.of_string selector) in
-  match Css.Selector.first_class sel with
-  | Some class_name -> class_name |> extract_base_utility |> parse_utility_order
-  | None -> (9999, 0)
-
-(* Extract selector and props pairs from Regular rules. *)
-let selector_props_pairs rules =
+(* Flatten [Regular] outputs into [(selector, props, order)] triples. *)
+let selector_props_pairs outputs =
   List.filter_map
-    (fun rule ->
-      match rule with
-      | Regular { selector; props; base_class; _ } ->
-          (* Compute ordering from base_class if available, otherwise parse
-             selector *)
-          let order =
-            match base_class with
-            | Some class_name -> (
-                match Utility.base_of_class Scheme.default class_name with
-                | Ok u -> Utility.order u
-                | Error _ ->
-                    (* base_class doesn't parse as a utility (e.g. "group"
-                       marker class). Fall back to parsing the selector
-                       string. *)
-                    let sel_str = Css.Selector.to_string selector in
-                    conflict_order sel_str)
-            | None ->
-                (* Fallback: parse selector if base_class is missing *)
-                let sel_str = Css.Selector.to_string selector in
-                conflict_order sel_str
-          in
-          Some (selector, props, order)
+    (function
+      | order, Regular { selector; props; _ } -> Some (selector, props, order)
       | _ -> None)
-    rules
+    outputs
 
 (* ======================================================================== *)
 (* Rule Processing - Group and organize rules *)
@@ -370,29 +330,9 @@ let deduplicate_typed_triples triples =
         true))
     triples
 
-(* The base utility's order is [Utility.order] on its value, recovered here from
-   the class string by re-parsing it through the handlers - the expensive part.
-   A base class carries its modifier prefixes ([md:grid-cols-2]), so those are
-   stripped before the lookup. [order_map] is populated by [Rule.outputs
-   ~order_tbl] from the class strings it already builds, so the common case is a
-   lookup; an unknown class (not in the input set) falls back to the parse, or
-   to a selector-based conflict order when even that fails. *)
-
-let order_of_base order_map base_class selector =
-  match base_class with
-  | Some class_name -> (
-      let base_utility = extract_base_utility class_name in
-      match Hashtbl.find_opt order_map base_utility with
-      | Some order -> order
-      | None -> (
-          match Utility.base_of_class Scheme.default base_utility with
-          | Ok u -> Utility.order u
-          | Error _ -> conflict_order (Css.Selector.to_string selector)))
-  | None -> conflict_order (Css.Selector.to_string selector)
-
 (* Convert each rule type to typed triple *)
 let triple typ ~selector ~props ~order ~nested ~base_class ~merge_key =
-  Some (typ, selector, props, order, nested, base_class, merge_key)
+  (typ, selector, props, order, nested, base_class, merge_key)
 
 (* The [(hover: hover)] media condition is the same for every hover rule. *)
 let hover_media : Css.Media.t =
@@ -400,28 +340,24 @@ let hover_media : Css.Media.t =
     (Css.Media.Feature
        (Css.Media.Plain (Css.Media.Hover, Css.Media.Ident Css.Media.Hover)))
 
-let rule_to_triple order_map = function
+let rule_to_triple (order, rule) =
+  match rule with
   | Regular { selector; props; base_class; nested; has_hover; merge_key } ->
-      let order = order_of_base order_map base_class selector in
       let typ = if has_hover then `Media hover_media else `Regular in
       triple typ ~selector ~props ~order ~nested ~base_class ~merge_key
   | Media_query { condition; selector; props; base_class; nested } ->
-      triple (`Media condition) ~selector ~props
-        ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key:None
+      triple (`Media condition) ~selector ~props ~order ~nested ~base_class
+        ~merge_key:None
   | Container_query { condition; selector; props; base_class; nested } ->
-      triple (`Container condition) ~selector ~props
-        ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key:None
+      triple (`Container condition) ~selector ~props ~order ~nested ~base_class
+        ~merge_key:None
   | Starting_style { selector; props; base_class; nested } ->
-      triple `Starting ~selector ~props
-        ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key:None
+      triple `Starting ~selector ~props ~order ~nested ~base_class
+        ~merge_key:None
   | Supports_query { condition; selector; props; base_class; merge_key; nested }
     ->
-      triple (`Supports condition) ~selector ~props
-        ~order:(order_of_base order_map base_class selector)
-        ~nested ~base_class ~merge_key
+      triple (`Supports condition) ~selector ~props ~order ~nested ~base_class
+        ~merge_key
 
 (* Add index to each triple for stable sorting *)
 (* What [indexed_rule_to_statement] will emit, counted. For a built-in, theme
@@ -527,14 +463,13 @@ let sort_indexed_blocks indexed =
 
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
-let rule_sets_from_selector_props order_map all_rules =
+let rule_sets_from_selector_props all_rules =
   (* All rules (including hover) are now sorted together. Hover rules are
      converted to Media "(hover:hover)" rules in rule_to_triple, so they
      participate in the normal media query sorting. *)
   let indexed =
-    all_rules
-    |> List.filter_map (rule_to_triple order_map)
-    |> deduplicate_typed_triples |> add_index
+    all_rules |> List.map rule_to_triple |> deduplicate_typed_triples
+    |> add_index
   in
   let sorted = sort_indexed_blocks indexed in
   if Sort.debug_compare_enabled () then
@@ -601,11 +536,9 @@ let statements_of_sorted_rules ?verbatim sorted_rules =
 
 (* Get sorted indexed rules - used for extracting first-usage order of
    variables *)
-let sorted_indexed_rules ?theme ?declared order_map all_rules =
-  all_rules
-  |> List.filter_map (rule_to_triple order_map)
-  |> deduplicate_typed_triples |> add_index ?theme ?declared
-  |> sort_indexed_blocks
+let sorted_indexed_rules ?theme ?declared all_rules =
+  all_rules |> List.map rule_to_triple |> deduplicate_typed_triples
+  |> add_index ?theme ?declared |> sort_indexed_blocks
 
 (* Sort var names by property_order. Names include -- prefix. *)
 let sort_vars_by_property_order metadata vars =
@@ -645,15 +578,12 @@ let var_names_of_sorted_rules metadata sorted_rules =
       sort_vars_by_property_order metadata (set_vars @ ref_vars))
 
 let rule_sets tw_classes =
-  let order_tbl = Hashtbl.create 256 in
-  let all_rules = List.concat_map (Rule.outputs ~order_tbl) tw_classes in
-  rule_sets_from_selector_props order_tbl all_rules
+  rule_sets_from_selector_props
+    (List.concat_map Rule.ordered_outputs tw_classes)
 
 let indexed_rules tw_classes =
-  let order_tbl = Hashtbl.create 256 in
-  List.concat_map (Rule.outputs ~order_tbl) tw_classes
-  |> List.filter_map (rule_to_triple order_tbl)
-  |> deduplicate_typed_triples |> add_index
+  List.concat_map Rule.ordered_outputs tw_classes
+  |> List.map rule_to_triple |> deduplicate_typed_triples |> add_index
 
 let compare_rules = Sort.compare_indexed_rules
 let rule_selector (r : Sort.indexed_rule) = r.selector_str
@@ -1918,16 +1848,23 @@ let output_ordering_property output =
   let _, props = output_base_class_and_props output in
   Utility.ordering_property props
 
-let builtins_in_property_family order_map property builtins =
+(* The order a rule sorts at: the one it was built with, unless
+   [normalize_declared_property_families] moved its utility's family for this
+   render. *)
+let current_order moved (order, output) =
+  match Output.base_class output with
+  | None -> order
+  | Some cls ->
+      Option.value ~default:order
+        (Hashtbl.find_opt moved (extract_base_utility cls))
+
+let builtins_in_property_family moved property builtins =
   List.filter_map
-    (fun output ->
+    (fun ((_, output) as rule) ->
       let base_class, props = output_base_class_and_props output in
       match (base_class, Utility.ordering_property props) with
       | Some cls, Some key when Css.Declaration.equal_prop_key key property ->
-          let base = extract_base_utility cls in
-          Option.map
-            (fun order -> (base, order))
-            (Hashtbl.find_opt order_map base)
+          Some (extract_base_utility cls, current_order moved rule)
       | _ -> None)
     builtins
 
@@ -1937,8 +1874,10 @@ let builtins_in_property_family order_map property builtins =
    suborder for this render and let the existing candidate-name tiebreaker
    interleave both kinds of utility. A negative minimum is a built-in prelude,
    such as [sr-only]/[not-sr-only] before ordinary position utilities. Preserve
-   that walk and put the declared utility in the preceding property slot. *)
-let normalize_declared_property_families order_map builtins extra_outputs =
+   that walk and put the declared utility in the preceding property slot. The
+   result maps a base utility name to the order its rules move to. *)
+let normalize_declared_property_families builtins extra_outputs =
+  let moved = Hashtbl.create 8 in
   List.iter
     (fun (class_name, (priority, _), outputs) ->
       let modifiers, _ = Modifiers.of_string class_name in
@@ -1947,12 +1886,12 @@ let normalize_declared_property_families order_map builtins extra_outputs =
          joining that property family, so flattening the family around it
          destroys the built-ins' property walk. *)
       if modifiers = [] then
-        match List.find_map output_ordering_property outputs with
+        match
+          List.find_map (fun (_, o) -> output_ordering_property o) outputs
+        with
         | None -> ()
         | Some property ->
-            let family =
-              builtins_in_property_family order_map property builtins
-            in
+            let family = builtins_in_property_family moved property builtins in
             let suborder =
               List.fold_left
                 (fun acc (_, (p, s)) ->
@@ -1963,20 +1902,21 @@ let normalize_declared_property_families order_map builtins extra_outputs =
             Option.iter
               (fun suborder ->
                 if suborder < 0 then
-                  Hashtbl.replace order_map
+                  Hashtbl.replace moved
                     (extract_base_utility class_name)
                     (priority, suborder - 1)
                 else (
                   List.iter
                     (fun (base, (p, _)) ->
                       if p = priority then
-                        Hashtbl.replace order_map base (priority, suborder))
+                        Hashtbl.replace moved base (priority, suborder))
                     family;
-                  Hashtbl.replace order_map
+                  Hashtbl.replace moved
                     (extract_base_utility class_name)
                     (priority, suborder)))
               suborder)
-    extra_outputs
+    extra_outputs;
+  moved
 
 (* [prefix(tw)] moves every theme token and leaves the [--tw-*] channels a
    utility sets for itself alone. Those two sets are told apart by the name:
@@ -2016,24 +1956,23 @@ let theme_token_rename ~theme =
           else name)
 
 (* A declared utility means nothing to the handlers, so its order arrives with
-   it and is seeded under the same key [order_of_base] looks up. The key is the
-   base name, which a plain utility of the same name shares: seed it only when
-   it is free, so an incoming order never moves a rule the handlers already
-   placed. A declared utility is a utility, so [important] on the import marks
-   it as it marks a built-in one. *)
-let declared_outputs ~theme order_map extra =
+   it and goes on every rule it declares. A declared utility is a utility, so
+   [important] on the import marks it as it marks a built-in one. *)
+let declared_outputs ~theme extra =
   List.map
     (fun (class_name, order, statements) ->
-      let key = extract_base_utility class_name in
-      if not (Hashtbl.mem order_map key) then Hashtbl.add order_map key order;
       let statements =
         if theme.Scheme.important then List.map Style.important_stmt statements
         else statements
       in
       ( class_name,
         order,
-        List.concat_map (outputs_of_statement ~base_class:class_name) statements
-      ))
+        List.concat_map
+          (fun statement ->
+            List.map
+              (fun output -> (order, output))
+              (outputs_of_statement ~base_class:class_name statement))
+          statements ))
     extra
 
 (* The value a reference token carries as its fallback: the project's own, the
@@ -2064,20 +2003,15 @@ let with_reference_fallbacks ~theme sheet =
 
 let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     tw_classes =
-  (* [Rule.outputs ~order_tbl] records each base utility's order under the class
-     name it already builds, so [order_of_base] looks it up instead of
-     re-parsing the class string while building/sorting rules. *)
-  let order_map = Hashtbl.create 256 in
-  let builtin_selector_props =
-    List.concat_map (Rule.outputs ~theme ~order_tbl:order_map) tw_classes
+  let builtins = List.concat_map (Rule.ordered_outputs ~theme) tw_classes in
+  let extra_outputs = declared_outputs ~theme extra in
+  let moved = normalize_declared_property_families builtins extra_outputs in
+  let ordered =
+    List.map
+      (fun ((_, output) as rule) -> (current_order moved rule, output))
+      (builtins @ List.concat_map (fun (_, _, outputs) -> outputs) extra_outputs)
   in
-  let extra_outputs = declared_outputs ~theme order_map extra in
-  normalize_declared_property_families order_map builtin_selector_props
-    extra_outputs;
-  let selector_props =
-    builtin_selector_props
-    @ List.concat_map (fun (_, _, outputs) -> outputs) extra_outputs
-  in
+  let selector_props = List.map snd ordered in
   (* [sorted_rules] (the filter_map/dedup/index/sort pass) feeds both the
      utilities-layer statements and the variable first-usage order, so compute
      it once and share it rather than recomputing inside [layers]. *)
@@ -2086,9 +2020,7 @@ let to_css ?(theme = Scheme.default) ?(config = default_config) ?(extra = [])
     List.iter (fun (cls, _, _) -> Hashtbl.replace names cls ()) extra;
     fun cls -> Hashtbl.mem names cls
   in
-  let sorted_rules =
-    sorted_indexed_rules ~theme ~declared:verbatim order_map selector_props
-  in
+  let sorted_rules = sorted_indexed_rules ~theme ~declared:verbatim ordered in
   let statements = statements_of_sorted_rules ~verbatim sorted_rules in
   let layer_results =
     layers ~theme ~layers:config.layers ~include_base:config.base

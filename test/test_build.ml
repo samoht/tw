@@ -38,32 +38,29 @@ let check_theme_layer_with_color () =
   check bool "includes --font-sans" true
     (has_var_in_layer "--font-sans" "theme" theme_layer)
 
-let check_conflict_order () =
-  (* Test that Tw.Build.conflict_order correctly delegates to Utility.order *)
-  (* It should parse the selector, extract the utility name, and return ordering *)
-
-  (* Test basic selector parsing *)
-  let prio, sub = Tw.Build.conflict_order ".p-4" in
-  check int "p-4 priority" 23 prio;
-
-  (* Padding priority *)
-
-  (* Test with modifier prefix (should strip it) *)
-  let prio_hover, sub_hover = Tw.Build.conflict_order ".hover\\:p-4:hover" in
-  check int "hover:p-4 same priority as p-4" prio prio_hover;
-  check int "hover:p-4 same suborder as p-4" sub sub_hover;
-
-  (* Test relative ordering between utilities *)
-  let m4_prio, _ = Tw.Build.conflict_order ".m-4" in
-  let bg_prio, _ = Tw.Build.conflict_order ".bg-blue-500" in
-  check bool "margin before background" true (m4_prio < bg_prio);
-  (* bg-blue-500 is a background color (priority 20), which comes before Padding
-     (priority 23) *)
-  check bool "background color before padding" true (bg_prio < prio);
-
-  (* Test unknown utility gets high priority *)
-  let unknown_prio, _ = Tw.Build.conflict_order ".unknown-utility" in
-  check int "unknown gets 9999 priority" 9999 unknown_prio
+(* A rule sorts at the order of the utility it was built for, under the
+   project's theme: [!bg-brand] reads a colour only the project declares, and
+   Tailwind writes it before [p-4]. *)
+let check_order_under_project_theme () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-brand", "#123456") ]
+  in
+  let utility cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.failf "%s rejected: %s" cls m
+  in
+  let css =
+    Tw.to_css ~theme ~base:false (List.map utility [ "p-4"; "!bg-brand" ])
+    |> Css.to_string ~minify:true
+  in
+  let position sub =
+    match Astring.String.find_sub ~sub css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s missing from %s" sub css
+  in
+  check bool "!bg-brand before p-4" true
+    (position ".\\!bg-brand{" < position ".p-4{")
 
 let check_properties_layer () =
   (* Test that shadow utilities generate proper @layer properties with initial
@@ -1391,8 +1388,8 @@ let tests =
       check_dependency_scan_accepts_adversarial_value;
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
     test_case "theme layer - with color" `Quick check_theme_layer_with_color;
-    test_case "Tw.Build.conflict_order delegates to Utility.order" `Quick
-      check_conflict_order;
+    test_case "order under a project theme" `Quick
+      check_order_under_project_theme;
     test_case "properties layer generation" `Quick check_properties_layer;
     test_case "to_css variables with base" `Quick check_css_variables_with_base;
     test_case "compound variant theme var" `Quick
