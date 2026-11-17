@@ -351,3 +351,12 @@ val split_top_level : char -> string -> string list
     [sep] inside [(...)], [[...]] or [{...}] stays in its piece. Always yields
     one piece more than the separators it split on; a closing bracket with no
     opener is passed over. *)
+
+val replace_shadow_colours : (string -> string) -> string -> string
+(** [replace_shadow_colours wrap value] is the shadow list [value] with the
+    colour token of each layer replaced by [wrap token]. The colour is the first
+    hex, named colour or colour function in the layer; failing that, in a layer
+    holding two lengths or more, it is the one token that is neither a length
+    nor a keyword, and a layer with no such token gets [wrap "currentcolor"]
+    added at its end. A layer that matches none of these stays as written.
+    Tailwind picks the colour of a shadow it does not parse this way. *)

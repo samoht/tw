@@ -293,47 +293,33 @@ module Handler = struct
         Css.Var v_shadow;
       ]
 
-  (* Tailwind treats one identifier among two to four shadow lengths as the
-     colour token, even when that identifier is not in the CSS named-colour
-     table. Keep the authored token order and route that colour through the
-     family's channel variable. *)
+  (* A shadow no reader takes keeps the tokens the author wrote, with its colour
+     routed through the family's channel variable. *)
   let raw_shadow_color ~color_var value opacity =
-    let tokens =
-      String.split_on_char ' ' value |> List.filter (fun token -> token <> "")
+    let fallback color =
+      match opacity with
+      | Color.No_opacity -> color
+      | _
+        when String.starts_with ~prefix:"current" (String.lowercase_ascii color)
+        ->
+          Option.value ~default:color
+            (Parse.alpha_mix ~alpha:(Color.opacity_percentage opacity) color)
+      | _ ->
+          pp_str
+            [
+              "oklab(from ";
+              color;
+              " l a b / ";
+              Css.Pp.to_string ~minify:true
+                (Css.Values.pp_percentage ~always:true)
+                (Color.opacity_percentage opacity);
+              ")";
+            ]
     in
-    let lengths, other =
-      List.partition
-        (fun token ->
-          String.equal token "0"
-          || Option.is_some (Parse.arbitrary_length token))
-        tokens
-    in
-    match other with
-    | [ color ] when List.length lengths >= 2 && List.length lengths <= 4 ->
-        let fallback =
-          match opacity with
-          | Color.No_opacity -> color
-          | _ ->
-              pp_str
-                [
-                  "oklab(from ";
-                  color;
-                  " l a b / ";
-                  Css.Pp.to_string ~minify:true
-                    (Css.Values.pp_percentage ~always:true)
-                    (Color.opacity_percentage opacity);
-                  ")";
-                ]
-        in
-        let replacement =
-          pp_str [ "var("; Var.css_name color_var; ","; fallback; ")" ]
-        in
-        String.concat " "
-          (List.map
-             (fun token ->
-               if String.equal token color then replacement else token)
-             tokens)
-    | _ -> value
+    Parse.replace_shadow_colours
+      (fun color ->
+        pp_str [ "var("; Var.css_name color_var; ","; fallback color; ")" ])
+      value
 
   let shadow_raw value opacity =
     let value = raw_shadow_color ~color_var:shadow_color_var value opacity in
@@ -922,7 +908,9 @@ module Handler = struct
     let shadow_decl =
       Css.custom_property ~layer:"utilities"
         (Var.css_name inset_shadow_var)
-        ("inset " ^ value)
+        (Parse.split_top_level ',' value
+        |> List.map (fun layer -> "inset " ^ String.trim layer)
+        |> String.concat ", ")
     in
     let declarations =
       match opacity with

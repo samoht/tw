@@ -38,6 +38,12 @@
   `sepia-` and `backdrop-opacity-` filters and their `backdrop-` forms;
   `contain-[...]` writes any other value as written rather than as a `var()`
   (#942).
+- A `shadow-`, `inset-shadow-` or `drop-shadow-` bracket no shadow reader
+  takes routes its colour through the colour channel the way Tailwind picks
+  it: `shadow-[foo:red]` writes `var(--tw-shadow-color,red)`, a layer of
+  lengths alone gets `currentcolor` that way, `inset-shadow-[...]` puts
+  `inset` before each layer and `drop-shadow-[...]` writes one `drop-shadow()`
+  per layer (#943).
 - A `!`-prefixed utility that only the project's `@theme` makes valid, such as
   `!bg-brand`, sorts with its family rather than after every other utility
   (#920).
