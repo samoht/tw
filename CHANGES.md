@@ -40,6 +40,10 @@
   (#916).
 - On Windows, an `@source` glob matches the files under its root and
   `@source not` takes its paths out, where both matched nothing (#916).
+- An `@utility` sorts by the earliest of its properties in Tailwind's
+  property order and skips a custom or unknown one, as Tailwind does. One
+  that wrote such a property first sorted after every other utility, and one
+  that wrote `color` before `display` sorted with the colours (#938).
 
 ### Variants
 
