@@ -472,9 +472,6 @@ let named_rel ~marker ~combinator ~name_opt extra =
 
 (* The relative selector a [group-not-]/[peer-not-] variant contributes:
    [:where(.group):not(<conditions>) *]. *)
-let named_not_rel ~marker ~combinator ~name_opt conditions =
-  named_rel ~marker ~combinator ~name_opt [ Css.Selector.Not conditions ]
-
 (* The relative selector a group/peer has-variant scopes to:
    [:where(.group):has(<inner>) *]. *)
 let has_anchor_rel ~anchor ~combinator ?name inner =
@@ -1005,7 +1002,14 @@ let attribute_condition = function
 
 let rec scoped_conditions ~marker ~combinator ~name_opt ~negated m base_class =
   let inner = extract_not_conditions m base_class in
-  let extra = if negated then [ Css.Selector.Not inner ] else inner in
+  (* A bracket under a scoped negation is already the negation, [:not(.foo)] for
+     [group-not-[.foo]]. *)
+  let extra =
+    match m with
+    | Style.Not_bracket _ -> inner
+    | _ when negated -> [ Css.Selector.Not inner ]
+    | _ -> inner
+  in
   [ Css.Selector.is_ [ named_rel ~marker ~combinator ~name_opt extra ] ]
 
 (** Extract the pseudo-class selector(s) from a modifier for use in :not().
@@ -1349,56 +1353,36 @@ let handle_not_bracket content base_class props =
         ~props ~base_class:modified_class ();
     ]
 
-(** Handle group-not-X modifier. Produces selector with
-    :is(:where(.group):not(...) descendant) pattern. *)
-let not_modifier_inner_string = function
-  | Style.Not_bracket content -> "[" ^ content ^ "]"
-  | m -> Modifiers.pp_modifier m
-
 let is_media_inner_modifier = function
   | Style.Hover | Style.Device_hocus -> true
   | inner -> Option.is_some (media_condition_of_modifier inner)
 
-let handle_named_not ~prefix ~base_marker_class ~combinator inner name_opt
-    base_class props =
-  let inner_str = not_modifier_inner_string inner in
-  let name_suffix = named_modifier_suffix name_opt in
-  let modified_class =
-    prefix ^ "-not-" ^ inner_str ^ name_suffix ^ ":" ^ base_class
-  in
+(* [group-not-X] and [peer-not-X]: the scope's relative selector with its
+   negation, as an outer variant sees it too. *)
+let handle_named_not ~marker ~combinator modifier inner name_opt base_class
+    props =
+  let modified_class = Modifiers.pp_modifier modifier ^ ":" ^ base_class in
   if is_media_inner_modifier inner then []
   else
-    (* Under a scoped negation the bracket stands for its selector, and the
-       negation is the scope's own: [group-not-[.a]] is
-       [:where(.group):not(.a)]. *)
-    let not_conditions =
-      match inner with
-      | Style.Not_bracket content -> (
-          match not_bracket_selector content with
-          | Css.Selector.Not conditions -> conditions
-          | selector -> [ selector ])
-      | _ -> extract_not_conditions inner base_class
-    in
-    let open Css.Selector in
-    let rel =
-      named_not_rel ~marker:base_marker_class ~combinator ~name_opt
-        not_conditions
-    in
     [
       regular
-        ~selector:(compound [ Class modified_class; is_ [ rel ] ])
+        ~selector:
+          (Css.Selector.compound
+             (Css.Selector.Class modified_class
+             :: scoped_conditions ~marker ~combinator ~name_opt ~negated:true
+                  inner base_class))
         ~props ~base_class:modified_class ();
     ]
 
 let handle_group_not_modifier inner name_opt base_class props =
-  handle_named_not ~prefix:"group" ~base_marker_class:"group"
-    ~combinator:Descendant inner name_opt base_class props
+  handle_named_not ~marker:"group" ~combinator:Descendant
+    (Style.Group_not (inner, name_opt))
+    inner name_opt base_class props
 
-(** Handle peer-not-X modifier. Produces selector with
-    :is(:where(.peer):not(...) sibling) pattern. *)
 let handle_peer_not_modifier inner name_opt base_class props =
-  handle_named_not ~prefix:"peer" ~base_marker_class:"peer"
-    ~combinator:Subsequent_sibling inner name_opt base_class props
+  handle_named_not ~marker:"peer" ~combinator:Subsequent_sibling
+    (Style.Peer_not (inner, name_opt))
+    inner name_opt base_class props
 
 (** Build the group-STATE selector rel: :where(.group/name):STATE descendant *)
 let named_group_rel name pseudo =
