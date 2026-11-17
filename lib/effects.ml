@@ -1411,9 +1411,7 @@ module Handler = struct
     | [ "opacity"; n ] -> (
         match Parse.spacing_value ~name:"opacity" n with
         | Ok f when String.contains n '.' -> Ok (Opacity_decimal f)
-        | Ok f ->
-            let i = int_of_float f in
-            if i >= 0 && i <= 100 then Ok (Opacity i) else Utility.unclaimed
+        | Ok f -> Ok (Opacity (int_of_float f))
         | Error _ -> Utility.unclaimed)
     | _ -> Utility.unclaimed
 
@@ -1521,10 +1519,9 @@ module Handler = struct
 
   let suborder t =
     match without_named_size_alpha t with
-    | Opacity n -> n * 100
-    | Opacity_decimal f -> int_of_float (f *. 100.0)
-    | Opacity_arbitrary _ -> 20000
-    | Opacity_var _ -> 20001
+    (* Tailwind orders the family by the class name alone, which the natural
+       comparison of the selectors gives once the suborder ties. *)
+    | Opacity _ | Opacity_decimal _ | Opacity_arbitrary _ | Opacity_var _ -> 0
     (* Shadow shape+opacity utilities come before regular shapes. Within
        arbitrary opacity, sort by arb color type: var() first, then
        currentcolor, then hex — matching Tailwind ordering *)
