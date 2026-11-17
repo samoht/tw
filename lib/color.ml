@@ -6,10 +6,6 @@ include Srgb
 include Color_value
 include Color_opacity
 
-module Tailwind = struct
-  let get_color = Palette.oklch_css
-end
-
 (** {1 Parsing Functions} *)
 
 module Handler = struct

@@ -18,7 +18,6 @@ allowed_words = [
   "filter_theme_from_statements",
   "hex_to_rgb",
   "indexed_rule_to_statement",
-  "margin_to_length",
   "oklch_to_css",
   "oklch_to_rgb",
   "opacity_to_percent",

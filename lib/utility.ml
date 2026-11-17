@@ -264,11 +264,6 @@ let claiming_handlers theme class_name =
       | Error _ -> None)
     (handlers_snapshot ())
 
-(* Keep for backward compatibility with tests *)
-let base_of_strings theme parts =
-  let class_name = String.concat "-" parts in
-  base_of_class theme class_name
-
 let base_to_style theme u =
   let handlers = handlers_snapshot () in
   let rec try_handlers = function

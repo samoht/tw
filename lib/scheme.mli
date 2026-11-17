@@ -190,11 +190,6 @@ val is_reference_token : t -> string -> bool
     [\@theme reference] block, so nothing declares it in the generated sheet and
     a reader carries the value as its own [var()] fallback. *)
 
-val is_static_token : t -> string -> bool
-(** [is_static_token t name] is whether [name] was declared in an
-    [\@theme static] block, so the theme layer declares it whether or not a
-    utility reads it. *)
-
 val color : t -> string -> color_value option
 (** [color t name] looks up a color in the scheme. *)
 
@@ -204,9 +199,6 @@ val declares_color : t option -> string -> bool
 
 val spacing : t -> int -> Css.length option
 (** [spacing t n] looks up a spacing value in the scheme. *)
-
-val is_hex_color : t -> string -> bool
-(** [is_hex_color t name] checks if a color is defined as hex in the scheme. *)
 
 val hex_color : t -> string -> string option
 (** [hex_color t name] returns the hex value for a color if defined as hex. *)

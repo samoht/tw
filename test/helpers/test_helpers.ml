@@ -146,20 +146,6 @@ let check_declarations ?theme ?minify cls expected =
     cls expected
     (declarations_of_class ?theme ?minify cls)
 
-(* For a value a test cannot spell exactly, a generated hash or a number the
-   suite deliberately leaves open. Anchor the pattern: an unanchored one
-   reintroduces the defect above. *)
-let check_declarations_match cls patterns =
-  let actual = declarations_of_class cls in
-  List.iter
-    (fun pattern ->
-      let re = Re.Pcre.re pattern |> Re.compile in
-      if not (List.exists (fun d -> Re.execp re d) actual) then
-        Alcotest.failf "%s: no declaration matches %s@.declarations: %s" cls
-          pattern
-          (String.concat "; " actual))
-    patterns
-
 (* A variant decides the selector and the at-rules wrapped around it, and
    neither is a declaration, so a variant test has to compare the sheet itself.
    Comparing it whole is what a substring cannot do: [:has(:focus)] is an infix
@@ -334,11 +320,6 @@ let check_no_dropped_declarations ~test_name diff =
        %s"
       test_name (List.length dropped)
       (String.concat "\n" (List.map Cascade.Error.to_string dropped))
-
-let check_ordering_fails ?forms utilities =
-  match (ordering_diff ?forms utilities).Css_compare.result with
-  | Css_compare.No_diff -> false
-  | _ -> true
 
 (** Delta Debugging (ddmin algorithm by Zeller) Minimizes a failing test case by
     binary search *)
@@ -1202,15 +1183,6 @@ let selectors_in_media ~condition css =
           | None -> None)
         stmts
 
-let has_selector_in_media ~condition ~selector css =
-  List.mem selector (selectors_in_media ~condition css)
-
-let count_selector_in_media ~condition ~selector css =
-  selectors_in_media ~condition css
-  |> List.fold_left
-       (fun acc s -> if String.equal s selector then acc + 1 else acc)
-       0
-
 (* Selector testable and utilities *)
 let pp_selector fmt sel = Fmt.string fmt (Css.Selector.to_string sel)
 let selector_testable = Alcotest.testable pp_selector ( = )
@@ -1232,10 +1204,6 @@ let selectors_in_media_sel ~condition css =
 
 let selector_eq a b =
   String.equal (Css.Selector.to_string a) (Css.Selector.to_string b)
-
-let has_selector_in_media_sel ~condition ~selector css =
-  selectors_in_media_sel ~condition css
-  |> List.exists (fun sel -> selector_eq sel selector)
 
 let count_selector_in_media_sel ~condition ~selector css =
   selectors_in_media_sel ~condition css
@@ -1439,12 +1407,6 @@ let standard ~roundtrip ~invalid =
     [
       test_case "roundtrip" `Quick roundtrip; test_case "invalid" `Quick invalid;
     ]
-
-(** Helper that takes a list of parts, concatenates with "-", and checks
-    roundtrip *)
-let check_parts (module H : Handler) parts =
-  let class_name = String.concat "-" parts in
-  check_handler_roundtrip (module H) class_name
 
 (** Helper that takes a list of parts, concatenates with "-", and checks that
     parsing fails *)
