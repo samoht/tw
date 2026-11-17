@@ -188,8 +188,39 @@ let test_grid_item_brackets_peel_a_hint () =
       ("row-[foo:2]", "grid-row: 2");
     ]
 
+(* Tailwind negates any grid-line bracket as [calc(<value> * -1)], with the
+   value after any hint, and sorts it with the negated steps. *)
+let test_negated_bracket_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-col-[foo]";
+      "-col-[2]";
+      "-col-start-[foo:2]";
+      "-col-end-[var(--x)]";
+      "-row-[url(x.png)_center]";
+      "-row-start-[3px]";
+      "-row-end-[red]";
+    ];
+  Test_helpers.check_ordering_matches ~test_name:"negated grid brackets"
+    (List.map
+       (fun c -> Result.get_ok (Tw.of_string c))
+       [
+         "col-2";
+         "-col-[foo]";
+         "-col-2";
+         "col-[3]";
+         "-col-start-[2]";
+         "col-start-2";
+         "-row-end-[x]";
+         "row-end-1";
+         "-row-[a]";
+         "-row-3";
+       ])
+
 let tests =
   [
+    test_case "negated bracket token stream" `Quick
+      test_negated_bracket_token_stream;
     test_case "grid-item brackets peel a data-type hint" `Quick
       test_grid_item_brackets_peel_a_hint;
     test_case "grid line underscore escape" `Quick
