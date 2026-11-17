@@ -434,22 +434,35 @@ type rejection =
           string saying why. Every one of these is a measured parity gap held
           open here rather than a rejection that reads as intended. *)
 
-val check_invalid_input : ?why:rejection -> (module Handler) -> string -> unit
-(** [check_invalid_input ?why h input] tests that parsing fails for invalid
-    input as expected, and records [input] for {!check_negative_premises}. [why]
-    defaults to {!constructor-Not_a_utility}; the half of it that needs no CLI,
-    whether {!Tw.of_string} knows the class, is checked here. *)
+val check_invalid_input :
+  ?why:rejection -> ?entry:string -> (module Handler) -> string -> unit
+(** [check_invalid_input ?why ?entry h input] tests that parsing fails for
+    invalid input as expected, and records [input] for
+    {!check_negative_premises}. [why] defaults to {!constructor-Not_a_utility};
+    the half of it that needs no CLI, whether {!Tw.of_string} knows the class,
+    is checked here.
 
-val check_invalid_class : ?why:rejection -> string -> unit
-(** [check_invalid_class ?why cls] is {!check_invalid_input} over
+    [entry] is the text of a Tailwind entrypoint, its [\@theme] blocks and
+    import options included. tw parses [input] under the theme
+    {!Tw_tools.Entry_theme.of_css} reads from it, and the CLI compiles it as
+    written, so both answer under the same theme. It should import [tailwindcss]
+    with [source(none)], or the CLI scans the build tree: {!theme_entry} writes
+    one that does. It defaults to Tailwind's default theme. *)
+
+val theme_entry : string -> string
+(** [theme_entry decls] is the entrypoint {!Tw_tools.Tailwind_gen.entrypoint}
+    writes for no candidates, followed by [\@theme { decls }]. *)
+
+val check_invalid_class : ?why:rejection -> ?entry:string -> string -> unit
+(** [check_invalid_class ?why ?entry cls] is {!check_invalid_input} over
     {!Tw.of_string}: no tw handler parses [cls], and [cls] is recorded for
     {!check_negative_premises}. It is for a class no single handler owns, such
-    as one whose variant is what makes it invalid. *)
+    as one whose variant or theme is what makes it invalid. *)
 
 val check_negative_premises : unit -> unit
 (** [check_negative_premises ()] asks the pinned tailwindcss CLI whether every
     negative test that has run so far had its premise right, in one generation
-    over the whole corpus. It skips without the CLI, and fails instead under
+    per distinct entrypoint. It skips without the CLI, and fails instead under
     [TW_TAILWIND_TESTS=1], the way every other parity check here does.
 
     It reads what the negative tests registered as they ran, so it belongs after

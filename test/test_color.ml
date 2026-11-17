@@ -780,14 +780,10 @@ let test_undeclared_theme_colour_rejected () =
    nothing left to declare the variable. A shade the block kept, and a colour it
    never touched, still resolve. *)
 let test_removed_palette_colour_rejected () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "initial") ]
-  in
+  let entry = Test_helpers.theme_entry "--color-red-500: initial;" in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   List.iter
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
     [
       "text-red-500";
       "bg-red-500";
@@ -806,15 +802,12 @@ let test_removed_palette_colour_rejected () =
 (* The whole-namespace form takes every palette colour, so nothing keyed on
    [--color-*] resolves, while a colour the block declared for itself does. *)
 let test_removed_palette_namespace_rejected () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("color-*", "initial"); ("color-brand", "#123456") ]
+  let entry =
+    Test_helpers.theme_entry "--color-*: initial; --color-brand: #123456;"
   in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   List.iter
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
     [ "text-red-500"; "bg-blue-200" ];
   match Tw.of_string ~theme "text-brand" with
   | Ok _ -> ()

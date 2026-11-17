@@ -1410,7 +1410,8 @@ let unterminated_theme_call () =
    selector. Under a prefix a bare candidate names nothing, which is what the
    pinned CLI does: it compiles [p-4] to nothing once the import asks for one. *)
 let prefixed_candidates () =
-  let theme = { Tw.Scheme.default with prefix = Some "tw" } in
+  let entry = "@import \"tailwindcss\" prefix(tw) source(none);\n" in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   (* The written spelling is what lands in the selector. It is put there on the
      finished rule, not carried on the utility, so [Tw.to_classes] still reports
      the utility's own name. *)
@@ -1439,10 +1440,7 @@ let prefixed_candidates () =
       ("tw:peer-checked/y:flex", ":where(.tw\\:peer\\/y):checked");
     ];
   List.iter
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Ok u -> Alcotest.failf "expected %s to be refused, got %s" cls (Tw.pp u)
-      | Error _ -> ())
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
     [ "flex"; "hover:underline"; "tw:nope"; "tw"; "twx:flex" ];
   (* With no prefix asked for, a candidate spelled with one names nothing. *)
   Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility "tw:flex"
@@ -1786,17 +1784,11 @@ let unknown_class_keeps_source_order () =
    token stands only in a [var()] fallback, is untouched. *)
 let test_removed_token_refuses_its_readers () =
   let refused namespace classes =
-    let theme =
-      Tw.Scheme.with_overrides Tw.Scheme.default [ (namespace, "initial") ]
-    in
+    let entry = Test_helpers.theme_entry ("--" ^ namespace ^ ": initial;") in
     List.iter
-      (fun cls ->
-        Alcotest.(check bool)
-          (cls ^ " reads a token --" ^ namespace ^ " removed")
-          true
-          (Result.is_error (Tw.of_string ~theme cls)))
+      (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
       classes;
-    theme
+    Tw_tools.Entry_theme.of_css entry
   in
   ignore (refused "font-*" [ "font-sans"; "font-mono" ]);
   ignore (refused "text-*" [ "text-lg"; "text-sm/6" ]);

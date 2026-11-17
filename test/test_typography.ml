@@ -761,10 +761,10 @@ let test_non_decimal_integers () =
    the utility from each, channel variable included; tw rejected both
    outright. *)
 let test_project_font_and_leading_tokens () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("font-weight-chonk", "900"); ("leading-roomy", "2.5") ]
+  let entry =
+    Test_helpers.theme_entry "--font-weight-chonk: 900; --leading-roomy: 2.5;"
   in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   (* Channel then property, and nothing else: "channel variable included" is
      what this test is for, and a pair of affixes says each is present without
      saying the utility writes only the two. *)
@@ -774,9 +774,8 @@ let test_project_font_and_leading_tokens () =
   in
   emits "font-chonk" "--tw-font-weight" "font-weight" "--font-weight-chonk";
   emits "leading-roomy" "--tw-leading" "line-height" "--leading-roomy";
-  Alcotest.(check bool)
-    "an undeclared weight name is rejected" true
-    (Result.is_error (Tw.of_string ~theme "font-nope"))
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry
+    "font-nope"
 
 (* An arbitrary value writes a space as [_] and a literal underscore as [\_].
    Both readings have to reach the value: a family name and a content string are

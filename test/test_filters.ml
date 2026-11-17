@@ -490,16 +490,14 @@ let test_arbitrary_blur_token_streams () =
    built-in scale has no slot for. Tailwind generates the utility from it,
    filter chain included; tw rejected the class outright. *)
 let test_project_blur_token () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("blur-soft", "7px") ]
-  in
+  let entry = Test_helpers.theme_entry "--blur-soft: 7px;" in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   (* Channel then chain: "filter chain included" is what this test is for, and
      an affix on the channel alone never said the chain was there. *)
   Test_helpers.check_declarations ~theme ~minify:false "blur-soft"
     [ "--tw-blur: blur(var(--blur-soft))"; chain ];
-  Alcotest.(check bool)
-    "an undeclared blur name is rejected" true
-    (Result.is_error (Tw.of_string ~theme "blur-nope"))
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry
+    "blur-nope"
 
 (* An arbitrary drop shadow takes a [/opacity], as a named size does: the
    modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
