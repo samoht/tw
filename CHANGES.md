@@ -97,6 +97,12 @@
   `font-[…]` chooses between `font-family` and `font-weight` the way Tailwind
   does, so `font-[10px]` and `font-[calc(1+2)]` are weights and
   `font-[url(x.png)_center]` is a family (#959).
+- `decoration-[…]` writes a bracket that Tailwind does not read as a length or a
+  percentage into `text-decoration-color`, and one holding math into
+  `text-decoration-thickness`, as Tailwind does: `decoration-[foo]`,
+  `decoration-[--c]` and `decoration-[url(x.png)_center]` were refused, and
+  `decoration-[2]` wrote an empty rule. A thickness takes no opacity modifier,
+  as in Tailwind (#960).
 
 ### Project stylesheets
 

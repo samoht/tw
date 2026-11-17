@@ -71,8 +71,7 @@ let test_underline_offset_bracket_keeps_its_class () =
 
 (* An arbitrary decoration thickness takes any CSS length unit, not just the px
    the hand-rolled suffix parser knew; the percentage form keeps its em
-   conversion. A bracket that is not a length is rejected by the parser rather
-   than raising once the sheet is rendered. *)
+   conversion. *)
 let test_decoration_bracket_thickness () =
   let thickness cls value =
     check_declarations cls [ "text-decoration-thickness:" ^ value ]
@@ -84,33 +83,66 @@ let test_decoration_bracket_thickness () =
   (* The bracket goes through the arbitrary-value decoder, so an escaped space
      and a [--spacing()] call both read as lengths. *)
   thickness "decoration-[calc(1rem_+_2px)]" "calc(1rem + 2px)";
-  thickness "decoration-[--spacing(2)]" "calc(var(--spacing)*2)";
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes the bracket through as a decoration colour the \
-            browser drops; tw refuses the class")
-  in
-  rejected "decoration-[.]";
-  rejected "decoration-[1e]"
+  thickness "decoration-[--spacing(2)]" "calc(var(--spacing)*2)"
 
 (* Tailwind treats a unitless arbitrary decoration value as a colour candidate,
-   whether it is written as an integer or with a fractional part. The resulting
-   colour declaration is invalid CSS and has no browser effect; TW must keep the
-   candidate accepted without turning it into a visible pixel thickness. *)
+   whether it is written as an integer or with a fractional part, and writes it
+   into text-decoration-color for the browser to drop rather than painting a
+   pixel thickness. *)
 let test_decoration_bracket_unitless_is_color () =
-  (* The whole list, which is empty: the class is accepted and writes nothing.
-     That is a divergence from the CLI, which writes the invalid
-     [text-decoration-color: 1.5] under the token-stream contract; see
-     docs/token-stream-contract.md. Pinning the empty list rather than searching
-     for a thickness that must not appear is what makes the divergence visible,
-     and what will fail when the contract is honoured here. *)
   List.iter
-    (fun cls -> Test_helpers.check_declarations cls [])
-    [
-      "decoration-[0]"; "decoration-[2]"; "decoration-[1.5]"; "decoration-[.5]";
-    ]
+    (fun v ->
+      Test_helpers.check_declarations ~minify:false
+        ("decoration-[" ^ v ^ "]")
+        [ "text-decoration-color: " ^ v ])
+    [ "0"; "2"; "1.5"; ".5" ]
+
+(* A bracket Tailwind reads as neither a length nor a percentage is a colour,
+   whatever it holds, and one holding math is a thickness. A value neither
+   reader takes is written as the author spelled it, so the browser drops the
+   declaration and keeps the selector. *)
+let test_decoration_bracket_falls_through () =
+  let colour cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "text-decoration-color: " ^ value ]
+  in
+  let thickness cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "text-decoration-thickness: " ^ value ]
+  in
+  colour "decoration-[foo]" "foo";
+  colour "decoration-[--c]" "--c";
+  colour "decoration-[auto]" "auto";
+  colour "decoration-[notacolour]" "notacolour";
+  colour "decoration-[url(x.png)_center]" "url(x.png) center";
+  colour "decoration-[<value>]" "<value>";
+  colour "decoration-[.]" ".";
+  colour "decoration-[1e]" "1e";
+  colour "decoration-[#zz]" "#zz";
+  colour "decoration-[#12345]" "#12345";
+  colour "decoration-[bogus:foo]" "foo";
+  colour "decoration-[color:foo]" "foo";
+  thickness "decoration-[calc(1+2)]" "calc(1 + 2)";
+  thickness "decoration-[foo_calc(1+2)]" "foo calc(1 + 2)";
+  thickness "decoration-[length:foo]" "foo";
+  thickness "decoration-[percentage:foo]" "foo";
+  Alcotest.(check string)
+    "the class keeps its hint" "decoration-[bogus:foo]"
+    (Tw.pp (Result.get_ok (Tw.of_string "decoration-[bogus:foo]")));
+  Test_helpers.check_invalid_input
+    (module Tw.Text_decoration.Handler)
+    "decoration-[a;b]";
+  (* Tailwind writes a thickness only without a modifier. *)
+  Test_helpers.check_invalid_input
+    (module Tw.Text_decoration.Handler)
+    "decoration-[length:foo]/50";
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "the raw token is mixed verbatim; tw refuses a modifier on a bracket \
+          no colour reader took, as the colour families do")
+    (module Tw.Text_decoration.Handler)
+    "decoration-[foo]/50"
 
 (* A shadeless decoration colour takes an opacity modifier the same way every
    other colour family does, and keeps its shadeless class name. *)
@@ -218,29 +250,23 @@ let test_decoration_bracket_named_color () =
     [
       "text-decoration-color: color-mix(in oklab, rebeccapurple 50%, \
        transparent)";
-    ];
-  (* a bracket naming no colour and no thickness is still not a class *)
-  Alcotest.(check bool)
-    "decoration-[notacolour] is not a class" true
-    (Result.is_error (Tw.of_string "decoration-[notacolour]"))
+    ]
 
-(* A [#] bracket is only a decoration colour when what follows is a hex
-   spelling. The decoration reader handed everything after the [#] to the
-   raising constructor from inside [of_class], so a malformed hex escaped the
-   parser as an exception instead of failing the match. *)
+(* A [#] bracket is only a typed decoration colour when what follows is a hex
+   spelling; any other is written as the author spelled it. The decoration
+   reader handed everything after the [#] to the raising constructor from inside
+   [of_class], so a malformed hex escaped the parser as an exception. *)
 let test_invalid_decoration_bracket_hex () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes the malformed hex through as a colour the browser \
-            drops; tw refuses the class")
-  in
-  rejected "decoration-[#zz]";
-  rejected "decoration-[#]";
-  rejected "decoration-[#12345]";
-  rejected "decoration-[#zz]/50";
-  check_declarations "decoration-[#ff0000]" [ "text-decoration-color:#f00" ]
+  check_declarations "decoration-[#ff0000]" [ "text-decoration-color:#f00" ];
+  check_declarations ~minify:false "decoration-[#]"
+    [ "text-decoration-color: #" ];
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "the raw token is mixed verbatim; tw refuses a modifier on a bracket \
+          no colour reader took, as the colour families do")
+    (module Tw.Text_decoration.Handler)
+    "decoration-[#zz]/50"
 
 (* A negated bracket the length reader cannot read is [calc(<value> * -1)], with
    the value after any hint, as Tailwind writes it. *)
@@ -263,6 +289,8 @@ let tests =
       test_underline_offset_bracket_keeps_its_class;
     test_case "decoration bracket thickness" `Quick
       test_decoration_bracket_thickness;
+    test_case "decoration bracket falls through" `Quick
+      test_decoration_bracket_falls_through;
     test_case "unitless decoration bracket is a colour" `Quick
       test_decoration_bracket_unitless_is_color;
     test_case "decoration shadeless opacity" `Quick
