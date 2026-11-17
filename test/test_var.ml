@@ -2,17 +2,15 @@ module Css = Cascade.Css
 open Alcotest
 
 let var_css_output () =
-  let styles = Tw.[ text_xl; p 4 ] in
-  let css = Tw.to_css ~base:false styles in
-  let css_str = Css.to_string css in
-  check bool "contains var(--" (String.contains css_str '-') true;
-  check bool "CSS output non-empty" (String.length css_str > 0) true
+  Test_helpers.check_declarations "text-xl"
+    [
+      "font-size:var(--text-xl)";
+      "line-height:var(--tw-leading,var(--text-xl--line-height))";
+    ]
 
 let var_fallback_in_css () =
-  let styles = [ Tw.text Tw.blue ] in
-  let css = Tw.to_css ~base:false styles in
-  let css_str = Css.to_string css in
-  check bool "produces valid CSS" (String.length css_str > 0) true
+  Test_helpers.check_declarations "text-blue-500"
+    [ "color:var(--color-blue-500)" ]
 
 (* Arbitrary var() values keep the outer variable and its fallback. This is
    shared by typed utility families, so cover both a length and a keyword-like
