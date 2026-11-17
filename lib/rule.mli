@@ -19,22 +19,24 @@ open Cascade
 
 (** {1 Rule extraction} *)
 
-val outputs :
-  ?theme:Scheme.t ->
-  ?order_tbl:(string, int * int) Hashtbl.t ->
-  Utility.t ->
-  Output.t list
+val outputs : ?theme:Scheme.t -> Utility.t -> Output.t list
 (** [outputs ?theme u] extracts the CSS rules for utility [u], reading any theme
     values it needs from [theme] (default {!Scheme.default}).
 
     Returns a list because a single utility can produce more than one rule — for
     example a container utility emits one plain rule plus one [@media] rule per
-    breakpoint.
+    breakpoint. *)
 
-    [?order_tbl], when given, is populated with
-    [class name -> (priority, suborder)] for each base utility encountered,
-    reusing the class strings built here so callers need not re-derive the order
-    from the class name. *)
+val ordered_outputs :
+  ?theme:Scheme.t -> Utility.t -> ((int * int) * Output.t) list
+(** [ordered_outputs ?theme u] is {!outputs} with each rule paired with the
+    [(priority, suborder)] of the base utility it was built for:
+    {!Utility.order} on that utility, whatever modifiers [u] wraps it in. Each
+    item of a group pairs its rules with its own order.
+
+    @raise Invalid_argument
+      if a mark wraps a group, as [Utility.Important (false, Group us)] does: a
+      rule it writes has no single utility to take its order from. *)
 
 (** {1 Modifier dispatch}
 
