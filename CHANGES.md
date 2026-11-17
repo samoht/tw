@@ -100,6 +100,12 @@
   `[.a,.b]:underline` is `:is(.a,.b)`, under `group-[...]` and `peer-[...]`
   too, where every combinator and list was refused. `[*]` is `:is(*)`, where
   it compounded into a selector browsers drop (#947).
+- An `in-[...]` bracket is read as a selector: `in-[.a_.b]` is
+  `:where(:is(.a .b))`, where it matched an ancestor of class `a_.b`, and
+  `in-[[data-x]]` is `:where([data-x])`, where it named an element. A bracket
+  with a leading combinator, such as `in-[>p]`, is refused. A `not-[...]`
+  bracket holding a complex selector or a list goes through `:is()`, as
+  `:not(:is(p~span))` (#948).
 
 ### OCaml API
 
