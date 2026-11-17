@@ -1461,8 +1461,7 @@ let sample_size = 30
 let samples = 6
 
 (* An entry the fuzzer draws. [handler] is the registered handler that claims
-   the undressed class, which is the key {!known_inversions} is written in;
-   dressing the utility in a variant does not change it. *)
+   the undressed class; dressing the utility in a variant does not change it. *)
 type entry = {
   utility : Tw.t;
   handler : string;
@@ -1494,21 +1493,6 @@ let pool_entries () =
         us)
     (pool_families ())
 
-(* Handler pairs tw orders the other way round from Tailwind. [(a, b)] reads:
-   Tailwind emits some a-utility before some b-utility, and tw emits it after.
-   Both directions can hold between one pair of handlers, since a family may
-   straddle two of Tailwind's bands, so each is its own entry. A pair outside
-   the list fails a draw.
-
-   [test_known_inversions_are_exact] measures the set over the whole pool and
-   fails when it grows or when an entry closes, so the list can only shrink.
-   Both oracles consult it: the byte positions {!Test_helpers.inverted_pairs}
-   reads, and the canonical differ, which reports a reorder whenever the two
-   rules are cascade-significant. A pair is a property of the two classes alone,
-   so it means the same in every draw; a further inversion between the same two
-   handlers goes unseen. *)
-let known_inversions = []
-
 (* Which handler each class in a case belongs to, and which variant it wears.
    The variant matters because two classes wearing different ones are not
    comparable here: a variant changes the sort key by design, and where Tailwind
@@ -1526,11 +1510,11 @@ let case_index cases =
 
 (* Is every change in the differ's tree a reorder of whole rules? The differ
    answers what kind of difference there is; which pairs disagree is
-   {!Test_helpers.inverted_pairs}'s question, and it is the one that can be
-   recorded. Splitting them that way is deliberate: the differ picks which of
-   several rotated rules to call moved from the context it is given, so a pair
-   it names in a three-class draw is not the pair it names over the pool, while
-   two byte positions read the same wherever they are read.
+   {!Test_helpers.inverted_pairs}'s question. Splitting them that way is
+   deliberate: the differ picks which of several rotated rules to call moved
+   from the context it is given, so a pair it names in a three-class draw is not
+   the pair it names over the pool, while two byte positions read the same
+   wherever they are read.
 
    A [Reordered] node with no [swapped_with] is a reorder inside one rule rather
    than of the rules, and is not this. *)
@@ -1555,8 +1539,7 @@ let only_reorders (d : Cascade_diff.Tree_diff.t) =
    predicates that disagree let a fuzzer print a failing case and pass anyway.
    The canonical differ answers what the two sheets declare differently, and the
    pairwise order answers what they emit in a different order, which the differ
-   folds away whenever the two utilities write disjoint properties. Both consult
-   [known_inversions]. *)
+   folds away whenever the two utilities write disjoint properties. *)
 let case_faults cases =
   let utilities = List.map (fun e -> e.utility) cases in
   let forms = List.exists (fun e -> e.forms) cases in
@@ -1568,30 +1551,26 @@ let case_faults cases =
   let unread =
     if dropped = [] then [] else [ Test_helpers.describe_dropped dropped ]
   in
-  let unrecorded =
+  let inverted =
     Test_helpers.inverted_pairs ~tailwind ~tw (List.map Tw.pp utilities)
     |> List.filter_map (fun (a, b) ->
         match (entry a, entry b) with
-        | Some (ha, va), Some (hb, vb)
-          when String.equal va vb && not (List.mem (ha, hb) known_inversions) ->
+        | Some (_, va), Some (_, vb) when String.equal va vb ->
             Fmt.kstr
               (fun m -> Some m)
-              "%s comes before %s in Tailwind and after it in tw. Fix the \
-               order, or record (%S, %S) in [known_inversions] if it is debt \
-               this branch does not close."
-              a b ha hb
+              "%s comes before %s in Tailwind and after it in tw." a b
         | _ -> None)
   in
   let structural =
     match diff.Cascade_diff.Css_compare.result with
     | Cascade_diff.Css_compare.No_diff -> []
-    (* Only order differs, and every pair that disagrees is recorded. *)
-    | Cascade_diff.Css_compare.Tree_diff d
-      when only_reorders d && unrecorded = [] ->
+    (* Only order differs, between classes wearing different variants. *)
+    | Cascade_diff.Css_compare.Tree_diff d when only_reorders d && inverted = []
+      ->
         []
     | _ -> [ Test_helpers.describe_diff diff ]
   in
-  unread @ structural @ unrecorded
+  unread @ structural @ inverted
 
 let test_random_utilities_with_minimization () =
   let entries = pool_entries () in
@@ -1629,10 +1608,9 @@ let test_random_utilities_with_minimization () =
     sample i
   done
 
-(* The set {!known_inversions} records, measured over the whole pool at once.
-   Measured rather than collected from failing seeds: every pair the fuzzer can
-   draw is in this one comparison, so the list describes the debt instead of
-   whichever part of it a seed happened to hit. *)
+(* The handler pairs out of Tailwind's order, measured over the whole pool at
+   once: every pair the fuzzer can draw is in this one comparison, where a seed
+   reaches only the part of it that it draws. *)
 let measured_inversions () =
   let entries = pool_entries () in
   let utilities = List.map (fun e -> e.utility) entries in
@@ -1700,28 +1678,18 @@ let test_family_order_without_the_cli () =
     (List.map (fun c -> "." ^ c) classes)
     (Test_helpers.layer_statement_keys sheet ~layer:"utilities")
 
-let test_known_inversions_are_exact () =
-  let measured = measured_inversions () in
-  let recorded = List.sort_uniq compare known_inversions in
-  let show pairs =
-    String.concat "\n"
-      (List.map (fun (a, b) -> Fmt.str "    (%S, %S);" a b) pairs)
-  in
-  let unrecorded = List.filter (fun p -> not (List.mem p recorded)) measured in
-  if unrecorded <> [] then
-    Alcotest.failf
-      "%d handler pair(s) are out of Tailwind's order and not recorded:\n\
-       %s\n\
-       Fix the order, or add them to [known_inversions] in test/test_sort.ml."
-      (List.length unrecorded) (show unrecorded);
-  let closed = List.filter (fun p -> not (List.mem p measured)) recorded in
-  if closed <> [] then
-    Alcotest.failf
-      "%d recorded pair(s) are in Tailwind's order now:\n\
-       %s\n\
-       Delete them from [known_inversions] in test/test_sort.ml. The list is a \
-       ratchet: it only shrinks."
-      (List.length closed) (show closed)
+let test_pool_has_no_inversions () =
+  match measured_inversions () with
+  | [] -> ()
+  | pairs ->
+      Alcotest.failf
+        "%d handler pair(s) are out of Tailwind's order over the pool:\n%s"
+        (List.length pairs)
+        (String.concat "\n"
+           (List.map
+              (fun (a, b) ->
+                Fmt.str "    %s before %s in Tailwind, after it in tw" a b)
+              pairs))
 
 (* Every module tw.ml includes exports utilities, and one with no pool entry is
    a family no seed can reach. Reading the include list back is what makes a new
@@ -3171,7 +3139,7 @@ let tests =
     test_case "pool covers every family" `Quick test_pool_covers_every_family;
     test_case "family order without the CLI" `Quick
       test_family_order_without_the_cli;
-    test_case "known inversions are exact" `Slow test_known_inversions_are_exact;
+    test_case "the pool has no inversions" `Slow test_pool_has_no_inversions;
     test_case "mask type arbitrary order" `Slow test_mask_type_arbitrary_order;
     test_case "pool covers every handler" `Quick test_pool_covers_every_handler;
     test_case "pool variants all compile" `Quick test_variants_all_compile;
