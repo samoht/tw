@@ -87,25 +87,25 @@ let pointer_events_sorts_first () =
   Test_helpers.check_ordering_matches
     ~test_name:"pointer-events sorts before the layout group" shuffled
 
-(* [will-change] takes property names, so the docs' [<value>] placeholder is not
-   one; it used to reach the sheet as will-change: <value>. *)
+(* [will-change] takes property names, and a bracket holding anything else is
+   still a utility: Tailwind writes it into will-change as the author spelled
+   it, and the browser drops it. *)
+let test_arbitrary_will_change_falls_through () =
+  let has cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "will-change: " ^ value ]
+  in
+  has "will-change-[opacity]" "opacity";
+  has "will-change-[10px]" "10px";
+  has "will-change-[calc(1+2)]" "calc(1 + 2)";
+  has "will-change-[url(x.png)_center]" "url(x.png) center";
+  has "will-change-[<value>]" "<value>";
+  has "will-change-[length:10px]" "10px"
+
 let test_invalid_arbitrary_will_change () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes the docs placeholder through as a will-change the \
-            browser drops; tw refuses the class")
-  in
-  let accepted cls =
-    match Tw.of_string cls with
-    | Ok _ -> ()
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  rejected "will-change-[<value>]";
-  accepted "will-change-[opacity]";
-  accepted "will-change-[opacity,transform]";
-  accepted "will-change-[var(--x)]"
+  Test_helpers.check_invalid_input
+    (module Tw.Interactivity.Handler)
+    "will-change-[a;b]"
 
 (* A property name is an identifier, and an identifier may carry an underscore.
    The arbitrary value spells that one [\_], so the class both parses and keeps
@@ -124,6 +124,8 @@ let tests =
     test_case "interactivity suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
     test_case "pointer-events sorts first" `Quick pointer_events_sorts_first;
+    test_case "arbitrary will-change falls through" `Quick
+      test_arbitrary_will_change_falls_through;
     test_case "invalid arbitrary will-change" `Quick
       test_invalid_arbitrary_will_change;
   ]

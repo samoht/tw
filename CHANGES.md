@@ -91,6 +91,12 @@
   markup carries (#957).
 - `mask-[…]` reads only the math functions Tailwind knows as a position, so
   `mask-[abs(1px)]` is a `mask-image` as it is in Tailwind (#958).
+- `font-[…]`, `list-[…]` and `will-change-[…]` write a bracket their grammar
+  does not read, such as `list-[10px]` or `will-change-[url(x.png)_center]`,
+  into their longhand as Tailwind does, where tw refused the class.
+  `font-[…]` chooses between `font-family` and `font-weight` the way Tailwind
+  does, so `font-[10px]` and `font-[calc(1+2)]` are weights and
+  `font-[url(x.png)_center]` is a family (#959).
 
 ### Project stylesheets
 

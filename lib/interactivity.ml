@@ -50,6 +50,7 @@ module Handler = struct
     | Will_change_contents
     | Will_change_transform
     | Will_change_arbitrary of string
+    | Will_change_raw of string * string
     | Group  (** Marker class for group parent *)
     | Peer  (** Marker class for peer sibling *)
     | Scheme_dark
@@ -75,7 +76,7 @@ module Handler = struct
     | Scheme_only_dark | Scheme_only_light ->
         27
     | Will_change_auto | Will_change_scroll | Will_change_contents
-    | Will_change_transform | Will_change_arbitrary _ ->
+    | Will_change_transform | Will_change_arbitrary _ | Will_change_raw _ ->
         33
     | Select_none | Select_text | Select_all | Select_auto -> 38
     (* Tailwind's utility order opens with the container utilities and then
@@ -195,6 +196,8 @@ module Handler = struct
           let raw = Parse.decode_underscores s in
           let props = String.split_on_char ',' raw |> List.map String.trim in
           style [ will_change (Properties props) ]
+    | Will_change_raw (_, v) ->
+        style (Option.to_list (Parse.opaque_declaration "will-change" v))
     | Group -> group_s
     | Peer -> peer_s
     | Scheme_dark -> scheme_dark_s
@@ -231,7 +234,7 @@ module Handler = struct
     | Will_change_contents -> 32
     | Will_change_scroll -> 33
     | Will_change_transform -> 34
-    | Will_change_arbitrary _ -> 30
+    | Will_change_arbitrary _ | Will_change_raw _ -> 30
     | Group -> 35
     | Peer -> 36
     | Scheme_dark -> -100
@@ -274,11 +277,10 @@ module Handler = struct
     | [ "will"; "change"; "scroll" ] -> Ok Will_change_scroll
     | [ "will"; "change"; "contents" ] -> Ok Will_change_contents
     | [ "will"; "change"; "transform" ] -> Ok Will_change_transform
-    | [ "will"; "change"; value ] when Parse.is_bracket_value value ->
+    | [ "will"; "change"; value ] when Parse.is_bracket_value value -> (
         let inner = Parse.bracket_inner value in
-        (* [will-change] takes property names, so anything that is not an
-           identifier - the docs' [<value>] placeholder included - is not
-           one. *)
+        (* [will-change] takes property names; anything else is a token
+           stream. *)
         if
           Parse.is_var inner
           || String.split_on_char ',' inner
@@ -286,7 +288,10 @@ module Handler = struct
              |> List.for_all (fun p ->
                  Parse.is_ident (Parse.decode_underscores p |> String.trim))
         then Ok (Will_change_arbitrary inner)
-        else Utility.unclaimed
+        else
+          match Parse.arbitrary_declaration_value inner with
+          | Some raw -> Ok (Will_change_raw (inner, raw))
+          | None -> Utility.unclaimed)
     | [ "group" ] -> Ok Group
     | [ "peer" ] -> Ok Peer
     | [ "scheme"; "dark" ] -> Ok Scheme_dark
@@ -328,7 +333,8 @@ module Handler = struct
     | Will_change_scroll -> "will-change-scroll"
     | Will_change_contents -> "will-change-contents"
     | Will_change_transform -> "will-change-transform"
-    | Will_change_arbitrary s -> "will-change-[" ^ s ^ "]"
+    | Will_change_arbitrary s | Will_change_raw (s, _) ->
+        "will-change-[" ^ s ^ "]"
     | Group -> "group"
     | Peer -> "peer"
     | Scheme_dark -> "scheme-dark"

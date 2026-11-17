@@ -23,6 +23,24 @@ let test_bracket_list_style () =
   check_declarations "list-[nonsense-style]"
     [ "list-style-type:nonsense-style" ]
 
+(* A bracket no list-style-type grammar reads is still a utility: Tailwind
+   writes it into list-style-type as the author spelled it, and the browser
+   drops it. *)
+let test_bracket_falls_through () =
+  let has cls value =
+    check_declarations ~minify:false cls [ "list-style-type: " ^ value ]
+  in
+  has "list-[10px]" "10px";
+  has "list-[calc(1+2)]" "calc(1 + 2)";
+  has "list-[url(x.png)_center]" "url(x.png) center";
+  has "list-[<value>]" "<value>";
+  (* a hint says nothing about the value *)
+  has "list-[length:10px]" "10px";
+  Alcotest.(check string)
+    "the class keeps its hint" "list-[length:10px]"
+    (Tw.pp (Result.get_ok (Tw.of_string "list-[length:10px]")));
+  check_invalid_input (module Tw.List_style.Handler) "list-[a;b]"
+
 (* List position, type, and image are three property bands; candidates inside
    each band use their natural class-name order. *)
 let test_list_style_property_bands () =
@@ -42,6 +60,7 @@ let tests =
   [
     test_case "list style" `Quick test_list_style;
     test_case "bracket list-style" `Quick test_bracket_list_style;
+    test_case "bracket falls through" `Quick test_bracket_falls_through;
     test_case "list-style property bands" `Slow test_list_style_property_bands;
   ]
 

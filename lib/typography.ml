@@ -365,10 +365,12 @@ module Typography_early = struct
       Font_bracket_weight of string * int (* font-[100] *)
     | Font_bracket_weight_var of string * string
       (* font-[number:var(--x)] or font-[var(--x)] *)
+    | Font_bracket_weight_raw of string * string
     | Font_bracket_family_quoted of string * string (* font-["arial_rounded"] *)
     | Font_bracket_family_name of string * string (* font-[ui-sans-serif] *)
     | Font_bracket_family_var of string * string
       (* font-[family-name:var(--x)] or font-[generic-name:var(--x)] *)
+    | Font_bracket_family_raw of string * string
     | (* Font feature settings *)
       Font_features_quoted of string (* font-features-["smcp"] *)
     | Font_features_raw of string * string
@@ -703,6 +705,62 @@ module Typography_early = struct
     | None -> false
     | Some raw -> Css.parse_length raw <> None
 
+  (* Tailwind's [family-name] reading of a bracket: no comma piece opens with a
+     digit, and at least one is not a var(). *)
+  let is_family_name_bracket value =
+    let pieces = Parse.split_top_level ',' value in
+    List.for_all (fun p -> p = "" || not (p.[0] >= '0' && p.[0] <= '9')) pieces
+    && List.exists (fun p -> not (String.starts_with ~prefix:"var(" p)) pieces
+
+  (* Whether [font-[inner]] writes a font-family rather than a font-weight. A
+     hint decides when there is one; otherwise a value opening with var(), a
+     number and a value holding math are weights, as is anything that does not
+     read as a family name. *)
+  let font_bracket_is_family inner =
+    match Parse.data_type_hint inner with
+    | Some (hint, _) -> hint = "family-name" || hint = "generic-name"
+    | None ->
+        let value = Parse.decode_arbitrary_value inner in
+        (not
+           (String.starts_with ~prefix:"var(" value
+           || Parse.is_number value
+           || Parse.holds_math_function value))
+        && is_family_name_bracket value
+
+  (* [_] separates the words of a name and [\_] is a literal underscore inside
+     one, so the stack is read decoded while the class keeps the spelling it was
+     written with. A value no family grammar reads is a token stream. *)
+  let font_family_bracket inner =
+    match Parse.value_after_hint inner with
+    | None -> Utility.unclaimed
+    | Some _ when String.starts_with ~prefix:"\"" inner ->
+        (* the decoded text is the literal font-family value, quotes and all;
+           Tailwind never wraps it in another layer of quoting *)
+        Ok (Font_bracket_family_quoted (inner, Parse.decode_underscores inner))
+    | Some value when Parse.is_var value ->
+        Ok (Font_bracket_family_var (inner, value))
+    | Some value -> (
+        let decoded = Parse.decode_underscores value in
+        if is_font_family_value decoded then
+          Ok (Font_bracket_family_name (inner, decoded))
+        else
+          match Parse.arbitrary_declaration_value inner with
+          | Some raw -> Ok (Font_bracket_family_raw (inner, raw))
+          | None -> Utility.unclaimed)
+
+  let font_weight_bracket inner =
+    match Parse.value_after_hint inner with
+    | None -> Utility.unclaimed
+    | Some value when Parse.is_var value ->
+        Ok (Font_bracket_weight_var (inner, value))
+    | Some value -> (
+        match Parse.decimal_int value with
+        | Some n -> Ok (Font_bracket_weight (inner, n))
+        | None -> (
+            match Parse.arbitrary_declaration_value inner with
+            | Some raw -> Ok (Font_bracket_weight_raw (inner, raw))
+            | None -> Utility.unclaimed))
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -719,45 +777,10 @@ module Typography_early = struct
     | [ "text"; "7xl" ] -> Ok Text_7xl
     | [ "text"; "8xl" ] -> Ok Text_8xl
     | [ "text"; "9xl" ] -> Ok Text_9xl
-    | [ "font"; v ] when Parse.is_bracket_value v -> (
+    | [ "font"; v ] when Parse.is_bracket_value v ->
         let inner = Parse.bracket_inner v in
-        (* A family name is a list of idents or quoted strings, so the docs'
-           [<value>] placeholder is not one. [_] separates the words of a name
-           and [\_] is a literal underscore inside one, so the stack is read
-           decoded while the class keeps the spelling it was written with. *)
-        let family raw value =
-          if Parse.is_var value then Ok (Font_bracket_family_var (raw, value))
-          else
-            let decoded = Parse.decode_underscores value in
-            if is_font_family_value decoded then
-              Ok (Font_bracket_family_name (raw, decoded))
-            else Utility.unclaimed
-        in
-        let weight raw value =
-          if Parse.is_var value then Ok (Font_bracket_weight_var (raw, value))
-          else
-            match Parse.decimal_int value with
-            | Some n -> Ok (Font_bracket_weight (raw, n))
-            | None -> Utility.unclaimed
-        in
-        if String.length inner > 0 && inner.[0] = '"' then
-          (* font-["arial_rounded"] → the decoded bracket text becomes the
-             literal font-family value, quotes and all; Tailwind never wraps it
-             in another layer of quoting. *)
-          let decoded = Parse.decode_underscores inner in
-          Ok (Font_bracket_family_quoted (inner, decoded))
-        else
-          (* A data-type hint picks which of the two readings applies; the value
-             written after it is read the way the un-hinted spelling is, so only
-             a var() reference names a custom property. *)
-          match split_type_prefix inner with
-          | Stdlib.Option.Some (("family-name" | "generic-name"), value) ->
-              family inner value
-          | Stdlib.Option.Some ("number", value) -> weight inner value
-          | _ ->
-              if Parse.decimal_int inner <> None || Parse.is_var inner then
-                weight inner inner
-              else family inner inner)
+        if font_bracket_is_family inner then font_family_bracket inner
+        else font_weight_bracket inner
     | [ "font"; "features"; v ] when Parse.is_bracket_value v -> (
         let inner = Parse.bracket_inner v in
         if Parse.is_var inner then Ok (Font_features_var inner)
@@ -896,10 +919,12 @@ module Typography_early = struct
     | Font_extrabold -> "font-extrabold"
     | Font_black -> "font-black"
     | Font_bracket_weight (raw, _) -> "font-[" ^ raw ^ "]"
-    | Font_bracket_weight_var (raw, _) -> "font-[" ^ raw ^ "]"
+    | Font_bracket_weight_var (raw, _) | Font_bracket_weight_raw (raw, _) ->
+        "font-[" ^ raw ^ "]"
     | Font_bracket_family_quoted (raw, _) -> "font-[" ^ raw ^ "]"
     | Font_bracket_family_name (raw, _) -> "font-[" ^ raw ^ "]"
-    | Font_bracket_family_var (raw, _) -> "font-[" ^ raw ^ "]"
+    | Font_bracket_family_var (raw, _) | Font_bracket_family_raw (raw, _) ->
+        "font-[" ^ raw ^ "]"
     | Font_features_quoted raw | Font_features_raw (raw, _) ->
         "font-features-[" ^ raw ^ "]"
     | Font_features_var raw -> "font-features-[" ^ raw ^ "]"
@@ -952,6 +977,7 @@ module Typography_early = struct
        Tailwind places it in the preceding slot. *)
     | Font_bracket_family_quoted _ -> 1503
     | Font_bracket_family_var _ -> 1503
+    | Font_bracket_family_raw _ -> 1503
     | Font_bracket_family_name _ -> 1503
     (* Bracket font weights come before named font weights *)
     (* Font family - comes between text-align and text-size. *)
@@ -1021,6 +1047,7 @@ module Typography_early = struct
     (* Bracket font weights come before named font weights *)
     | Font_bracket_weight _ -> 4000
     | Font_bracket_weight_var _ -> 4000
+    | Font_bracket_weight_raw _ -> 4000
     (* Font weight comes fourth - alphabetical order *)
     | Font_black -> 4100
     | Font_bold -> 4200
@@ -1626,6 +1653,22 @@ module Typography_early = struct
         let bare_name = Parse.extract_var_name var_str in
         let var_ref : Css.font_family Css.var = Var.bracket bare_name in
         style [ font_family (Var var_ref) ]
+    | Font_bracket_family_raw (_, value) ->
+        style (Option.to_list (Parse.opaque_declaration "font-family" value))
+    | Font_bracket_weight_raw (_, value) ->
+        let channel_decl =
+          Css.custom_property ~layer:"utilities"
+            (Var.css_name font_weight_var)
+            value
+        in
+        let property_rules =
+          Var.property_rule font_weight_var |> Option.to_list |> Css.concat
+        in
+        style
+          ~metadata:[ Var.metadata font_weight_var ]
+          ~property_rules
+          (channel_decl
+          :: Option.to_list (Parse.opaque_declaration "font-weight" value))
     | Font_features_raw (_, v) ->
         style
           (Option.to_list (Parse.opaque_declaration "font-feature-settings" v))
