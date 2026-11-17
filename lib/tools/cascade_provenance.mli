@@ -1,4 +1,4 @@
-(** Surface the cascade revision a local run is actually built against.
+(** The cascade revision a local run is built against.
 
     The [cascade/] directory at the repo root is a symlink to a sibling checkout
     that other sessions move independently; CI has no such symlink and instead

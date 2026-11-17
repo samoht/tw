@@ -1,11 +1,12 @@
 (** Line breaking utilities: white space, text wrap, word break, overflow wrap
     and hyphens.
 
-    https://tailwindcss.com/docs/white-space
-    https://tailwindcss.com/docs/text-wrap
-    https://tailwindcss.com/docs/word-break
-    https://tailwindcss.com/docs/overflow-wrap
-    https://tailwindcss.com/docs/hyphens *)
+    See {{:https://tailwindcss.com/docs/white-space}white-space},
+    {{:https://tailwindcss.com/docs/text-wrap}text-wrap},
+    {{:https://tailwindcss.com/docs/word-break}word-break},
+    {{:https://tailwindcss.com/docs/overflow-wrap}overflow-wrap} and
+    {{:https://tailwindcss.com/docs/hyphens}hyphens} in the Tailwind
+    documentation. *)
 
 open Utility
 

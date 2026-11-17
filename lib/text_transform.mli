@@ -1,6 +1,7 @@
 (** Text transform utilities.
 
-    https://tailwindcss.com/docs/text-transform *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/text-transform}text transform}. *)
 
 open Utility
 

@@ -1,7 +1,5 @@
-(** Cursor utilities
-
-    @see <https://tailwindcss.com/docs/cursor> Tailwind CSS Cursor documentation
-*)
+(** Cursor utilities, the {{:https://tailwindcss.com/docs/cursor}[cursor-*]}
+    family. *)
 
 open Utility
 

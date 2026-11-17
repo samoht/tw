@@ -2,8 +2,9 @@
     from/via/to colour stops they read. The other background utilities are in
     {!Backgrounds}.
 
-    https://tailwindcss.com/docs/background-image
-    https://tailwindcss.com/docs/gradient-color-stops *)
+    See {{:https://tailwindcss.com/docs/background-image}background-image} and
+    {{:https://tailwindcss.com/docs/gradient-color-stops}gradient-color-stops}
+    in the Tailwind documentation. *)
 
 open Cascade
 open Utility

@@ -1,13 +1,10 @@
-(** Form element utilities - matching Tailwind v4's [\@tailwindcss/forms]
-    plugin.
-
-    https://tailwindcss.com/docs/accent-color
-    https://tailwindcss.com/docs/appearance
+(** Form element utilities, matching Tailwind v4's [\@tailwindcss/forms] plugin.
 
     Form utilities are split into two priority groups to match Tailwind's
     output:
     - checkbox, radio, input: priority 3 (before layout at 4)
-    - select, textarea: priority 7 (after sizing at 6) *)
+    - select, textarea: priority 8 (after sizing at 6 and flex properties at 7)
+*)
 
 open Cascade
 open Utility
@@ -37,14 +34,14 @@ module Handler : Utility.Handler
 (** Handler for checkbox/radio/input (priority 3) *)
 
 module Select : Utility.Handler
-(** Handler for select/textarea (priority 7) *)
+(** Handler for select/textarea (priority 8) *)
 
 (** {1 Base Layer Stylesheet} *)
 
 val base_stylesheet : unit -> Css.t
-(** [base_stylesheet ()] returns the CSS stylesheet containing base layer rules
-    for native HTML form elements. This is included in the base layer when forms
-    utilities are used, matching the [\@tailwindcss/forms] plugin behavior.
+(** [base_stylesheet ()] is the stylesheet of base layer rules for native HTML
+    form elements. This is included in the base layer when forms utilities are
+    used, matching the [\@tailwindcss/forms] plugin behavior.
 
     Includes:
     - Text input base styles ([type=text], textarea, select, etc.)

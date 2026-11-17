@@ -1,4 +1,4 @@
-(** Field sizing utilities *)
+(** Field sizing utilities. *)
 
 open Utility
 

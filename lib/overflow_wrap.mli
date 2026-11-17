@@ -1,4 +1,4 @@
-(** Overflow wrap utilities *)
+(** Overflow wrap utilities. *)
 
 open Utility
 

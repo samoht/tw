@@ -2,19 +2,18 @@
 
     For flexbox layout utilities (direction, wrap), see {!Flex_layout} module.
     For flexbox property utilities (grow, shrink, basis, order), see
-    {!Flex_props} module.
-
-    @see <https://tailwindcss.com/docs/flex> Tailwind CSS Flex documentation *)
+    {!Flex_props} module. See {{:https://tailwindcss.com/docs/flex}Flex} in the
+    Tailwind documentation. *)
 
 open Utility
 
 (** {1 Display} *)
 
 val flex : t
-(** [flex] creates a flex container. *)
+(** [flex] sets [display: flex]. *)
 
 val inline_flex : t
-(** [inline_flex] creates an inline flex container. *)
+(** [inline_flex] sets [display: inline-flex]. *)
 
 (** {1 Re-exported from Flex_layout}
 

@@ -1,4 +1,4 @@
-(** Utility module for common utility types and functions
+(** Utilities and the handler interface every utility family implements.
 
     {1 Styling Guide for Utility Modules}
 
@@ -61,10 +61,10 @@
     - 800+: Component-level utilities (forms, etc.) *)
 
 type base
-(** Base utility type without modifiers. Values are created only by a
+(** The type for utilities without modifiers. Values are created only by a
     {!Make}-registered handler, so dispatch over one is total. *)
 
-(** Unified utility type with modifiers support *)
+(** The type for utilities, with their modifiers. *)
 type t =
   | Base of base
   | Modified of Style.modifier * t
@@ -117,17 +117,17 @@ module Property_order : sig
       sorts after every utility in [rank]'s slot. *)
 end
 
-(** Handler module type for utility registration *)
+(** The signature of a utility handler, which {!Make} registers. *)
 module type Handler = sig
   type t
-  (** The utility type *)
+  (** The type for the handler's utilities. *)
 
   val name : string
-  (** Name of this utility handler. *)
+  (** [name] is the handler's name. *)
 
   val to_style : Scheme.t -> t -> Style.t
-  (** [to_style theme u] converts utility [u] to a style, reading any theme
-      values it needs from [theme]. *)
+  (** [to_style theme u] is the style of [u], reading any theme values it needs
+      from [theme]. *)
 
   val priority : t -> int
   (** [priority u] is the primary ordering key for utility [u]. Usually a module
@@ -135,7 +135,7 @@ module type Handler = sig
       canonical families (e.g. layout) return per-variant values. *)
 
   val suborder : t -> int
-  (** [suborder u] is the suborder within the same priority. *)
+  (** [suborder u] orders [u] among the utilities of the same priority. *)
 
   val of_class : Scheme.t -> string -> (t, [ `Msg of string ]) result
   (** [of_class theme name] parses class [name] into a utility, consulting
@@ -146,8 +146,8 @@ module type Handler = sig
   (** [to_class u] is the CSS class name for utility [u]. *)
 
   val examples : t list
-  (** A few of this handler's utilities, one per property it can set.
-      {!order_of_property} runs them through {!to_style} to learn which
+  (** [examples] are a few of this handler's utilities, one per property it can
+      set. {!order_of_property} runs them through {!to_style} to learn which
       properties belong to which slot, so nothing has to restate the order or
       pair a property with a variant by hand. Covering a property here is what
       lets a project's [@utility] declaring it sort in the right place. *)
@@ -159,8 +159,8 @@ val unclaimed : ('a, [> `Msg of string ]) result
 
 module Make (H : Handler) : sig
   val v : H.t -> t
-  (** Applying [Make] registers [H] at module initialization. [v value] packages
-      [value] as a utility handled by [H]. *)
+  (** [v value] is [value] as a utility handled by [H]. Applying [Make]
+      registers [H] at module initialization. *)
 end
 
 val order_of_property : Cascade.Css.Declaration.prop_key -> (int * int) option
@@ -182,8 +182,9 @@ val ordering_property :
     ([-webkit-line-clamp]) is the utility's own and keeps its slot. *)
 
 val base_of_class : Scheme.t -> string -> (base, [ `Msg of string ]) result
-(** [base_of_class theme class_name] parses a class name into a base utility
-    (without modifiers). For internal use by the Tw module. *)
+(** [base_of_class theme class_name] is the base utility (without modifiers)
+    that [class_name] names, from the first registered handler that claims it.
+    For internal use by the Tw module. *)
 
 val examples_classes : unit -> string list
 (** [examples_classes ()] is the class name of every utility each registered
@@ -197,22 +198,27 @@ val claiming_handlers : Scheme.t -> string -> string list
     Exposed so a test can assert that no class is claimed twice. *)
 
 val name_of_base : base -> string
-(** [name_of_base u] returns the utility name. *)
+(** [name_of_base u] is the name of the handler of [u].
+
+    @raise Failure if no registered handler handles [u]. *)
 
 val class_of_base : base -> string
-(** [class_of_base u] returns the CSS class name for a base utility. *)
+(** [class_of_base u] is the class name of [u].
+
+    @raise Failure if no registered handler handles [u]. *)
 
 val to_style : Scheme.t -> t -> Style.t
-(** [to_style theme u] converts Utility.t (with modifiers) to Style.t, reading
-    theme values from [theme]. *)
+(** [to_style theme u] is the style of [u], modifiers included, reading theme
+    values from [theme]. *)
 
 val to_class : t -> string
-(** [to_class u] converts Utility.t (with modifiers) to class name string. *)
+(** [to_class u] is the class name of [u], modifiers included. *)
 
 val order : base -> int * int
-(** [order u] gets the ordering information (priority, suborder) for a base
-    utility. *)
+(** [order u] is the [(priority, suborder)] of [u].
+
+    @raise Failure if no registered handler handles [u]. *)
 
 val deduplicate : t list -> t list
-(** [deduplicate utils] deduplicates utilities while preserving order (last
-    occurrence wins). *)
+(** [deduplicate utils] keeps the last occurrence of each utility of [utils], in
+    reverse order: [deduplicate [a; b; c; a]] is [[a; c; b]]. *)

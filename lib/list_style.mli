@@ -1,8 +1,9 @@
 (** List style utilities.
 
-    https://tailwindcss.com/docs/list-style-type
-    https://tailwindcss.com/docs/list-style-position
-    https://tailwindcss.com/docs/list-style-image *)
+    See {{:https://tailwindcss.com/docs/list-style-type}list-style-type},
+    {{:https://tailwindcss.com/docs/list-style-position}list-style-position} and
+    {{:https://tailwindcss.com/docs/list-style-image}list-style-image} in the
+    Tailwind documentation. *)
 
 open Utility
 

@@ -1,9 +1,9 @@
 (** Grid item placement utilities (col-{i n}, row-{i n}).
 
     These utilities control how grid items are placed within a grid container.
-
-    @see <https://tailwindcss.com/docs/grid-column> Tailwind CSS Grid Column
-    @see <https://tailwindcss.com/docs/grid-row> Tailwind CSS Grid Row *)
+    See {{:https://tailwindcss.com/docs/grid-column}Grid Column} and
+    {{:https://tailwindcss.com/docs/grid-row}Grid Row} in the Tailwind
+    documentation. *)
 
 open Utility
 

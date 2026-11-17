@@ -1,4 +1,4 @@
-(** Tailwind variant helpers (hover, focus, dark, responsive, group/peer, etc.)
+(** Tailwind variants (hover, focus, dark, responsive, group/peer and others).
 *)
 
 open Cascade
@@ -25,11 +25,12 @@ val nest_selector : parent:Css.Selector.t -> string -> Css.Selector.t
     inside a quoted attribute value alone. *)
 
 val to_selector : modifier -> string -> Css.Selector.t
-(** [to_selector modifier base_class] generates the CSS selector for a modifier
-    applied to a base class. *)
+(** [to_selector modifier base_class] is the CSS selector of [modifier] applied
+    to [base_class]. *)
 
 val is_hover : modifier -> bool
-(** [is_hover m] returns true if the modifier generates a :hover rule. *)
+(** [is_hover m] is [true] iff [m] is the [hover:], [group-hover:] or
+    [peer-hover:] variant. *)
 
 (** {1 State Variants} *)
 
@@ -672,26 +673,28 @@ val prose_lead : t list -> t
 (** {1 Validation} *)
 
 val has_responsive_modifier : t -> bool
-(** [has_responsive_modifier style] checks if a style already has a responsive
-    modifier. *)
+(** [has_responsive_modifier style] is [true] iff a responsive modifier wraps
+    [style] or any utility inside it. *)
 
 val validate_no_nested_responsive : t list -> unit
-(** [validate_no_nested_responsive styles] ensures no responsive modifiers are
-    nested. Raises Failure if validation fails. *)
+(** [validate_no_nested_responsive styles] checks that no style in [styles]
+    already carries a responsive modifier.
+
+    @raise Failure if one does. *)
 
 (** {1 Parsing and Pretty-printing} *)
 
 val of_string : string -> string list * string
-(** [of_string class_str] parses a class string with modifiers like
-    "hover:bg-blue-500" and returns [(modifiers, base_class)]. *)
+(** [of_string class_str] is the [(modifiers, base_class)] split of [class_str]:
+    ["hover:bg-blue-500"] gives [(["hover"], "bg-blue-500")]. *)
 
 val pp_modifier : modifier -> string
-(** [pp_modifier m] returns the string prefix for a modifier (e.g., "hover" for
-    Hover). *)
+(** [pp_modifier m] is the class-name prefix of [m] (e.g. ["hover"] for
+    [Hover]). *)
 
 val apply : ?theme:Scheme.t -> string list -> t -> t option
-(** [apply ?theme modifiers style] applies a list of modifier strings to a base
-    style, reading the custom breakpoints and [\@custom-variant]s from [theme].
-    Each token is read by {!Variant_parse.modifier}. Returns [None] if any
-    modifier is unrecognized. Example: [apply ["hover"; "sm"] (bg blue 500)]
-    creates a hover:sm:bg-blue-500 style. *)
+(** [apply ?theme modifiers style] is [style] under the modifier strings
+    [modifiers], reading the custom breakpoints and [\@custom-variant]s from
+    [theme]. Each token is read by {!Variant_parse.modifier}. This is [None] if
+    any modifier is unrecognized. Example: [apply ["hover"; "sm"] (bg blue 500)]
+    is the [hover:sm:bg-blue-500] style. *)

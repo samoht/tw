@@ -52,8 +52,8 @@ val bracket_supports_condition : string -> Css.Supports.t option
     compound with no single negation. *)
 
 val normalize_supports_condition : string -> Css.Supports.t
-(** [normalize_supports_condition cond] builds the [supports-[...]] bracket
-    content as a typed CSS [@supports] condition: underscores become spaces, and
+(** [normalize_supports_condition cond] is the [supports-[...]] bracket content
+    [cond] as a typed CSS [@supports] condition: underscores become spaces, and
     a bare property or custom property expands to a [(prop: var(--tw))] test,
     built directly through {!Css.Supports.property} rather than assembled as a
     string and re-parsed. An already-parenthesised condition or a function call

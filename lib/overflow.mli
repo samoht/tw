@@ -1,4 +1,4 @@
-(** Overflow utilities *)
+(** Overflow utilities. *)
 
 open Utility
 

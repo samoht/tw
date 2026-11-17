@@ -8,7 +8,7 @@ open Cascade
 open Utility
 
 val order : base -> (int * int) option
-(** [order u] returns the priority and suborder for the given effect utility. *)
+(** [order u] is [Some] the priority and suborder of the effect utility [u]. *)
 
 module Handler : Utility.Handler
 

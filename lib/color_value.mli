@@ -48,10 +48,11 @@ type color =
   | Theme_named of string
 
 val pp : color -> string
-(** [pp color] pretty-prints a color. *)
+(** [pp color] is a human-readable rendering of [color]: its name for a named
+    colour, the bracketed hex for a hex one. *)
 
 val to_css : ?theme:Scheme.t -> color -> int -> Css.color
-(** [to_css ?theme color shade] converts a color to CSS color value. A colour
+(** [to_css ?theme color shade] is the CSS value of [color] at [shade]. A colour
     [theme.colors] binds takes that value instead of the palette's. A project
     token declared in an [\@theme] block has no palette entry, so [theme]
     supplies its value; without one such a colour reads as transparent. *)
@@ -143,65 +144,66 @@ val rose : color
 (** [rose] is the base rose color. *)
 
 val hex : string -> color
-(** [hex s] creates color from hex string. *)
+(** [hex s] is the colour of the hex string [s]. *)
 
 val rgb : int -> int -> int -> color
-(** [rgb r g b] creates color from RGB values. *)
+(** [rgb r g b] is the colour with channels [r], [g] and [b]. *)
 
 val of_string : string -> (color, [ `Msg of string ]) result
-(** [of_string name] converts a color name string to a color type, returning a
-    Result. *)
+(** [of_string name] is the colour [name] spells, or [Error] when it names none.
+*)
 
 (** {1 Color Conversion} *)
 
 val to_oklch : color -> int -> Srgb.oklch
-(** [to_oklch color shade] converts color to OKLCH data for a given shade. A
-    colour the palette does not define reads as black; use {!to_oklch_opt} to
-    tell that case apart. *)
+(** [to_oklch color shade] is the OKLCH data for [color] at [shade]. A colour
+    the palette does not define reads as black; use {!to_oklch_opt} to tell that
+    case apart. *)
 
 val to_oklch_opt : color -> int -> Srgb.oklch option
 (** [to_oklch_opt color shade] is the OKLCH data for [color] at [shade], or
-    [None] for a colour the palette does not define - a project token, whose
+    [None] for a colour the palette does not define: a project token, whose
     value only the theme knows. *)
 
 val to_oklch_css : color -> int -> string
-(** [to_oklch_css color shade] converts color to OKLCH CSS string for a given
-    shade.
+(** [to_oklch_css color shade] is the OKLCH CSS text for [color] at [shade].
 
     @raise Invalid_argument
       if [color] is a {!hex} colour whose string is not a hex colour. *)
 
 val to_name : color -> string
-(** [to_name color] gets the name of a color as a string. *)
+(** [to_name color] is the name of [color]. *)
 
 val color_to_string : color -> string
-(** [color_to_string color] converts a color to its string representation for
-    class names. For hex colors, includes the # prefix in the arbitrary value
-    syntax (e.g., "[#0f0]"). *)
+(** [color_to_string color] is [color] as a class name spells it. For hex
+    colors, it includes the # prefix in the arbitrary value syntax (e.g.,
+    "[#0f0]"). *)
 
 val is_base_color : color -> bool
-(** [is_base_color color] checks if a color is black or white (doesn't need a
-    shade). *)
+(** [is_base_color color] is [true] iff [color] is {!val-black} or {!val-white},
+    which take no shade. *)
 
 val is_custom_color : color -> bool
-(** [is_custom_color color] checks if a color is a custom color (hex or rgb). *)
+(** [is_custom_color color] is [true] iff [color] carries its own value (hex,
+    rgb, oklch or a CSS colour) rather than naming a palette entry. *)
 
 val opacity_keyword : color -> Css.color option
-(** [opacity_keyword color] returns [transparent] or [inherit] when [color] is
+(** [opacity_keyword color] is [Some] [transparent] or [inherit] when [color] is
     one of the CSS-wide keywords accepted by opacity-bearing colour utilities.
 *)
 
 val is_shadeless : color -> bool
-(** [is_shadeless color] checks if a color should NOT have a shade suffix in
-    class names (base colors, custom colors, or theme-named colors). *)
+(** [is_shadeless color] is [true] iff [color] takes no shade suffix in a class
+    name: a base, custom or theme-named colour. *)
 
 val is_theme_named : color -> bool
 (** [is_theme_named c] is whether [c] names a token the project's [\@theme]
     declared rather than a palette colour; such a colour carries no shade. *)
 
 val is_valid_shade : color -> int -> bool
-(** [is_valid_shade color shade] checks that [shade] is one the Tailwind palette
-    defines for [color]. Shadeless colors accept any shade (it is ignored). *)
+(** [is_valid_shade color shade] is [true] iff [shade] is one the Tailwind
+    palette defines for [color]. Shadeless colors accept any shade (it is
+    ignored). *)
 
 val check_shade : utility:string -> color -> int -> unit
 (** [check_shade ~utility color shade] raises [Invalid_argument] if
@@ -211,8 +213,8 @@ val check_shade : utility:string -> color -> int -> unit
 (** {1 Theme tokens} *)
 
 val color_var : color -> int -> Css.color Var.theme
-(** [color_var color shade] gets or creates a memoized color variable for the
-    given color and shade. *)
+(** [color_var color shade] is the theme variable of [color] at [shade],
+    memoized. *)
 
 val bound :
   ?theme:Scheme.t ->
@@ -230,19 +232,19 @@ val property_color_var :
   color ->
   int ->
   Css.color Var.theme
-(** [property_color_var ?theme ~property_prefix color shade] gets or creates a
+(** [property_color_var ?theme ~property_prefix color shade] is the memoized
     property-scoped color variable (e.g., [--border-color-blue-500]), checking
     [theme] for a property-scoped token override when given. *)
 
 val property_color_value :
   ?theme:Scheme.t -> property_prefix:string -> color -> int -> Css.color
-(** [property_color_value ?theme ~property_prefix color shade] returns the CSS
-    color value for a property-scoped color variable, reading scheme colors from
-    [theme] when given (default: the current global scheme). *)
+(** [property_color_value ?theme ~property_prefix color shade] is the CSS color
+    value for a property-scoped color variable: the property-scoped or colour
+    token [theme] binds, when it binds one, and the palette value otherwise. *)
 
 val scheme_color_name : color -> int -> string
-(** [scheme_color_name color shade] returns the scheme color name (e.g.,
-    "red-500") for a color and shade. *)
+(** [scheme_color_name color shade] is the scheme name of [color] at [shade]
+    (e.g. ["red-500"]), without the shade for a base or theme-named colour. *)
 
 val token_value : ?theme:Scheme.t -> color -> int -> Css.color
 (** [token_value ?theme color shade] is the value the [--color-*] token of
@@ -296,30 +298,30 @@ val theme_token : Scheme.t -> string -> string option
 (** {1 Ordering} *)
 
 val theme_order : string -> int * int
-(** [theme_order c] returns the theme layer order for a color variable. *)
+(** [theme_order c] is the theme layer order of the colour variable [c]. *)
 
 val utilities_order : string -> int * int
-(** [utilities_order c] returns the utilities layer order for conflict
-    resolution. *)
+(** [utilities_order c] is the utilities layer order of the colour [c]; an
+    unknown colour sorts last. *)
 
 val suborder_with_shade : string -> int
-(** [suborder_with_shade color_part] extracts the numeric suborder for a color
-    utility with shade (e.g., "blue-500" returns 500 + color order offset). Used
-    for sorting color utilities within their priority group. *)
+(** [suborder_with_shade color_part] is the suborder of a colour utility with
+    shade, which sorts colour utilities within their priority group: for
+    ["blue-500"], the order of the colour ["blue"] times 1000, plus 500. *)
 
 (** {1 Parsing} *)
 
 val shade_of_strings :
   ?theme:Scheme.t -> string list -> (color * int, [ `Msg of string ]) result
-(** [shade_of_strings ?theme parts] parses a color and shade from a list of
-    strings. Example: ["blue"; "500"] -> Ok (Blue, 500). A name the palette does
-    not know resolves against [theme]: a [--color-<name>] token the project
-    declared is a shadeless colour of its own. *)
+(** [shade_of_strings ?theme parts] is the colour and shade [parts] spell:
+    [["blue"; "500"]] gives [Ok (Blue, 500)]. A name the palette does not know
+    resolves against [theme]: a [--color-<name>] token the project declared is a
+    shadeless colour of its own. *)
 
 val parse_bracket_color : string -> Css.color option
-(** [parse_bracket_color inner] parses a bracket color value into a typed
-    {!Css.color}. Handles hex, CSS color functions (rgba, hsl, oklch, ...), and
-    Tailwind named colors. Returns [None] if not a recognized color. *)
+(** [parse_bracket_color inner] is the {!Css.color} the bracket value [inner]
+    spells: a hex, a CSS color function (rgba, hsl, oklch, ...) or a Tailwind
+    named color. This is [None] if [inner] is not a recognized color. *)
 
 (** What a bracket value names, once the [color:]/[var(] spellings are told
     apart from a plain color. Every color-bearing utility (text, outline, ring,
@@ -331,8 +333,8 @@ type bracket_hint =
   | Plain_color of Css.color  (** any other color spelling *)
 
 val parse_bracket_hint : string -> bracket_hint option
-(** [parse_bracket_hint inner] classifies a bracket's inner text as a typed var,
-    a bare var, or a plain color parsed via {!parse_bracket_color}. Returns
+(** [parse_bracket_hint inner] is the class of a bracket's inner text: a typed
+    var, a bare var, or a plain color parsed via {!parse_bracket_color}. This is
     [None] when [inner] is none of these.
 
     A [color:] hint says how to read the value written after it, so

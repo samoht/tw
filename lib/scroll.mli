@@ -1,4 +1,4 @@
-(** Scroll margin and padding utilities *)
+(** Scroll margin and padding utilities. *)
 
 open Utility
 

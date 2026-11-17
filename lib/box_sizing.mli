@@ -1,4 +1,4 @@
-(** Box sizing utilities *)
+(** Box sizing utilities. *)
 
 open Utility
 

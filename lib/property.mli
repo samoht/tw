@@ -1,9 +1,10 @@
-(** Helpers for building the {i \@layer properties} block. *)
+(** The {i \@property} rules of the {i \@layer properties} block. *)
 
 open Cascade
 
 val split : Css.statement list -> Css.statement list * Css.statement list
-(** [split stmts] partitions into ({i \@property} rules, other statements). *)
+(** [split stmts] is [(props, rest)]: the {i \@property} rules of [stmts], and
+    its other statements. *)
 
 val dedup : Css.statement list -> Css.statement list
 (** [dedup props] deduplicates {i \@property} rules by name, keeping the first
@@ -13,5 +14,5 @@ val dedup : Css.statement list -> Css.statement list
     one {!Var} and are identical. *)
 
 val initial_values : Css.statement list -> (string * Css.declaration) list
-(** [initial_values stmts] extracts (name, initial-value declaration) pairs from
-    {i \@property} rules, in order. *)
+(** [initial_values stmts] are the [(name, initial-value declaration)] pairs of
+    the {i \@property} rules in [stmts], in order. *)

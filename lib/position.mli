@@ -1,7 +1,9 @@
-(** Position utilities for controlling element placement
+(** Position utilities.
 
-    https://tailwindcss.com/docs/position
-    https://tailwindcss.com/docs/top-right-bottom-left *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/position}position} and
+    {{:https://tailwindcss.com/docs/top-right-bottom-left}top right bottom left}.
+*)
 
 open Utility
 

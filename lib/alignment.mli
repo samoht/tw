@@ -1,12 +1,13 @@
-(** Alignment utilities for flexbox and grid layouts
+(** Alignment utilities for flexbox and grid layouts.
 
-    https://tailwindcss.com/docs/justify-content
-    https://tailwindcss.com/docs/align-items
-    https://tailwindcss.com/docs/align-content
-    https://tailwindcss.com/docs/align-self
-    https://tailwindcss.com/docs/place-content
-    https://tailwindcss.com/docs/place-items
-    https://tailwindcss.com/docs/place-self *)
+    See {{:https://tailwindcss.com/docs/justify-content}justify-content},
+    {{:https://tailwindcss.com/docs/align-items}align-items},
+    {{:https://tailwindcss.com/docs/align-content}align-content},
+    {{:https://tailwindcss.com/docs/align-self}align-self},
+    {{:https://tailwindcss.com/docs/place-content}place-content},
+    {{:https://tailwindcss.com/docs/place-items}place-items} and
+    {{:https://tailwindcss.com/docs/place-self}place-self} in the Tailwind
+    documentation. *)
 
 open Utility
 

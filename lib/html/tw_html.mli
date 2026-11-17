@@ -1,23 +1,23 @@
-(** A library for building HTML documents programmatically.
+(** HTML documents styled with Tailwind utilities.
 
-    This module provides a type-safe and declarative API for creating HTML
-    elements and attributes. It is designed to be used for generating static
-    HTML pages. *)
+    [Tw_html] builds HTML elements and attributes as typed values. Each element
+    carries the {!Tw.t} utilities given through [~tw], so a {!page} generates
+    exactly the CSS its markup uses. *)
 
 type t
 (** The abstract type for an HTML node. *)
 
 type tw = Tw.t
-(** Type alias for Tailwind styles for convenience. *)
+(** See {!Tw.t}. *)
 
 type attr
 (** The abstract type for an HTML attribute. *)
 
 module At : sig
-  (** Functions for creating HTML attributes. *)
+  (** HTML attributes. *)
 
   val id : string -> attr
-  (** [id "my-id"] creates an [id] attribute. *)
+  (** [id "my-id"] is an [id] attribute. *)
 
   val class' : string -> attr
   (** [class' names] is a [class] attribute. The names in [names] that are
@@ -27,295 +27,300 @@ module At : sig
   (** {1 Global attributes} *)
 
   val title : string -> attr
-  (** [title s] creates a {!val-title} attribute. *)
+  (** [title s] is a [title] attribute. *)
 
   val lang : string -> attr
-  (** [lang "en"] creates a [lang] attribute. *)
+  (** [lang "en"] is a [lang] attribute. *)
 
   val dir : string -> attr
-  (** [dir "ltr"] creates a [dir] attribute. *)
+  (** [dir "ltr"] is a [dir] attribute. *)
 
   val tabindex : int -> attr
-  (** [tabindex 0] creates a [tabindex] attribute. *)
+  (** [tabindex 0] is a [tabindex] attribute. *)
 
   val contenteditable : bool -> attr
-  (** [contenteditable true] creates a [contenteditable] attribute. *)
+  (** [contenteditable true] is a [contenteditable] attribute. *)
 
   val spellcheck : string -> attr
-  (** [spellcheck value] sets the spellcheck attribute. Use "true" or "false".
-  *)
-
-  val onclick : string -> attr
-  (** [onclick "..."] creates an [onclick] attribute. *)
+  (** [spellcheck v] is a [spellcheck] attribute, [v] being ["true"] or
+      ["false"]. *)
 
   (** {1 Event attributes} *)
 
+  val onclick : string -> attr
+  (** [onclick "..."] is an [onclick] attribute. *)
+
   val onchange : string -> attr
-  (** [onchange "..."] creates an [onchange] attribute. *)
+  (** [onchange "..."] is an [onchange] attribute. *)
 
   val oninput : string -> attr
-  (** [oninput "..."] creates an [oninput] attribute. *)
+  (** [oninput "..."] is an [oninput] attribute. *)
 
   val onsubmit : string -> attr
-  (** [onsubmit "..."] creates an [onsubmit] attribute. *)
-
-  val type' : string -> attr
-  (** [type' "text/css"] creates a [type] attribute. *)
+  (** [onsubmit "..."] is an [onsubmit] attribute. *)
 
   (** {1 Form attributes} *)
 
+  val type' : string -> attr
+  (** [type' "text/css"] is a [type] attribute. *)
+
   val value : string -> attr
-  (** [value "..."] creates a [value] attribute. *)
+  (** [value "..."] is a [value] attribute. *)
 
   val name : string -> attr
-  (** [name "description"] creates a [name] attribute. *)
+  (** [name "description"] is a [name] attribute. *)
 
   val placeholder : string -> attr
-  (** [placeholder "..."] creates a [placeholder] attribute. *)
+  (** [placeholder "..."] is a [placeholder] attribute. *)
 
   val required : attr
-  (** The [required] attribute. *)
+  (** [required] is the [required] attribute. *)
 
   val disabled : attr
-  (** The [disabled] attribute. *)
+  (** [disabled] is the [disabled] attribute. *)
 
   val checked : attr
-  (** The [checked] attribute. *)
+  (** [checked] is the [checked] attribute. *)
 
   val readonly : attr
-  (** The [readonly] attribute. *)
-
-  val href : string -> attr
-  (** [href "/path"] creates an [href] attribute. *)
+  (** [readonly] is the [readonly] attribute. *)
 
   (** {1 Link attributes} *)
 
+  val href : string -> attr
+  (** [href "/path"] is an [href] attribute. *)
+
   val target : string -> attr
-  (** [target "_blank"] creates a [target] attribute. *)
+  (** [target "_blank"] is a [target] attribute. *)
 
   val rel : string -> attr
-  (** [rel "stylesheet"] creates a [rel] attribute. *)
+  (** [rel "stylesheet"] is a [rel] attribute. *)
 
   val download : string -> attr
-  (** [download "file.pdf"] creates a [download] attribute. *)
-
-  val src : string -> attr
-  (** [src "/image.png"] creates a [src] attribute. *)
+  (** [download "file.pdf"] is a [download] attribute. *)
 
   (** {1 Media attributes} *)
 
+  val src : string -> attr
+  (** [src "/image.png"] is a [src] attribute. *)
+
   val alt : string -> attr
-  (** [alt "description"] creates an [alt] attribute for images. *)
+  (** [alt "description"] is an [alt] attribute for images. *)
 
   val width : int -> attr
-  (** [width 800] creates a [width] attribute. *)
+  (** [width 800] is a [width] attribute. *)
 
   val height : int -> attr
-  (** [height 600] creates a [height] attribute. *)
+  (** [height 600] is a [height] attribute. *)
 
   val loading : string -> attr
-  (** [loading "lazy"] creates a [loading] attribute. *)
-
-  val charset : string -> attr
-  (** [charset "utf-8"] creates a [charset] attribute. *)
+  (** [loading "lazy"] is a [loading] attribute. *)
 
   (** {1 Meta attributes} *)
 
+  val charset : string -> attr
+  (** [charset "utf-8"] is a [charset] attribute. *)
+
   val content : string -> attr
-  (** [content "..."] creates a [content] attribute. *)
+  (** [content "..."] is a [content] attribute. *)
 
   val property : string -> attr
-  (** [property "og:title"] creates a [property] attribute. *)
-
-  val style : string -> attr
-  (** [style "color:red;"] creates a [style] attribute. *)
+  (** [property "og:title"] is a [property] attribute. *)
 
   (** {1 Style attribute} *)
 
-  val datetime : string -> attr
-  (** [datetime "2025-07-28"] creates a [datetime] attribute. *)
+  val style : string -> attr
+  (** [style "color:red;"] is a [style] attribute. *)
 
   (** {1 Time attributes} *)
 
-  val srcset : string -> attr
-  (** [srcset "..."] creates a [srcset] attribute for responsive images. *)
+  val datetime : string -> attr
+  (** [datetime "2025-07-28"] is a [datetime] attribute. *)
 
   (** {1 Image attributes} *)
 
-  val sizes : string -> attr
-  (** [sizes "..."] creates a [sizes] attribute for responsive images. *)
+  val srcset : string -> attr
+  (** [srcset "..."] is a [srcset] attribute for responsive images. *)
 
-  val title' : string -> attr
-  (** [title' s] creates a {!val-title} attribute for elements. *)
+  val sizes : string -> attr
+  (** [sizes "..."] is a [sizes] attribute for responsive images. *)
 
   (** {1 Additional attributes} *)
 
+  val title' : string -> attr
+  (** [title' s] is [title s]. *)
+
   val loading_lazy : attr
-  (** The [loading="lazy"] attribute. *)
+  (** [loading_lazy] is [loading "lazy"]. *)
 
   val v : string -> string -> attr
-  (** [v key value] creates a generic key-value attribute. *)
+  (** [v key value] is the attribute [key] with value [value]. *)
 
   val void : attr
-  (** [void] is an empty attribute that doesn't render. *)
+  (** [void] is an attribute that does not render. *)
 
   val true' : string -> attr
-  (** [true' key] creates a boolean attribute with a "true" value. *)
+  (** [true' key] is the boolean attribute [key], with an empty value. *)
 
   val false' : string -> attr
-  (** [false' key] creates a boolean attribute with a "false" value. *)
+  (** [false' key] is [v key "false"]. *)
 
   val if' : bool -> attr -> attr
-  (** [if' cond at] is [at] if [cond] is true, otherwise returns a void
-      attribute. *)
+  (** [if' cond at] is [at] if [cond] is [true] and {!void} otherwise. *)
 
   val if_some : attr option -> attr
-  (** [if_some o] is [at] if [o] is [Some at] and void if [o] is [None]. *)
+  (** [if_some o] is [at] if [o] is [Some at] and {!void} if [o] is [None]. *)
 
   val is_void : attr -> bool
-  (** [is_void at] is [true] if the attribute is void (won't render). *)
+  (** [is_void at] is [true] iff [at] is {!void}. *)
 
   val to_pair : attr -> string * string
-  (** [to_pair at] returns the attribute as a (name, value) pair. *)
+  (** [to_pair at] is the [(name, value)] pair of [at]. *)
 
   val of_pair : string * string -> attr
-  (** [of_pair (n,v)] creates an attribute from a (name, value) pair. *)
+  (** [of_pair (n, value)] is [v n value]. *)
 
   (** {2 Additional HTML5 attributes} *)
 
   val accesskey : string -> attr
-  (** [accesskey key] sets keyboard shortcut. *)
+  (** [accesskey key] is an [accesskey] attribute, the element's keyboard
+      shortcut. *)
 
   val action : string -> attr
-  (** [action url] sets form action URL. *)
+  (** [action url] is a form's [action] attribute. *)
 
   val autocomplete : string -> attr
-  (** [autocomplete value] sets autocomplete behavior. *)
+  (** [autocomplete value] is an [autocomplete] attribute. *)
 
   val autofocus : attr
-  (** [autofocus] sets element to be focused on page load. *)
+  (** [autofocus] is the [autofocus] attribute: the element takes the focus on
+      page load. *)
 
   val cols : int -> attr
-  (** [cols n] sets textarea columns. *)
+  (** [cols n] is a textarea's [cols] attribute. *)
 
   val colspan : int -> attr
-  (** [colspan n] sets table cell column span. *)
+  (** [colspan n] is a table cell's [colspan] attribute. *)
 
   val defer : attr
-  (** [defer] defers script execution. *)
+  (** [defer] is a script's [defer] attribute. *)
 
   val draggable : bool -> attr
-  (** [draggable b] sets whether element is draggable. *)
+  (** [draggable b] is a [draggable] attribute, ["true"] or ["false"]. *)
 
   val for' : string -> attr
-  (** [for' id] associates label with form element. *)
+  (** [for' id] is a label's [for] attribute, naming the control [id]. *)
 
   val hidden : attr
-  (** [hidden] hides the element. *)
+  (** [hidden] is the [hidden] attribute. *)
 
   val list : string -> attr
-  (** [list id] associates input with datalist. *)
+  (** [list id] is an input's [list] attribute, naming the datalist [id]. *)
 
   val method' : string -> attr
-  (** [method' m] sets form HTTP method. *)
+  (** [method' m] is a form's [method] attribute. *)
 
   val media : string -> attr
-  (** [media query] sets media query for resources. *)
+  (** [media query] is a [media] attribute. *)
 
   val popover : string -> attr
-  (** [popover value] sets popover behavior. *)
+  (** [popover value] is a [popover] attribute. *)
 
   val popovertarget : string -> attr
-  (** [popovertarget id] sets popover target element. *)
+  (** [popovertarget id] is a [popovertarget] attribute naming the popover [id].
+  *)
 
   val popovertargetaction : string -> attr
-  (** [popovertargetaction action] sets popover action. *)
+  (** [popovertargetaction action] is a [popovertargetaction] attribute. *)
 
   val rows : int -> attr
-  (** [rows n] sets textarea rows. *)
+  (** [rows n] is a textarea's [rows] attribute. *)
 
   val rowspan : int -> attr
-  (** [rowspan n] sets table cell row span. *)
+  (** [rowspan n] is a table cell's [rowspan] attribute. *)
 
   val selected : attr
-  (** [selected] marks option as selected. *)
+  (** [selected] is an option's [selected] attribute. *)
 
   val wrap : string -> attr
-  (** [wrap mode] sets textarea wrap mode. *)
+  (** [wrap mode] is a textarea's [wrap] attribute. *)
 
   (** {2 SVG Attributes} *)
 
   val fill_rule : [ `evenodd ] -> attr
-  (** [fill_rule `evenodd] sets the fill rule. *)
+  (** [fill_rule `evenodd] is [fill-rule="evenodd"]. *)
 
   val clip_rule : [ `evenodd ] -> attr
-  (** [clip_rule `evenodd] sets the clipping rule. *)
+  (** [clip_rule `evenodd] is [clip-rule="evenodd"]. *)
 
   val cx : int -> attr
-  (** [cx n] sets the center x coordinate. *)
+  (** [cx n] is a [cx] attribute, the x coordinate of the centre. *)
 
   val cy : int -> attr
-  (** [cy n] sets the center y coordinate. *)
+  (** [cy n] is a [cy] attribute, the y coordinate of the centre. *)
 
   val r : int -> attr
-  (** [r n] sets the radius. *)
+  (** [r n] is an [r] attribute, the radius. *)
 
   val view_box : string -> attr
-  (** [view_box s] sets the viewBox. *)
+  (** [view_box s] is a [viewBox] attribute. *)
 
   val fill : string -> attr
-  (** [fill "currentColor"] sets the fill color. *)
+  (** [fill "currentColor"] is a [fill] attribute. *)
 
   val stroke : string -> attr
-  (** [stroke "currentColor"] sets the stroke color. *)
+  (** [stroke "currentColor"] is a [stroke] attribute. *)
 
   val stroke_width : string -> attr
-  (** [stroke_width "2"] sets the stroke width. *)
+  (** [stroke_width "2"] is a [stroke-width] attribute. *)
 
   val stroke_linecap : string -> attr
-  (** [stroke_linecap "round"] sets the stroke line cap. *)
+  (** [stroke_linecap "round"] is a [stroke-linecap] attribute. *)
 
   val stroke_linejoin : string -> attr
-  (** [stroke_linejoin "round"] sets the stroke line join. *)
+  (** [stroke_linejoin "round"] is a [stroke-linejoin] attribute. *)
 
   val x : string -> attr
-  (** [x "10"] sets the x coordinate. *)
+  (** [x "10"] is an [x] attribute. *)
 
   val y : string -> attr
-  (** [y "10"] sets the y coordinate. *)
+  (** [y "10"] is a [y] attribute. *)
 
   val rx : string -> attr
-  (** [rx "5"] sets the x radius for rounded rectangles. *)
+  (** [rx "5"] is an [rx] attribute, the x radius of a rounded rectangle. *)
 
   val d : string -> attr
-  (** [d s] sets the path data. *)
+  (** [d s] is a [d] attribute, the path data. *)
 
   val x1 : string -> attr
-  (** [x1 "0"] sets the first x coordinate. *)
+  (** [x1 "0"] is an [x1] attribute. *)
 
   val y1 : string -> attr
-  (** [y1 "0"] sets the first y coordinate. *)
+  (** [y1 "0"] is a [y1] attribute. *)
 
   val x2 : string -> attr
-  (** [x2 "20"] sets the second x coordinate. *)
+  (** [x2 "20"] is an [x2] attribute. *)
 
   val y2 : string -> attr
-  (** [y2 "20"] sets the second y coordinate. *)
+  (** [y2 "20"] is a [y2] attribute. *)
 end
 
-(** {1 Text helpers} *)
+(** {1 Text} *)
 
 val txt : string -> t
-(** [txt s] creates a text node from string [s]. *)
+(** [txt s] is a text node holding [s], escaped. *)
 
 val txtf : string list -> t
-(** [txtf strs] concatenates [strs] and creates a text node. *)
+(** [txtf strs] is [txt (String.concat "" strs)]. *)
 
 val raw : string -> t
-(** [raw html] creates a node from raw HTML string. Use with caution. *)
+(** [raw html] is a node that writes [html] as given, unescaped.
+
+    {b Warning.} [html] reaches the document verbatim: escape untrusted text
+    with {!escape} first. *)
 
 val rawf : string list -> t
-(** [rawf strs] concatenates [strs] and creates a raw HTML node. *)
+(** [rawf strs] is [raw (String.concat "" strs)]. *)
 
 val empty : t
 (** [empty] is the empty element, equivalent to no content. *)
@@ -326,41 +331,41 @@ val escape : string -> string
     written. It is for markup assembled outside the tree, before it is given to
     {!raw}. *)
 
-(** {1 Aria module}
+(** {1 ARIA} *)
 
-    Accessibility attributes following ARIA standards. *)
+(** ARIA accessibility attributes. *)
 module Aria : sig
   val label : string -> attr
-  (** [label "description"] creates an aria-label attribute. *)
+  (** [label "description"] is an [aria-label] attribute. *)
 
   val labelledby : string -> attr
-  (** [labelledby "id"] creates an aria-labelledby attribute. *)
+  (** [labelledby "id"] is an [aria-labelledby] attribute. *)
 
   val describedby : string -> attr
-  (** [describedby "id"] creates an aria-describedby attribute. *)
+  (** [describedby "id"] is an [aria-describedby] attribute. *)
 
   val hidden : attr
-  (** [hidden] is the aria-hidden="true" attribute. *)
+  (** [hidden] is the [aria-hidden="true"] attribute. *)
 
   val expanded : bool -> attr
-  (** [expanded true] creates an aria-expanded attribute. *)
+  (** [expanded b] is an [aria-expanded] attribute, ["true"] or ["false"]. *)
 
   val current : string -> attr
-  (** [current "page"] creates an aria-current attribute. *)
+  (** [current "page"] is an [aria-current] attribute. *)
 
   val role : string -> attr
-  (** [role "navigation"] creates a role attribute. *)
+  (** [role "navigation"] is a [role] attribute. *)
 end
 
 (** {1 Conversion functions} *)
 
 val to_string : ?doctype:bool -> t -> string
-(** [to_string ?doctype element] converts HTML element to string representation.
-    If [doctype] is true (default: false), includes the HTML5 doctype
-    declaration. *)
+(** [to_string ~doctype t] is [t] rendered as HTML, preceded by the HTML5
+    doctype declaration if [doctype] is [true] (defaults to [false]). *)
 
 val to_tw : t -> tw list
-(** [to_tw t] extracts all styling classes from an HTML tree. *)
+(** [to_tw t] are the utilities of every element in [t]: those given through
+    [~tw] and the names of [class] attributes that are utilities. *)
 
 val unknown_classes : t -> string list
 (** [unknown_classes t] lists, in document order, every name in the tree's
@@ -370,8 +375,8 @@ val unknown_classes : t -> string list
     in a [class] attribute - so this is how a typo among them is found. *)
 
 val has_forms : t -> bool
-(** [has_forms t] returns true if the HTML tree contains form elements (input,
-    select, textarea) that benefit from the forms plugin base styles. *)
+(** [has_forms t] is [true] iff [t] contains a form element ([<input>],
+    [<select>], [<textarea>]) that the forms plugin base styles. *)
 
 (** {1:attrs Attributes over a tree} *)
 
@@ -390,7 +395,7 @@ val map_attrs : (string -> attr list -> attr list) -> t -> t
 
 (** {1 Page generation} *)
 
-(** How a {!page} delivers its generated CSS. *)
+(** The type for how a {!page} delivers its generated CSS. *)
 type tw_css =
   | Link of string
       (** Write the CSS to this file and reference it with a cache-busted
@@ -399,16 +404,9 @@ type tw_css =
       (** Embed the CSS directly in the document inside a [<style>] tag. *)
 
 type page
-(** Complete HTML page with integrated CSS.
-
-    A [page] value represents a complete, self-contained HTML document with all
-    required CSS automatically generated from the Tailwind utilities used in the
-    HTML structure. This ensures consistency between your markup and styles
-    without manual CSS management.
-
-    {b Design rationale}: The type is abstract to enforce the invariant that the
-    CSS contains exactly the styles needed for the HTML content. Direct
-    construction would break this guarantee. *)
+(** The type for complete HTML documents and the CSS generated from the
+    utilities they use. It is abstract so that the CSS holds exactly the styles
+    the HTML needs. *)
 
 val page :
   ?lang:string ->
@@ -423,7 +421,7 @@ val page :
   t list ->
   page
 (** [page ?lang ?meta ?title ?charset ?tw_css ?forms ?prelude ?theme head body]
-    generates a complete HTML page and its corresponding CSS.
+    is a complete HTML page and the CSS its utilities need, with:
 
     - [lang] defaults to ["en"]
     - [charset] defaults to ["utf-8"]
@@ -456,27 +454,28 @@ val versioned : string -> contents:string -> string
     names its stylesheet. *)
 
 val html : page -> string
-(** [html page] extracts the HTML string from a page result. *)
+(** [html page] is the HTML document of [page]. *)
 
 val css : page -> string option * Tw.Css.t
-(** [css page] extracts the CSS filename and stylesheet from a page result. The
-    filename is [Some file] when the page links to an external stylesheet
-    ([Link file]) and [None] when the CSS is inlined ({!constructor-Inline}). *)
+(** [css page] is the CSS filename and stylesheet of [page]. The filename is
+    [Some file] when the page links to an external stylesheet ([Link file]) and
+    [None] when the CSS is inlined ({!constructor-Inline}). *)
 
-(** {1 Livereload module}
+(** {1 Live reloading} *)
 
-    Development-time live reloading support. *)
+(** Live reloading during development. *)
 module Livereload : sig
   val enabled : bool
-  (** [enabled] is true if SITE_LIVERELOAD environment variable is "true". *)
+  (** [enabled] is [true] iff the [SITE_LIVERELOAD] environment variable is
+      ["true"]. *)
 
   val endpoint : string
-  (** [endpoint] is the WebSocket endpoint for livereload. Defaults to
-      "ws://localhost:8080" or SITE_LIVERELOAD_ENDPOINT. *)
+  (** [endpoint] is the livereload WebSocket endpoint, read from
+      [SITE_LIVERELOAD_ENDPOINT] (defaults to ["ws://localhost:8080"]). *)
 
   val script : t
-  (** [script] is the JavaScript code for livereload functionality. Only
-      included when {!val-enabled} is true. *)
+  (** [script] is the livereload [<script>] element if {!val-enabled} is [true],
+      and {!Tw_html.empty} otherwise. *)
 end
 
 (** {1 HTML Elements} *)
@@ -566,7 +565,7 @@ val root : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [root ?at ?tw children] is the root [<html>] element of a document. *)
 
 val void : t
-(** [void] is an empty void element. *)
+(** [void] is {!empty}. *)
 
 val option : ?at:attr list -> ?tw:tw list -> t list -> t
 (** [option ?at ?tw children] is an option element. *)
@@ -717,41 +716,42 @@ val iframe : ?at:attr list -> ?tw:tw list -> t list -> t
 (** {2 SVG Elements} *)
 
 val svg : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [svg ?at ?tw children] creates an SVG root element. *)
+(** [svg ?at ?tw children] is an SVG root element. *)
 
 val g : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [g ?at ?tw children] creates a group element. *)
+(** [g ?at ?tw children] is a group element. *)
 
 val circle : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [circle ?at ?tw children] creates a circle element. *)
+(** [circle ?at ?tw children] is a circle element. *)
 
 val rect : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [rect ?at ?tw children] creates a rectangle element. *)
+(** [rect ?at ?tw children] is a rectangle element. *)
 
 val path : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [path ?at ?tw children] creates a path element. *)
+(** [path ?at ?tw children] is a path element. *)
 
 val line : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [line ?at ?tw children] creates a line element. *)
+(** [line ?at ?tw children] is a line element. *)
 
 val text : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [text ?at ?tw children] creates a text element. *)
+(** [text ?at ?tw children] is a text element. *)
 
 val tspan : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [tspan ?at ?tw children] creates a tspan element, a run of text inside
+(** [tspan ?at ?tw children] is a tspan element, a run of text inside
     {!val-text}. *)
 
 val desc : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [desc ?at ?tw children] creates a desc element, the text description of its
+(** [desc ?at ?tw children] is a desc element, the text description of its
     parent. *)
 
 val defs : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [defs ?at ?tw children] creates a defs element, holding elements drawn only
-    where they are referenced. *)
+(** [defs ?at ?tw children] is a defs element, holding elements drawn only where
+    they are referenced. *)
 
 val pattern : ?at:attr list -> ?tw:tw list -> t list -> t
-(** [pattern ?at ?tw children] creates a pattern element, a tile a fill or a
-    stroke can repeat. *)
+(** [pattern ?at ?tw children] is a pattern element, a tile a fill or a stroke
+    can repeat. *)
 
 val pp : t -> string
-(** [pp t] pretty-prints HTML element [t]. *)
+(** [pp t] is [t] rendered as HTML and, when it has utilities, wrapped in an
+    [<element with classes="...">] marker that lists them. *)

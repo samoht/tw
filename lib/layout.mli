@@ -1,8 +1,11 @@
-(** Layout utilities for display, positioning, and z-index
+(** Layout utilities for display, positioning, and z-index.
 
-    https://tailwindcss.com/docs/display https://tailwindcss.com/docs/visibility
-    https://tailwindcss.com/docs/z-index https://tailwindcss.com/docs/object-fit
-    https://tailwindcss.com/docs/object-position *)
+    See {{:https://tailwindcss.com/docs/display}display},
+    {{:https://tailwindcss.com/docs/visibility}visibility},
+    {{:https://tailwindcss.com/docs/z-index}z-index},
+    {{:https://tailwindcss.com/docs/object-fit}object-fit} and
+    {{:https://tailwindcss.com/docs/object-position}object-position} in the
+    Tailwind documentation. *)
 
 open Utility
 
@@ -76,7 +79,7 @@ val collapse : t
 (** [collapse] sets visibility to collapse. *)
 
 val isolate : t
-(** [isolate] creates a new stacking context. *)
+(** [isolate] sets [isolation: isolate], which starts a new stacking context. *)
 
 val isolation_auto : t
 (** [isolation_auto] does not create a new stacking context (auto). *)

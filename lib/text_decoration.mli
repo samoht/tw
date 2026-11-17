@@ -1,10 +1,13 @@
 (** Text decoration utilities.
 
-    https://tailwindcss.com/docs/text-decoration-line
-    https://tailwindcss.com/docs/text-decoration-color
-    https://tailwindcss.com/docs/text-decoration-style
-    https://tailwindcss.com/docs/text-decoration-thickness
-    https://tailwindcss.com/docs/text-underline-offset *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/text-decoration-line}text decoration line},
+    {{:https://tailwindcss.com/docs/text-decoration-color}text decoration color},
+    {{:https://tailwindcss.com/docs/text-decoration-style}text decoration style},
+    {{:https://tailwindcss.com/docs/text-decoration-thickness}text decoration
+     thickness} and
+    {{:https://tailwindcss.com/docs/text-underline-offset}text underline offset}.
+*)
 
 open Utility
 

@@ -1,6 +1,7 @@
 (** Letter spacing utilities.
 
-    https://tailwindcss.com/docs/letter-spacing *)
+    See {{:https://tailwindcss.com/docs/letter-spacing}letter-spacing} in the
+    Tailwind documentation. *)
 
 open Utility
 

@@ -1,12 +1,12 @@
-(** Theme scheme configuration for customizing CSS output.
+(** Theme schemes.
 
-    A scheme defines theme overrides that affect how utilities generate CSS.
-    This allows matching Tailwind's test expectations which use custom [@theme]
-    definitions with hex colors and explicit spacing variables. *)
+    A scheme holds the theme overrides that change the CSS utilities generate,
+    such as the custom [@theme] blocks of Tailwind's tests, with hex colours and
+    explicit spacing variables. *)
 
 open Cascade
 
-(** Color value - either hex string or oklch components *)
+(** The type for colour values: a hex string or oklch components. *)
 type color_value =
   | Hex of string  (** e.g., "#ef4444" *)
   | Oklch of { l : float; c : float; h : float }
@@ -105,15 +105,15 @@ type t = {
           A dark theme that follows the reader's choice as well as the system
           one is two branches: the media query with a selector that a
           [data-theme=light] root turns off, and a selector for
-          [data-theme=dark].
-          @see <https://tailwindcss.com/docs/dark-mode> Dark mode
-          @see <https://tailwindcss.com/docs/adding-custom-styles#adding-custom-variants>
-            Adding custom variants *)
+          [data-theme=dark]. Tailwind documents the redeclaration under
+          {{:https://tailwindcss.com/docs/dark-mode}dark mode} and
+          {{:https://tailwindcss.com/docs/adding-custom-styles#adding-custom-variants}custom
+           variants}. *)
 }
-(** Theme scheme configuration *)
+(** The type for theme schemes. *)
 
 val pp : t -> string
-(** [pp t] returns a string representation of a scheme configuration. *)
+(** [pp t] is a summary of [t] that counts its colours, spacings and radii. *)
 
 val default : t
 (** [default] is the default scheme using oklch colors and calc-based spacing
@@ -134,7 +134,7 @@ val all_default_tokens : unit -> (string * string) list
     {!register_default_token}. [theme(static)] emits them all. *)
 
 val token_default : string -> string option
-(** [token_default name] returns the registered baseline default for [name]. *)
+(** [token_default name] is the registered default value of [name], if any. *)
 
 val is_removed : t -> string -> bool
 (** [is_removed t name] is whether the [\@theme] block removed [name]. Tailwind
@@ -146,13 +146,13 @@ val is_removed : t -> string -> bool
     alone. *)
 
 val token_override : t -> string -> string option
-(** [token_override t name] returns the per-render override for [name], if any.
+(** [token_override t name] is the per-render override of [name] in [t], if any.
     A removed token has none. *)
 
 val theme_value : t option -> string -> string option
-(** [theme_value theme name] looks up a per-render token override from the
-    optionally-threaded [theme] ([None] when no theme is threaded). Threaded
-    replacement for the global [Var.theme_value]. *)
+(** [theme_value theme name] is [token_override t name] for [theme = Some t],
+    and [None] when no theme is threaded. Threaded replacement for the global
+    [Var.theme_value]. *)
 
 val token : t -> string -> string option
 (** [token t name] resolves a theme token: override (if any) else default, or
@@ -191,34 +191,36 @@ val is_reference_token : t -> string -> bool
     a reader carries the value as its own [var()] fallback. *)
 
 val color : t -> string -> color_value option
-(** [color t name] looks up a color in the scheme. *)
+(** [color t name] is the colour [t] binds to [name], if any. *)
 
 val declares_color : t option -> string -> bool
 (** [declares_color theme name] is whether [theme] binds [--color-<name>],
     through {!color} or a token override. *)
 
 val spacing : t -> int -> Css.length option
-(** [spacing t n] looks up a spacing value in the scheme. *)
+(** [spacing t n] is the length [t] binds to spacing step [n], if any. *)
 
 val hex_color : t -> string -> string option
-(** [hex_color t name] returns the hex value for a color if defined as hex. *)
+(** [hex_color t name] is the hex value of colour [name] when [t] binds it to a
+    hex, and [None] otherwise. *)
 
 val has_explicit_spacing : t -> int -> bool
-(** [has_explicit_spacing t n] checks if spacing has an explicit variable. *)
+(** [has_explicit_spacing t n] is [Option.is_some (spacing t n)]. *)
 
 val radius : t -> string -> Css.length option
-(** [radius t name] looks up a radius value in the scheme. *)
+(** [radius t name] is the length [t] binds to radius [name], if any. *)
 
 val has_explicit_radius : t -> string -> bool
-(** [has_explicit_radius t name] checks if radius has an explicit variable. *)
+(** [has_explicit_radius t name] is [Option.is_some (radius t name)]. *)
 
 val breakpoint : t -> string -> float option
-(** [breakpoint t name] looks up a breakpoint px value in the scheme. *)
+(** [breakpoint t name] is the width in pixels of breakpoint [name] in the
+    legacy px-only field of [t], if any. *)
 
 val breakpoint_length : t -> string -> Css.length option
-(** [breakpoint_length t name] looks up a breakpoint as its exact CSS length. A
-    [breakpoint-NAME] token override takes precedence over the legacy px-only
-    {!breakpoint} field. *)
+(** [breakpoint_length t name] is breakpoint [name] as its exact CSS length, and
+    [None] if [t] removed or lacks it. A [breakpoint-NAME] token override takes
+    precedence over the legacy px-only {!breakpoint} field. *)
 
 val all_breakpoints : t -> (string * Css.length) list
 (** [all_breakpoints t] is every breakpoint [t] defines, keyed by name and
@@ -232,5 +234,5 @@ val has_breakpoint : t -> string -> bool
     removed is gone for the variants that name it. *)
 
 val breakpoint_names : t -> string list
-(** [breakpoint_names t] returns the custom breakpoint names available while
-    parsing variants. *)
+(** [breakpoint_names t] is [List.map fst (all_breakpoints t)], the breakpoints
+    a variant can name. *)

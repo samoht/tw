@@ -1,6 +1,7 @@
 (** Vertical align utilities.
 
-    https://tailwindcss.com/docs/vertical-align *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/vertical-align}vertical align}. *)
 
 open Utility
 

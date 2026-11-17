@@ -1,6 +1,7 @@
 (** Text overflow utilities.
 
-    https://tailwindcss.com/docs/text-overflow *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/text-overflow}text overflow}. *)
 
 open Utility
 

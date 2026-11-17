@@ -1,4 +1,4 @@
-(** Clipping utilities *)
+(** Clipping utilities. *)
 
 open Utility
 

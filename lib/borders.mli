@@ -1,10 +1,11 @@
-(** Border utilities for border styles, widths, and radii
+(** Border utilities for border styles, widths, and radii.
 
-    https://tailwindcss.com/docs/border-width
-    https://tailwindcss.com/docs/border-style
-    https://tailwindcss.com/docs/border-radius
-    https://tailwindcss.com/docs/outline-width
-    https://tailwindcss.com/docs/outline-offset *)
+    See {{:https://tailwindcss.com/docs/border-width}border-width},
+    {{:https://tailwindcss.com/docs/border-style}border-style},
+    {{:https://tailwindcss.com/docs/border-radius}border-radius},
+    {{:https://tailwindcss.com/docs/outline-width}outline-width} and
+    {{:https://tailwindcss.com/docs/outline-offset}outline-offset} in the
+    Tailwind documentation. *)
 
 open Utility
 

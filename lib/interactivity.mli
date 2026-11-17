@@ -1,12 +1,13 @@
-(** Interactivity utilities for selection, scroll behavior, and more
+(** Interactivity utilities for selection, scroll behavior, and more.
 
-    https://tailwindcss.com/docs/user-select
-    https://tailwindcss.com/docs/scroll-behavior
-    https://tailwindcss.com/docs/scroll-snap-align
-    https://tailwindcss.com/docs/resize
-    https://tailwindcss.com/docs/pointer-events
-    https://tailwindcss.com/docs/appearance
-    https://tailwindcss.com/docs/will-change *)
+    See {{:https://tailwindcss.com/docs/user-select}user-select},
+    {{:https://tailwindcss.com/docs/scroll-behavior}scroll-behavior},
+    {{:https://tailwindcss.com/docs/scroll-snap-align}scroll-snap-align},
+    {{:https://tailwindcss.com/docs/resize}resize},
+    {{:https://tailwindcss.com/docs/pointer-events}pointer-events},
+    {{:https://tailwindcss.com/docs/appearance}appearance} and
+    {{:https://tailwindcss.com/docs/will-change}will-change} in the Tailwind
+    documentation. *)
 
 (** {1 User Select Utilities} *)
 

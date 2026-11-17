@@ -1,37 +1,26 @@
-(** Shared spacing utilities for padding, margin, and gap *)
+(** Spacing values shared by padding, margin and gap. *)
 
 open Cascade
 
 (** {1 Spacing Variable} *)
 
 val var : Css.length Var.theme
-(** [var] shared spacing variable. *)
+(** [var] is the [--spacing] theme variable. *)
 
 (** {1 Class Name Formatting} *)
 
 val pp_spacing_suffix : Style.spacing -> string
-(** [pp_spacing_suffix s] formats spacing suffix for CSS class names. *)
+(** [pp_spacing_suffix s] is the class-name suffix of [s]. *)
 
 val pp_margin_suffix : Style.margin -> string
-(** [pp_margin_suffix m] formats a margin value to a class name suffix.
-
-    Extends {!pp_spacing_suffix} with auto support:
-    - [`Auto] becomes ["auto"]
-    - All spacing values use {!pp_spacing_suffix}. *)
+(** [pp_margin_suffix m] is the class-name suffix of [m]: ["auto"] for [`Auto],
+    and {!pp_spacing_suffix} for every spacing value. *)
 
 (** {1 Spacing Constructors} *)
 
 val int : int -> Style.spacing
-(** [int n] converts an integer to a spacing value in rem units.
-
-    Uses Tailwind's standard 0.25rem scale:
-    - [int 0] = [`Rem 0.0]
-    - [int 1] = [`Rem 0.25] (equivalent to 0.25rem)
-    - [int 4] = [`Rem 1.0] (equivalent to 1rem)
-    - etc.
-
-    @param n The scale factor (will be multiplied by 0.25 to get rem value)
-    @return A spacing value in rem units. *)
+(** [int n] is [`Rem (0.25 *. float_of_int n)], step [n] of Tailwind's 0.25rem
+    scale: [int 1] is [`Rem 0.25] and [int 4] is [`Rem 1.0]. *)
 
 val float : float -> Style.spacing
 (** [float n] is like {!int} but takes a fractional scale factor, for the
@@ -40,9 +29,8 @@ val float : float -> Style.spacing
 (** {1 Shared Parsing Logic} *)
 
 val named_spacing_ref : string -> Css.length
-(** [named_spacing_ref name] creates a CSS variable reference
-    [var(--spacing-name)] for a named spacing value (e.g., "big" ->
-    [var(--spacing-big)]). *)
+(** [named_spacing_ref name] is the reference [var(--spacing-<name>)] to a named
+    spacing value: ["big"] gives [var(--spacing-big)]. *)
 
 val to_decl_len :
   ?theme:Scheme.t ->
@@ -56,52 +44,33 @@ val to_decl_len :
     sign, for the margin utilities that allow it. *)
 
 val is_named_spacing : string -> bool
-(** [is_named_spacing value] checks if a string is a valid named spacing
-    identifier. *)
+(** [is_named_spacing value] is [true] iff [value] can name a spacing token: a
+    lowercase letter followed by ASCII letters, digits and [-], other than
+    ["px"], ["full"] and ["auto"]. *)
 
 type axis = [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ]
-(** Axis for spacing utilities (all, x, y, top, right, bottom, left,
-    inline-start, inline-end, block-start, block-end) *)
+(** The type for spacing axes: all, x, y, top, right, bottom, left,
+    inline-start, inline-end, block-start and block-end. *)
 
 val parse_value_string :
   ?theme:Scheme.t -> allow_auto:bool -> string -> Style.margin option
-(** [parse_value_string ?theme ~allow_auto value] parses a spacing value string
-    (px, full, auto, numeric, or a named token).
-
-    @param theme
-      Theme used to validate a named spacing ([mx-big]): a name is accepted only
-      when [--spacing-<name>] is defined, so stray source tokens do not parse as
-      utilities.
-    @param allow_auto Whether to accept "auto" as a valid value
-    @param value The string to parse ("px", "full", "auto", a number, or a name)
-    @return Parsed margin value or None if invalid. *)
+(** [parse_value_string ~theme ~allow_auto value] is the spacing [value] names:
+    ["px"], ["full"], ["auto"] when [allow_auto] is [true], a step of the
+    spacing scale, or a named token. A name is accepted only when [theme]
+    defines [--spacing-<name>], so a stray source token ([mx-big]) does not
+    parse as a utility. This is [None] for anything else. *)
 
 val axis_of_prefix : string -> axis option
-(** [axis_of_prefix prefix] maps a class prefix to its axis.
-
-    Examples:
-    - "p" or "m" -> [`All]
-    - "px" or "mx" -> [`X]
-    - "pt" or "mt" -> [`T].
-
-    @param prefix The class prefix (e.g., "p", "px", "m", "ml")
-    @return The corresponding axis, or None if invalid. *)
+(** [axis_of_prefix prefix] is the axis of the padding or margin class prefix
+    [prefix]: [`All] for ["p"] and ["m"], [`X] for ["px"] and ["mx"], [`T] for
+    ["pt"] and ["mt"], and so on. This is [None] if [prefix] is not one. *)
 
 val is_margin_prefix : string -> bool
-(** [is_margin_prefix prefix] checks if a prefix is for margin (vs padding).
-
-    @param prefix The class prefix
-    @return [true] if it's a margin prefix ("m", "mx", etc.), [false] otherwise.
-*)
+(** [is_margin_prefix prefix] is [true] iff [prefix] is a margin class prefix
+    (["m"], ["mx"], ...) rather than a padding one. *)
 
 val parse_class_parts : string list -> (bool * string * string) option
-(** [parse_class_parts parts] parses class name parts into (is_negative, prefix,
-    value).
-
-    Handles both positive and negative values:
-    - [["p"; "4"]] -> [Some (false, "p", "4")]
-    - [[""; "m"; "4"]] -> [Some (true, "m", "4")] (negative margin)
-    - Other patterns -> [None].
-
-    @param parts List of strings from [String.split_on_char '-']
-    @return [(is_negative, prefix, value)] tuple or None if invalid. *)
+(** [parse_class_parts parts] is [Some (negative, prefix, value)] for the parts
+    of a class split on ['-']: [["p"; "4"]] gives [Some (false, "p", "4")] and
+    [[""; "m"; "4"]] gives [Some (true, "m", "4")]. This is [None] for any other
+    shape. *)

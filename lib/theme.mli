@@ -1,4 +1,5 @@
-(** Shared theme variables for consistent ordering and avoiding conflicts *)
+(** Theme variables shared across utility families, so each is declared and
+    ordered once. *)
 
 module Css = Cascade.Css
 
@@ -29,12 +30,11 @@ val has_spacing_step : ?theme:Scheme.t -> float -> bool
     to read and they stop being utilities. *)
 
 val spacing_calc : ?theme:Scheme.t -> int -> Css.declaration * Css.length
-(** [spacing_calc ?theme n] returns the theme declaration and a length for [n].
-
-    When the scheme ([theme] when given, else the global) has an explicit
-    spacing for [|n|], returns [var(--spacing-|n|)] (or
-    [calc(var(--spacing-|n|) * -1)] for negatives). Otherwise returns
-    [calc(var(--spacing) * n)]. *)
+(** [spacing_calc ~theme n] is the theme declaration and the length of spacing
+    step [n]. The length is [var(--spacing-|n|)] (or
+    [calc(var(--spacing-|n|) * -1)] for a negative [n]) when the scheme
+    ([theme], or the global one) has an explicit spacing for [|n|], and
+    [calc(var(--spacing) * n)] otherwise. *)
 
 val spacing_calc_float :
   ?theme:Scheme.t -> float -> Css.declaration * Css.length

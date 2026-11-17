@@ -1,12 +1,10 @@
-(** Fmt - Lightweight formatting DSL for UI modules
+(** String formatters.
 
-    This module provides a lightweight string formatting DSL that avoids
-    Printf/Format modules to keep js_of_ocaml bundle sizes small. The Format
-    module is known to significantly increase JavaScript bundle sizes, so we use
-    simple string concatenation instead. *)
+    [Pp] formats by string concatenation rather than with [Printf] or [Format],
+    which grow the js_of_ocaml bundle. *)
 
 type 'a t = 'a -> string
-(** The type of formatters *)
+(** The type for formatters. *)
 
 (** {1 Basic Formatters} *)
 
