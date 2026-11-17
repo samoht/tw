@@ -485,8 +485,33 @@ let test_unknown_hint_is_not_the_value () =
       "bg-conic-[foo:from_45deg]";
     ]
 
+(* [-bg-linear-[...]] negates an angle Tailwind infers from a number and a
+   lower-case unit, or any value after an [angle:] hint, and names no utility
+   for anything else. [-bg-conic-[...]] writes its bracket as [bg-conic-[...]]
+   does, unnegated. *)
+let test_negated_brackets () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-bg-linear-[angle:45deg]";
+      "-bg-linear-[angle:var(--x)]";
+      "-bg-conic-[foo]";
+      "-bg-conic-[45deg]";
+      "-bg-conic-[foo:2]";
+      "-bg-conic-[url(x.png)_center]";
+    ];
+  List.iter
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)
+    [
+      "-bg-linear-[var(--x)]";
+      "-bg-linear-[calc(45deg)]";
+      "-bg-linear-[45DEG]";
+      "-bg-linear-[0]";
+      "-bg-linear-[foo:45deg]";
+    ]
+
 let tests =
   [
+    test_case "negated brackets" `Quick test_negated_brackets;
     test_case "gradient position refuses a modifier" `Quick
       test_gradient_position_refuses_modifier;
     test_case "gradient token-stream stop under a modifier" `Quick

@@ -48,6 +48,10 @@
   `-row-start-[...]` and `-row-end-[...]` compile to `calc(<value> * -1)` in
   their longhand, as Tailwind writes them, where tw refused every negated
   bracket on a grid line (#953).
+- `-bg-conic-[...]` compiles as `bg-conic-[...]` does, unnegated, as Tailwind
+  writes it, and `-bg-linear-[...]` negates a value after an `angle:` hint.
+  `-bg-linear-[...]` refuses a bracket Tailwind infers no angle from, such as
+  `var(--x)`, `calc(45deg)` or `0` (#954).
 - `space-x-[...]` and `space-y-[...]` take a `var()` and, negated, any length
   or `var()`, as Tailwind does: `-space-x-[3px]` writes
   `calc(calc(3px * -1) * var(--tw-space-x-reverse))` where tw refused the

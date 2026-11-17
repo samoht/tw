@@ -78,7 +78,7 @@ module Handler = struct
     (* bg-linear-[value] - bracket linear gradient value *)
     | Bg_linear_bracket of string * string
     (* -bg-linear-[value] - negated bracket *)
-    | Bg_linear_bracket_neg of string
+    | Bg_linear_bracket_neg of string * string
     (* bg-conic - bare conic gradient (in oklab) *)
     | Bg_conic
     (* bg-conic-{angle} - conic with angle, no interpolation modifier *)
@@ -92,6 +92,8 @@ module Handler = struct
     (* -bg-conic-{angle}/interp *)
     | Bg_conic_angle_neg_interp of int * string * string
     | Bg_conic_bracket of string * string
+    (* -bg-conic-[value]: Tailwind writes the bracket unnegated *)
+    | Bg_conic_bracket_neg of string * string
     (* bg-radial - bare radial gradient (in oklab) *)
     | Bg_radial
     (* bg-radial/interp - radial gradient with interpolation *)
@@ -188,7 +190,7 @@ module Handler = struct
     | Bg_linear_angle_neg_interp (n, interp, _) ->
         "-bg-linear-" ^ string_of_int n ^ "/" ^ interp
     | Bg_linear_bracket (v, _) -> "bg-linear-[" ^ v ^ "]"
-    | Bg_linear_bracket_neg v -> "-bg-linear-[" ^ v ^ "]"
+    | Bg_linear_bracket_neg (v, _) -> "-bg-linear-[" ^ v ^ "]"
     | Bg_conic -> "bg-conic"
     | Bg_conic_angle n -> "bg-conic-" ^ string_of_int n
     | Bg_conic_angle_neg n -> "-bg-conic-" ^ string_of_int n
@@ -198,6 +200,7 @@ module Handler = struct
     | Bg_conic_angle_neg_interp (n, interp, _) ->
         "-bg-conic-" ^ string_of_int n ^ "/" ^ interp
     | Bg_conic_bracket (v, _) -> "bg-conic-[" ^ v ^ "]"
+    | Bg_conic_bracket_neg (v, _) -> "-bg-conic-[" ^ v ^ "]"
     | Bg_radial -> "bg-radial"
     | Bg_radial_interp (interp, _) -> "bg-radial/" ^ interp
     | Bg_radial_bracket (v, _) -> "bg-radial-[" ^ v ^ "]"
@@ -241,7 +244,7 @@ module Handler = struct
     | Bg_linear_bracket_neg _ | Bg_conic | Bg_conic_angle _
     | Bg_conic_angle_neg _ | Bg_conic_interp _ | Bg_conic_angle_interp _
     | Bg_conic_angle_neg_interp _ | Bg_radial | Bg_radial_interp _
-    | Bg_conic_bracket _ | Bg_radial_bracket _ ->
+    | Bg_conic_bracket _ | Bg_conic_bracket_neg _ | Bg_radial_bracket _ ->
         199
     | Via_none -> 202
     | Gradient_color (From, _) -> 203
@@ -275,7 +278,8 @@ module Handler = struct
     | Bg_gradient_to _ | Bg_linear_bracket _ | Bg_linear_bracket_neg _
     | Bg_conic | Bg_conic_angle _ | Bg_conic_angle_neg _ | Bg_conic_interp _
     | Bg_conic_angle_interp _ | Bg_conic_angle_neg_interp _ | Bg_radial
-    | Bg_conic_bracket _ | Bg_radial_interp _ | Bg_radial_bracket _ ->
+    | Bg_conic_bracket _ | Bg_conic_bracket_neg _ | Bg_radial_interp _
+    | Bg_radial_bracket _ ->
         Utility.Property_order.slot rank + 1
     | Gradient_color _ | Gradient_raw _ | Gradient_stop_position _ | Via_none ->
         Utility.Property_order.last rank
@@ -533,6 +537,20 @@ module Handler = struct
         Cascade.Pp.string_of_float ~max_decimals:4 deg ^ "deg"
     | Ok _ | Error _ -> decoded
 
+  (* Tailwind infers an angle only from a number followed by one of the four
+     angle units in lower case, so [calc(45deg)], [var(--a)], [0] and [45DEG]
+     are no angle to it. *)
+  let is_angle_literal value =
+    match
+      Cascade.Cursor.try_parse_full_err Css.Values.read_angle
+        (Cascade.Cursor.of_string value)
+    with
+    | Ok (Deg _ | Rad _ | Grad _ | Turn _) ->
+        List.exists
+          (fun unit -> String.ends_with ~suffix:unit value)
+          [ "deg"; "rad"; "grad"; "turn" ]
+    | Ok _ | Error _ -> false
+
   (* [interp_decl] for a typed direction [dir_val]: [With_interpolation] typed
      when [ci_opt] covers the modifier, printing [dir_val] back to CSS rather
      than re-deriving it when it does not - the direction itself is never
@@ -603,8 +621,7 @@ module Handler = struct
   (** [bg-linear-[value]] - bracket linear gradient (no [@supports]). Output:
       [--tw-gradient-position: {value}; background-image:
        linear-gradient(var(--tw-gradient-stops, {value}))] *)
-  let bg_linear_bracket' value_str =
-    let css_val = bracket_value_to_css value_str in
+  let bg_linear_position css_val =
     let position_decl = gradient_position_decl_of_string css_val in
     let stops_ref : Css.gradient_stop Css.var =
       Var.bracket
@@ -616,22 +633,8 @@ module Handler = struct
     style ~property_rules:gradient_property_rules
       [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
 
-  (** -bg-linear-[value] - negated bracket *)
-  let bg_linear_bracket_neg' value_str =
-    let css_val =
-      bracket_value_to_css (Parse.decode_arbitrary_value value_str)
-    in
-    let neg_str = "calc(" ^ css_val ^ " * -1)" in
-    let position_decl = gradient_position_decl_of_string neg_str in
-    let stops_ref : Css.gradient_stop Css.var =
-      Var.bracket
-        ~fallback:
-          (Css.Syntax_fallback
-             (Cascade.Cursor.remaining (Cascade.Cursor.of_string neg_str)))
-        "tw-gradient-stops"
-    in
-    style ~property_rules:gradient_property_rules
-      [ position_decl; Css.background_image (Linear_gradient_var stops_ref) ]
+  let bg_linear_bracket' value_str =
+    bg_linear_position (bracket_value_to_css value_str)
 
   (* Bare [bg-conic] / [bg-radial]: default to the [in oklab] interpolation, no
      angle. Mirrors the interp renderers with a fixed position. *)
@@ -1131,14 +1134,15 @@ module Handler = struct
     | Bg_linear_angle_neg_interp (n, interp, css) ->
         bg_linear_angle_neg_interp' n (interp_to_color_interpolation interp) css
     | Bg_linear_bracket (_, v) -> bg_linear_bracket' v
-    | Bg_linear_bracket_neg v -> bg_linear_bracket_neg' v
+    | Bg_linear_bracket_neg (_, v) -> bg_linear_position v
     | Bg_conic -> bg_conic' ()
     | Bg_conic_angle n -> bg_conic_angle' n
     | Bg_conic_angle_neg n -> bg_conic_angle' (-n)
     | Bg_conic_interp (_, css) -> bg_conic_interp' css
     | Bg_conic_angle_interp (n, _, css) -> bg_conic_angle_interp' n css
     | Bg_conic_angle_neg_interp (n, _, css) -> bg_conic_angle_neg_interp' n css
-    | Bg_conic_bracket (_, v) -> bg_conic_bracket' v
+    | Bg_conic_bracket (_, v) | Bg_conic_bracket_neg (_, v) ->
+        bg_conic_bracket' v
     | Bg_radial -> bg_radial' ()
     | Bg_radial_interp (_, css) -> bg_radial_interp' css
     | Bg_radial_bracket (_, v) -> bg_radial_bracket' v
@@ -1307,22 +1311,21 @@ module Handler = struct
     (* -bg-linear-[value] - negated bracket linear gradient (only angles) *)
     | [ ""; "bg"; "linear"; bracket ] when Parse.is_bracket_value bracket ->
         let inner = Parse.bracket_inner bracket in
-        (* Only accept angle values for negation: 125deg, 1.3rad, 100grad, etc.
-           A [String.ends_with ~suffix:"rad"] check also matches "grad" (which
-           ends in "rad" too), stripping "100grad" down to "100g" and rejecting
-           it outright where Tailwind accepts it; reading it as a real CSS angle
-           tells "grad" and "rad" apart. *)
-        let is_angle =
+        let angle =
           match
-            Cascade.Cursor.try_parse_full_err Css.Values.read_angle
-              (Cascade.Cursor.of_string (Parse.decode_underscores inner))
+            (Parse.data_type_hint inner, Parse.arbitrary_declaration_value inner)
           with
-          | Ok _ -> true
-          | Error _ -> false
+          | Some ("angle", _), value -> value
+          | None, Some value when is_angle_literal value -> Some value
+          | _ -> None
         in
         Some
-          (if is_angle then Ok (Bg_linear_bracket_neg inner)
-           else Error (`Msg ("Invalid -bg-linear bracket value: " ^ inner)))
+          (match
+             Option.bind angle (fun v ->
+                 Parse.negated_declaration_value (bracket_value_to_css v))
+           with
+          | Some neg -> Ok (Bg_linear_bracket_neg (inner, neg))
+          | None -> Error (`Msg ("Invalid -bg-linear bracket value: " ^ inner)))
     (* -bg-linear-{angle} and -bg-linear-{angle}/interp *)
     | [ ""; "bg"; "linear"; angle_mod ] ->
         Some
@@ -1343,6 +1346,12 @@ module Handler = struct
           (match Parse.arbitrary_declaration_value inner with
           | Some value -> Ok (Bg_conic_bracket (inner, value))
           | None -> Error (`Msg ("Invalid bg-conic value: " ^ inner)))
+    | [ ""; "bg"; "conic"; bracket ] when Parse.is_bracket_value bracket ->
+        let inner = Parse.bracket_inner bracket in
+        Some
+          (match Parse.arbitrary_declaration_value inner with
+          | Some value -> Ok (Bg_conic_bracket_neg (inner, value))
+          | None -> Error (`Msg ("Invalid -bg-conic value: " ^ inner)))
     (* bg-conic/interp - conic gradient with modifier only *)
     | [ "bg"; conic_mod ]
       when String.starts_with ~prefix:"conic/" conic_mod
