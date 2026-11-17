@@ -166,14 +166,15 @@ let nest_selector ~parent template =
     in
     compound [ parent; inner ]
 
-(** Parse arbitrary bracket content into a selector tree. In bracket content:
-    [_] = space, [&] = anchor (group/peer). E.g. "&_p" with group anchor ->
-    ":where(.group) p" E.g. "&:hover" with group anchor ->
-    ":where(.group):hover" *)
-let parse_arbitrary_selector_content content anchor =
+(** Parse arbitrary bracket content into the relative selector an anchor variant
+    scopes to. In bracket content: [_] = space, [&] = anchor (group/peer). The
+    element styled follows [combinator], which joins the last compound of the
+    content: "&_p" with the group anchor and [Descendant] is ":where(.group) p
+    *", with the peer anchor and [Subsequent_sibling] ":where(.peer) p ~ *". *)
+let parse_arbitrary_selector_content ~combinator content anchor =
   let open Css.Selector in
   let s = Parse.decode_underscores content in
-  combine (nest_selector ~parent:(where [ anchor ]) s) Descendant universal
+  combine (nest_selector ~parent:(where [ anchor ]) s) combinator universal
 
 (** Build an anchor-based variant selector: :where(.anchor):pseudo combinator *)
 let anchor_pseudo_selector ~anchor ~combinator cls prefix pseudo =
@@ -201,17 +202,7 @@ let anchor_hocus_selector ~anchor ~combinator cls label =
 let anchor_arbitrary_selector ~anchor ~combinator cls sel label =
   let open Css.Selector in
   let prefix = label ^ "-[" ^ sel ^ "]" in
-  let rel = parse_arbitrary_selector_content sel anchor in
-  let rel =
-    match combinator with
-    | Css.Selector.Subsequent_sibling -> (
-        (* For peer, replace outermost Descendant with Subsequent_sibling (~) *)
-        match rel with
-        | Combined (left, Descendant, (Universal _ as right)) ->
-            Combined (left, Subsequent_sibling, right)
-        | other -> other)
-    | _ -> rel
-  in
+  let rel = parse_arbitrary_selector_content ~combinator sel anchor in
   compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
 
 (** Group variant selector — :where(.group):pseudo descendant *)
