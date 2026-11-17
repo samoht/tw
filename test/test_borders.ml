@@ -565,8 +565,20 @@ let test_border_width_data_type_hint () =
   reject "rounded-[:4px]";
   reject "rounded-[length:]"
 
+(* A negated bracket the outline-offset reader cannot read is [calc(<value> *
+   -1)], with the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-outline-offset-[foo]";
+      "-outline-offset-[3px]";
+      "-outline-offset-[foo:var(--x)]";
+      "-outline-offset-[url(x.png)_center]";
+    ]
+
 let tests =
   [
+    test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "border width data-type hint" `Quick
       test_border_width_data_type_hint;
     test_case "bracket data-type hint reads the value" `Quick

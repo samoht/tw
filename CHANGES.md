@@ -34,6 +34,12 @@
 
 ### Utilities
 
+- A negated bracket no typed reader takes compiles to `calc(<value> * -1)`
+  with the value after any hint, as Tailwind writes it, where tw refused the
+  class: `-z-[foo:2]` is `z-index: calc(2 * -1)` and `-indent-[foo]` is
+  `text-indent: calc(foo * -1)`. This holds for `-z-`, `-order-`, `-indent-`,
+  `-outline-offset-`, `-underline-offset-`, `-hue-rotate-` and
+  `-backdrop-hue-rotate-` (#950).
 - A bracket opening with a data-type hint the family does not know writes only
   the value after the hint, as Tailwind does: `transition-[foo:color]` sets
   `transition-property: color`, not `foo:color`. This holds for `transition-`,

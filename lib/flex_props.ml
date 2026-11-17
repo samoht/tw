@@ -55,6 +55,7 @@ module Handler = struct
     (* The author's bracket text travels with the order it denotes, so the class
        name is spelled exactly as it was written. *)
     | Neg_order_arbitrary of string * Css.order (* -order-[var(--value)] *)
+    | Neg_order_raw of string * string
     | Order_arbitrary of string * Css.order (* order-[123] *)
     | Order_raw of string * string
     | Order_first
@@ -68,8 +69,8 @@ module Handler = struct
      after z-index), so it returns priority 0 with a suborder above z-index's
      ~20M band and below container (priority 1). *)
   let priority = function
-    | Order _ | Neg_order _ | Neg_order_arbitrary _ | Order_arbitrary _
-    | Order_raw _ | Order_first | Order_last | Order_none ->
+    | Order _ | Neg_order _ | Neg_order_arbitrary _ | Neg_order_raw _
+    | Order_arbitrary _ | Order_raw _ | Order_first | Order_last | Order_none ->
         0
     | _ -> 7
 
@@ -219,7 +220,7 @@ module Handler = struct
     | Neg_order_arbitrary (_, o) ->
         style [ order (Calc (Css.Calc.mul (Val o) (Css.Calc.float (-1.)))) ]
     | Order_arbitrary (_, o) -> style [ order o ]
-    | Order_raw (_, v) ->
+    | Order_raw (_, v) | Neg_order_raw (_, v) ->
         style (Option.to_list (Parse.opaque_declaration "order" v))
     | Order_first -> order_first ()
     | Order_last -> order_last ()
@@ -230,7 +231,7 @@ module Handler = struct
        container (priority 1). Ordering: negative first, then positive, then
        first/last/none, then arbitrary. *)
     | Neg_order n -> 21_000_000 + n (* negative comes first *)
-    | Neg_order_arbitrary _ -> 21_000_000 + 50
+    | Neg_order_arbitrary _ | Neg_order_raw _ -> 21_000_000 + 50
     | Order n -> 21_000_000 + 100 + n
     | Order_arbitrary _ | Order_raw _ -> 21_000_000 + 150
     | Order_first -> 21_000_000 + 200
@@ -431,7 +432,14 @@ module Handler = struct
           let inner = Parse.bracket_inner value in
           match arbitrary_order inner with
           | Some o -> Ok (Neg_order_arbitrary (inner, o))
-          | None -> Utility.unclaimed
+          | None -> (
+              match
+                Option.bind
+                  (Parse.arbitrary_declaration_value inner)
+                  Parse.negated_declaration_value
+              with
+              | Some raw -> Ok (Neg_order_raw (inner, raw))
+              | None -> Utility.unclaimed)
         else
           match Parse.decimal_int value with
           | Some n when n >= 1 -> Ok (Neg_order n)
@@ -489,7 +497,7 @@ module Handler = struct
     (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
-    | Neg_order_arbitrary (s, _) -> "-order-[" ^ s ^ "]"
+    | Neg_order_arbitrary (s, _) | Neg_order_raw (s, _) -> "-order-[" ^ s ^ "]"
     | Order_arbitrary (s, _) | Order_raw (s, _) -> "order-[" ^ s ^ "]"
     | Order_first -> "order-first"
     | Order_last -> "order-last"

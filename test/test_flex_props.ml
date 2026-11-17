@@ -181,33 +181,35 @@ let test_basis_arbitrary_peels_a_hint () =
             [ "flex-basis: 10px" ])
     [ "basis-[length:10px]"; "basis-[foo:10px]" ]
 
-(* [order-[...]] takes an order value. A bracket the order grammar cannot read
-   is accepted and then raises out of [to_css], a pure conversion, so the
-   rejection belongs at parse time. *)
-let test_invalid_arbitrary_order () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes calc(foo * -1), which the browser drops; tw \
-            refuses the class")
-  in
+(* [to_css] is a pure conversion, so a bracket [of_class] accepts renders
+   without raising. *)
+let test_arbitrary_order_renders () =
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   (* A bracket the order grammar declines still names [order], which is this
-     family's longhand, so it reaches the sheet as the token stream it is. What
-     is ruled out is the negated form, which has nothing to negate. *)
+     family's longhand, so it reaches the sheet as the token stream it is. *)
   Test_helpers.check_declarations "order-[foo]" [ "order:foo" ];
   Test_helpers.check_declarations "order-[1abc]" [ "order:1abc" ];
   Test_helpers.check_declarations "order-[1.5]" [ "order:1.5" ];
-  rejected "-order-[foo]";
   renders "order-[13]";
   renders "order-[var(--x)]";
   renders "-order-[13]";
   renders "-order-[var(--x)]"
+
+(* A negated bracket the order grammar cannot read is [calc(<value> * -1)], with
+   the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-order-[foo]";
+      "-order-[red]";
+      "-order-[3px]";
+      "-order-[foo:2]";
+      "-order-[url(x.png)_center]";
+    ]
 
 (* [flex-], [grow-] and [shrink-] read their bracket through the arbitrary-value
    pipeline, which puts the spaces CSS math wants around a binary [+] and
@@ -276,7 +278,8 @@ let tests =
     test_case "any fraction numerator" `Quick test_any_fraction_numerator;
     test_case "flex_props suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
-    test_case "invalid arbitrary order" `Quick test_invalid_arbitrary_order;
+    test_case "arbitrary order renders" `Quick test_arbitrary_order_renders;
+    test_case "negated order token stream" `Quick test_negated_token_stream;
     test_case "arbitrary flex reads the whole bracket" `Quick
       test_arbitrary_flex_reads_the_whole_bracket;
     test_case "arbitrary order reads the whole bracket" `Quick

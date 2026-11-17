@@ -14,6 +14,7 @@ module Handler = struct
     | Indent_arbitrary of string
     | Indent_raw of string * string
     | Indent_neg_arbitrary of string
+    | Indent_neg_raw of string * string
 
   let name = "text_indent"
 
@@ -42,10 +43,18 @@ module Handler = struct
             match Parse.arbitrary_declaration_value inner with
             | Some raw -> Ok (Indent_raw (inner, raw))
             | None -> Utility.unclaimed))
-    | [ ""; "indent"; n ] when Parse.is_bracket_value n ->
+    | [ ""; "indent"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
-        if arbitrary_length_after_hint inner = None then Utility.unclaimed
-        else Ok (Indent_neg_arbitrary inner)
+        if arbitrary_length_after_hint inner <> None then
+          Ok (Indent_neg_arbitrary inner)
+        else
+          match
+            Option.bind
+              (Parse.arbitrary_declaration_value inner)
+              Parse.negated_declaration_value
+          with
+          | Some raw -> Ok (Indent_neg_raw (inner, raw))
+          | None -> Utility.unclaimed)
     | [ "indent"; n ] -> (
         match Parse.spacing_value ~name:"indent" n with
         | Ok f when Theme.has_spacing_step ~theme f -> Ok (Indent f)
@@ -63,7 +72,7 @@ module Handler = struct
     | Indent_neg_px -> "-indent-px"
     | Indent_arbitrary s -> "indent-[" ^ s ^ "]"
     | Indent_raw (s, _) -> "indent-[" ^ s ^ "]"
-    | Indent_neg_arbitrary s -> "-indent-[" ^ s ^ "]"
+    | Indent_neg_arbitrary s | Indent_neg_raw (s, _) -> "-indent-[" ^ s ^ "]"
 
   let suborder = function
     (* Indent - Tailwind ranks [text-indent] at 282, between [text-align] (281)
@@ -82,7 +91,7 @@ module Handler = struct
        One slot also keeps an [indent-<n>] of any size inside it, where an
        offset derived from [n] would eventually reach vertical-align's. *)
     | Indent _ | Indent_neg _ | Indent_px | Indent_neg_px | Indent_arbitrary _
-    | Indent_raw _ | Indent_neg_arbitrary _ ->
+    | Indent_raw _ | Indent_neg_arbitrary _ | Indent_neg_raw _ ->
         1100
 
   let text_indent_length length =
@@ -121,7 +130,7 @@ module Handler = struct
     | Indent_px -> style [ text_indent_length (Length (Px 1.)) ]
     | Indent_neg_px -> style [ text_indent_length (Length (Px (-1.))) ]
     | Indent_arbitrary s -> indent_arbitrary s
-    | Indent_raw (_, v) ->
+    | Indent_raw (_, v) | Indent_neg_raw (_, v) ->
         style (Option.to_list (Parse.opaque_declaration "text-indent" v))
     | Indent_neg_arbitrary s -> indent_neg_arbitrary s
 

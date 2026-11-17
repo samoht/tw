@@ -231,6 +231,12 @@ val wrap_declaration_value :
     implicitly closed by the end of [value], so that comment cannot swallow
     [after]. *)
 
+val negated_declaration_value : string -> string option
+(** [negated_declaration_value value] is [calc(value * -1)], which is how
+    Tailwind negates a bracket's declaration value whatever it holds. [None]
+    when [value] cannot stand inside the call, as {!wrap_declaration_value}
+    answers. *)
+
 val color_mix_fallback :
   resolve:(string -> string option) -> string -> string option
 (** [color_mix_fallback ~resolve value] is what a browser without [color-mix()]

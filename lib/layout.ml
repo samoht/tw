@@ -150,8 +150,7 @@ module Handler = struct
        not, that text verbatim: Tailwind hands a bracket to the declaration
        unvalidated. *)
     | Z_arbitrary of string * [ `Index of Css.z_index | `Raw of string ]
-    | Neg_z_arbitrary of
-        string * Css.z_index (* Negative arbitrary: -z-[var(--value)] *)
+    | Neg_z_arbitrary of string * [ `Index of Css.z_index | `Raw of string ]
     | (* Object fit *)
       Object_contain
     | Object_cover
@@ -520,8 +519,10 @@ module Handler = struct
         match Parse.opaque_declaration "z-index" v with
         | Some declaration -> style [ declaration ]
         | None -> style [])
-    | Neg_z_arbitrary (_, zi) ->
+    | Neg_z_arbitrary (_, `Index zi) ->
         style [ z_index (Calc (Css.Calc.mul (Val zi) (Css.Calc.float (-1.)))) ]
+    | Neg_z_arbitrary (_, `Raw v) ->
+        style (Option.to_list (Parse.opaque_declaration "z-index" v))
     | Object_contain -> style [ object_fit Contain ]
     | Object_cover -> style [ object_fit Cover ]
     | Object_fill -> style [ object_fit Fill ]
@@ -688,8 +689,16 @@ module Handler = struct
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
           match arbitrary_z_index inner with
-          | Some zi -> Ok (Neg_z_arbitrary (inner, zi))
-          | None -> Error (`Msg ("Invalid negative z-index value: " ^ value))
+          | Some zi -> Ok (Neg_z_arbitrary (inner, `Index zi))
+          | None -> (
+              match
+                Option.bind
+                  (Parse.arbitrary_declaration_value inner)
+                  Parse.negated_declaration_value
+              with
+              | Some v -> Ok (Neg_z_arbitrary (inner, `Raw v))
+              | None ->
+                  Error (`Msg ("Invalid negative z-index value: " ^ value)))
         else
           match Parse.decimal_int value with
           | Some i -> Ok (Neg_z i)

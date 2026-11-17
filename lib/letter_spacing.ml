@@ -106,7 +106,11 @@ module Handler = struct
             match arbitrary_tracking inner with
             | Some len -> Ok (Neg_tracking_arbitrary (inner, len))
             | None -> (
-                match Parse.arbitrary_declaration_value inner with
+                match
+                  Option.bind
+                    (Parse.arbitrary_declaration_value inner)
+                    Parse.negated_declaration_value
+                with
                 | Some value -> Ok (Neg_tracking_raw (inner, value))
                 | None -> Error (`Msg ("Invalid tracking value: " ^ inner))))
     | [ "tracking"; "tighter" ] -> Ok Tracking_tighter
@@ -239,8 +243,7 @@ module Handler = struct
     in
     style ~property_rules [ channel_decl; letter_spacing len ]
 
-  let tracking_raw ?(negative = false) value =
-    let value = if negative then "calc(" ^ value ^ " * -1)" else value in
+  let tracking_raw value =
     let channel_decl =
       Css.custom_property ~layer:"utilities" (Var.css_name tracking_var) value
     in
@@ -284,8 +287,8 @@ module Handler = struct
   let to_style theme = function
     | Tracking_arbitrary (_, len) -> tracking_arbitrary len
     | Neg_tracking_arbitrary (_, len) -> neg_tracking_arbitrary len
-    | Tracking_raw (_, value) -> tracking_raw value
-    | Neg_tracking_raw (_, value) -> tracking_raw ~negative:true value
+    | Tracking_raw (_, value) | Neg_tracking_raw (_, value) ->
+        tracking_raw value
     | Tracking_var v ->
         let bare_name = Parse.extract_var_name v in
         let var_ref : Css.length Css.var = Var.bracket bare_name in

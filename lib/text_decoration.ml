@@ -58,6 +58,7 @@ module Handler = struct
     | Underline_offset_neg_px of float
     | Underline_offset_neg_arbitrary of string * Css.length
     | Underline_offset_neg_var of string
+    | Underline_offset_neg_raw of string * string
 
   let name = "text_decoration"
 
@@ -247,7 +248,14 @@ module Handler = struct
         else
           match arbitrary_length_after_hint inner with
           | Some len -> Ok (Underline_offset_neg_arbitrary (inner, len))
-          | None -> Utility.unclaimed)
+          | None -> (
+              match
+                Option.bind
+                  (Parse.arbitrary_declaration_value inner)
+                  Parse.negated_declaration_value
+              with
+              | Some raw -> Ok (Underline_offset_neg_raw (inner, raw))
+              | None -> Utility.unclaimed))
     | [ ""; "underline"; "offset"; n ] -> (
         match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_neg_px px)
@@ -320,7 +328,8 @@ module Handler = struct
           else s
         in
         "-underline-offset-" ^ s
-    | Underline_offset_neg_arbitrary (raw, _) ->
+    | Underline_offset_neg_arbitrary (raw, _) | Underline_offset_neg_raw (raw, _)
+      ->
         "-underline-offset-[" ^ raw ^ "]"
     | Underline_offset_neg_var v -> "-underline-offset-[" ^ v ^ "]"
 
@@ -365,7 +374,7 @@ module Handler = struct
     | Decoration_from_font -> 30010
     (* Underline offset — negatives first, then positives, then auto *)
     | Underline_offset_neg_px px -> 50000 + int_of_float px
-    | Underline_offset_neg_arbitrary _ -> 59989
+    | Underline_offset_neg_arbitrary _ | Underline_offset_neg_raw _ -> 59989
     | Underline_offset_neg_var _ -> 59990
     | Underline_offset_0 -> 60000
     | Underline_offset_1 -> 60001
@@ -618,7 +627,7 @@ module Handler = struct
     | Underline_offset_8 -> underline_offset_8
     | Underline_offset_px px -> style [ text_underline_offset (Px px) ]
     | Underline_offset_arbitrary (_, len) -> style [ text_underline_offset len ]
-    | Underline_offset_raw (_, v) ->
+    | Underline_offset_raw (_, v) | Underline_offset_neg_raw (_, v) ->
         style
           (Option.to_list (Parse.opaque_declaration "text-underline-offset" v))
     | Underline_offset_var v ->

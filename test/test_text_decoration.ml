@@ -242,8 +242,20 @@ let test_invalid_decoration_bracket_hex () =
   rejected "decoration-[#zz]/50";
   check_declarations "decoration-[#ff0000]" [ "text-decoration-color:#f00" ]
 
+(* A negated bracket the length reader cannot read is [calc(<value> * -1)], with
+   the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-underline-offset-[foo]";
+      "-underline-offset-[45deg]";
+      "-underline-offset-[foo:45deg]";
+      "-underline-offset-[url(x.png)_center]";
+    ]
+
 let tests =
   [
+    test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "text decoration" `Quick test_text_decoration;
     test_case "decoration undefined colour shade" `Quick
       test_decoration_undefined_shade;

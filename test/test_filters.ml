@@ -773,8 +773,21 @@ let test_unread_drop_shadow_colour () =
       "drop-shadow-[red_foo]";
     ]
 
+(* A negated bracket the angle reader cannot read is [calc(<value> * -1)], with
+   the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-hue-rotate-[foo]";
+      "-hue-rotate-[3px]";
+      "-hue-rotate-[foo:45deg]";
+      "-backdrop-hue-rotate-[foo:45deg]";
+      "-backdrop-hue-rotate-[url(x.png)_center]";
+    ]
+
 let tests =
   [
+    test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "drop-shadow arbitrary opacity" `Quick
       test_drop_shadow_arbitrary_opacity;
     test_case "drop-shadow bracket colour" `Quick
