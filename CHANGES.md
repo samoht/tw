@@ -115,6 +115,10 @@
   `padding: var(--var\(--a\)_1px)`; `bg-[…]`, `mask-[…]` and
   `decoration-[…]` also send it to their last resort, since Tailwind infers no
   type from a value opening with `var()` (#962).
+- `text-shadow-[…]` picks the colour of a shadow no reader takes the way
+  Tailwind does and routes it through `--tw-text-shadow-color`, so
+  `text-shadow-[0_1px_notacolour]` and `text-shadow-[foo:red]` compile where
+  tw refused them (#963).
 
 ### Project stylesheets
 

@@ -76,6 +76,14 @@ val is_fully_opaque : opacity_modifier -> bool
     a modifier the colour takes as a no-op. One read from a custom property or a
     theme name never is: its value is not known here. *)
 
+val raw_shadow_color :
+  color_var:('a, _) Var.t -> string -> opacity_modifier -> string
+(** [raw_shadow_color ~color_var value opacity] is the shadow list [value], one
+    no shadow reader takes, with each layer's colour routed through the channel
+    [color_var] the way Tailwind writes it: [var(--channel, colour)], the colour
+    taking the modifier's alpha through [oklab(from ...)], or a [color-mix()]
+    for [currentcolor]. *)
+
 val opacity_percentage : opacity_modifier -> Css.percentage
 (** [opacity_percentage opacity] is the alpha a modifier writes into an alpha
     channel: a percentage, or the custom property a bracket alpha reads. *)

@@ -120,8 +120,15 @@ let test_var_prefixed_bracket () =
   List.iter Test_helpers.check_class_matches_tailwind
     [ "will-change-[var(--a)_1px]"; "will-change-[var(--a),foo]" ]
 
+(* A hint the family does not know names no reading of its own, so Tailwind
+   writes the value after it the way it writes the unhinted bracket. *)
+let test_unknown_hint () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "will-change-[foo:transform]"; "will-change-[foo:opacity,transform]" ]
+
 let tests =
   [
+    Alcotest.test_case "unknown hint" `Quick test_unknown_hint;
     Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "will-change underscore escape" `Quick
       test_will_change_underscore_escape;

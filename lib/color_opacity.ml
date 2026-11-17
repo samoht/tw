@@ -1025,6 +1025,32 @@ let shadow_token_colour (c : Parse.shadow_colour) : Css.color =
   | Parse.Colour c -> Option.value ~default:c (css_color_to_hex c)
   | Parse.No_colour -> Css.Current
 
+let raw_shadow_color ~color_var value opacity =
+  let fallback color =
+    match opacity with
+    | No_opacity -> color
+    | _ when String.starts_with ~prefix:"current" (String.lowercase_ascii color)
+      ->
+        Option.value ~default:color
+          (Parse.alpha_mix ~alpha:(opacity_percentage opacity) color)
+    | _ ->
+        String.concat ""
+          [
+            "oklab(from ";
+            color;
+            " l a b / ";
+            Css.Pp.to_string ~minify:true
+              (Css.Values.pp_percentage ~always:true)
+              (opacity_percentage opacity);
+            ")";
+          ]
+  in
+  Parse.replace_shadow_colours
+    (fun color ->
+      String.concat ""
+        [ "var("; Var.css_name color_var; ","; fallback color; ")" ])
+    value
+
 let channel_bracket_var ch v =
   let color = bracket_var_ref v in
   channel_style ch ~fallback:color color
