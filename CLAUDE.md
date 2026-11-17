@@ -16,7 +16,7 @@ All core Tailwind v4 utilities and all official plugins are in scope, including:
 
 1. **Type safety over strings.** Never write `"var(--name)"` and never hand `Css.custom_property` an assembled token string; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to CSS types** — if a pattern cannot be expressed with existing types, extend the type system properly.
 2. **Spec-driven tests.** CSS behaviour is tested against MDN/W3C where applicable; utilities against Tailwind v4 output.
-3. **Variables follow four patterns.** See patterns below and `docs/adding-a-new-utility.md`.
+3. **Variables come from three constructors.** See §5 below, and `docs/adding-a-new-utility.md` for the patterns that use them.
 4. **Respect layers.** `properties → theme → base → components → utilities`. Utilities must not leak into theme or properties.
 
 ---
@@ -132,7 +132,7 @@ the residual the site comparison tolerates.
 
 The variable system is documented in **`lib/var.mli`**. Key points:
 
-- **Four patterns**: `theme`, `property_default`, `channel`, `ref_only`
+- **Three constructors**: `theme`, `property_default`, `channel`
 - Always use `Var.binding` to create declaration + reference pairs
 - Never write raw `"var(--name)"` strings
 
