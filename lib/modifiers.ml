@@ -80,20 +80,20 @@ let open_pseudo () =
   let open Css.Selector in
   is_ [ attribute "open" Presence; Popover_open; Open ]
 
+let compoundable =
+  let open Css.Selector in
+  function
+  | List sels -> is_ sels
+  | ( Element _ | Universal _ | Combined _
+    | Compound ((Element _ | Universal _) :: _) ) as sel ->
+      is_ [ sel ]
+  | sel -> sel
+
 let nest_selector ~parent template =
   let open Css.Selector in
   let sel = Css.Selector.read (Cascade.Cursor.of_string template) in
   if Cascade.Nest.contains sel then Cascade.Nest.substitute ~parent sel
-  else
-    (* No anchor: the template compounds onto the parent. A type selector cannot
-       follow a class in a compound, so it goes in an [:is()]; anything else
-       ([.line], [[data-x]], [:hover]) attaches directly. *)
-    let inner =
-      match sel with
-      | Element _ | Compound (Element _ :: _) -> is_ [ sel ]
-      | _ -> sel
-    in
-    compound [ parent; inner ]
+  else compound [ parent; compoundable sel ]
 
 (** Parse arbitrary bracket content into a selector tree. In bracket content:
     [_] = space, [&] = anchor (group/peer). E.g. "&_p" with group anchor ->

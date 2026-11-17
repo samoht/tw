@@ -419,17 +419,38 @@ let test_bare_selector_variant_attribute_operators () =
     {|.\[\[lang\|\=en\]\]\:underline[lang|=en]{text-decoration-line:underline}|};
   check_utilities "[[href^=https]]:underline"
     {|.\[\[href\^\=https\]\]\:underline[href^=https]{text-decoration-line:underline}|};
-  (* a leading combinator is no compound *)
-  rejected "[>img]:underline";
-  (* Tailwind wraps a complex selector in :is() and emits [:is(p~span)] and
-     [:is(.a .b)], so these two refusals are a tw gap. *)
-  let refused cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
-  in
-  refused "[p_~_span]:underline";
-  refused "[.a_.b]:underline"
+  (* a leading combinator selects nothing on its own *)
+  rejected "[>img]:underline"
+
+(* A bracket with no [&] compounds onto the utility's class the way Tailwind
+   writes [&:is(...)]: a class, an attribute or a pseudo-class attaches as it
+   stands, and a type or universal selector, a complex selector or a list stays
+   in [:is()], under [group-] and [peer-] as well. *)
+let test_arbitrary_selector_variants () =
+  check_utilities "[p_~_span]:underline"
+    {|.\[p_\~_span\]\:underline:is(p~span){text-decoration-line:underline}|};
+  check_utilities "[.a_.b]:underline"
+    {|.\[\.a_\.b\]\:underline:is(.a .b){text-decoration-line:underline}|};
+  check_utilities "[p>span]:underline"
+    {|.\[p\>span\]\:underline:is(p>span){text-decoration-line:underline}|};
+  check_utilities "[p_+_span]:underline"
+    {|.\[p_\+_span\]\:underline:is(p+span){text-decoration-line:underline}|};
+  check_utilities "[div_p_span]:underline"
+    {|.\[div_p_span\]\:underline:is(div p span){text-decoration-line:underline}|};
+  check_utilities "[:hover_p]:underline"
+    {|.\[\:hover_p\]\:underline:is(:hover p){text-decoration-line:underline}|};
+  check_utilities "[.a,.b]:underline"
+    {|.\[\.a\,\.b\]\:underline:is(.a,.b){text-decoration-line:underline}|};
+  check_utilities "[*]:underline"
+    {|.\[\*\]\:underline:is(*){text-decoration-line:underline}|};
+  check_utilities "[.a_.b]:hover:underline"
+    {|@media(hover:hover){.\[\.a_\.b\]\:hover\:underline:is(.a .b):hover{text-decoration-line:underline}}|};
+  check_utilities "group-[.a,.b]:underline"
+    {|.group-\[\.a\,\.b\]\:underline:is(:where(.group):is(.a,.b) *){text-decoration-line:underline}|};
+  check_utilities "group-[*]:underline"
+    {|.group-\[\*\]\:underline:is(:where(.group):is(*) *){text-decoration-line:underline}|};
+  check_utilities "peer-[p_~_span]:underline"
+    {|.peer-\[p_\~_span\]\:underline:is(:where(.peer):is(p~span)~*){text-decoration-line:underline}|}
 
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
@@ -504,6 +525,8 @@ let tests =
     test_case "data bracket operators" `Quick test_data_bracket_operators;
     test_case "bare selector variant attribute operators" `Quick
       test_bare_selector_variant_attribute_operators;
+    test_case "arbitrary selector variants" `Quick
+      test_arbitrary_selector_variants;
     test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
     test_case "supports condition text" `Quick test_supports_condition_text;
     test_case "not-[selector] unreadable content rejected" `Quick

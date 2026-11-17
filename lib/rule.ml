@@ -439,18 +439,10 @@ let resolve_has_shorthand = function
   | s when Style.is_data_attr_name s -> "[" ^ s ^ "]"
   | s -> ":" ^ s
 
-(* Tailwind puts a bracketed type, universal, selector-list, or complex selector
-   through [:is()] before it enters [:has()]. A class, ID, attribute or
-   pseudo-class stays simple, and a leading combinator stays relative. *)
-let wrap_has_bracket_selector ~has_nesting =
-  let open Css.Selector in
-  function
-  | sel when has_nesting -> sel
-  | List sels -> is_ sels
-  | ( Element _ | Universal _ | Combined _
-    | Compound ((Element _ | Universal _) :: _) ) as sel ->
-      is_ [ sel ]
-  | sel -> sel
+(* A bracket enters [:has()] the way it compounds onto a class, and a leading
+   combinator stays relative. *)
+let wrap_has_bracket_selector ~has_nesting sel =
+  if has_nesting then sel else Modifiers.compoundable sel
 
 (* The [:has()] argument a has-variant matches, from the spelling the modifier
    stored: a state name resolves to its pseudo-class, anything else is already a
