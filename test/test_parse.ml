@@ -620,6 +620,27 @@ let test_is_number () =
   List.iter (check true) [ "1"; "1.5"; ".5"; "-2"; "+3"; "1e3"; "1.5E-2" ];
   List.iter (check false) [ ""; "1."; "0x10"; "10px"; "1e"; "-"; "." ]
 
+(* What Tailwind infers a bracket to be decides which longhand it lands in. *)
+let test_length_and_percentage () =
+  let check name f expected s =
+    Alcotest.(check bool) (name ^ " " ^ s) expected (f s)
+  in
+  let length = check "length" Tw.Parse.is_length in
+  let percentage = check "percentage" Tw.Parse.is_percentage in
+  List.iter (length true)
+    [
+      "10px";
+      "1.5em";
+      ".5rem";
+      "-2Q";
+      "1e3px";
+      "--spacing(2)";
+      "foo calc(1 + 2)";
+    ];
+  List.iter (length false) [ "10"; "10%"; "px"; "10PX"; "10foo"; "1.px"; "" ];
+  List.iter (percentage true) [ "10%"; "-1.5%"; "min(1%, 2%)" ];
+  List.iter (percentage false) [ "10"; "%"; "10px"; "a%" ]
+
 (* Tailwind's test is a name and a paren anywhere in the value, not a parse:
    [foo_calc(1+2)] holds one, and so does [xcalc(1)]. *)
 let test_holds_math_function () =
@@ -650,6 +671,8 @@ let tests =
     [
       test_case "split at a top-level separator" `Quick test_split_top_level;
       test_case "a number as Tailwind spells it" `Quick test_is_number;
+      test_case "a length and a percentage as Tailwind infers them" `Quick
+        test_length_and_percentage;
       test_case "math function anywhere in a value" `Quick
         test_holds_math_function;
       test_case "underscore escape" `Quick test_underscore_escape;

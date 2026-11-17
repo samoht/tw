@@ -19,7 +19,7 @@ module Handler = struct
     | Decoration_current_opacity of Color.opacity_modifier
     | Decoration_inherit
     | Decoration_bracket_color of string * Css.color
-    | Decoration_bracket_invalid_color of string
+    | Decoration_bracket_raw_color of string * string
     | Decoration_bracket_color_opacity of
         string * Css.color * Color.opacity_modifier
     | Decoration_bracket_var of string
@@ -42,6 +42,7 @@ module Handler = struct
     | Decoration_auto
     | Decoration_bracket_thickness of string * Css.length
     | Decoration_bracket_pct of string * Css.length
+    | Decoration_bracket_thickness_raw of string * string
     | Decoration_bracket_length_var of string
     | Decoration_bracket_pct_var of string
     | (* Underline offset *)
@@ -67,15 +68,6 @@ module Handler = struct
      all in the priority-26 band the late text families share. *)
   let priority _ = 26
 
-  (* Tailwind reads the bracket as a colour unless it is a length or a
-     percentage, so a bare number lands on the colour branch whether it is
-     written [2] or [1.5]. *)
-  let is_bare_number str =
-    let is_number_char c = (c >= '0' && c <= '9') || c = '.' || c = '-' in
-    str <> ""
-    && String.for_all is_number_char str
-    && float_of_string_opt str <> None
-
   (* A data-type hint chooses which longhand a bracket lands in and says nothing
      about the value. [indent-] and [underline-offset-] each write one longhand,
      so every hint lands there and the length reader is handed what follows it.
@@ -96,6 +88,80 @@ module Handler = struct
     match Parse.arbitrary_length inner with
     | Some (Pct pct) -> Some (Em (pct /. 100.))
     | _ -> None
+
+  (* [raw] is the bracket text the class was written with, hint included, so the
+     class prints back the way it was read; [value] is what follows the hint.
+     Tailwind writes a thickness only without a modifier. *)
+  let bracket_thickness raw value opacity =
+    let typed =
+      if String.ends_with ~suffix:"%" value then
+        Option.map
+          (fun len -> Decoration_bracket_pct (raw, len))
+          (parse_decoration_pct value)
+      else
+        Option.map
+          (fun len -> Decoration_bracket_thickness (raw, len))
+          (parse_decoration_thickness value)
+    in
+    match (opacity, typed) with
+    | Color.No_opacity, Some t -> Ok t
+    | Color.No_opacity, None -> (
+        match Parse.arbitrary_declaration_value raw with
+        | Some v -> Ok (Decoration_bracket_thickness_raw (raw, v))
+        | None -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
+
+  (* Every colour spelling CSS knows names a decoration colour, and any other
+     value is written as the author spelled it, unless a modifier would have to
+     mix it. *)
+  let bracket_color raw value opacity =
+    match (Color.parse_bracket_color value, opacity) with
+    | Some c, Color.No_opacity -> Ok (Decoration_bracket_color (raw, c))
+    | Some c, _ -> Ok (Decoration_bracket_color_opacity (raw, c, opacity))
+    | None, Color.No_opacity -> (
+        match Parse.arbitrary_declaration_value raw with
+        | Some v -> Ok (Decoration_bracket_raw_color (raw, v))
+        | None -> Utility.unclaimed)
+    | None, _ -> Utility.unclaimed
+
+  (* Tailwind's routing of a [decoration-[...]] bracket: a [length:] or
+     [percentage:] hint, or an unhinted value it infers to be a length or a
+     percentage and not a colour, is the thickness; everything else is the
+     colour. A var() reference after the hint names a custom property. *)
+  let decoration_bracket inner opacity =
+    let var_with_opacity plain mixed value =
+      match opacity with
+      | Color.No_opacity -> Ok (plain value)
+      | _ -> Ok (mixed (value, opacity))
+    in
+    match Parse.data_type_hint inner with
+    | Some ("", _) -> Utility.unclaimed
+    | Some ("length", value)
+      when Parse.is_var value && opacity = Color.No_opacity ->
+        Ok (Decoration_bracket_length_var value)
+    | Some ("percentage", value)
+      when Parse.is_var value && opacity = Color.No_opacity ->
+        Ok (Decoration_bracket_pct_var value)
+    | Some (("length" | "percentage"), value) ->
+        bracket_thickness inner value opacity
+    | Some ("color", value) when Parse.is_var value ->
+        var_with_opacity
+          (fun v -> Decoration_bracket_color_var v)
+          (fun (v, o) -> Decoration_bracket_color_var_opacity (v, o))
+          value
+    | Some (_, value) -> bracket_color inner value opacity
+    | None when String.starts_with ~prefix:"var(" inner ->
+        var_with_opacity
+          (fun v -> Decoration_bracket_var v)
+          (fun (v, o) -> Decoration_bracket_var_opacity (v, o))
+          inner
+    | None ->
+        let decoded = Parse.decode_arbitrary_value inner in
+        if
+          Color.parse_bracket_color inner = None
+          && (Parse.is_length decoded || Parse.is_percentage decoded)
+        then bracket_thickness inner inner opacity
+        else bracket_color inner inner opacity
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -121,87 +187,8 @@ module Handler = struct
         | "current", Color.No_opacity -> Ok Decoration_current
         | "current", opacity -> Ok (Decoration_current_opacity opacity)
         | _ -> (
-            if
-              (* Check for bracket values *)
-              Parse.is_bracket_value base_str
-            then
-              let inner = Parse.bracket_inner base_str in
-              (* [raw] is the bracket text the class was written with, hint
-                 included, so the class prints back the way it was read. *)
-              let bracket_color raw value =
-                match Color.parse_bracket_color value with
-                | Some c -> (
-                    match opacity with
-                    | Color.No_opacity -> Ok (Decoration_bracket_color (raw, c))
-                    | _ ->
-                        Ok (Decoration_bracket_color_opacity (raw, c, opacity)))
-                | None -> Utility.unclaimed
-              in
-              let bracket_pct raw value =
-                match parse_decoration_pct value with
-                | Some len -> Ok (Decoration_bracket_pct (raw, len))
-                | None -> Utility.unclaimed
-              in
-              let bracket_thickness raw value =
-                if
-                  String.length value > 0
-                  && value.[String.length value - 1] = '%'
-                then bracket_pct raw value
-                else
-                  match parse_decoration_thickness value with
-                  | Some len -> Ok (Decoration_bracket_thickness (raw, len))
-                  | None -> Utility.unclaimed
-              in
-              (* A data-type hint says how to read the value written after it,
-                 so only a var() reference there names a custom property. *)
-              if String.starts_with ~prefix:"color:" inner then
-                let value = String.sub inner 6 (String.length inner - 6) in
-                if Parse.is_var value then
-                  match opacity with
-                  | Color.No_opacity -> Ok (Decoration_bracket_color_var value)
-                  | _ ->
-                      Ok (Decoration_bracket_color_var_opacity (value, opacity))
-                else bracket_color inner value
-              else if String.starts_with ~prefix:"var(" inner then
-                match opacity with
-                | Color.No_opacity -> Ok (Decoration_bracket_var inner)
-                | _ -> Ok (Decoration_bracket_var_opacity (inner, opacity))
-              else if String.starts_with ~prefix:"length:" inner then
-                let value = String.sub inner 7 (String.length inner - 7) in
-                if Parse.is_var value then
-                  Ok (Decoration_bracket_length_var value)
-                else bracket_thickness inner value
-              else if String.starts_with ~prefix:"percentage:" inner then
-                let value = String.sub inner 11 (String.length inner - 11) in
-                if Parse.is_var value then Ok (Decoration_bracket_pct_var value)
-                else bracket_pct inner value
-              else
-                (* Every colour spelling CSS knows, not only a [#] hex and a
-                   colour function: a named colour and a keyword name a
-                   decoration colour too. The colour reader runs before the
-                   percentage one because [hsl(200_50%_50%)] ends in a [%]. *)
-                match Color.parse_bracket_color inner with
-                | Some _ -> bracket_color inner inner
-                | None -> (
-                    if
-                      String.length inner > 0
-                      && inner.[String.length inner - 1] = '%'
-                    then
-                      match parse_decoration_pct inner with
-                      | Some len -> Ok (Decoration_bracket_pct (inner, len))
-                      | None -> Utility.unclaimed
-                    else if is_bare_number inner then
-                      (* Tailwind resolves the ambiguous unitless spelling
-                         through the colour candidate path. Its declaration is
-                         invalid CSS and browsers discard it; accepting an inert
-                         candidate is therefore equivalent, while treating it as
-                         px is not. *)
-                      Ok (Decoration_bracket_invalid_color inner)
-                    else
-                      match parse_decoration_thickness inner with
-                      | Some len ->
-                          Ok (Decoration_bracket_thickness (inner, len))
-                      | None -> Utility.unclaimed)
+            if Parse.is_bracket_value base_str then
+              decoration_bracket (Parse.bracket_inner base_str) opacity
             else
               (* Try parsing as number (decoration thickness) *)
               match Parse.int_any base_str with
@@ -278,7 +265,7 @@ module Handler = struct
         "decoration-current/" ^ Color.pp_opacity opacity
     | Decoration_inherit -> "decoration-inherit"
     | Decoration_bracket_color (v, _) -> "decoration-[" ^ v ^ "]"
-    | Decoration_bracket_invalid_color v -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_raw_color (v, _) -> "decoration-[" ^ v ^ "]"
     | Decoration_bracket_color_opacity (v, _, opacity) ->
         "decoration-[" ^ v ^ "]/" ^ Color.pp_opacity opacity
     | Decoration_bracket_var v -> "decoration-[" ^ v ^ "]"
@@ -300,7 +287,8 @@ module Handler = struct
     | Decoration_from_font -> "decoration-from-font"
     | Decoration_auto -> "decoration-auto"
     | Decoration_bracket_thickness (v, _) -> "decoration-[" ^ v ^ "]"
-    | Decoration_bracket_pct (v, _) -> "decoration-[" ^ v ^ "]"
+    | Decoration_bracket_pct (v, _) | Decoration_bracket_thickness_raw (v, _) ->
+        "decoration-[" ^ v ^ "]"
     | Decoration_bracket_length_var v -> "decoration-[length:" ^ v ^ "]"
     | Decoration_bracket_pct_var v -> "decoration-[percentage:" ^ v ^ "]"
     | Underline_offset_auto -> "underline-offset-auto"
@@ -343,7 +331,7 @@ module Handler = struct
        colour, then style, then thickness. All the colour variants share a
        suborder so the tie is broken alphabetically by class name. *)
     | Decoration_bracket_color _ -> 8410
-    | Decoration_bracket_invalid_color _ -> 8410
+    | Decoration_bracket_raw_color _ -> 8410
     | Decoration_bracket_color_opacity _ -> 8410
     | Decoration_bracket_color_var _ -> 8411
     | Decoration_bracket_color_var_opacity _ -> 8411
@@ -368,6 +356,7 @@ module Handler = struct
     | Decoration_thickness n -> 8430 + n
     | Decoration_bracket_thickness _ -> 30000
     | Decoration_bracket_pct _ -> 30000
+    | Decoration_bracket_thickness_raw _ -> 30000
     | Decoration_bracket_length_var _ -> 30000
     | Decoration_bracket_pct_var _ -> 30000
     | Decoration_auto -> 30010
@@ -594,7 +583,9 @@ module Handler = struct
         decoration_current_with_opacity opacity
     | Decoration_inherit -> decoration_inherit
     | Decoration_bracket_color (_, c) -> decoration_bracket_color_style ~theme c
-    | Decoration_bracket_invalid_color _ -> style []
+    | Decoration_bracket_raw_color (_, v) ->
+        style ~merge_key:"decoration-"
+          (Option.to_list (Parse.opaque_declaration "text-decoration-color" v))
     | Decoration_bracket_color_opacity (_, c, opacity) ->
         decoration_bracket_color_with_opacity ~theme c opacity
     | Decoration_bracket_var v -> decoration_bracket_var_style v
@@ -617,6 +608,10 @@ module Handler = struct
     | Decoration_auto -> decoration_auto
     | Decoration_bracket_thickness (_, len) -> decoration_bracket_thickness len
     | Decoration_bracket_pct (_, len) -> decoration_bracket_pct len
+    | Decoration_bracket_thickness_raw (_, v) ->
+        style
+          (Option.to_list
+             (Parse.opaque_declaration "text-decoration-thickness" v))
     | Decoration_bracket_length_var v -> decoration_bracket_length_var v
     | Decoration_bracket_pct_var v -> decoration_bracket_pct_var v
     | Underline_offset_auto -> underline_offset_auto ()

@@ -419,6 +419,62 @@ let holds_math_function s =
   String.contains s '('
   && List.exists (fun f -> contains ~sub:(f ^ "(") s) tailwind_math_functions
 
+let tailwind_length_units =
+  [
+    "cm";
+    "mm";
+    "Q";
+    "in";
+    "pc";
+    "pt";
+    "px";
+    "em";
+    "ex";
+    "ch";
+    "rem";
+    "lh";
+    "rlh";
+    "vw";
+    "vh";
+    "vmin";
+    "vmax";
+    "vb";
+    "vi";
+    "svw";
+    "svh";
+    "lvw";
+    "lvh";
+    "dvw";
+    "dvh";
+    "cqw";
+    "cqh";
+    "cqi";
+    "cqb";
+    "cqmin";
+    "cqmax";
+  ]
+
+let is_length s =
+  let n = String.length s in
+  let rec unit_start i =
+    if
+      i > 0
+      && match s.[i - 1] with 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
+    then unit_start (i - 1)
+    else i
+  in
+  let i = unit_start n in
+  i < n
+  && is_number (String.sub s 0 i)
+  && List.mem (String.sub s i (n - i)) tailwind_length_units
+  || String.starts_with ~prefix:"--spacing(" (String.lowercase_ascii s)
+  || holds_math_function s
+
+let is_percentage s =
+  String.ends_with ~suffix:"%" s
+  && is_number (String.sub s 0 (String.length s - 1))
+  || holds_math_function s
+
 (* A math function stands for the value it computes, so a bracket opening with
    one denotes whatever the utility's numeric side takes. Utilities that tell a
    width from a colour by the bracket's first character need to know. *)

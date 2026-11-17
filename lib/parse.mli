@@ -277,6 +277,16 @@ val holds_math_function : string -> bool
     anywhere in [s]. Tailwind reads such a bracket as a number or a length
     whatever the rest of it holds, so this is the test that routes it. *)
 
+val is_length : string -> bool
+(** [is_length s] is [true] when Tailwind infers [s] to be a length: an
+    {!is_number} followed by one of the absolute, font-relative, viewport or
+    container units, a [--spacing()] call, or a value that
+    {!holds_math_function}. [1e3px] is a length; [1E] and [10%] are not. *)
+
+val is_percentage : string -> bool
+(** [is_percentage s] is [true] when Tailwind infers [s] to be a percentage: an
+    {!is_number} followed by [%], or a value that {!holds_math_function}. *)
+
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
     function ([calc], [min], [max], [clamp], ...). A utility whose bracket takes

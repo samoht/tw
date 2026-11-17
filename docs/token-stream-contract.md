@@ -91,7 +91,8 @@ never had, and cascade declines to read `calc(1 + 2)` back, because a bare
 number is no length-percentage. `--diff` forces minification, so it compares
 tw's `calc(1 + 2)` against Lightning CSS's `3px` and reports a difference on
 those classes. Refusing the class would report a difference too, so tw emits
-it and the residual stays.
+it and the residual stays. `decoration-[calc(1+2)]` is the same residual on
+`text-decoration-thickness`.
 
 ## Family longhands
 
@@ -328,8 +329,6 @@ unit or a value after an `angle:` hint.
 These families refuse shapes the CLI writes out. Each is a defect against the
 contract.
 
-- `decoration-[…]` refuses an identifier, a dashed identifier, `calc(1+2)` and
-  a `url()` with a word after it.
 - `text-shadow-[…]` refuses every shape but a colour keyword.
 - `space-x-[…]` and `space-y-[…]`, negated or not, refuse every bracket that
   is not a length or a `var()`. Tailwind writes the value inside the margin
