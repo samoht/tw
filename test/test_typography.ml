@@ -109,9 +109,7 @@ let test_line_height () =
    [--font-*] one names a family. Tailwind emits the reference alone: the token
    carries no line height, so the utility sets none. *)
 let test_named_text_size () =
-  (match Tw.of_string "text-huge" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "text-huge should be rejected without a token");
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility "text-huge";
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("text-huge", "9rem") ]
   in
@@ -189,9 +187,8 @@ let test_text_size_namespace_boundaries () =
 (* The line-height modifier names a [--leading-*] token, and a project's own
    counts the same as a built-in one. *)
 let test_theme_leading_modifier () =
-  (match Tw.of_string "text-base/airy" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "text-base/airy should be rejected without a token");
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "text-base/airy";
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("leading-airy", "2.5"); ("text-huge", "9rem") ]
@@ -206,9 +203,8 @@ let test_theme_leading_modifier () =
     [ ("text-base/airy", "--text-base"); ("text-huge/airy", "--text-huge") ]
 
 let test_named_font_family () =
-  (match Tw.of_string "font-awesome" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "font-awesome should be rejected without a token");
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "font-awesome";
   let css theme cls =
     match Tw.of_string ~theme cls with
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
@@ -280,16 +276,15 @@ let test_text_bracket_size_valid () =
   check "text-[percentage:50%]"
 
 let test_text_bracket_size_invalid () =
-  let rejects name (module H : Handler) input =
-    match H.of_class Tw.Scheme.default input with
-    | Ok _ -> Alcotest.fail ("Expected " ^ name ^ " handler to reject: " ^ input)
-    | Error _ -> ()
+  (* The colour handler reads each of these as a text colour. *)
+  let rejects h input =
+    Test_helpers.check_invalid_input ~why:Test_helpers.Another_handler h input
   in
   let bad input =
-    rejects "early" (module Tw.Typography.Typography_early) input;
+    rejects (module Tw.Typography.Typography_early) input;
     (* The other families that read a [text-] class. *)
-    rejects "text-overflow" (module Tw.Text_overflow.Handler) input;
-    rejects "line-breaking" (module Tw.Line_breaking.Handler) input
+    rejects (module Tw.Text_overflow.Handler) input;
+    rejects (module Tw.Line_breaking.Handler) input
   in
   (* Regression: these used to silently emit font-size: var(--<garbage>). *)
   bad "text-[1A202C]";
@@ -349,12 +344,12 @@ let test_arbitrary_leading () =
 (* A standalone arbitrary leading utility forwards a safe token stream. Font
    size modifiers remain typed line-height values. *)
 let test_arbitrary_leading_token_stream () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the bracket through as a line-height the browser \
+            drops; tw refuses the class")
   in
   let accepted cls =
     match Tw.of_string cls with
@@ -386,22 +381,9 @@ let test_leading_var_shorthand () =
 
 let of_string_invalid () =
   (* Invalid typography values *)
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    (* Neither the typography handler nor tw as a whole accepts the input *)
-    (match
-       Tw.Typography.Typography_early.of_class Tw.Scheme.default class_name
-     with
-    | Error _ -> ()
-    | Ok _ ->
-        Alcotest.fail
-          (String.concat ""
-             [ "Expected early handler to reject: "; class_name ]));
-    match Tw.of_string class_name with
-    | Error _ -> ()
-    | Ok _ ->
-        Alcotest.fail
-          (String.concat "" [ "Expected tw to reject: "; class_name ])
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Typography.Typography_early)
   in
 
   fail_maybe [ "font"; "invalid" ];
@@ -712,10 +694,12 @@ let test_bracket_font_size_candidate_band () =
 (* A font family is idents or quoted strings; the docs' [<value>] placeholder
    used to be quoted into font-family: "<value>". *)
 let test_invalid_font_family () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes the docs placeholder through as a font-family the \
+            browser drops; tw refuses the class")
   in
   let accepted cls =
     match Tw.of_string cls with
@@ -754,13 +738,16 @@ let test_font_bracket_family_comma_list () =
    16, so tw painted a weight where Tailwind, which passes [0x10] through for
    the browser to drop, paints nothing. *)
 let test_non_decimal_integers () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "text-lg/0x10";
-  rejected "font-[0x10]";
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind passes 0x10 through as a font-weight the browser drops; tw \
+          refuses the class")
+    "font-[0x10]";
   let accepted cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)

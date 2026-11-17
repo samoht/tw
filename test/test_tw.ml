@@ -584,9 +584,12 @@ let test_paren_var_colour_opacity () =
   has "fill-(--c)/50" "fill:color-mix(in oklab,var(--c) 50%,transparent)";
   has "bg-(--c)/(--o)"
     "background-color:color-mix(in oklab,var(--c) var(--o),transparent)";
-  match Tw.of_string "bg-[--c]/50" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "bg-[--c]/50 should stay refused"
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind writes --c into a color-mix() as if it were a colour, which \
+          the browser drops; tw refuses the class")
+    "bg-[--c]/50"
 
 (* The token a [theme(--x)] names is bound once however many classes read it,
    the variants a class carries do not move the binding out of [@layer theme],
@@ -633,10 +636,8 @@ let theme_function_custom_property_binding () =
    in for it and binds nothing. The call composes inside a longer value, where
    only the call itself is replaced. *)
 let theme_function_custom_property_fallback () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "p-[theme(--nope)]";
   rejected "p-[theme(--Spacing)]";
@@ -703,10 +704,8 @@ let theme_function_default_namespaces () =
    var(--spacing)] and the binding beside it. It admits neither a v3 dot path
    nor an alpha, both of which Tailwind reads some other way. *)
 let theme_function_custom_property_reference () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   Test_helpers.check_declarations "p-[--theme(--spacing)]"
     [ "padding:var(--spacing)" ];
@@ -715,7 +714,14 @@ let theme_function_custom_property_reference () =
   Test_helpers.check_declarations "p-[--theme(--nope,1rem)]" [ "padding:1rem" ];
   rejected "p-[--theme(spacing.4)]";
   rejected "p-[--theme(--nope)]";
-  rejected "bg-[--theme(--color-red-500/25%)]"
+  (* Tailwind reads the alpha and emits a color-mix() of --color-red-500 at 25%,
+     so this refusal is a tw gap. *)
+  match Tw.of_string "bg-[--theme(--color-red-500/25%)]" with
+  | Ok u ->
+      Alcotest.failf
+        "expected bg-[--theme(--color-red-500/25%%)] to be rejected, got %s"
+        (Tw.pp u)
+  | Error _ -> ()
 
 (* Tailwind emits no rule at all for a [theme()] naming a key its resolved theme
    does not carry, so a class carrying one is not a utility. A bare segment
@@ -723,10 +729,8 @@ let theme_function_custom_property_reference () =
    provably missing. A key the theme does carry still resolves, alone or inside
    a longer value, and a fallback argument stands in for a missing key. *)
 let theme_function_rejects_an_unknown_key () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "shadow-[0_0_0_1px_theme(a_b)]";
   rejected {|shadow-[0_0_0_1px_theme(a\_b)]|};
@@ -1179,12 +1183,10 @@ let divide_color () =
 
 (* decoration-skip-ink was dropped in Tailwind v4. Verify we reject it. *)
 let decoration_skip_ink () =
-  (match of_string "decoration-skip-ink-auto" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "decoration-skip-ink-auto should not be a v4 utility");
-  match of_string "decoration-skip-ink-none" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "decoration-skip-ink-none should not be a v4 utility"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "decoration-skip-ink-auto";
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "decoration-skip-ink-none"
 
 (* -- 5. Word break utilities ---------------------------------------------- *)
 (* These have typed API and should already work. Test them for completeness
@@ -1335,10 +1337,8 @@ let paren_var_shorthand () =
    attribute in real markup - must come back as an error, not run the scanner
    past the end of the string. *)
 let unterminated_theme_call () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "bg-[theme(colors.red";
   rejected "theme(colors.red";
@@ -1392,9 +1392,7 @@ let prefixed_candidates () =
       | Error _ -> ())
     [ "flex"; "hover:underline"; "tw:nope"; "tw"; "twx:flex" ];
   (* With no prefix asked for, a candidate spelled with one names nothing. *)
-  match Tw.of_string "tw:flex" with
-  | Ok u -> Alcotest.failf "expected tw:flex to be refused, got %s" (Tw.pp u)
-  | Error _ -> ()
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility "tw:flex"
 
 let v3_opacity_rejection_message () =
   let message cls =

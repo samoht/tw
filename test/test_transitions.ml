@@ -91,10 +91,8 @@ let test_arbitrary_property_token_stream () =
 (* Safe arbitrary easing token streams are forwarded; an empty bracket still
    names no declaration value. *)
 let test_arbitrary_ease_token_stream () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let renders cls =
     match Tw.of_string cls with

@@ -436,6 +436,12 @@ val check_invalid_input : ?why:rejection -> (module Handler) -> string -> unit
     defaults to {!constructor-Not_a_utility}; the half of it that needs no CLI,
     whether {!Tw.of_string} knows the class, is checked here. *)
 
+val check_invalid_class : ?why:rejection -> string -> unit
+(** [check_invalid_class ?why cls] is {!check_invalid_input} over
+    {!Tw.of_string}: no tw handler parses [cls], and [cls] is recorded for
+    {!check_negative_premises}. It is for a class no single handler owns, such
+    as one whose variant is what makes it invalid. *)
+
 val check_negative_premises : unit -> unit
 (** [check_negative_premises ()] asks the pinned tailwindcss CLI whether every
     negative test that has run so far had its premise right, in one generation

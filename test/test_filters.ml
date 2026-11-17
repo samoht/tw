@@ -376,10 +376,8 @@ let test_arbitrary_filter_chain () =
    parse, then emit an empty rule: no CSS and no diagnostic. Same for a
    drop-shadow name the theme has no --drop-shadow-<name> token for. *)
 let test_unparseable_arbitrary_filter_rejected () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   (* A bracket the filter grammar declines names the family's own longhand, so
      it reaches the sheet as the token stream it is. A drop-shadow *name* the

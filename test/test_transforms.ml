@@ -117,11 +117,9 @@ let test_any_translate_fraction () =
 
 let test_of_string_invalid () =
   (* Invalid transform utilities *)
-  let test_invalid input =
-    let class_name = String.concat "-" input in
-    match Tw.Transforms.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let test_invalid =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Transforms.Handler)
   in
 
   (* Invalid translate - missing value *)

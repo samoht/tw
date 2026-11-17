@@ -277,12 +277,8 @@ let test_extract_var_name_reads_one_reference () =
 (* The utilities that swallowed a second bracket refuse the class instead of
    raising out of [to_css]. Tailwind emits nothing for any of them. *)
 let test_double_bracket_class_rejected () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let accepted cls =
     match Tw.of_string cls with

@@ -76,9 +76,7 @@ let test_ring_shadeless_color () =
       "--tw-inset-ring-color:color-mix(in oklab,var(--color-gray-950) \
        10%,transparent)";
     ];
-  match Tw.of_string "ring-red" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "ring-red (no shade) should be rejected"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility "ring-red"
 
 (* ring-inset registers the ring/shadow @property family, like the other ring
    utilities; it used to emit only the --tw-ring-inset declaration. *)

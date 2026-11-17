@@ -46,11 +46,9 @@ let test_overflow () =
 
 let of_string_invalid () =
   (* Invalid layout values *)
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Layout.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Layout.Handler)
   in
 
   fail_maybe [ "inline"; "invalid" ];
@@ -235,10 +233,12 @@ let test_object_and_z_values () =
    accepted and then raises out of [to_css], a pure conversion, so the rejection
    belongs at parse time. *)
 let test_invalid_arbitrary_z_index () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes calc(foo * -1), which the browser drops; tw \
+            refuses the class")
   in
   let renders cls =
     match Tw.of_string cls with

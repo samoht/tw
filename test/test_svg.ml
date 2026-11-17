@@ -66,12 +66,7 @@ let stroke_arbitrary_width_invalid () =
    never wrote, matching nothing in the markup. *)
 let stroke_width_rejects_ocaml_literals () =
   List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u ->
-          Alcotest.failf "expected %s to be rejected, got %s" cls
-            (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-      | Error _ -> ())
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)
     [ "stroke-0x4"; "stroke-04"; "stroke-1_0" ]
 
 (* A bracket colour CSS names without spelling it as a function - a named

@@ -77,10 +77,9 @@ let test_arbitrary_roundtrip () =
    or --spacing-<name>; stray source tokens like top-level / bottom-right must
    be rejected rather than emitting a bogus placeholder value. *)
 let named_inset_requires_theme_token () =
-  let reject c =
-    match Tw.Position.Handler.of_class Tw.Scheme.default c with
-    | Error _ -> ()
-    | Ok _ -> Alcotest.failf "%s should be rejected without a theme token" c
+  let reject =
+    Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+      (module Tw.Position.Handler)
   in
   reject "top-level";
   reject "bottom-right";
@@ -140,10 +139,8 @@ let test_arbitrary_value_decoder_stages () =
     [ "inset:calc(1px + 1px)" ];
   Test_helpers.check_declarations "left-[--spacing(4)]"
     [ "left:calc(var(--spacing)*4)" ];
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "top-0x4";
   rejected "top-1_0"
@@ -299,15 +296,18 @@ let logical_inline_scale_steps () =
    source token, the negative of a keyword Tailwind only defines positive, and a
    zero denominator are all rejected. *)
 let logical_inline_rejects_non_utilities () =
-  let reject c =
-    match Tw.of_string c with
-    | Error _ -> ()
-    | Ok _ -> Alcotest.failf "%s should not be a utility" c
+  let reject =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   reject "start-junk";
   reject "end-junk";
   reject "-start-auto";
-  reject "start-1/0";
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind passes a zero denominator through as calc(1 / 0 * 100%), \
+          which no browser can compute; tw refuses the class instead")
+    "start-1/0";
   reject "start-"
 
 (* Every inset side reads an arbitrary length, and reads it under either sign.
@@ -358,10 +358,9 @@ let named_inset_on_logical_inline_sides () =
   accepts "start-header";
   accepts "end-header";
   (* and stays a non-utility when the theme binds no such name *)
-  let reject c =
-    match Tw.Position.Handler.of_class Tw.Scheme.default c with
-    | Error _ -> ()
-    | Ok _ -> Alcotest.failf "%s should be rejected without a theme token" c
+  let reject =
+    Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+      (module Tw.Position.Handler)
   in
   reject "start-header";
   reject "end-header"
