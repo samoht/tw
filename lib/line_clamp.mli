@@ -1,6 +1,7 @@
 (** Line clamp utilities.
 
-    https://tailwindcss.com/docs/line-clamp *)
+    See {{:https://tailwindcss.com/docs/line-clamp}line-clamp} in the Tailwind
+    documentation. *)
 
 open Utility
 

@@ -337,8 +337,6 @@ let form_misc_resets () =
     rule ~selector:(Selector.element "textarea") [ resize Vertical ];
   ]
 
-(* With [~forms:true], the rules the forms plugin provides (display:inline-flex
-   and the fields-wrapper padding) are left out so they are not doubled. *)
 let webkit_form_resets ?(forms = false) () =
   let base_rules =
     [

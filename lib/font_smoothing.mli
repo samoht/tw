@@ -1,6 +1,7 @@
 (** Font smoothing utilities.
 
-    https://tailwindcss.com/docs/font-smoothing *)
+    See {{:https://tailwindcss.com/docs/font-smoothing}font-smoothing} in the
+    Tailwind documentation. *)
 
 open Utility
 

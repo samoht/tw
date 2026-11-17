@@ -1,10 +1,13 @@
 (** Filter utilities for visual effects like blur, brightness, and backdrop
-    filters
+    filters.
 
-    https://tailwindcss.com/docs/blur https://tailwindcss.com/docs/brightness
-    https://tailwindcss.com/docs/contrast https://tailwindcss.com/docs/grayscale
-    https://tailwindcss.com/docs/saturate
-    https://tailwindcss.com/docs/backdrop-blur *)
+    See {{:https://tailwindcss.com/docs/blur}blur},
+    {{:https://tailwindcss.com/docs/brightness}brightness},
+    {{:https://tailwindcss.com/docs/contrast}contrast},
+    {{:https://tailwindcss.com/docs/grayscale}grayscale},
+    {{:https://tailwindcss.com/docs/saturate}saturate} and
+    {{:https://tailwindcss.com/docs/backdrop-blur}backdrop-blur} in the Tailwind
+    documentation. *)
 
 open Utility
 

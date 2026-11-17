@@ -25,28 +25,29 @@ type oklch = {
 (** {1 Conversions} *)
 
 val rgb_to_oklch : rgb -> oklch
-(** [rgb_to_oklch rgb] converts RGB color to OKLCH color space. *)
+(** [rgb_to_oklch rgb] is [rgb] in the OKLCH colour space. *)
 
 val oklch_to_rgb : oklch -> rgb
-(** [oklch_to_rgb oklch] converts OKLCH color to RGB color space. A colour
-    outside the sRGB gamut loses chroma at constant lightness and hue until it
-    is within a just noticeable difference of one sRGB can show, taking the
-    first such chroma as Tailwind's published fallbacks do. *)
+(** [oklch_to_rgb oklch] is [oklch] in the sRGB colour space. A colour outside
+    the sRGB gamut loses chroma at constant lightness and hue until it is within
+    a just noticeable difference of one sRGB can show, taking the first such
+    chroma as Tailwind's published fallbacks do. *)
 
 val rgb_to_oklab : rgb -> float * float * float
-(** [rgb_to_oklab rgb] converts RGB to OKLab (L, a, b) components. *)
+(** [rgb_to_oklab rgb] is the OKLab [(l, a, b)] components of [rgb]. *)
 
 val oklch_to_css : oklch -> string
-(** [oklch_to_css oklch] formats OKLCH for CSS. *)
+(** [oklch_to_css oklch] is the CSS [oklch()] spelling of [oklch]. *)
 
 (** {1 Hex spellings} *)
 
 val hex_to_rgb : string -> rgb option
-(** [hex_to_rgb hex] parses hex color string to RGB. The leading [#] is
-    optional, and an alpha digit pair, [#rgba] or [#rrggbbaa], is dropped. *)
+(** [hex_to_rgb hex] is the colour the hex string [hex] spells, and [None] if
+    [hex] is not one. The leading [#] is optional, and an alpha digit pair,
+    [#rgba] or [#rrggbbaa], is dropped. *)
 
 val rgb_to_hex : rgb -> string
-(** [rgb_to_hex rgb] converts RGB to hex string. *)
+(** [rgb_to_hex rgb] is the hex spelling of [rgb]. *)
 
 val rgba_to_hex : int -> int -> int -> int -> string
 (** [rgba_to_hex r g b a] is the hex spelling of the bytes [r], [g], [b] with
@@ -57,8 +58,9 @@ val hex_string_of_rgb : int * int * int -> string
     without a [#]. *)
 
 val hex_with_alpha : string -> float -> string
-(** [hex_with_alpha hex_str opacity_percent] adds alpha to a hex color string.
-    Returns #RRGGBBAA format. The opacity is a percentage (0-100). *)
+(** [hex_with_alpha hex_str opacity_percent] is [hex_str] as [#RRGGBBAA], with
+    the alpha byte of [opacity_percent], a percentage from 0 to 100. Any alpha
+    [hex_str] already carries is replaced. *)
 
 val hex_to_oklch_css : string -> string
 (** [hex_to_oklch_css hex] is the [oklch()] spelling of [hex].
@@ -66,12 +68,14 @@ val hex_to_oklch_css : string -> string
     @raise Invalid_argument if [hex] is not a hex colour. *)
 
 val hex_to_oklab_alpha : string -> float -> Css.color
-(** [hex_to_oklab_alpha hex alpha] converts a hex color to an oklab CSS color
-    with the given alpha (0.0-1.0). Used for bracket hex colors with opacity
-    where the color is known at compile time. *)
+(** [hex_to_oklab_alpha hex alpha] is the colour [hex] in oklab, carrying
+    [alpha] (0.0-1.0). Used for bracket hex colors with opacity where the color
+    is known at compile time. *)
 
 val shorten_hex_str : string -> string
-(** [shorten_hex_str hex] shortens a hex color string if possible. *)
+(** [shorten_hex_str hex] is the shortest spelling of [hex], without its [#]:
+    [#RRGGBB] and [#RRGGBBAA] lose their repeated digits and an [ff] alpha goes.
+    Any other length is returned unchanged. *)
 
 val authored_hex : string -> Css.color
 (** [authored_hex hex] is the colour [hex] spells, keeping that spelling for
@@ -98,10 +102,11 @@ val oklab_alpha : Css.color -> float -> Css.color option
     [color-mix()] or to the browser. *)
 
 val css_color_to_hex : Css.color -> Css.color option
-(** [css_color_to_hex c] converts a typed CSS color (Rgb, Rgba, Hsl) to a hex
-    color for Tailwind parity. Returns [None] for color types that cannot be
-    easily converted (oklch, oklab, etc.). *)
+(** [css_color_to_hex c] is the hex spelling of the [rgb()], [rgba()] or [hsl()]
+    colour [c], which Tailwind writes. This is [None] for a colour whose
+    channels are not all static, and for any other colour ([oklch()], [oklab()],
+    ...). *)
 
 val resolve_bracket_css_color : Css.color -> Css.color
-(** [resolve_bracket_css_color c] returns the compact emission form of an
-    arbitrary colour, folding static RGB/HSL spellings to hex when possible. *)
+(** [resolve_bracket_css_color c] is the compact output form of the arbitrary
+    colour [c], folding static RGB/HSL spellings to hex when possible. *)

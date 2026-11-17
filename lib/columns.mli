@@ -1,7 +1,5 @@
-(** Columns utilities for multi-column layout
-
-    @see <https://tailwindcss.com/docs/columns>
-      Tailwind CSS Columns documentation *)
+(** Multi-column layout utilities, the
+    {{:https://tailwindcss.com/docs/columns}[columns-*]} family. *)
 
 open Utility
 

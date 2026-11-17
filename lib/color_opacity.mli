@@ -33,27 +33,26 @@ val opacity_of_int : int -> opacity_modifier
 (** [opacity_of_int pct] is the modifier a class spells [/pct]. *)
 
 val opacity_of_string : ?theme:Scheme.t -> string -> opacity_modifier option
-(** [opacity_of_string ?theme s] parses the modifier that follows the [/] in a
-    colour class: a percentage, a bracket value, the [(--x)] shorthand, or a
-    theme-defined name. *)
+(** [opacity_of_string ?theme s] is the opacity modifier [s] spells after the
+    [/] of a colour class (a percentage, a bracket value, the [(--x)] shorthand
+    or a theme-defined name), or [None] if it spells none. *)
 
 val has_opacity : string -> bool
 (** [has_opacity s] is [true] when [s] carries a [/] opacity modifier. *)
 
 val parse_opacity_modifier :
   ?theme:Scheme.t -> string -> string * opacity_modifier
-(** [parse_opacity_modifier ?theme s] parses an opacity modifier from a string.
-    Returns the base string and the opacity modifier. Example: "500/50" ->
-    ("500", Opacity_percent 50.0). Named opacities are validated at parse time
-    against the [@theme] tokens in [theme]. *)
+(** [parse_opacity_modifier ?theme s] is the base string of [s] and its opacity
+    modifier: ["500/50"] gives [("500", Opacity_percent 50.0)]. Named opacities
+    are validated at parse time against the [@theme] tokens in [theme]. *)
 
 val shade_and_opacity_of_strings :
   ?theme:Scheme.t ->
   string list ->
   (Color_value.color * int * opacity_modifier, [ `Msg of string ]) result
-(** [shade_and_opacity_of_strings ?theme parts] parses a color, shade, and
-    optional opacity modifier from a list of strings. Example:
-    ["blue"; "500/50"] -> Ok (Blue, 500, Opacity_percent 50.0). *)
+(** [shade_and_opacity_of_strings ?theme parts] is the colour, shade and
+    optional opacity modifier [parts] spell: [["blue"; "500/50"]] gives
+    [Ok (Blue, 500, Opacity_percent 50.0)]. *)
 
 val pp_opacity : opacity_modifier -> string
 (** [pp_opacity modifier] is the class-name spelling of [modifier], without the
@@ -65,7 +64,9 @@ val opacity_suffix : opacity_modifier -> string
     it from the colour, and [""] for {!No_opacity}. *)
 
 val opacity_to_percent : opacity_modifier -> float
-(** [opacity_to_percent modifier] returns the opacity as a float percentage. *)
+(** [opacity_to_percent modifier] is the opacity of [modifier] as a percentage,
+    [100.] for {!No_opacity} and for a modifier read from a token or a variable.
+*)
 
 val opacity_var_bare_of : opacity_modifier -> string option
 (** [opacity_var_bare_of opacity] is the custom property the modifier reads its
@@ -135,9 +136,10 @@ val hex_alpha_color :
   int ->
   opacity_modifier ->
   string option
-(** [hex_alpha_color ?theme color shade opacity] returns a hex color with alpha
-    if the color is defined in the scheme, otherwise None. This is useful for
-    properties where Tailwind outputs simple hex+alpha without [@supports]. *)
+(** [hex_alpha_color ?theme color shade opacity] is the hex colour with alpha
+    for [color] at [shade], or [None] when the scheme gives it no hex value.
+    This is useful for properties where Tailwind outputs simple hex+alpha
+    without [@supports]. *)
 
 val shadow_alpha_decls :
   opacity_modifier ->
@@ -157,7 +159,7 @@ val shadow_alpha_decls :
 
 (** {1 Colour styles}
 
-    These functions generate scheme-aware color styles with progressive
+    These functions build scheme-aware color styles with progressive
     enhancement. They produce a fallback declaration plus a [\@supports] block
     for color-mix. *)
 
@@ -188,21 +190,23 @@ val color_with_opacity_style :
 
 val fill_with_opacity :
   ?theme:Scheme.t -> Color_value.color -> int -> opacity_modifier -> Style.t
-(** [fill_with_opacity ?theme color shade opacity] generates fill style with
-    opacity, reading scheme colours from [theme] when given. *)
+(** [fill_with_opacity ?theme color shade opacity] is the [fill] style for
+    [color] at [shade] under [opacity], reading scheme colours from [theme] when
+    given. *)
 
 val stroke_with_opacity :
   ?theme:Scheme.t -> Color_value.color -> int -> opacity_modifier -> Style.t
-(** [stroke_with_opacity ?theme color shade opacity] generates stroke style with
-    opacity, reading scheme colours from [theme] when given. *)
+(** [stroke_with_opacity ?theme color shade opacity] is the [stroke] style for
+    [color] at [shade] under [opacity], reading scheme colours from [theme] when
+    given. *)
 
 val fill_current_with_opacity : opacity_modifier -> Style.t
-(** [fill_current_with_opacity opacity] generates fill currentColor with
-    opacity. *)
+(** [fill_current_with_opacity opacity] is the [fill: currentcolor] style under
+    [opacity]. *)
 
 val stroke_current_with_opacity : opacity_modifier -> Style.t
-(** [stroke_current_with_opacity opacity] generates stroke currentColor with
-    opacity. *)
+(** [stroke_current_with_opacity opacity] is the [stroke: currentcolor] style
+    under [opacity]. *)
 
 val divide_with_opacity :
   ?theme:Scheme.t ->
@@ -211,22 +215,24 @@ val divide_with_opacity :
   opacity_modifier ->
   Css.Selector.t ->
   Style.t
-(** [divide_with_opacity ?theme color shade opacity selector] generates divide
-    border-color with opacity using the given selector. *)
+(** [divide_with_opacity ?theme color shade opacity selector] is the divide
+    [border-color] style for [color] at [shade] under [opacity], on [selector].
+*)
 
 val divide_current_with_opacity : opacity_modifier -> Css.Selector.t -> Style.t
-(** [divide_current_with_opacity opacity selector] generates divide currentColor
-    with opacity using the given selector. *)
+(** [divide_current_with_opacity opacity selector] is the divide
+    [border-color: currentcolor] style under [opacity], on [selector]. *)
 
 val bg_with_opacity :
   ?theme:Scheme.t -> Color_value.color -> int -> opacity_modifier -> Style.t
-(** [bg_with_opacity ?theme color shade opacity] generates background-color
-    style with opacity. Scheme-aware: uses hex+alpha fallback with theme
-    variable in [\@supports] block. *)
+(** [bg_with_opacity ?theme color shade opacity] is the [background-color] style
+    for [color] at [shade] under [opacity]: a hex-with-alpha fallback, and the
+    theme variable in an [\@supports] block. *)
 
 val bg_current_with_opacity : opacity_modifier -> Style.t
-(** [bg_current_with_opacity opacity] generates background-color currentColor
-    with opacity using color-mix progressive enhancement. *)
+(** [bg_current_with_opacity opacity] is the [background-color: currentcolor]
+    style under [opacity], with the [color-mix()] form behind an [\@supports]
+    guard. *)
 
 (** {1 Bracket colours} *)
 

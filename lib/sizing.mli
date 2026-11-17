@@ -1,24 +1,26 @@
-(** Sizing utilities for width and height
+(** Sizing utilities: width, height and aspect ratio.
 
-    https://tailwindcss.com/docs/width https://tailwindcss.com/docs/height
-    https://tailwindcss.com/docs/min-width
-    https://tailwindcss.com/docs/max-width
-    https://tailwindcss.com/docs/min-height
-    https://tailwindcss.com/docs/max-height
-    https://tailwindcss.com/docs/aspect-ratio *)
+    Tailwind documents them under {{:https://tailwindcss.com/docs/width}width},
+    {{:https://tailwindcss.com/docs/height}height},
+    {{:https://tailwindcss.com/docs/min-width}min width},
+    {{:https://tailwindcss.com/docs/max-width}max width},
+    {{:https://tailwindcss.com/docs/min-height}min height},
+    {{:https://tailwindcss.com/docs/max-height}max height} and
+    {{:https://tailwindcss.com/docs/aspect-ratio}aspect ratio}. *)
 
 open Cascade
 open Utility
 
 val order : base -> (int * int) option
-(** [order u] returns the priority and suborder for sizing utilities. *)
+(** [order u] is the [(priority, suborder)] of [u] when [u] is a sizing utility,
+    and [None] otherwise. *)
 
 module Handler : Utility.Handler
 
 (** {1 Width Utilities} *)
 
 val w : int -> t
-(** [w n] sets width using spacing scale (n * 0.25rem). *)
+(** [w n] sets the width to step [n] of the spacing scale ([n * 0.25rem]). *)
 
 val w' : float -> t
 (** [w' n] is {!w} for a half-step scale value (e.g. [w' 0.5] for [w-0.5]). *)
@@ -296,11 +298,7 @@ val aspect_video : t
 (** [aspect_video] sets aspect ratio to 16:9. *)
 
 val aspect_ratio : int -> int -> t
-(** [aspect_ratio w h] creates a custom aspect ratio with width [w] and height
-    [h]. *)
-
-(** [suborder core] returns the suborder for a sizing utility class name.
-    Heights come before widths, with numeric values sorted numerically. *)
+(** [aspect_ratio w h] sets the aspect ratio to [w / h]. *)
 
 (** {1 Container Theme Variables} *)
 

@@ -1,12 +1,13 @@
 (** Typography utilities for font family, size, weight and style, text alignment
     and line height.
 
-    https://tailwindcss.com/docs/font-size
-    https://tailwindcss.com/docs/font-weight
-    https://tailwindcss.com/docs/font-family
-    https://tailwindcss.com/docs/font-style
-    https://tailwindcss.com/docs/text-align
-    https://tailwindcss.com/docs/line-height *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/font-size}font size},
+    {{:https://tailwindcss.com/docs/font-weight}font weight},
+    {{:https://tailwindcss.com/docs/font-family}font family},
+    {{:https://tailwindcss.com/docs/font-style}font style},
+    {{:https://tailwindcss.com/docs/text-align}text align} and
+    {{:https://tailwindcss.com/docs/line-height}line height}. *)
 
 open Cascade
 open Utility

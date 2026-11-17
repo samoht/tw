@@ -1,4 +1,4 @@
-(** Overscroll behavior utilities *)
+(** Overscroll behavior utilities. *)
 
 open Utility
 

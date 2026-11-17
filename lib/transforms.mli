@@ -1,8 +1,11 @@
-(** Transform utilities for 2D and 3D transformations
+(** Transform utilities.
 
-    https://tailwindcss.com/docs/rotate https://tailwindcss.com/docs/scale
-    https://tailwindcss.com/docs/translate https://tailwindcss.com/docs/skew
-    https://tailwindcss.com/docs/transform-origin *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/rotate}rotate},
+    {{:https://tailwindcss.com/docs/scale}scale},
+    {{:https://tailwindcss.com/docs/translate}translate},
+    {{:https://tailwindcss.com/docs/skew}skew} and
+    {{:https://tailwindcss.com/docs/transform-origin}transform origin}. *)
 
 open Utility
 

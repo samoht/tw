@@ -123,9 +123,9 @@ val base_class : t -> string option
 (** [base_class rule] is the class name [rule] was built for, if it has one. *)
 
 val pp : t -> string
-(** [pp r] returns a short human-readable description of [r], e.g.
-    ["Regular(.p-4)"] or ["Media_query(.sm\\:p-4)"]. Useful for test failure
-    messages and debug output. *)
+(** [pp r] is a short human-readable description of [r], e.g. ["Regular(.p-4)"]
+    or ["Media_query(.sm\\:p-4)"]. Useful for test failure messages and debug
+    output. *)
 
 (** {1 Classification} *)
 

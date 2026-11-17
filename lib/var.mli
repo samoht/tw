@@ -1,4 +1,4 @@
-(** Typed CSS variable definitions and CSS generation architecture.
+(** Typed CSS variables and the layers they are written to.
 
     {1 CSS Output Architecture}
 
@@ -314,7 +314,7 @@
 
 open Cascade
 
-(** Layer classification for CSS variables *)
+(** The type for the layer a CSS variable belongs to. *)
 type layer = Theme | Utility
 
 type 'a property_info = {
@@ -329,10 +329,10 @@ type 'a property_info = {
     - {!field-universal}: Force universal syntax "*" instead of typed syntax *)
 
 type ('a, 'r) t
-(** The type for CSS variables with phantom type for role *)
+(** The type for CSS variables, with a phantom type for their role. *)
 
 val pp : ('a, 'r) t -> string
-(** [pp v] returns a string representation of a variable. *)
+(** [pp v] is ["Var(--<name>)"] for the variable [v]. *)
 
 (** {2 Type shortcuts for common patterns} *)
 
@@ -359,22 +359,24 @@ type family =
   | `Backdrop_filter ]
 
 type 'a theme = ('a, [ `Theme ]) t
-(** Theme variables (Pattern 1) - design tokens set in theme layer *)
+(** The type for theme variables (pattern 1), the design tokens of the theme
+    layer. *)
 
 type 'a property_default = ('a, [ `Property_default ]) t
-(** Property default variables (Pattern 2) - variables with [@property] defaults
-*)
+(** The type for property-default variables (pattern 2), whose default is their
+    [@property] initial value. *)
 
 type 'a channel = ('a, [ `Channel ]) t
-(** Channel variables (Pattern 3) - composition variables *)
+(** The type for channel variables (pattern 3), which several utilities compose.
+*)
 
 (** {1 Core API} *)
 
 val theme :
   'a Css.kind -> ?runtime:bool -> string -> order:int * int -> 'a theme
-(** [theme kind name ?runtime ~order] creates a Theme-layer variable (design
-    token). Values are set via [Var.binding] at use sites that own the
-    declaration. Enforces explicit ordering for deterministic theme output.
+(** [theme kind ~runtime name ~order] is the theme-layer variable (design token)
+    [--name], placed at [order] in the theme layer. A utility that owns the
+    declaration sets its value with {!val-binding}.
 
     With [~runtime:true] the optimizer keeps [var(name)] references unfolded
     instead of inlining the theme value, so the token stays overridable at
@@ -396,14 +398,11 @@ val property_default :
   ?family:family ->
   string ->
   'a property_default
-(** [property_default kind ~initial name ?inherits ?universal ?property_order]
-    creates a Utility variable with a typed [\@property] registration and an
-    initial value used for referencing utilities and inline mode. The initial
-    value is required for proper [\@property] registration and reference
-    fallbacks.
-
-    [property_order] specifies the ordering of this variable in the
-    {i \@layer properties \@supports} block. Lower values appear first.
+(** [property_default kind ~initial ~property_order name] is the utility
+    variable [--name] with a typed [\@property] registration whose initial value
+    is [initial]. Referencing utilities and inline mode read [initial] too.
+    [property_order] places the variable in the
+    {i \@layer properties \@supports} block, lower values first.
 
     The build reads the typed registration metadata from declarations and
     references, so a style using {!val-binding} automatically carries the
@@ -417,15 +416,15 @@ val channel :
   'a Css.kind ->
   string ->
   'a channel
-(** [channel ?needs_property ?property_order kind name] creates a Utility
-    variable. When [needs_property] is true, generates an [\@property] rule for
-    animation support. [property_order] specifies ordering in the {i \@supports}
-    block. Ideal for composition patterns where contributing utilities set
-    declarations and aggregators reference values. *)
+(** [channel ~needs_property ~property_order kind name] is the utility variable
+    [--name] that several utilities compose: contributing utilities set it and
+    an aggregating one references it. When [needs_property] is [true] it gets an
+    [\@property] rule, so it can be animated. [property_order] places it in the
+    {i \@supports} block. *)
 
 val theme_ref : ?default:'a -> ?default_css:string -> string -> 'a Css.var
-(** [theme_ref ?default ?default_css name] creates a bare var reference to a
-    theme variable. In variables mode, emits [var(--name)].
+(** [theme_ref ~default ~default_css name] is a bare reference to the theme
+    variable [--name], written [var(--name)] in variables mode.
 
     When [default] and [default_css] are provided, both defaults are carried by
     the returned reference. [default] is the typed value used for inline mode;
@@ -441,16 +440,15 @@ val binding :
   ?fallback:'a Css.fallback ->
   'a ->
   Css.declaration * 'a Css.var
-(** [binding var ?fallback value] creates both a CSS declaration and a var()
-    reference with the value as default for inline mode. This is the primary way
-    to use variables.
+(** [binding var ~fallback value] is the declaration that sets [var] to [value]
+    and a [var()] reference to it whose inline value is [value]. This is the
+    primary way to use variables.
 
-    - [fallback] if provided, the var reference will use this fallback instead
-      of the default value. Can be [Empty] for var(--name,), [None] for
-      var(--name), or [Fallback value] for var(--name, value). This is useful
-      for utilities that want to reference a variable with a different fallback
-      (e.g., text-xs references --tw-leading with --text-xs--line-height as
-      fallback). *)
+    [fallback], when given, replaces [value] as the reference's fallback:
+    [Empty] writes [var(--name,)], [None] writes [var(--name)] and [Fallback v]
+    writes [var(--name, v)]. A utility uses it to reference a variable with
+    another fallback: [text-xs] references [--tw-leading] with
+    [--text-xs--line-height] as the fallback. *)
 
 val set :
   ('a, [< `Theme | `Property_default | `Channel ]) t -> 'a -> Css.declaration
@@ -468,27 +466,26 @@ val reference : ('a, [< `Property_default ]) t -> 'a Css.var
     [\@property] initial value. *)
 
 val reference_with_fallback : ('a, [< `Theme | `Channel ]) t -> 'a -> 'a Css.var
-(** [reference_with_fallback var fallback_value] creates a variable reference
-    with an explicit fallback value. Required for theme and channel variables.
-*)
+(** [reference_with_fallback var fallback_value] is a reference to [var] with
+    the fallback [fallback_value]. Theme and channel variables are referenced
+    this way. *)
 
 val reference_with_empty_fallback : ('a, [< `Channel ]) t -> 'a Css.var
-(** [reference_with_empty_fallback var] creates a variable reference with an
-    empty fallback, producing [var(--name,)]. Used for optional transform
-    components where unset variables should contribute nothing. *)
+(** [reference_with_empty_fallback var] is the reference [var(--name,)] to
+    [var], with an empty fallback, so an unset variable contributes nothing. The
+    optional transform components use it. *)
 
 val reference_with_var_fallback :
   ('a, [< `Channel ]) t -> ('a, [< `Theme ]) t -> 'a -> 'a Css.var
-(** [reference_with_var_fallback channel_var theme_var dummy_value] creates a
-    variable reference to [channel_var] with a nested var fallback to
-    [theme_var]. Produces: [var(--channel, var(--theme-fallback))]. The
-    [dummy_value] is used for type inference but not in the output. *)
+(** [reference_with_var_fallback channel_var theme_var dummy_value] is the
+    reference [var(--channel, var(--theme))] to [channel_var], falling back to
+    [theme_var]. [dummy_value] fixes the type and is not written. *)
 
 val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
-(** [property_rule var] generates the [@property] rule if metadata is present.
-    Returns [None] if the variable has no property metadata.
+(** [property_rule var] is the [@property] rule of [var], and [None] if [var]
+    has no property metadata.
 
-    Used with [Var.reference] to provide explicit property rules:
+    A utility that uses {!reference} passes it as an explicit property rule:
     {[
     let my_var =
       Var.property_default Css.Color ~initial:(Css.Named Css.Black)
@@ -507,14 +504,11 @@ val property_rule : ('a, [< `Property_default | `Channel ]) t -> Css.t option
         inherits: false;
         initial-value: 0 0 #0000;
       }
-    v}
-
-    The generated rule is emitted as CSS. *)
+    v} *)
 
 val property_rules : ('a, [< `Property_default ]) t -> Css.t
-(** [property_rules var] is a convenience function for property_default
-    variables that returns either the property rule or [Css.empty] if there is
-    none. This simplifies the common pattern of:
+(** [property_rules var] is the property rule of [var], or [Css.empty] if there
+    is none. It shortens the common pattern
     {[
     let var =
       Var.property_default Css.Color ~initial:(Css.Named Css.Black)
@@ -531,8 +525,7 @@ val property_rules : ('a, [< `Property_default ]) t -> Css.t
 
     let property_rules = Var.property_rules var
     ]}
-    Only use this for property_default variables where you expect a property
-    rule. *)
+    Use it only for a property-default variable that has a property rule. *)
 
 (** {1 Helper Types and Functions} *)
 
@@ -540,15 +533,15 @@ type metadata
 (** Build metadata carried by variable references and declarations. *)
 
 val metadata : ('a, _) t -> metadata
-(** [metadata var] returns the build metadata attached to [var]. *)
+(** [metadata var] is the build metadata attached to [var]. *)
 
 val metadata_of_var : 'a Css.var -> metadata option
-(** [metadata_of_var var] returns metadata carried by a CSS variable reference,
-    if the reference originated from this module. *)
+(** [metadata_of_var var] is the metadata the reference [var] carries, if this
+    module made it. *)
 
 val metadata_of_declaration : Css.declaration -> metadata option
-(** [metadata_of_declaration declaration] returns metadata carried by a custom
-    property declaration, if the declaration originated from this module. *)
+(** [metadata_of_declaration declaration] is the metadata the custom-property
+    [declaration] carries, if this module made it. *)
 
 val metadata_name : metadata -> string
 (** [metadata_name metadata] is the custom-property name without its leading
@@ -565,7 +558,7 @@ val metadata_family : metadata -> family option
 (** [metadata_family metadata] is its related-property family, if any. *)
 
 val metadata_needs_property : metadata -> bool
-(** [metadata_needs_property metadata] reports whether the variable needs an
+(** [metadata_needs_property metadata] is [true] iff the variable needs an
     [@property] registration. *)
 
 val metadata_default_css : metadata -> string option
@@ -582,17 +575,17 @@ val name : ('a, _) t -> string
     than writing the name again beside it: the two cannot then drift apart. *)
 
 val css_name : ('a, _) t -> string
-(** [css_name var] returns the full CSS property name with [--] prefix. For
-    example, [css_name gradient_from_var] returns ["--tw-gradient-from"]. Use
-    this when you need the property name (e.g., for [transition-property]). *)
+(** [css_name var] is ["--" ^ name var], the custom property's full name, as
+    [transition-property] needs it: [css_name gradient_from_var] is
+    ["--tw-gradient-from"]. *)
 
 val needs_property_rule : 'a Css.var -> bool
 (** [needs_property_rule v] is [true] if [v]'s underlying Var.t has property
     metadata. *)
 
 val order_of_declaration : Css.declaration -> (int * int) option
-(** [order_of_declaration d] returns theme ordering information for a custom
-    declaration. *)
+(** [order_of_declaration d] is the theme-layer slot of the custom declaration
+    [d], if it has one. *)
 
 val is_runtime_declaration : Css.declaration -> bool
 (** [is_runtime_declaration d] is [true] when [d] belongs to a theme variable
@@ -610,7 +603,7 @@ val property_initial_declaration : Css.property_info -> Css.declaration
     input, not from our typed variable system. *)
 
 val bracket : ?fallback:'a Css.fallback -> string -> 'a Css.var
-(** [bracket ?fallback name] creates a reference to a user-supplied CSS variable
-    from bracket notation. [name] may be the bare variable name without [--],
-    the inner arguments retained by {!Parse.extract_var_name}, or a complete
-    [var()] expression. A fallback in the expression is preserved. *)
+(** [bracket ~fallback name] is a reference to the CSS variable a bracket names.
+    [name] may be the bare variable name without [--], the inner arguments
+    retained by {!Parse.extract_var_name}, or a complete [var()] expression. A
+    fallback in the expression is preserved. *)

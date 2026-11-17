@@ -1,8 +1,9 @@
 (** Background utilities: colour, image, attachment, clip, origin, position,
     repeat and size. The named gradients are in {!Gradients}.
 
-    https://tailwindcss.com/docs/background-color
-    https://tailwindcss.com/docs/background-image *)
+    See {{:https://tailwindcss.com/docs/background-color}background-color} and
+    {{:https://tailwindcss.com/docs/background-image}background-image} in the
+    Tailwind documentation. *)
 
 open Utility
 

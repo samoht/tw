@@ -1,4 +1,4 @@
-(** Core types and helpers for Tailwind CSS DSL *)
+(** Styles: the declarations, modifiers and value types of the utility DSL. *)
 
 open Cascade
 
@@ -330,7 +330,7 @@ val compact_length : Css.length -> string
     class -- [min-[0.5ch]] must not become [min-[.5ch]]. *)
 
 val pp : t -> string
-(** [pp t] returns a string representation of a style. *)
+(** [pp t] is a debug representation of [t]. *)
 
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
@@ -342,7 +342,7 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 val is_numeric : string -> bool
-(** [is_numeric s] returns true if [s] is a non-empty string of digits. *)
+(** [is_numeric s] is [true] iff [s] is a non-empty string of digits. *)
 
 val nth_expr : string -> nth_expr
 (** [nth_expr expr] is [expr] with the bracket flag the DSL constructor implies:

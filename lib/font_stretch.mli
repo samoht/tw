@@ -1,6 +1,7 @@
 (** Font stretch utilities.
 
-    https://tailwindcss.com/docs/font-stretch *)
+    See {{:https://tailwindcss.com/docs/font-stretch}font-stretch} in the
+    Tailwind documentation. *)
 
 open Utility
 

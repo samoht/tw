@@ -27,7 +27,7 @@ val custom_routed_utilities :
   int
   * (string * (int * int) * Cascade.Css.statement list) list
   * Cascade.Css.statement list
-(** [custom_routed_utilities ~theme ~defs ~udefs candidates] generates the
+(** [custom_routed_utilities ~theme ~defs ~udefs candidates] is the CSS of the
     classes {!is_custom_routed} claimed: how many it produced, the rules to hand
     {!Tw.to_css} as [~extra] so they sort among the built-in utilities, and the
     statements that belong beside the utilities layer rather than in it. *)

@@ -1,6 +1,8 @@
 (** Font variant numeric utilities.
 
-    https://tailwindcss.com/docs/font-variant-numeric *)
+    See
+    {{:https://tailwindcss.com/docs/font-variant-numeric}font-variant-numeric}
+    in the Tailwind documentation. *)
 
 open Utility
 

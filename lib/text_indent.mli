@@ -1,6 +1,7 @@
 (** Text indent utilities.
 
-    https://tailwindcss.com/docs/text-indent *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/text-indent}text indent}. *)
 
 open Utility
 
