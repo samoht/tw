@@ -293,9 +293,23 @@ let test_unknown_hint_is_not_the_value () =
       "mask-radial-at-[foo:25%]";
     ]
 
+(* An angle bracket holding what cannot stand in a declaration, or opening with
+   an empty hint, names no utility, negated or not. *)
+let test_angle_bracket_refusals () =
+  List.iter invalid
+    [
+      "mask-linear-[a;b]";
+      "-mask-linear-[a;b]";
+      "-mask-linear-[:2]";
+      "mask-conic-[}]";
+      "-mask-conic-[}]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "angle bracket refusals" `Quick
+        test_angle_bracket_refusals;
       Alcotest.test_case "radial size underscore escape" `Quick
         test_radial_size_underscore_escape;
       Alcotest.test_case "from-0 keeps its px unit" `Quick
