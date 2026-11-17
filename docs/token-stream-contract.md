@@ -1,4 +1,4 @@
-Title: The token-stream contract for arbitrary utilities
+# The token-stream contract for arbitrary utilities
 
 An arbitrary utility emits its bracket contents verbatim, including values
 invalid for the target property, in every family, wherever the CLI emits. Where
@@ -40,12 +40,12 @@ class Tailwind refuses. `--diff` over a file compares strings, and
 ## Reading a value off the CLI
 
 Which longhand a bracket lands in is the same minified or not, so `@apply`
-settles it. The value written into that longhand is not: the CLI's `--minify`
+settles it. The value written into that longhand is not. The CLI's `--minify`
 runs Lightning CSS, which rewrites values as well as whitespace, and the
-snapshots in `test/upstream/utilities.txt` come from a run that was minified
-too. So a value read off an unminified CLI sheet is not on its own a target.
+snapshots in `test/upstream/utilities.txt` come from a minified run too. So a
+value read off an unminified CLI sheet is not on its own a target.
 
-Four families already differ that way and are right as they stand.
+Four families differ that way, and tw is right in each.
 `outline-[2]` writes `outline-width: 2` unminified and `outline-width: 2px`
 minified; `stroke-2` and `stroke-[1.5]` write `2` and `1.5` against `2px` and
 `1.5px`; `text-[length:12]` writes `font-size: 12` against `12px`; and
@@ -84,39 +84,47 @@ The hint has to stay in the class name. Dropping it from `to_class` writes a
 selector no markup carries, which is the same defect as slicing an arbitrary
 value: the declaration is right and nothing matches it.
 
-A bracket whose math folds to a bare number is where the two spellings part,
-and no one in the chain is wrong but Tailwind. `mask-[calc(1+2)]` makes
-`mask-position: calc(1 + 2)`, which is what Tailwind's generator writes and
-what tw now writes. Tailwind's minifier then folds it to `3px`, inventing a
-unit the calculation never had, and cascade declines to read `calc(1 + 2)`
-back at all, correctly, because a bare number is no length-percentage. `--diff`
-forces minification, so it compares tw's `calc(1 + 2)` against Lightning CSS's
-`3px` and reports a difference on those classes. Refusing the class instead
-reported one too, so emitting is the better of the two; expect the residual
-rather than chasing it.
+A bracket whose math folds to a bare number is where the two spellings part.
+`mask-[calc(1+2)]` makes `mask-position: calc(1 + 2)` in Tailwind's generator
+and in tw. Tailwind's minifier then folds it to `3px`, a unit the calculation
+never had, and cascade declines to read `calc(1 + 2)` back, because a bare
+number is no length-percentage. `--diff` forces minification, so it compares
+tw's `calc(1 + 2)` against Lightning CSS's `3px` and reports a difference on
+those classes. Refusing the class would report a difference too, so tw emits
+it and the residual stays.
 
-## What each family does
+## Family longhands
 
-**None of the families below still refuses a bracket the CLI writes out.** The
-table is kept as the inventory it is - the longhand each falls through to, which
-is what a reader needs when touching one - but the sweep that produced it now
-reports zero. Re-run it before trusting that: two hostile values per family
-through `tw --single=... --variables --no-base`, counting the declarations tw
-emits. The mask family is the worked example at the end. The longhand column is
-what the CLI writes it into, measured through `@apply` against tailwindcss
-v4.3.3. Five value shapes cover most of it: a bare identifier
-(`foo`), a colour keyword (`red`), a dashed identifier (`--c`), a unitless
-`calc(1+2)`, and a `url()` with a word after it (`url(x.png)_center`).
-
-There are 150 of them. 96 used to refuse the same five shapes:
+For each family, the table gives the longhand the CLI writes a bracket into
+when none of the family's readers takes it, read off `@apply` against
+tailwindcss v4.3.3. Five value shapes probe a family. They are a bare
+identifier (`foo`), a colour keyword (`red`), a dashed identifier (`--c`), a
+unitless `calc(1+2)`, and a `url()` with a word after it (`url(x.png)_center`);
+a length such as `10px` is a sixth. To check a family, run the shapes through
+`tw --single=... --variables --no-base` and count the declarations tw emits.
 
 | family | longhand Tailwind falls through to |
 | --- | --- |
+| `accent-[…]` | `accent-color` |
+| `align-[…]` | `vertical-align` |
+| `backdrop-filter-[…]` | `-webkit-backdrop-filter` |
 | `basis-[…]` | `flex-basis` |
+| `bg-[…]` | `background-color` |
 | `bg-position-[…]` | `background-position` |
 | `bg-size-[…]` | `background-size` |
 | `block-[…]` | `block-size` |
 | `bottom-[…]` | `bottom` |
+| `caret-[…]` | `caret-color` |
+| `col-[…]` | `grid-column` |
+| `col-end-[…]` | `grid-column-end` |
+| `col-span-[…]` | `grid-column` |
+| `col-start-[…]` | `grid-column-start` |
+| `cursor-[…]` | `cursor` |
+| `decoration-[…]` | `text-decoration-color` |
+| `fill-[…]` | `fill` |
+| `filter-[…]` | `filter` |
+| `font-[…]` | `font-family` |
+| `font-features-[…]` | `font-feature-settings` |
 | `gap-[…]` | `gap` |
 | `gap-x-[…]` | `column-gap` |
 | `gap-y-[…]` | `row-gap` |
@@ -131,8 +139,28 @@ There are 150 of them. 96 used to refuse the same five shapes:
 | `inset-x-[…]` | `inset-inline` |
 | `inset-y-[…]` | `inset-block` |
 | `left-[…]` | `left` |
+| `list-[…]` | `list-style-type` |
+| `list-image-[…]` | `list-style-image` |
 | `m-[…]` | `margin` |
+| `mask-b-from-[…]` | `mask-image` |
+| `mask-b-to-[…]` | `mask-image` |
+| `mask-conic-from-[…]` | `mask-image` |
+| `mask-conic-to-[…]` | `mask-image` |
+| `mask-l-from-[…]` | `mask-image` |
+| `mask-l-to-[…]` | `mask-image` |
+| `mask-linear-from-[…]` | `mask-image` |
+| `mask-linear-to-[…]` | `mask-image` |
+| `mask-r-from-[…]` | `mask-image` |
+| `mask-r-to-[…]` | `mask-image` |
 | `mask-radial-at-[…]` | `(custom properties only)` |
+| `mask-radial-from-[…]` | `mask-image` |
+| `mask-radial-to-[…]` | `mask-image` |
+| `mask-t-from-[…]` | `mask-image` |
+| `mask-t-to-[…]` | `mask-image` |
+| `mask-x-from-[…]` | `mask-image` |
+| `mask-x-to-[…]` | `mask-image` |
+| `mask-y-from-[…]` | `mask-image` |
+| `mask-y-to-[…]` | `mask-image` |
 | `max-block-[…]` | `max-block-size` |
 | `max-h-[…]` | `max-height` |
 | `max-inline-[…]` | `max-inline-size` |
@@ -152,13 +180,16 @@ There are 150 of them. 96 used to refuse the same five shapes:
 | `mx-[…]` | `margin-inline` |
 | `my-[…]` | `margin-block` |
 | `object-[…]` | `object-position` |
+| `order-[…]` | `order` |
 | `origin-[…]` | `transform-origin` |
+| `outline-[…]` | `outline-color` |
 | `outline-offset-[…]` | `outline-offset` |
 | `p-[…]` | `padding` |
 | `pb-[…]` | `padding-bottom` |
 | `pbe-[…]` | `padding-block-end` |
 | `pbs-[…]` | `padding-block-start` |
 | `pe-[…]` | `padding-inline-end` |
+| `perspective-[…]` | `perspective` |
 | `perspective-origin-[…]` | `perspective-origin` |
 | `pl-[…]` | `padding-left` |
 | `pr-[…]` | `padding-right` |
@@ -167,6 +198,9 @@ There are 150 of them. 96 used to refuse the same five shapes:
 | `px-[…]` | `padding-inline` |
 | `py-[…]` | `padding-block` |
 | `right-[…]` | `right` |
+| `rotate-x-[…]` | `transform` |
+| `rotate-y-[…]` | `transform` |
+| `rotate-z-[…]` | `transform` |
 | `rounded-[…]` | `border-radius` |
 | `rounded-b-[…]` | `border-bottom-right-radius` |
 | `rounded-bl-[…]` | `border-bottom-left-radius` |
@@ -182,6 +216,10 @@ There are 150 of them. 96 used to refuse the same five shapes:
 | `rounded-t-[…]` | `border-top-left-radius` |
 | `rounded-tl-[…]` | `border-top-left-radius` |
 | `rounded-tr-[…]` | `border-top-right-radius` |
+| `row-[…]` | `grid-row` |
+| `row-end-[…]` | `grid-row-end` |
+| `row-span-[…]` | `grid-row` |
+| `row-start-[…]` | `grid-row-start` |
 | `scroll-m-[…]` | `scroll-margin` |
 | `scroll-mb-[…]` | `scroll-margin-bottom` |
 | `scroll-mbe-[…]` | `scroll-margin-block-end` |
@@ -205,143 +243,98 @@ There are 150 of them. 96 used to refuse the same five shapes:
 | `scroll-px-[…]` | `scroll-padding-inline` |
 | `scroll-py-[…]` | `scroll-padding-block` |
 | `size-[…]` | `width` |
+| `stroke-[…]` | `stroke` |
+| `text-[…]` | `color` |
+| `text-shadow-[…]` | `text-shadow` |
 | `top-[…]` | `top` |
+| `transform-[…]` | `transform` |
+| `translate-[…]` | `translate` |
+| `translate-x-[…]` | `translate` |
+| `translate-y-[…]` | `translate` |
 | `underline-offset-[…]` | `text-underline-offset` |
 | `w-[…]` | `width` |
+| `will-change-[…]` | `will-change` |
+| `zoom-[…]` | `zoom` |
 
-The remaining 54 refuse a different set:
+Three rows are not a fall-through to one longhand. `mask-radial-at-[…]`,
+`col-span-[…]` and `row-span-[…]` write custom properties or a shorthand, so
+read the CLI directly before changing them.
 
-| family | longhand | shapes tw refuses |
-| --- | --- | --- |
-| `accent-[…]` | `accent-color` | ident, length, dashed, calc, url+word |
-| `align-[…]` | `vertical-align` | ident, colour, length, dashed, calc, url+word |
-| `backdrop-filter-[…]` | `-webkit-backdrop-filter` | ident, colour, length, dashed, calc, url+word |
-| `bg-[…]` | `background-color` | ident, dashed, calc, url+word |
-| `caret-[…]` | `caret-color` | ident, length, dashed, calc, url+word |
-| `col-[…]` | `grid-column` | length, calc, url+word |
-| `col-end-[…]` | `grid-column-end` | length, calc, url+word |
-| `col-span-[…]` | `grid-column` | calc |
-| `col-start-[…]` | `grid-column-start` | length, calc, url+word |
-| `cursor-[…]` | `cursor` | ident, colour, length, dashed, calc, url+word |
-| `decoration-[…]` | `text-decoration-color` | ident, dashed, calc, url+word |
-| `fill-[…]` | `fill` | ident, length, dashed, calc, url+word |
-| `filter-[…]` | `filter` | ident, colour, length, dashed, calc, url+word |
-| `font-[…]` | `font-family` | length, calc, url+word |
-| `font-features-[…]` | `font-feature-settings` | ident, colour, length, dashed, calc, url+word |
-| `list-[…]` | `list-style-type` | ident, colour, length, dashed, calc, url+word |
-| `list-image-[…]` | `list-style-image` | ident, colour, length, dashed, calc, url+word |
-| `mask-b-from-[…]` | `mask-image` | dashed |
-| `mask-b-to-[…]` | `mask-image` | dashed |
-| `mask-conic-from-[…]` | `mask-image` | dashed |
-| `mask-conic-to-[…]` | `mask-image` | dashed |
-| `mask-l-from-[…]` | `mask-image` | dashed |
-| `mask-l-to-[…]` | `mask-image` | dashed |
-| `mask-linear-from-[…]` | `mask-image` | dashed |
-| `mask-linear-to-[…]` | `mask-image` | dashed |
-| `mask-r-from-[…]` | `mask-image` | dashed |
-| `mask-r-to-[…]` | `mask-image` | dashed |
-| `mask-radial-from-[…]` | `mask-image` | dashed |
-| `mask-radial-to-[…]` | `mask-image` | dashed |
-| `mask-t-from-[…]` | `mask-image` | dashed |
-| `mask-t-to-[…]` | `mask-image` | dashed |
-| `mask-x-from-[…]` | `mask-image` | dashed |
-| `mask-x-to-[…]` | `mask-image` | dashed |
-| `mask-y-from-[…]` | `mask-image` | dashed |
-| `mask-y-to-[…]` | `mask-image` | dashed |
-| `order-[…]` | `order` | ident, colour, length, dashed, url+word |
-| `outline-[…]` | `outline-color` | ident, dashed, calc, url+word |
-| `perspective-[…]` | `perspective` | ident, colour, dashed, var, calc, url+word |
-| `rotate-x-[…]` | `transform` | ident, colour, length, dashed, var, calc, url+word |
-| `rotate-y-[…]` | `transform` | ident, colour, length, dashed, var, calc, url+word |
-| `rotate-z-[…]` | `transform` | ident, colour, length, dashed, var, calc, url+word |
-| `row-[…]` | `grid-row` | length, calc, url+word |
-| `row-end-[…]` | `grid-row-end` | length, calc, url+word |
-| `row-span-[…]` | `grid-row` | calc |
-| `row-start-[…]` | `grid-row-start` | length, calc, url+word |
-| `stroke-[…]` | `stroke` | ident, dashed, calc, url+word |
-| `text-[…]` | `color` | ident, dashed, calc, url+word |
-| `text-shadow-[…]` | `text-shadow` | ident, length, dashed, calc, url+word |
-| `transform-[…]` | `transform` | ident, colour, length, dashed, calc, url+word |
-| `translate-[…]` | `translate` | ident, colour, dashed, var, calc, url+word |
-| `translate-x-[…]` | `translate` | ident, colour, dashed, var, calc, url+word |
-| `translate-y-[…]` | `translate` | ident, colour, dashed, var, calc, url+word |
-| `will-change-[…]` | `will-change` | length, calc, url+word |
-| `zoom-[…]` | `zoom` | ident, colour, length, dashed, calc, url+word |
+## Token streams and hints
 
-Three of those rows are not a fall-through at all. `mask-radial-at-[…]`,
-`col-span-[…]` and `row-span-[…]` write custom properties or a shorthand rather
-than one longhand, so read the CLI directly before converting them.
-
-## What already holds
-
-`grep -l opaque_declaration lib/*.ml` names the families that already do. The
-mask family is the worked example: `lib/masks.ml` routes every bracket its
-readers decline into `mask-image`, `mask-position` or `mask-size` according to
-the hint the class carries, and `test/test_masks.ml` pins each one against the
-CLI.
+`grep -l opaque_declaration lib/*.ml` names the families that write a token
+stream. The mask family is the worked example. `lib/masks.ml` routes every
+bracket its readers decline into `mask-image`, `mask-position` or `mask-size`
+according to the hint the class carries, and `test/test_masks.ml` pins each one
+against the CLI.
 
 The hint comes off in two places and nowhere else.
 `Parse.arbitrary_declaration_value` peels it for a family falling through to a
 token stream, so such a family passes the whole bracket and gets the value
-back. `Parse.value_after_hint` peels it for a family whose reader is typed,
-which keeps the value typed where a last resort would not: the sizing, padding,
-margin, gap, inset and scroll families call it, as do `rounded-[…]`,
+back. `Parse.value_after_hint` peels it for a family whose reader is typed, so
+the value stays typed where a last resort would not keep it. The sizing,
+padding, margin, gap, inset and scroll families call it, as do `rounded-[…]`,
 `outline-offset-[…]` and the four colour families in `lib/color.ml`.
-`Parse.data_type_hint` is the same scan on its own, for a
-family that routes on which hint was written. Peeling in the family and passing
-the remainder peels twice, and `mask-[bogus:foo:2em]` is where that shows.
+`Parse.data_type_hint` is the same scan on its own, for a family that routes on
+which hint was written. Peeling in the family and passing the remainder peels
+twice, and `mask-[bogus:foo:2em]` is where that shows.
 
 A family that writes one longhand takes any hint, so `w-[foo:10px]` is a width
 and `accent-[foo:red]` an accent colour. A family that writes several routes on
-the name, and the names are the family's own: `border-[…]` reads `length:` and
-`line-width:` as the width and every other hint as the colour, where
-`outline-[…]` reads `length:`, `number:` and `percentage:` as the width and
-takes `line-width:` for no hint of its own, so `outline-[line-width:2px]` is an
-`outline-color`. `bg-[…]` spells its position hint two ways, `position:` and
-`percentage:`. Read the family off the CLI before adding a name to it.
+the name, and the names are the family's own. `border-[…]` reads `length:` and
+`line-width:` as the width and every other hint as the colour. `outline-[…]`
+reads `length:`, `number:` and `percentage:` as the width and does not know
+`line-width:`, so `outline-[line-width:2px]` is an `outline-color`. `bg-[…]`
+spells its position hint two ways, `position:` and `percentage:`. Read the
+family off the CLI before adding a name to it.
 
-Two mask readings are wrong in a way this contract does not reach, because
-both take a bracket their readers accept. `mask-[30%_50%,70%_50%]` is a
-`mask-size` to Tailwind and a `mask-position` to tw, which also drops half of
-each pair; `mask-[image-set(url(a.png)_1x)]` writes the inner URL quoted and
-without the `-webkit-image-set` fallback beside it.
+The colour families (`text-`, `outline-`, `border-` and its per-side longhands,
+`fill-`, `stroke-`, `accent-`, `caret-`, `placeholder-` and `bg-`) write a
+bracket no reader took into their colour, which is each one's last resort. So
+`text-[foo:1.25rem]`, `text-[notacolour]`, `outline-[foo:red]` and a malformed
+hex all reach the sheet. `bg-[…]` runs its bracket through a size, a position,
+an image and a url reader, each forwarding its own value, so only an unhinted
+bracket reaches the colour. That fall-through takes one bracket value only, or
+`bg-[10px][20px]` would be accepted as a single declaration. An opacity
+modifier over a value that is not a colour is refused everywhere, because the
+CLI writes a `color-mix()` around the raw token and cascade's colour types hold
+colours, not token streams.
 
-Three things are still open and none is a family's own fault. `transition-[…]`,
-`bg-conic-[…]` and the `brightness-`, `contrast-`, `grayscale-`, `saturate-`
-and `sepia-` filters call `arbitrary_declaration_value` to decide whether the
-class exists and then build the declaration from the raw bracket again, so the
-hint reaches the sheet: `transition-[foo:color]` writes `transition-property:
-foo:color` where the CLI writes `color`. Each needs the `(spelling, value)`
-payload the other families carry, so `to_class` keeps the hint and `to_style`
-does not. `text-[…]` and `outline-[…]` now write a bracket
-no reader took into their colour, which is each family's last resort, so
-`text-[foo:1.25rem]`, `text-[foo:red]`, `text-[notacolour]`,
-`outline-[foo:red]` and a malformed hex all reach the sheet. `border-`, `fill-`, `stroke-`, `accent-`,
-`caret-`, `placeholder-` and `bg-` followed. `bg-` took the most work, for the
-reason a family with several readers always will: its bracket runs through a
-size, a position, an image and a url, so each reader forwards its own value and
-only the unhinted fall-through reaches the colour. The fall-through is gated on
-the text being one bracket value, or `bg-[10px][20px]` would be accepted as a
-single declaration. The per-side border colours followed, one longhand per
-side, which closes the colour families. An opacity modifier over a value that is not a colour
-stays refused everywhere: the CLI writes a `color-mix()` around the raw token,
-and cascade's colour types hold colours, not token streams. The width hints in `lib/typography.ml`,
-`lib/borders.ml` and `lib/svg.ml` no longer refuse a value their reader
-declines: each carries a variant holding `(spelling, value)` and writes the
-value through `opaque_declaration` on the longhand the hint named, with the
-bare-number-as-pixels rule above settling the one case the hint makes
-unambiguous. Where the family writes a style declaration beside the width -
-`border-`, `outline-` - that declaration travels with the raw value, so the
-browser drops the width and keeps the style.
+The width hints in `lib/typography.ml`, `lib/borders.ml` and `lib/svg.ml`
+carry a variant holding `(spelling, value)`. A value the width reader declines
+goes through `opaque_declaration` on the longhand the hint named. Where the
+family writes a style declaration beside the width (`border-`, `outline-`),
+that declaration travels with the raw value, so the browser drops the width
+and keeps the style.
 
-These families still refuse a bracket that opens with a hint, each because the
-hint reaches a typed reader that has not been shown it: `basis-[…]`,
-`indent-[…]`, `object-[…]`, `origin-[…]`, `perspective-origin-[…]`,
-`bg-position-[…]`, `bg-size-[…]`, `underline-offset-[…]`, and `col-[…]` and
-`row-[…]` with their `-start` and `-end` siblings.
+## Open gaps
 
-One family reads a hinted bracket and writes the wrong declaration.
+These families refuse shapes the CLI writes out. Each is a defect against the
+contract.
+
+- `col-[…]`, `col-start-[…]`, `col-end-[…]`, `row-[…]`, `row-start-[…]` and
+  `row-end-[…]` refuse a length and a `url()` with a word after it.
+- `font-[…]`, `list-[…]` and `will-change-[…]` refuse a length, `calc(1+2)`
+  and a `url()` with a word after it.
+- `decoration-[…]` refuses an identifier, a dashed identifier, `calc(1+2)` and
+  a `url()` with a word after it.
+- `text-shadow-[…]` refuses every shape but a colour keyword.
+
+Some families carry the hint into the sheet. `transition-[…]`, `bg-conic-[…]`
+and the `brightness-`, `contrast-`, `grayscale-`, `saturate-` and `sepia-`
+filters call `arbitrary_declaration_value` to decide whether the class exists
+and then build the declaration from the raw bracket again, so
+`transition-[foo:color]` writes `transition-property: foo:color` where the CLI
+writes `color`. Each needs the `(spelling, value)` payload the other families
+carry, so that `to_class` keeps the hint and `to_style` does not.
+
 `shadow-[foo:red]` reaches the shadow reader as `red` and writes
 `--tw-shadow: red`, where the CLI writes
-`--tw-shadow: var(--tw-shadow-color, red)`; the hint drops the bracket into the
-colour branch there, not the shadow one.
+`--tw-shadow: var(--tw-shadow-color, red)`. In the CLI the hint sends the
+bracket to the shadow-colour branch.
+
+Two mask readings are wrong in a way this contract does not reach, because
+their readers accept the bracket. `mask-[30%_50%,70%_50%]` is a `mask-size` to
+Tailwind and a `mask-position` to tw, which also drops half of each pair.
+`mask-[image-set(url(a.png)_1x)]` lacks the `-webkit-mask-image:
+-webkit-image-set(...)` fallback Tailwind writes beside it.
