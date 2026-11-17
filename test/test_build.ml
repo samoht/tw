@@ -1147,19 +1147,6 @@ let check_nested_spacing_keeps_runtime_carrier () =
     "theme keeps referenced --spacing" true
     (Astring.String.is_infix ~affix:"--spacing:" css)
 
-(* Dependency discovery inspects the value of every emitted declaration. An
-   arbitrary value can be valid for its real property while not being a valid
-   custom-property declaration value (a top-level unmatched closing delimiter is
-   one example), so that inspection must never reparse it through a synthetic
-   declaration. *)
-let check_dependency_scan_accepts_adversarial_value () =
-  let utility =
-    match Tw.of_string "mask-conic-[0)/*1]" with
-    | Ok utility -> utility
-    | Error (`Msg msg) -> Alcotest.fail msg
-  in
-  ignore (Tw.to_css ~base:false [ utility ])
-
 (* A utility that only REFERENCES a theme colour token via var() (here an
    arbitrary bg-[color:var(--color-red-500)]) must still emit that token in
    @layer theme; the build used to collect only tokens utilities set. A
@@ -1366,8 +1353,6 @@ let tests =
     test_case "spacing-0 prunes --spacing" `Quick check_spacing_zero_prune;
     test_case "nested spacing keeps --spacing" `Quick
       check_nested_spacing_keeps_runtime_carrier;
-    test_case "dependency scan accepts adversarial value" `Quick
-      check_dependency_scan_accepts_adversarial_value;
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
     test_case "theme layer - with color" `Quick check_theme_layer_with_color;
     test_case "order under a project theme" `Quick

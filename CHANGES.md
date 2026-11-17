@@ -40,6 +40,10 @@
   `text-indent: calc(foo * -1)`. This holds for `-z-`, `-order-`, `-indent-`,
   `-outline-offset-`, `-underline-offset-`, `-hue-rotate-` and
   `-backdrop-hue-rotate-` (#950).
+- `mask-linear-[...]` and `mask-conic-[...]`, negated or not, refuse a bracket
+  that cannot stand in a declaration or opens with an empty hint, as Tailwind
+  does: `-mask-conic-[}]` raised out of `to_css` and `mask-linear-[a;b]`
+  compiled (#951).
 - A bracket opening with a data-type hint the family does not know writes only
   the value after the hint, as Tailwind does: `transition-[foo:color]` sets
   `transition-property: color`, not `foo:color`. This holds for `transition-`,
