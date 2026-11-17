@@ -65,7 +65,6 @@ let prose_invert_td_borders_var = Var.channel Color "tw-prose-invert-td-borders"
 let ( ++ ) = Css.Selector.( ++ )
 let ( >> ) = Css.Selector.( >> )
 let ( && ) = Css.Selector.( && )
-(* let ( || ) = Css.Selector.( || ) -- Not used anymore, using list instead *)
 
 (* Shorthand for attribute selectors *)
 let attr name match_type = Css.Selector.attribute name match_type
@@ -87,11 +86,9 @@ let prose_where_element element_selector =
   (* Create :where(element):not(:where(...)) structure *)
   compound [ where [ element_selector ]; not_prose_selector ]
 
-(* Helper to create a typed selector with :where() and :not() for prose *)
+(* [elt] under the prose class [base_class], kept off [not-prose] content. *)
 let where base_class elt =
-  let open Css.Selector in
-  (* For now, just use the new helper *)
-  class_ base_class ++ prose_where_element elt
+  Css.Selector.class_ base_class ++ prose_where_element elt
 
 (* Helper for child selectors in prose size variants like prose-sm *)
 let prose_child_selector parent_selector child_element =
@@ -133,13 +130,6 @@ let img = Css.Selector.element "img"
 let dt = Css.Selector.element "dt"
 let strong = Css.Selector.element "strong"
 let video = Css.Selector.element "video"
-(* kbd selector no longer needed; size rules use direct element selectors *)
-
-(* Lead paragraph selector - now unused since prose_where_element is used
-   directly *)
-
-(* Compound selectors for ol with type attributes *)
-(* ol type selectors were only used in removed duplicate rules *)
 
 (* Pseudo-element helpers that apply pseudo AFTER the where clause *)
 let with_before selector =
