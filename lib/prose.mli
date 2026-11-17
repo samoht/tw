@@ -35,33 +35,6 @@ val pp : variant -> string
 val to_class : variant -> string
 (** [to_class variant] converts prose variant to CSS class name. *)
 
-val to_css_rules : variant -> Css.statement list
-(** [to_css_rules variant] generates CSS rules for a prose variant.
-
-    This generates all the CSS rules needed for the prose variant, including
-    styles for headings, paragraphs, lists, quotes, etc.
-
-    The rules use descendant selectors to style child elements:
-    - [.prose h1] - styles all h1 elements inside prose
-    - [.prose p] - styles all paragraphs inside prose
-    - etc. *)
-
-val css_variables : Css.declaration list
-(** [css_variables] returns default prose CSS variables for theming.
-
-    These CSS custom properties control the color scheme:
-    - [--tw-prose-body] - body text color
-    - [--tw-prose-headings] - heading color
-    - [--tw-prose-links] - link color
-    - [--tw-prose-bold] - bold text color
-    - [--tw-prose-code] - inline code color
-    - [--tw-prose-quotes] - blockquote text color
-    - [--tw-prose-borders] - border colors
-    - etc.
-
-    These variables are included with the base prose styles and can be
-    overridden by color theme variants like [Gray] or [Slate]. *)
-
 (** {2 Prose Utilities} *)
 
 val prose : t

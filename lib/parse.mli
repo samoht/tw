@@ -22,14 +22,11 @@ val fraction : string -> (int * int) option
     redundant leading zero; the denominator is drawn from no fixed list, and
     zero is a value on either side. *)
 
-val fraction_percent : int -> int -> float option
-(** [fraction_percent n m] is the percentage Tailwind's [calc(n / m * 100%)]
-    computes, folded to six significant figures the way Tailwind's printer folds
-    it. A zero denominator is [None]: it has no percentage, and Tailwind writes
-    the division out instead. *)
-
 val fraction_pct : string -> float option
-(** [fraction_pct s] is {!fraction} put through {!fraction_percent}. *)
+(** [fraction_pct s] is the percentage Tailwind's [calc(n / m * 100%)] computes
+    for the fraction {!fraction} reads from [s], folded to six significant
+    figures the way Tailwind's printer folds it. A zero denominator is [None]:
+    it has no percentage, and Tailwind writes the division out instead. *)
 
 val fraction_calc : 'a Cascade.Css.calc -> int -> int -> 'a Cascade.Css.calc
 (** [fraction_calc hundred n m] is [n / m * hundred], the expression Tailwind

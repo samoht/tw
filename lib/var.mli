@@ -328,11 +328,6 @@ type 'a property_info = {
     - {!field-inherits}: Whether the property inherits from parent elements
     - {!field-universal}: Force universal syntax "*" instead of typed syntax *)
 
-val property_info :
-  ?initial:'a -> ?inherits:bool -> ?universal:bool -> unit -> 'a property_info
-(** [property_info ?initial ?inherits ?universal ()] creates property metadata
-    with defaults: inherits=false, universal=false. *)
-
 type ('a, 'r) t
 (** The type for CSS variables with phantom type for role *)
 
@@ -576,10 +571,6 @@ val metadata_needs_property : metadata -> bool
 val metadata_default_css : metadata -> string option
 (** [metadata_default_css metadata] is the serialized typed initial value used
     for an automatic [@property] registration, if any. *)
-
-val property_rule_of_metadata : metadata -> Css.t option
-(** [property_rule_of_metadata metadata] reconstructs the exact typed
-    [@property] rule carried by a variable definition, if any. *)
 
 val property_rule_of_var : 'a Css.var -> Css.t option
 (** [property_rule_of_var var] is the exact typed [@property] rule carried by

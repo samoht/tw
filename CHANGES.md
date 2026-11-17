@@ -14,6 +14,18 @@
   `Tw.Scheme.is_hex_color`, `Tw.Color.round_n` and `Tw.Color.Tailwind` are
   removed: nothing called them. `Tw.Utility.base_of_class` takes the class
   `base_of_strings` assembled from its parts (#922).
+- `Tw.Color.opacity_var_bare`, `Tw.Color.relative_color_supports`,
+  `Tw.Color.relative_alpha`, `Tw.Color.channel_style`, `Tw.Color.palette_hex`,
+  `Tw.Color.bracket_var_ref`, `Tw.Color.of_string_exn`,
+  `Tw.Color.theme_order_with_shade`, `Tw.Parse.fraction_percent`,
+  `Tw.Prose.to_css_rules`, `Tw.Prose.css_variables`,
+  `Tw.Spacing.named_spacing_binding`, `Tw.Theme.spacing_n_var`,
+  `Tw.Typography.font_sans_var`, `Tw.Typography.font_serif_var`,
+  `Tw.Typography.font_mono_var`, `Tw.Utility.base_to_style`,
+  `Tw.Var.property_info` and `Tw.Var.property_rule_of_metadata` are no longer
+  exported: only their own module used them. `Tw.Color.of_string` and
+  `Tw.Parse.fraction_pct` remain for callers of `of_string_exn` and
+  `fraction_percent` (#923).
 
 ### Utilities
 
