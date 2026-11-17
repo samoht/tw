@@ -39,6 +39,3 @@ let initial_values property_rules =
       | None -> acc)
     [] property_rules
   |> List.rev
-
-let sort_by_order order_of pairs =
-  List.sort (fun (n1, _) (n2, _) -> compare (order_of n1) (order_of n2)) pairs

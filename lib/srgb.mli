@@ -39,9 +39,6 @@ val rgb_to_oklab : rgb -> float * float * float
 val oklch_to_css : oklch -> string
 (** [oklch_to_css oklch] formats OKLCH for CSS. *)
 
-val round_n : int -> float -> float
-(** [round_n n f] rounds [f] to [n] decimal places. *)
-
 (** {1 Hex spellings} *)
 
 val hex_to_rgb : string -> rgb option

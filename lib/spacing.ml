@@ -90,31 +90,6 @@ let to_decl_len ?theme ?(negative = false) (s : spacing) :
       let decl, len = Theme.spacing_calc_float ?theme n in
       (Some decl, len)
 
-let length_with ~px ~full ~rem_factor spacing_ref : spacing -> length = function
-  | `Px -> Px px
-  | `Full -> Pct full
-  | `Named name -> named_spacing_ref name
-  | `Rem f ->
-      let n = rem_factor f in
-      Calc (Calc.mul (Calc.length (Var spacing_ref)) (Calc.float n))
-
-let to_length spacing_ref =
-  length_with ~px:1. ~full:100.0
-    ~rem_factor:(fun f -> float_of_int (int_of_float (f /. 0.25)))
-    spacing_ref
-
-let margin_to_length spacing_ref : margin -> length = function
-  | `Auto -> Auto
-  | #spacing as spacing ->
-      length_with ~px:1. ~full:100.0
-        ~rem_factor:(fun f -> f /. 0.25)
-        spacing_ref spacing
-
-let margin_to_length_neg spacing_ref =
-  length_with ~px:(-1.) ~full:(-100.0)
-    ~rem_factor:(fun f -> -.(f /. 0.25))
-    spacing_ref
-
 (** {1 Spacing Constructors} *)
 
 let int n = `Rem (float_of_int n *. 0.25)
