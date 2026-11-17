@@ -45,10 +45,6 @@ val rewrite :
     resume, or [None] to have the byte at [i] copied. [names] is what the pass
     matches; a source spelling none of them is handed back unindexed. *)
 
-val strip_quotes : string -> string option
-(** [strip_quotes s] is [s] without the matching quotes around it, and [None]
-    when it has none. *)
-
 val unquote : string -> string
 (** [unquote s] is [s] unquoted when it is quoted, and [s] otherwise. *)
 

@@ -1172,17 +1172,6 @@ let media_block condition css =
       | None, _ -> None)
     None css
 
-let selectors_in_media ~condition css =
-  match media_block condition css with
-  | None -> []
-  | Some stmts ->
-      List.filter_map
-        (fun s ->
-          match Css.as_rule s with
-          | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-          | None -> None)
-        stmts
-
 (* Selector testable and utilities *)
 let pp_selector fmt sel = Fmt.string fmt (Css.Selector.to_string sel)
 let selector_testable = Alcotest.testable pp_selector ( = )

@@ -196,10 +196,6 @@ val claiming_handlers : Scheme.t -> string -> string list
     handler accepts resolves on a build detail rather than on anything declared.
     Exposed so a test can assert that no class is claimed twice. *)
 
-val base_to_style : Scheme.t -> base -> Style.t
-(** [base_to_style theme u] converts a base utility (without modifiers) to
-    Style.t, reading theme values from [theme]. *)
-
 val name_of_base : base -> string
 (** [name_of_base u] returns the utility name. *)
 
