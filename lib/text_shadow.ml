@@ -28,12 +28,14 @@ module Handler = struct
     | Bracket_color_opacity of string * Css.color * Color.opacity_modifier
     | Bracket_color_var of string
     | Bracket_cvar_opacity of string * Color.opacity_modifier
-    | Bracket_shadow of string
-    | Bracket_shadow_opacity of string * Color.opacity_modifier
+    | Bracket_shadow of string * string
+    | Bracket_shadow_opacity of string * string * Color.opacity_modifier
     | Bracket_var of string
     | Bracket_var_opacity of string * Color.opacity_modifier
     | Arbitrary of string
     | Arbitrary_opacity of string * Color.opacity_modifier
+    | Raw of string * string
+    | Raw_opacity of string * string * Color.opacity_modifier
     | Named of string  (** a project [--text-shadow-<name>] token *)
     | Named_opacity of string * Color.opacity_modifier
 
@@ -44,7 +46,9 @@ module Handler = struct
     | Shape_opacity (shape, Color.Opacity_named _) -> Shape shape
     | Named_opacity (name, Color.Opacity_named _) -> Named name
     | Arbitrary_opacity (arb, Color.Opacity_named _) -> Arbitrary arb
-    | Bracket_shadow_opacity (s, Color.Opacity_named _) -> Bracket_shadow s
+    | Bracket_shadow_opacity (sp, s, Color.Opacity_named _) ->
+        Bracket_shadow (sp, s)
+    | Raw_opacity (sp, v, Color.Opacity_named _) -> Raw (sp, v)
     | Bracket_var_opacity (v, Color.Opacity_named _) -> Bracket_var v
     | t -> t
 
@@ -57,7 +61,7 @@ module Handler = struct
   let priority t =
     match without_named_size_alpha t with
     | Shape_opacity _ | Arbitrary_opacity _ | Named_opacity _
-    | Bracket_var_opacity _ | Bracket_shadow_opacity _ ->
+    | Bracket_var_opacity _ | Bracket_shadow_opacity _ | Raw_opacity _ ->
         38
     | _ -> 41
 
@@ -403,9 +407,9 @@ module Handler = struct
         Color.channel_bracket_var_opacity channel var_expr opacity
     (* The hint says the payload is a shadow, not that it names a variable. A
        [var()] still reads as one; anything else is the shadow itself. *)
-    | Bracket_shadow payload when not (Parse.is_var payload) ->
+    | Bracket_shadow (_, payload) when not (Parse.is_var payload) ->
         arbitrary_shadow_style ~theme payload
-    | Bracket_shadow var_expr ->
+    | Bracket_shadow (_, var_expr) ->
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
           [ Css.text_shadow (make_text_shadow_var var_expr) ]
@@ -413,13 +417,13 @@ module Handler = struct
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
           [ Css.text_shadow (make_text_shadow_var var_expr) ]
-    | Bracket_shadow_opacity (payload, opacity) when not (Parse.is_var payload)
-      ->
+    | Bracket_shadow_opacity (_, payload, opacity)
+      when not (Parse.is_var payload) ->
         arbitrary_shadow_opacity_style payload opacity
     (* A shadow read whole from a custom property has no colour to fold the
        alpha into: Tailwind sets the channel and leaves the value as it is. *)
     | Bracket_var_opacity (var_expr, opacity)
-    | Bracket_shadow_opacity (var_expr, opacity) ->
+    | Bracket_shadow_opacity (_, var_expr, opacity) ->
         style ~metadata:text_shadow_property_metadata
           ~property_rules:text_shadow_property_rules
           [
@@ -429,6 +433,15 @@ module Handler = struct
     | Arbitrary arb -> arbitrary_shadow_style ~theme arb
     | Arbitrary_opacity (arb, opacity) ->
         arbitrary_shadow_opacity_style arb opacity
+    | Raw (_, value) ->
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
+          (Option.to_list (Parse.opaque_declaration "text-shadow" value))
+    | Raw_opacity (_, value, opacity) ->
+        style ~metadata:text_shadow_property_metadata
+          ~property_rules:text_shadow_property_rules
+          (opacity_decl opacity
+          :: Option.to_list (Parse.opaque_declaration "text-shadow" value))
 
   (* ============ Parsing ============ *)
 
@@ -468,6 +481,78 @@ module Handler = struct
       starts_with "color:" inner || starts_with "shadow:" inner
     in
     has_length_unit inner && not has_typed_prefix
+
+  (* Whether Tailwind writes a shadow bracket into text-shadow as it stands. In
+     each comma layer it wraps the first colour it finds, and failing one, the
+     single word that is neither a keyword nor length-like when the layer holds
+     two lengths; a layer with fewer than two lengths, or with two unknown
+     words, it leaves alone. *)
+  let tailwind_writes_verbatim value =
+    let is_length_like w =
+      let w =
+        if String.starts_with ~prefix:"-" w then
+          String.sub w 1 (String.length w - 1)
+        else w
+      in
+      w <> ""
+      && ((w.[0] >= '0' && w.[0] <= '9')
+         || (String.length w > 1 && w.[0] = '.' && w.[1] >= '0' && w.[1] <= '9')
+         )
+    in
+    let layer_verbatim layer =
+      let words =
+        Parse.split_top_level ' ' (String.trim layer)
+        |> List.filter (fun w -> w <> "")
+      in
+      let classify (colour, lengths, unknown) w =
+        let fn =
+          Stdlib.Option.map
+            (fun i -> String.lowercase_ascii (String.sub w 0 i))
+            (String.index_opt w '(')
+        in
+        match fn with
+        | Some f when Css.Properties.is_color_function f || f = "--alpha" ->
+            (true, lengths, unknown)
+        | Some ("calc" | "clamp" | "max" | "min" | "--spacing") ->
+            (colour, lengths + 1, unknown)
+        | Some _ -> (colour, lengths, unknown + 1)
+        | Stdlib.Option.None -> (
+            match String.lowercase_ascii w with
+            | "inset" | "inherit" | "initial" | "revert" | "unset" ->
+                (colour, lengths, unknown)
+            | _ when is_length_like w -> (colour, lengths + 1, unknown)
+            | _ when w.[0] = '#' || Color.parse_bracket_color w <> None ->
+                (true, lengths, unknown)
+            | _ -> (colour, lengths, unknown + 1))
+      in
+      let colour, lengths, unknown =
+        List.fold_left classify (false, 0, 0) words
+      in
+      (not colour) && (lengths < 2 || unknown >= 2)
+    in
+    List.for_all layer_verbatim (Parse.split_top_level ',' value)
+
+  (* A bracket no reader takes, written as the author spelled it where Tailwind
+     does the same. *)
+  let raw_shadow spelling opacity =
+    match Parse.arbitrary_declaration_value spelling with
+    | Some value when tailwind_writes_verbatim value -> (
+        match opacity with
+        | Color.No_opacity -> Ok (Raw (spelling, value))
+        | op -> Ok (Raw_opacity (spelling, value, op)))
+    | _ -> Utility.unclaimed
+
+  (* A hint other than [color:] says the bracket is a shadow, and only a var()
+     after it names a custom property. *)
+  let bracket_shadow spelling payload opacity =
+    if
+      Parse.is_var payload
+      || parse_arbitrary_shadow payload <> Stdlib.Option.None
+    then
+      match opacity with
+      | Color.No_opacity -> Ok (Bracket_shadow (spelling, payload))
+      | op -> Ok (Bracket_shadow_opacity (spelling, payload, op))
+    else raw_shadow spelling opacity
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -534,40 +619,33 @@ module Handler = struct
                   Ok (Bracket_color_var payload)
               | Stdlib.Option.None, op ->
                   Ok (Bracket_cvar_opacity (payload, op))
-            else if starts_with "shadow:" inner then
-              let payload = String.sub inner 7 (String.length inner - 7) in
-              if
-                Parse.is_var payload
-                || parse_arbitrary_shadow payload <> Stdlib.Option.None
-              then
-                match opacity with
-                | Color.No_opacity -> Ok (Bracket_shadow payload)
-                | op -> Ok (Bracket_shadow_opacity (payload, op))
-              else Utility.unclaimed
-            else if Parse.is_var inner && not (is_shadow_value inner) then
-              match opacity with
-              | Color.No_opacity -> Ok (Bracket_var inner)
-              | op -> Ok (Bracket_var_opacity (inner, op))
-            else if is_hex_value inner then
-              let hex = String.sub inner 1 (String.length inner - 1) in
-              match opacity with
-              | Color.No_opacity -> Ok (Bracket_hex hex)
-              | op -> Ok (Bracket_hex_opacity (hex, op))
             else
-              match Color.parse_bracket_color inner with
-              | Some c -> (
-                  match opacity with
-                  | Color.No_opacity -> Ok (Bracket_color (inner, c))
-                  | op -> Ok (Bracket_color_opacity (inner, c, op)))
+              match Parse.data_type_hint inner with
+              | Some ("", _) -> Utility.unclaimed
+              | Some (_, payload) -> bracket_shadow inner payload opacity
               | Stdlib.Option.None -> (
-                  if parse_arbitrary_shadow inner = Stdlib.Option.None then
-                    (* Not a shadow, so not a utility: it used to fall back to
-                       [text-shadow: none]. *)
-                    Utility.unclaimed
-                  else
+                  if Parse.is_var inner && not (is_shadow_value inner) then
                     match opacity with
-                    | Color.No_opacity -> Ok (Arbitrary inner)
-                    | op -> Ok (Arbitrary_opacity (inner, op))))
+                    | Color.No_opacity -> Ok (Bracket_var inner)
+                    | op -> Ok (Bracket_var_opacity (inner, op))
+                  else if is_hex_value inner then
+                    let hex = String.sub inner 1 (String.length inner - 1) in
+                    match opacity with
+                    | Color.No_opacity -> Ok (Bracket_hex hex)
+                    | op -> Ok (Bracket_hex_opacity (hex, op))
+                  else
+                    match Color.parse_bracket_color inner with
+                    | Some c -> (
+                        match opacity with
+                        | Color.No_opacity -> Ok (Bracket_color (inner, c))
+                        | op -> Ok (Bracket_color_opacity (inner, c, op)))
+                    | Stdlib.Option.None -> (
+                        if parse_arbitrary_shadow inner = Stdlib.Option.None
+                        then raw_shadow inner opacity
+                        else
+                          match opacity with
+                          | Color.No_opacity -> Ok (Arbitrary inner)
+                          | op -> Ok (Arbitrary_opacity (inner, op)))))
         (* Not a size: a project [--text-shadow-<name>] token, else a shadeless
            colour, which the multi-segment colour cases below never see because
            it fits in this single segment. *)
@@ -642,9 +720,11 @@ module Handler = struct
     | Bracket_color_var var_expr -> "text-shadow-[color:" ^ var_expr ^ "]"
     | Bracket_cvar_opacity (var_expr, opacity) ->
         "text-shadow-[color:" ^ var_expr ^ "]/" ^ Color.pp_opacity opacity
-    | Bracket_shadow var_expr -> "text-shadow-[shadow:" ^ var_expr ^ "]"
-    | Bracket_shadow_opacity (payload, opacity) ->
-        "text-shadow-[shadow:" ^ payload ^ "]/" ^ Color.pp_opacity opacity
+    | Bracket_shadow (spelling, _) | Raw (spelling, _) ->
+        "text-shadow-[" ^ spelling ^ "]"
+    | Bracket_shadow_opacity (spelling, _, opacity)
+    | Raw_opacity (spelling, _, opacity) ->
+        "text-shadow-[" ^ spelling ^ "]/" ^ Color.pp_opacity opacity
     | Bracket_var var_expr -> "text-shadow-[" ^ var_expr ^ "]"
     | Bracket_var_opacity (var_expr, opacity) ->
         "text-shadow-[" ^ var_expr ^ "]/" ^ Color.pp_opacity opacity

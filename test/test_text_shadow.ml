@@ -132,27 +132,37 @@ let test_arbitrary_colour_opacity () =
        b/var(--x)))";
     ]
 
+let wraps_an_unknown_colour =
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind wraps the unknown word in var(--tw-text-shadow-color, ...); \
+          the shadow reader takes only colours it can read")
+    (module Tw.Text_shadow.Handler)
+
+let colour_channel_holds_a_token =
+  Test_helpers.check_invalid_input
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind sets the colour channel to the raw token and mixes it; \
+          cascade's colour types hold colours, not token streams")
+    (module Tw.Text_shadow.Handler)
+
 (* An arbitrary text-shadow takes a named colour, the same as the box-shadow
    twin [shadow-[0_1px_2px_red]] does. The reader recognised a [#] hex, a var()
    and a colour function and nothing else, so a name fell through to the length
    slot, failed to read as a length, and took the whole utility down with it. *)
 let test_arbitrary_named_colour () =
   let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes the word through as a shadow colour the browser \
-            drops; tw refuses the class")
-  in
   emits "text-shadow-[0_1px_2px_red]"
     "text-shadow:0 1px 2px var(--tw-text-shadow-color,red)";
   emits "text-shadow-[1px_1px_rebeccapurple]"
     "text-shadow:1px 1px var(--tw-text-shadow-color,rebeccapurple)";
   emits "text-shadow-[0_1px_2px_currentColor]"
     "text-shadow:0 1px 2px var(--tw-text-shadow-color,currentcolor)";
-  (* a word that names neither a length nor a colour is still not a shadow *)
-  rejected "text-shadow-[0_1px_notacolour]"
+  (* Tailwind wraps the one word that is neither a length nor a colour as the
+     shadow's colour, which the shadow reader cannot hold. *)
+  wraps_an_unknown_colour "text-shadow-[0_1px_notacolour]"
 
 (* A [#] value is only a colour when what follows is a hex spelling, both as the
    whole bracket and as the colour of an arbitrary shadow. The reader kept the
@@ -160,18 +170,11 @@ let test_arbitrary_named_colour () =
    was rendered, so a malformed hex escaped as an exception instead of failing
    the parse. *)
 let test_invalid_bracket_hex () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes the malformed hex through as a colour the browser \
-            drops; tw refuses the class")
-  in
-  rejected "text-shadow-[#zz]";
-  rejected "text-shadow-[#]";
-  rejected "text-shadow-[#12345]";
-  rejected "text-shadow-[#zz]/50";
-  rejected "text-shadow-[0_1px_2px_#zz]";
+  colour_channel_holds_a_token "text-shadow-[#zz]";
+  colour_channel_holds_a_token "text-shadow-[#]";
+  colour_channel_holds_a_token "text-shadow-[#12345]";
+  colour_channel_holds_a_token "text-shadow-[#zz]/50";
+  wraps_an_unknown_colour "text-shadow-[0_1px_2px_#zz]";
   (* A bare colour writes the channel twice, unguarded then mixed. *)
   Test_helpers.check_declarations "text-shadow-[#abc]"
     [
@@ -305,17 +308,42 @@ let test_shadow_hint_takes_a_shadow () =
     "text-shadow-[shadow:12px_12px_#0088cc]"
     (Tw.pp
        (Result.get_ok (Tw.of_string "text-shadow-[shadow:12px_12px_#0088cc]")));
-  (* A payload the shadow reader refuses is held open, not settled: Tailwind
-     writes the bracket out whatever it says, so refusing is an intermediate. *)
-  Test_helpers.check_invalid_input
-    ~why:
-      (Test_helpers.Diverges
-         "emitted verbatim; tw needs an opaque declaration to match")
-    (module Tw.Text_shadow.Handler)
-    "text-shadow-[shadow:notashadow]"
+  (* a payload the shadow reader refuses is written as the author spelled it *)
+  Test_helpers.check_declarations "text-shadow-[shadow:notashadow]"
+    [ "text-shadow:notashadow" ]
 
 (* The shadow's parts are separated by the [_] that stands for a space, so a
    variable name carrying an underscore of its own is written [\_]. *)
+(* A bracket Tailwind does not read as a colour is a shadow, whatever it holds.
+   Where Tailwind writes it into text-shadow as it stands, so does tw, so the
+   browser drops the declaration and keeps the selector. *)
+let test_bracket_falls_through () =
+  let shadow cls value =
+    Test_helpers.check_declarations ~minify:false cls
+      [ "text-shadow: " ^ value ]
+  in
+  shadow "text-shadow-[foo]" "foo";
+  shadow "text-shadow-[--c]" "--c";
+  shadow "text-shadow-[calc(1+2)]" "calc(1 + 2)";
+  shadow "text-shadow-[url(x.png)_center]" "url(x.png) center";
+  shadow "text-shadow-[10px]" "10px";
+  shadow "text-shadow-[<value>]" "<value>";
+  shadow "text-shadow-[bogus:foo]" "foo";
+  Test_helpers.check_declarations ~minify:false "text-shadow-[foo]/50"
+    [ "--tw-text-shadow-alpha: 50%"; "text-shadow: foo" ];
+  (* an unknown hint still says shadow, so the colour is wrapped *)
+  Test_helpers.check_declarations "text-shadow-[bogus:0_0_2px_red]"
+    [ "text-shadow:0 0 2px var(--tw-text-shadow-color,red)" ];
+  List.iter
+    (fun cls ->
+      Alcotest.(check string)
+        "class round-trips" cls
+        (Tw.pp (Result.get_ok (Tw.of_string cls))))
+    [ "text-shadow-[bogus:foo]"; "text-shadow-[foo]/50" ];
+  Test_helpers.check_invalid_input
+    (module Tw.Text_shadow.Handler)
+    "text-shadow-[a;b]"
+
 let test_underscore_escape () =
   Test_helpers.check_declarations ~minify:false
     {|text-shadow-[0_0_1px_var(--a\_b)]|}
@@ -418,6 +446,7 @@ let tests =
     Alcotest.test_case "shadow hint takes a shadow" `Quick
       test_shadow_hint_takes_a_shadow;
     Alcotest.test_case "underscore escape" `Quick test_underscore_escape;
+    Alcotest.test_case "bracket falls through" `Quick test_bracket_falls_through;
   ]
   @ Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
