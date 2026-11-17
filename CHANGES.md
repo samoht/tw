@@ -8,6 +8,12 @@
 - `Build.conflict_order` is removed, and `Rule.outputs` loses `?order_tbl`:
   `Rule.ordered_outputs` pairs each rule with the order of the utility that
   built it, and `Build.selector_props_pairs` reads those pairs (#920).
+- `Tw.Utility.base_of_strings`, `Tw.Spacing.to_length`,
+  `Tw.Spacing.margin_to_length`, `Tw.Spacing.margin_to_length_neg`,
+  `Tw.Property.sort_by_order`, `Tw.Scheme.is_static_token`,
+  `Tw.Scheme.is_hex_color`, `Tw.Color.round_n` and `Tw.Color.Tailwind` are
+  removed: nothing called them. `Tw.Utility.base_of_class` takes the class
+  `base_of_strings` assembled from its parts (#922).
 
 ### Utilities
 

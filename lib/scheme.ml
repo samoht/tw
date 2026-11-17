@@ -140,10 +140,6 @@ let color scheme name = List.assoc_opt name scheme.colors
 (** Lookup a spacing value in the scheme *)
 let spacing scheme n = List.assoc_opt n scheme.spacing
 
-(** Check if a color is defined as hex in the scheme *)
-let is_hex_color scheme name =
-  match color scheme name with Some (Hex _) -> true | _ -> false
-
 (** Get hex value for a color if defined as hex *)
 let hex_color scheme name =
   match color scheme name with Some (Hex h) -> Some h | _ -> None
@@ -333,5 +329,3 @@ let is_inline_token scheme name = List.mem name scheme.inline_tokens
 let is_reference_token scheme name =
   List.mem name scheme.reference_tokens
   || (scheme.reference_theme && not (List.mem_assoc name scheme.token_overrides))
-
-let is_static_token scheme name = List.mem name scheme.static_tokens

@@ -210,10 +210,6 @@ let hex_to_oklch_css hex =
   | Some rgb -> oklch_to_css (rgb_to_oklch rgb)
   | None -> hex (* Fallback to original hex if parsing fails *)
 
-let round_n n f =
-  let factor = 10.0 ** float_of_int n in
-  Float.round (f *. factor) /. factor
-
 let hex_to_oklab_alpha hex alpha : Css.color =
   match hex_to_rgb hex with
   | Some rgb ->

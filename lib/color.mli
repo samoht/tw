@@ -22,12 +22,6 @@ include module type of struct
   include Color_opacity
 end
 
-(** Predefined Tailwind v4 color values, from {!Palette}. *)
-module Tailwind : sig
-  val get_color : string -> int -> string option
-  (** [get_color name shade] gets a Tailwind color value in OKLCH format. *)
-end
-
 open Utility
 
 (** {1 Color Application Utilities} *)

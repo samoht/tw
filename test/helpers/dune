@@ -6,7 +6,6 @@
   alcotest
   astring
   fmt
-  re
   cascade
   cascade.diff
   cascade.browser))

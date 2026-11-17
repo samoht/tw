@@ -19,44 +19,6 @@ val pp_margin_suffix : Style.margin -> string
     - [`Auto] becomes ["auto"]
     - All spacing values use {!pp_spacing_suffix}. *)
 
-(** {1 CSS Conversion} *)
-
-val to_length : Css.length Css.var -> Style.spacing -> Css.length
-(** [to_length spacing_ref spacing] converts a spacing value to a CSS length
-    using the spacing variable reference.
-
-    @param spacing_ref
-      Reference to the spacing theme variable (from Var.binding)
-    @param spacing The spacing value to convert
-    @return CSS length with proper calc() expression for `Rem values. *)
-
-val margin_to_length : Css.length Css.var -> Style.margin -> Css.length
-(** [margin_to_length spacing_ref margin] converts a margin value to a CSS
-    length using the spacing variable reference.
-
-    Extends {!to_length} with auto support:
-    - [`Auto] becomes [Css.Auto]
-    - All spacing values use {!to_length}.
-
-    @param spacing_ref
-      Reference to the spacing theme variable (from Var.binding)
-    @param margin The margin value to convert
-    @return CSS length (or Auto). *)
-
-val margin_to_length_neg : Css.length Css.var -> Style.spacing -> Css.length
-(** [margin_to_length_neg spacing_ref spacing] converts a spacing value to a
-    negated CSS length for negative margins.
-
-    Similar to {!to_length} but negates the value:
-    - [`Px] becomes [Css.Px (-1.)]
-    - [`Full] becomes [Css.Pct (-100.0)]
-    - [`Rem f] creates [calc(var(--spacing) * -n)] where n = f / 0.25.
-
-    @param spacing_ref
-      Reference to the spacing theme variable (from Var.binding)
-    @param spacing The spacing value to convert (will be negated)
-    @return CSS length with negated value. *)
-
 (** {1 Spacing Constructors} *)
 
 val int : int -> Style.spacing

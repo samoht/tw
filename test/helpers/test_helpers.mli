@@ -55,12 +55,6 @@ val check_declarations :
     [.bg-blue-500\/50] alone, and a [check bool] failure prints neither the
     class nor the CSS. [theme] and [minify] are {!declarations_of_class}'s. *)
 
-val check_declarations_match : string -> string list -> unit
-(** [check_declarations_match cls patterns] checks each PCRE in [patterns]
-    matches some declaration of [cls], naming the class and every declaration on
-    failure. For a value that cannot be spelled exactly; anchor the pattern,
-    since an unanchored one accepts a longer class the way a substring does. *)
-
 val sheet : string -> string
 (** [sheet cls] is the minified sheet [cls] compiles to without the base layer,
     failing the test when [cls] does not parse. *)
@@ -82,11 +76,9 @@ val interacting_pairs : string list -> (string * string) list
 val ordering_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
 (** [ordering_diff ?forms utilities] compares tw's sheet for [utilities] against
     the pinned Tailwind CLI's, canonically and with dead custom properties
-    pruned. Both {!check_ordering_fails} and {!check_ordering_matches} go
-    through it: the fuzzer minimises with the same predicate the suites assert
-    on, so a case it reports as minimal is one the assertion also rejects.
-    Pruning is what makes it blind to a utility whose only output is an
-    unreferenced binding; {!check_rendering_matches} covers that class. *)
+    pruned. {!check_ordering_matches} goes through it. Pruning is what makes it
+    blind to a utility whose only output is an unreferenced binding;
+    {!check_rendering_matches} covers that class. *)
 
 val dropped_declarations : Cascade_diff.Css_compare.t -> Error.t list
 (** [dropped_declarations diff] is the parse warnings either side of [diff]
@@ -109,10 +101,6 @@ val check_no_dropped_declarations :
     took, which the token-stream contract sends to the sheet verbatim, is
     another. Every other drop - a rule, a selector, any construct that failed
     for another reason - stays a finding. *)
-
-val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
-(** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
-    finds a difference. The minimisation predicate. *)
 
 val delta_debug : ('a list -> bool) -> 'a list -> 'a list
 (** [delta_debug check_fails lst] uses delta debugging (ddmin algorithm) to
@@ -396,23 +384,9 @@ val selectors_in_media : condition:string -> Css.t -> string list
     within the media query that matches [condition]. Returns [[]] if not found
     or if the block has no rules. *)
 
-val has_selector_in_media : condition:string -> selector:string -> Css.t -> bool
-(** [has_selector_in_media ~condition ~selector css] checks whether [selector]
-    appears inside the media query identified by [condition]. *)
-
-val count_selector_in_media :
-  condition:string -> selector:string -> Css.t -> int
-(** [count_selector_in_media ~condition ~selector css] counts how many times
-    [selector] appears inside the media query identified by [condition]. *)
-
 val selectors_in_media_sel : condition:string -> Css.t -> Css.Selector.t list
 (** [selectors_in_media_sel ~condition css] returns the raw selector ASTs inside
     the matching media query. *)
-
-val has_selector_in_media_sel :
-  condition:string -> selector:Css.Selector.t -> Css.t -> bool
-(** [has_selector_in_media_sel ~condition ~selector css] checks for a selector
-    using structural equality on the selector AST. *)
 
 val count_selector_in_media_sel :
   condition:string -> selector:Css.Selector.t -> Css.t -> int
@@ -504,9 +478,6 @@ val standard :
   unit Alcotest.test_case list
 (** [standard ~roundtrip ~invalid] creates the standard test case list with
     roundtrip and invalid test cases. *)
-
-val check_parts : (module Handler) -> string list -> unit
-(** [check_parts h parts] concatenates parts with "-" and tests roundtrip. *)
 
 val check_invalid_parts :
   ?why:rejection -> (module Handler) -> string list -> unit
