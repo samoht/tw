@@ -46,6 +46,13 @@
 - An `aria-[...]` or `data-[...]` variant naming an attribute no selector can
   hold, such as `aria-[0.5ch]` or `data-[a\b]`, is refused, where it was
   accepted and emitted nothing or, under `in-` and `not-`, raised (#925).
+- `not-data-*` and `not-nth-*` read their inner variant as `data-*` and
+  `nth-*` do: `not-nth-of-type-3` is `:not(:nth-of-type(3))`, and
+  `not-data-[0.5ch]` is refused, where both raised. A bare `aria-*` or
+  `data-*` name and a `group-not-[...]` or `peer-not-[...]` bracket that no
+  selector can hold are refused too, where they raised, and a bare
+  `group-data-*` name keeps its underscores, `[data-a_b]` for
+  `group-data-a_b` (#937).
 
 ### OCaml API
 

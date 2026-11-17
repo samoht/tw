@@ -416,13 +416,17 @@ let parse_aria_expr expr =
       in
       ("aria-" ^ attr, Css.Selector.Exact value)
 
+(* Whether the selector constructor takes the attribute. *)
+let builds_attribute name matcher =
+  match Css.Selector.attribute name matcher with
+  | _ -> true
+  | exception Invalid_argument _ -> false
+
 (* An aria bracket names an attribute the rule builds from it, so a name the
    selector constructor refuses is refused here, at parse time. *)
 let is_valid_aria_attr_expr expr =
   let name, matcher = parse_aria_expr expr in
-  match Css.Selector.attribute name matcher with
-  | _ -> true
-  | exception Invalid_argument _ -> false
+  builds_attribute name matcher
 
 (* Validate a data-[...] bracket expression by running it through the same
    reading [parse_data_expr] does at render time. *)
@@ -955,25 +959,6 @@ let try_custom_breakpoint breakpoints s =
     if List.mem name breakpoints then Some (Max_custom name) else None
   else None
 
-(** Try not-* shorthand patterns that aren't in simple_modifiers or bracket
-    patterns. These are modifiers like data-foo, has-checked, nth-2 that work as
-    shorthands in the not-* context. *)
-let try_not_shorthand inner =
-  match try_supports_shorthand inner with
-  | Some m -> Some (Not m)
-  | None ->
-      if String.starts_with ~prefix:"data-" inner && String.length inner > 5
-      then
-        (* data-X shorthand — attribute presence check *)
-        let attr = String.sub inner 5 (String.length inner - 5) in
-        Some (Not (Data_custom (attr, "")))
-      else if String.starts_with ~prefix:"nth-" inner && String.length inner > 4
-      then
-        (* nth-X shorthand — :nth-child(X) *)
-        let expr = String.sub inner 4 (String.length inner - 4) in
-        Some (Not (Nth (Style.nth_expr expr)))
-      else None
-
 (** Check if a modifier is compatible with not-* negation. Pseudo-elements,
     starting style and children/descendants cannot be negated; a container query
     can, as [\@container not (width >= 28rem)]. *)
@@ -1116,10 +1101,17 @@ let parse_group_peer_not_inner rest =
           if
             String.starts_with ~prefix:"/" remainder
             && String.length remainder > 1
-          then Some (String.sub remainder 1 (String.length remainder - 1))
+          then
+            Some (Some (String.sub remainder 1 (String.length remainder - 1)))
+          else if remainder = "" then Some None
           else None
         in
-        Some (Not_bracket content, name)
+        (* The bracket is read as [not-[...]] reads it, and holds as a named
+           inner does: a selector, never an at-rule. *)
+        let inner = Not_bracket content in
+        if is_valid_not_bracket_content content && scoped_negation_holds inner
+        then Option.map (fun name -> (inner, name)) name
+        else None
     | None -> None
   else
     (* Non-bracket: split on / for name suffix *)
@@ -1235,18 +1227,20 @@ let try_not_modifier theme s =
               | Some m when is_not_compatible m -> Some (Not m)
               | Some _ -> None
               | None -> None);
-            (fun () -> try_not_shorthand inner);
           ]
         in
         List.find_map (fun f -> f ()) fns
 
-(* Try bare data-X or aria-X shorthand *)
+(* Try bare data-X or aria-X shorthand. The name goes into the attribute
+   selector the render builds, so a name that selector refuses is refused
+   here. *)
 let try_bare_data_aria s =
   if
     String.starts_with ~prefix:"data-" s
     && String.length s > 5
     && (not (String.contains s '['))
-    && not (String.contains s '/')
+    && (not (String.contains s '/'))
+    && builds_attribute s Css.Selector.Presence
   then Some (Data_custom (String.sub s 5 (String.length s - 5), ""))
   else if
     String.starts_with ~prefix:"aria-" s
@@ -1255,7 +1249,9 @@ let try_bare_data_aria s =
     && not (String.contains s '/')
   then
     let expr = String.sub s 5 (String.length s - 5) in
-    if names_attribute expr then Some (Aria_bracket expr) else None
+    if names_attribute expr && is_valid_aria_attr_expr expr then
+      Some (Aria_bracket expr)
+    else None
   else None
 
 (* One name per variant @tailwindcss/typography registers. A name outside this
