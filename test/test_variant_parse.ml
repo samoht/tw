@@ -209,6 +209,26 @@ let test_padded_attribute_brackets () =
   rejected "aria-[_modal_]:flex";
   rejected "data-[_state=open_]:flex"
 
+(* An attribute bracket must name an attribute the selector constructor builds.
+   Tailwind writes [[aria-0.5ch]], a selector browsers refuse, so refusing the
+   class loses nothing. It writes [[data-a\b]] too, an escaped code point the
+   constructor does not take yet: a gap, but a refused class rather than a crash
+   at render time. *)
+let test_unbuildable_attribute_names () =
+  let rejected cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  rejected "aria-[0.5ch]:flex";
+  rejected "aria-[a;b]:flex";
+  rejected "group-aria-[()]:flex";
+  rejected "peer-aria-[+1px]/n:flex";
+  rejected "in-aria-[0.5ch]:flex";
+  rejected "not-aria-[a}b]:flex";
+  rejected {|data-[a\b]:flex|};
+  rejected {|group-data-[a\b]:flex|}
+
 (* The attribute spellings that do name something keep working, including the
    empty-name-with-value form Tailwind also accepts. *)
 let test_attribute_brackets_still_parse () =
@@ -362,6 +382,8 @@ let tests =
     test_case "invalid bracket modifiers" `Quick test_invalid_bracket_modifiers;
     test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
     test_case "padded attribute brackets" `Quick test_padded_attribute_brackets;
+    test_case "unbuildable attribute names" `Quick
+      test_unbuildable_attribute_names;
     test_case "attribute brackets still parse" `Quick
       test_attribute_brackets_still_parse;
     test_case "data bracket operators" `Quick test_data_bracket_operators;
