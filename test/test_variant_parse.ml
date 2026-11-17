@@ -493,6 +493,24 @@ let test_in_and_not_bracket_selectors () =
   refused "in-[>p]:flex";
   refused "not-in-[>p]:flex"
 
+(* A [group-not-[...]] or [peer-not-[...]] bracket is the selector the scope
+   negates, and keeps that negation and its own class name when an outer [not-],
+   [has-] or [in-] holds the whole variant. tw printed [group-not-not-[.foo]]
+   and dropped the [:not()]. *)
+let test_scoped_negated_bracket_nested () =
+  check_utilities "not-group-not-[.foo]:flex"
+    {|.not-group-not-\[\.foo\]\:flex:not(:is(:where(.group):not(.foo) *)){display:flex}|};
+  check_utilities "not-group-not-[.foo]/x:flex"
+    {|.not-group-not-\[\.foo\]\/x\:flex:not(:is(:where(.group\/x):not(.foo) *)){display:flex}|};
+  check_utilities "not-group-not-[p_span]:flex"
+    {|.not-group-not-\[p_span\]\:flex:not(:is(:where(.group):not(:is(p span)) *)){display:flex}|};
+  check_utilities "not-peer-not-[.foo]:flex"
+    {|.not-peer-not-\[\.foo\]\:flex:not(:is(:where(.peer):not(.foo)~*)){display:flex}|};
+  check_utilities "has-group-not-[.foo]:flex"
+    {|.has-group-not-\[\.foo\]\:flex:has(:is(:where(.group):not(.foo) *)){display:flex}|};
+  check_utilities "in-group-not-[.foo]:flex"
+    {|:where(:is(:where(.group):not(.foo) *)) .in-group-not-\[\.foo\]\:flex{display:flex}|}
+
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
   check_utilities "nth-[2n+1]:flex"
@@ -570,6 +588,8 @@ let tests =
       test_arbitrary_selector_variants;
     test_case "in and not bracket selectors" `Quick
       test_in_and_not_bracket_selectors;
+    test_case "scoped negated bracket nested" `Quick
+      test_scoped_negated_bracket_nested;
     test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
     test_case "supports condition text" `Quick test_supports_condition_text;
     test_case "not-[selector] unreadable content rejected" `Quick
