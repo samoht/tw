@@ -509,8 +509,22 @@ let test_negated_brackets () =
       "-bg-linear-[foo:45deg]";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "from-[var(--a)_1px]";
+      "from-[var(--a),foo]";
+      "via-[var(--a)_1px]";
+      "via-[var(--a),foo]";
+      "to-[var(--a)_1px]";
+      "to-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated brackets" `Quick test_negated_brackets;
     test_case "gradient position refuses a modifier" `Quick
       test_gradient_position_refuses_modifier;

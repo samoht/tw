@@ -187,8 +187,20 @@ let test_space_bracket_lengths () =
       "-space-y-[foo:3px]";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "gap-[var(--a)_1px]";
+      "gap-[var(--a),foo]";
+      "gap-x-[var(--a)_1px]";
+      "gap-x-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "space bracket lengths" `Quick test_space_bracket_lengths;
     test_case "typed constructors: negative size" `Quick typed_negative;
     test_case "data-type hint before the length reader" `Quick

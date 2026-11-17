@@ -576,8 +576,24 @@ let test_negated_token_stream () =
       "-outline-offset-[url(x.png)_center]";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "border-[var(--a)_1px]";
+      "border-[var(--a),foo]";
+      "border-t-[var(--a)_1px]";
+      "border-t-[var(--a),foo]";
+      "border-x-[var(--a)_1px]";
+      "border-x-[var(--a),foo]";
+      "outline-offset-[var(--a)_1px]";
+      "outline-offset-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "border width data-type hint" `Quick
       test_border_width_data_type_hint;

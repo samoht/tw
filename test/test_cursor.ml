@@ -46,8 +46,15 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"cursor suborder matches Tailwind" shuffled
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "cursor-[var(--a)_1px]"; "cursor-[var(--a),foo]" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "cursor of_string - valid values" `Quick of_string_valid;
     test_case "cursor of_string - invalid values" `Quick of_string_invalid;
     test_case "cursor suborder matches Tailwind" `Quick

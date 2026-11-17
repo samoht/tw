@@ -666,9 +666,27 @@ let test_split_top_level () =
   check [ {|"a\",b"|}; "c" ] {|"a\",b",c|};
   check [ {|a\,b|}; "c" ] {|a\,b,c|}
 
+(* A var() reference is the whole value: one that goes on past its closing paren
+   is a token stream that merely opens with a var(). *)
+let test_is_var () =
+  let check expected s = Alcotest.(check bool) s expected (Tw.Parse.is_var s) in
+  List.iter (check true)
+    [ "var(--a)"; "var(--a,1px)"; "var(--a,var(--b))"; {|var(--a,")")|} ];
+  List.iter (check false)
+    [
+      "var(--a) 1px";
+      "var(--a)_1px";
+      "var(--a),foo";
+      "var(--a)var(--b)";
+      "var(";
+      "var(--a";
+      "x var(--a)";
+    ]
+
 let tests =
   Alcotest.
     [
+      test_case "a var() reference is the whole value" `Quick test_is_var;
       test_case "split at a top-level separator" `Quick test_split_top_level;
       test_case "a number as Tailwind spells it" `Quick test_is_number;
       test_case "a length and a percentage as Tailwind infers them" `Quick

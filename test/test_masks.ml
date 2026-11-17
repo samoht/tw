@@ -304,9 +304,23 @@ let test_hint_name_is_a_lower_case_run () =
     (Test_helpers.check_invalid_input (module Tw.Masks.Handler))
     [ "mask-[:2em]"; "mask-[foo:]"; "mask-size-[:2em]"; "mask-position-[:2em]" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "mask-[var(--a)_1px]";
+      "mask-[var(--a),foo]";
+      "mask-position-[var(--a)_1px]";
+      "mask-position-[var(--a),foo]";
+      "mask-size-[var(--a)_1px]";
+      "mask-size-[var(--a),foo]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "bracket data-type hint reads the value" `Quick
         test_bracket_data_type_hint_reads_the_value;
       Alcotest.test_case "hint name is a lower-case run" `Quick

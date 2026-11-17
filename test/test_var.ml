@@ -69,7 +69,9 @@ let arbitrary_var_fallbacks () =
    bracket text holding one names no reference and no fallback. Splitting it at
    the comma anyway would take [--a] with [b)c] behind it and write the loose
    [)] into the sheet, where it closes the [var()] early and leaves a stray one
-   after it. The whole text stays the escaped name it is. *)
+   after it. In a bracket the text is no single var() call, so it is a token
+   stream no declaration can hold. The paren shorthand is no candidate Tailwind
+   reads either. *)
 let bracket_reference_with_loose_closer () =
   let css class_name =
     match Tw.of_string class_name with
@@ -86,12 +88,14 @@ let bracket_reference_with_loose_closer () =
         | None -> rest)
     | None -> failf "%s: no top declaration in %s" class_name sheet
   in
-  check string "bracket keeps the loose closer inside the name"
-    {|var(--a\,b\)c)|}
-    (declaration "top-[var(--a,b)c)]");
-  check string "paren shorthand keeps the loose closer inside the name"
-    {|var(--a\,b\)c)|}
-    (declaration "top-(--a,b)c)");
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind drops the loose closer and what follows it and writes top: \
+          var(--a,b); tw refuses a value with an unmatched )")
+    "top-[var(--a,b)c)]";
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "top-(--a,b)c)";
   (* The same text without the loose closer is the reference it looks like. *)
   check string "a closed body is read as name and fallback" "var(--a,b)"
     (declaration "top-[var(--a,b)]")

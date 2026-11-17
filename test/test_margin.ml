@@ -237,8 +237,26 @@ let test_margin_negated_arbitrary_is_a_calc () =
       ("-mb-[50%]", "margin-bottom: calc(50% * -1)");
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "m-[var(--a)_1px]";
+      "m-[var(--a),foo]";
+      "mx-[var(--a)_1px]";
+      "mx-[var(--a),foo]";
+      "mt-[var(--a)_1px]";
+      "mt-[var(--a),foo]";
+      "-mt-[var(--a)_1px]";
+      "-mt-[var(--a),foo]";
+      "mb-[var(--a)_1px]";
+      "mb-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated arbitrary length is a calc" `Quick
       test_margin_negated_arbitrary_is_a_calc;
     test_case "data-type hint before the length reader" `Quick

@@ -346,8 +346,22 @@ let test_percentage_hint_names_a_position () =
   check_declarations "bg-[position:notaposition]"
     [ "background-position:notaposition" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "bg-[var(--a)_1px]";
+      "bg-[var(--a),foo]";
+      "bg-position-[var(--a)_1px]";
+      "bg-position-[var(--a),foo]";
+      "bg-size-[var(--a)_1px]";
+      "bg-size-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "percentage hint names a position" `Quick
       test_percentage_hint_names_a_position;
     test_case "bracket data-type hint reads the value" `Quick

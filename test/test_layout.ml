@@ -312,8 +312,15 @@ let test_object_bracket_position_grammar () =
       ("object-[50%_50%]", "object-position: 50% 50%");
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "object-[var(--a)_1px]"; "object-[var(--a),foo]" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "object bracket position grammar" `Quick
       test_object_bracket_position_grammar;
     test_case "object bracket peels a data-type hint" `Quick

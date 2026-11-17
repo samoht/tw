@@ -1105,8 +1105,15 @@ let test_unread_shadow_colour () =
       "shadow-[foo:1px_2px]/50";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "opacity-[var(--a)_1px]"; "opacity-[var(--a),foo]" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;
     test_case "shadow underscore escape" `Quick test_shadow_underscore_escape;

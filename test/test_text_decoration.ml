@@ -279,8 +279,20 @@ let test_negated_token_stream () =
       "-underline-offset-[url(x.png)_center]";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "decoration-[var(--a)_1px]";
+      "decoration-[var(--a),foo]";
+      "underline-offset-[var(--a)_1px]";
+      "underline-offset-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "text decoration" `Quick test_text_decoration;
     test_case "decoration undefined colour shade" `Quick
