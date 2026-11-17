@@ -134,31 +134,42 @@ let test_arbitrary_span_token_stream () =
   Test_helpers.check_declarations "col-span-[<value>]"
     [ "grid-column:span <value>/span <value>" ]
 
-(* [col-[...]] and [row-start-[...]] take grid lines. A bracket the grid-line
-   grammar cannot read is accepted and then raises out of [to_css], a pure
-   conversion, so the rejection belongs at parse time. *)
+(* A bracket the grid-line grammar declines is still a utility: Tailwind writes
+   it into the longhand the class names, as the author spelled it, and leaves
+   the browser to drop it. *)
+let test_grid_line_bracket_falls_through () =
+  let has cls decl = Test_helpers.check_declarations cls [ decl ] in
+  List.iter
+    (fun (family, property) ->
+      has (family ^ "-[10px]") (property ^ ":10px");
+      has (family ^ "-[50%]") (property ^ ":50%");
+      has (family ^ "-[1fr]") (property ^ ":1fr");
+      has (family ^ "-[<value>]") (property ^ ":<value>");
+      has (family ^ "-[url(x.png)_center]") (property ^ ":url(x.png) center");
+      (* a hint chooses the longhand and is not part of the value *)
+      has (family ^ "-[length:10px]") (property ^ ":10px"))
+    [
+      ("col", "grid-column");
+      ("col-start", "grid-column-start");
+      ("col-end", "grid-column-end");
+      ("row", "grid-row");
+      ("row-start", "grid-row-start");
+      ("row-end", "grid-row-end");
+    ];
+  has "row-[1.5]" "grid-row:1.5";
+  (* the brackets the grammar reads keep their typed reading *)
+  has "col-[span_2/span_3]" "grid-column:span 2/span 3";
+  has "col-start-[7]" "grid-column-start:7";
+  Alcotest.(check string)
+    "the class keeps its hint" "col-start-[length:10px]"
+    (Tw.pp (Result.get_ok (Tw.of_string "col-start-[length:10px]")))
+
+(* A bracket that would end the declaration is the one thing a grid line cannot
+   hold, and Tailwind writes nothing for it either. *)
 let test_invalid_arbitrary_grid_line () =
-  let rejected =
-    Test_helpers.check_invalid_class
-      ~why:
-        (Test_helpers.Diverges
-           "Tailwind writes the bracket through as a grid line the browser \
-            drops; tw refuses the class")
-  in
-  let renders cls =
-    match Tw.of_string cls with
-    | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  rejected "col-[50%]";
-  rejected "row-[1.5]";
-  rejected "col-start-[1fr]";
-  rejected "row-end-[50%]";
-  renders "col-[2]";
-  renders "col-[span_2/span_3]";
-  renders "col-[var(--x)]";
-  renders "col-start-[7]";
-  renders "row-end-[3]"
+  List.iter
+    (Test_helpers.check_invalid_input (module Tw.Grid_item.Handler))
+    [ "col-[a;b]"; "col-start-[a;b]"; "row-[a;b]"; "row-end-[a;b]" ]
 
 (* A grid line is an arbitrary value: [_] is a space and [\_] a literal
    underscore, so a variable name carrying one keeps the character. *)
@@ -233,6 +244,8 @@ let tests =
       test_arbitrary_span_token_stream;
     test_case "grid_item suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
+    test_case "grid line bracket falls through" `Quick
+      test_grid_line_bracket_falls_through;
     test_case "invalid arbitrary grid line" `Quick
       test_invalid_arbitrary_grid_line;
   ]
