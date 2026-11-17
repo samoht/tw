@@ -1,17 +1,3 @@
-(** Interactivity utilities for selection, scroll behavior, and more
-
-    What's included:
-    - Text selection, scroll behavior, scroll snap, resize.
-
-    What's not:
-    - Browser-specific interaction properties not surfaced in `Css`.
-    - Cursor utilities, which are in [Cursor].
-
-    Parsing contract (`of_string`):
-    - Accepts tokens like ["select"; "none"], ["scroll"; "smooth"],
-      ["snap"; "x"], ["resize"; "y"], etc. Unknown tokens yield
-      [Utility.unclaimed]. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -51,8 +37,8 @@ module Handler = struct
     | Will_change_transform
     | Will_change_arbitrary of string
     | Will_change_raw of string * string
-    | Group  (** Marker class for group parent *)
-    | Peer  (** Marker class for peer sibling *)
+    | Group (* marker class for a group parent *)
+    | Peer (* marker class for a peer sibling *)
     | Scheme_dark
     | Scheme_light
     | Scheme_light_dark
@@ -91,7 +77,6 @@ module Handler = struct
   let scroll_auto_s = style [ scroll_behavior Auto ]
   let scroll_smooth_s = style [ scroll_behavior Smooth ]
 
-  (* Reference to the global scroll snap strictness variable *)
   let scroll_snap_strictness_var =
     Var.property_default Css.Scroll_snap_strictness ~initial:Proximity
       ~property_order:90 "tw-scroll-snap-strictness"
@@ -138,8 +123,6 @@ module Handler = struct
   let resize_s = style [ Css.resize Both ]
   let resize_x_s = style [ Css.resize Horizontal ]
   let resize_y_s = style [ Css.resize Vertical ]
-
-  (* Additional utilities *)
   let pointer_events_none_s = style [ pointer_events None ]
   let pointer_events_auto_s = style [ pointer_events Auto ]
   let appearance_auto_s = style [ appearance Auto ]

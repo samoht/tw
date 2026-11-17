@@ -30,8 +30,6 @@ let test_animation_css () =
     [ "spin"; "bounce"; "pulse" ]
 
 let test_transition_css () =
-  (* Test that transition utilities generate CSS with correct transition
-     properties - Tailwind v4 uses individual properties, not shorthand *)
   (* Tailwind v4 writes the longhands rather than the [transition] shorthand.
      Both classes declare transition-property, so the lists tell them apart:
      transition-all carries the timing and duration channels, transition-none

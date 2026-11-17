@@ -60,7 +60,6 @@ let of_string_invalid () =
   fail_maybe [ "basis" ];
   (* not a container-scale name *)
   fail_maybe [ "basis"; "4xs" ];
-  (* Missing value *)
   fail_maybe [ "order" ];
   fail_maybe []
 

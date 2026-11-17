@@ -1,5 +1,3 @@
-(** Text transform utilities. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

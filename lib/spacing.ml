@@ -1,14 +1,8 @@
-(** Shared spacing utilities for padding, margin, and gap *)
-
 module Css = Cascade.Css
 open Css
 open Style
 
-(** {1 Spacing Variable} *)
-
 let var = Theme.spacing_var
-
-(** {1 Class Name Formatting} *)
 
 let pp_spacing_suffix : spacing -> string = function
   | `Px -> "px"
@@ -34,8 +28,6 @@ let pp_spacing_suffix : spacing -> string = function
 let pp_margin_suffix : margin -> string = function
   | `Auto -> "auto"
   | #spacing as s -> pp_spacing_suffix s
-
-(** {1 CSS Conversion} *)
 
 let named_spacing_ref name : Css.length =
   Css.Var (Var.bracket ("spacing-" ^ name))
@@ -90,15 +82,9 @@ let to_decl_len ?theme ?(negative = false) (s : spacing) :
       let decl, len = Theme.spacing_calc_float ?theme n in
       (Some decl, len)
 
-(** {1 Spacing Constructors} *)
-
 let int n = `Rem (float_of_int n *. 0.25)
 let float n = `Rem (n *. 0.25)
 
-(** {1 Shared Parsing Logic} *)
-
-(** Check if a string is a valid named spacing identifier (alphabetic, not a
-    keyword) *)
 let is_named_spacing value =
   String.length value > 0
   && (not (value = "px" || value = "full" || value = "auto"))
@@ -110,11 +96,9 @@ let is_named_spacing value =
          || c = '-')
        value
   &&
-  (* Must start with a letter *)
   let c = value.[0] in
   c >= 'a' && c <= 'z'
 
-(** Parse a spacing value from a string, with optional support for auto *)
 let parse_value_string ?theme ~allow_auto value : margin option =
   if value = "px" then Some `Px
   else if value = "full" then Some `Full
@@ -133,7 +117,6 @@ let parse_value_string ?theme ~allow_auto value : margin option =
         else None
 
 type axis = [ `All | `X | `Y | `T | `R | `B | `L | `S | `E | `Bs | `Be ]
-(** Parse axis from a prefix string *)
 
 let axis_of_prefix = function
   | "p" | "m" -> Some `All
@@ -149,14 +132,14 @@ let axis_of_prefix = function
   | "pbe" | "mbe" -> Some `Be
   | _ -> None
 
-(** Check if a prefix is for margin (vs padding) *)
 let is_margin_prefix = function
   | "m" | "mx" | "my" | "mt" | "mr" | "mb" | "ml" | "ms" | "me" | "mbs" | "mbe"
     ->
       true
   | _ -> false
 
-(** Parse class name parts into (is_negative, prefix, value) *)
+(* [(negative, prefix, value)]: a leading [""] part is the [-] of a negative
+   class. *)
 let parse_class_parts parts =
   match parts with
   | [ ""; prefix; value ] -> Some (true, prefix, value)

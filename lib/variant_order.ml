@@ -49,9 +49,9 @@ module Slot = struct
      because several modifiers share a position: every [group-*] spelling sorts
      where [group-] sorts, and a [not-X] sorts where X does. *)
   type t =
-    | Child  (** [*:]: every direct child. *)
-    | Descendant  (** [**:]: every descendant. *)
-    | Negation  (** [not-X:], ordered inside the slot by the X it negates. *)
+    | Child (* [*:]: every direct child. *)
+    | Descendant (* [**:]: every descendant. *)
+    | Negation (* [not-X:], ordered inside the slot by the X it negates. *)
     | Group
     | Peer
     | Pseudo_first_letter
@@ -99,7 +99,7 @@ module Slot = struct
     | Enabled
     | Disabled
     | Inert
-    | Ancestor  (** [in-*]: a state on an ancestor. *)
+    | Ancestor (* [in-*]: a state on an ancestor. *)
     | Has
     | Aria_named
     | Aria_arbitrary
@@ -117,7 +117,7 @@ module Slot = struct
     | Contrast_less
     | Pointer
     | Any_pointer
-    | Breakpoint  (** Every [sm:]/[max-lg:]/[min-[32rem]:] spelling. *)
+    | Breakpoint (* Every [sm:]/[max-lg:]/[min-[32rem]:] spelling. *)
     | Portrait
     | Landscape
     | Ltr
@@ -128,9 +128,9 @@ module Slot = struct
     | Noscript
     | Inverted_colors
     | Starting
-    | Custom  (** A [\@custom-variant] the theme registers. *)
-    | Prose of string  (** [prose-X:], ordered by the element X names. *)
-    | Arbitrary  (** [[&>*]:], [not-[...]:] and the other bracket variants. *)
+    | Custom (* A [@custom-variant] the theme registers. *)
+    | Prose of string (* [prose-X:], ordered by the element X names. *)
+    | Arbitrary (* [[&>*]:], [not-[...]:] and the other bracket variants. *)
     | Container_query
 
   (* The cascade order itself. Every other function in this section maps onto a

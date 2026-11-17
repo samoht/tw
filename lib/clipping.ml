@@ -1,5 +1,3 @@
-(** Clipping utilities *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -15,8 +13,6 @@ module Handler = struct
   let name = "clipping"
   let priority _ = 28
 
-  (** Convert float percentage pairs to typed length pairs for clip-path polygon
-  *)
   let points_to_lengths points : (Css.length * Css.length) list =
     List.map
       (fun (x, y) ->

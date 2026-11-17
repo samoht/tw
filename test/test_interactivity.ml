@@ -10,61 +10,32 @@ let test_scroll_snap () =
   check "snap-center"
 
 let test_of_string_invalid () =
-  (* Invalid interactivity utilities *)
   let test_invalid =
     Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
       (module Tw.Interactivity.Handler)
   in
 
-  (* Invalid select values *)
   test_invalid [ "select" ];
-  (* Missing value *)
   test_invalid [ "select"; "invalid" ];
 
-  (* Invalid value *)
-
-  (* Invalid scroll values *)
   test_invalid [ "scroll" ];
-  (* Missing value *)
   test_invalid [ "scroll"; "invalid" ];
 
-  (* Invalid value *)
-
-  (* Invalid snap values *)
   test_invalid [ "snap" ];
-  (* Missing value *)
   test_invalid [ "snap"; "invalid" ];
-  (* Invalid value *)
   test_invalid [ "snap"; "align" ];
 
-  (* Incomplete snap-align-none *)
-
-  (* Invalid resize values *)
   test_invalid [ "resize"; "invalid" ];
 
-  (* Invalid value *)
-
-  (* Invalid pointer events *)
   test_invalid [ "pointer"; "events" ];
-  (* Missing value *)
   test_invalid [ "pointer"; "events"; "invalid" ];
 
-  (* Invalid value *)
-
-  (* Invalid will-change *)
   test_invalid [ "will"; "change" ];
-  (* Missing value *)
   test_invalid [ "will"; "change"; "invalid" ];
 
-  (* Invalid value *)
-
-  (* Invalid prefixes *)
   test_invalid [ "appearance" ];
-  (* Incomplete *)
   test_invalid [ "unknown" ];
-  (* Unknown *)
   test_invalid []
-(* Empty *)
 
 let suborder_matches_tailwind () =
   let open Tw in

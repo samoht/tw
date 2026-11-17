@@ -1,11 +1,3 @@
-(** Prose typography utilities
-
-    Complete implementation of Tailwind Typography plugin with:
-    - All HTML elements styled with :where() for low specificity
-    - not-prose exclusion mechanism
-    - Full CSS variable theming
-    - Size and color variants *)
-
 module Css = Cascade.Css
 open Css
 
@@ -30,8 +22,6 @@ let prose_pre_code_var = Var.channel Color "tw-prose-pre-code"
 let prose_pre_bg_var = Var.channel Color "tw-prose-pre-bg"
 let prose_th_borders_var = Var.channel Color "tw-prose-th-borders"
 let prose_td_borders_var = Var.channel Color "tw-prose-td-borders"
-
-(* Invert variants for dark mode *)
 let prose_invert_body_var = Var.channel Color "tw-prose-invert-body"
 let prose_invert_headings_var = Var.channel Color "tw-prose-invert-headings"
 let prose_invert_lead_var = Var.channel Color "tw-prose-invert-lead"
@@ -56,16 +46,9 @@ let prose_invert_pre_code_var = Var.channel Color "tw-prose-invert-pre-code"
 let prose_invert_pre_bg_var = Var.channel Color "tw-prose-invert-pre-bg"
 let prose_invert_th_borders_var = Var.channel Color "tw-prose-invert-th-borders"
 let prose_invert_td_borders_var = Var.channel Color "tw-prose-invert-td-borders"
-
-(* ======================================================================== *)
-(* Selector Helper Functions *)
-(* ======================================================================== *)
-
 let ( ++ ) = Css.Selector.( ++ )
 let ( >> ) = Css.Selector.( >> )
 let ( && ) = Css.Selector.( && )
-
-(* Shorthand for attribute selectors *)
 let attr name match_type = Css.Selector.attribute name match_type
 let class_attr value = attr "class" (Whitespace_list value)
 let type_attr value = attr "type" (Exact value)
@@ -78,23 +61,18 @@ let not_prose_selector =
   let not_prose_descendant = combine not_prose_class Descendant universal in
   not [ where [ not_prose_class; not_prose_descendant ] ]
 
-(* Helper to create a prose element selector with :where() and :not()
-   exclusion *)
 let prose_where_element element_selector =
   let open Css.Selector in
-  (* Create :where(element):not(:where(...)) structure *)
   compound [ where [ element_selector ]; not_prose_selector ]
 
 (* [elt] under the prose class [base_class], kept off [not-prose] content. *)
 let where base_class elt =
   Css.Selector.class_ base_class ++ prose_where_element elt
 
-(* Helper for child selectors in prose size variants like prose-sm *)
 let prose_child_selector parent_selector child_element =
   (* Create selector like: .prose-sm :where(.prose-sm>child):not(...) *)
   let open Css.Selector in
   let parent_child = combine parent_selector Child child_element in
-  (* Wrap the parent>child in :where() then add :not() *)
   parent_selector ++ compound [ where [ parent_child ]; not_prose_selector ]
 
 let li = Css.Selector.element "li"
@@ -146,7 +124,6 @@ let tbody_tr = tbody ++ tr
 let tbody_tr_last_child = tbody ++ (tr && last_child)
 let nested_lists = Css.Selector.list [ ul ++ ul; ul ++ ol; ol ++ ul; ol ++ ol ]
 
-(* Theme record for all prose color variables *)
 type prose_theme = {
   body : Css.declaration * Css.color Css.var;
   headings : Css.declaration * Css.color Css.var;
@@ -166,7 +143,6 @@ type prose_theme = {
   pre_bg : Css.declaration * Css.color Css.var;
   th_borders : Css.declaration * Css.color Css.var;
   td_borders : Css.declaration * Css.color Css.var;
-  (* Invert variants *)
   invert_body : Css.declaration * Css.color Css.var;
   invert_headings : Css.declaration * Css.color Css.var;
   invert_lead : Css.declaration * Css.color Css.var;
@@ -455,7 +431,6 @@ let default_prose_theme : prose_theme =
     pre_bg = Var.binding prose_pre_bg_var normal.pre_bg;
     th_borders = Var.binding prose_th_borders_var normal.th_borders;
     td_borders = Var.binding prose_td_borders_var normal.td_borders;
-    (* Invert variants *)
     invert_body = Var.binding prose_invert_body_var invert.body;
     invert_headings = Var.binding prose_invert_headings_var invert.headings;
     invert_lead = Var.binding prose_invert_lead_var invert.lead;
@@ -480,10 +455,7 @@ let default_prose_theme : prose_theme =
       Var.binding prose_invert_td_borders_var invert.td_borders;
   }
 
-(** Access theme record variables *)
 let theme = default_prose_theme
-
-(* Extract individual variables from theme record for backward compatibility *)
 let prose_body_d, prose_body_v = theme.body
 let prose_headings_d, prose_headings_v = theme.headings
 let prose_lead_d, prose_lead_v = theme.lead
@@ -502,8 +474,6 @@ let prose_pre_code_d, prose_pre_code_v = theme.pre_code
 let prose_pre_bg_d, prose_pre_bg_v = theme.pre_bg
 let prose_th_borders_d, prose_th_borders_v = theme.th_borders
 let prose_td_borders_d, prose_td_borders_v = theme.td_borders
-
-(* Invert variants *)
 let prose_invert_body_d, _prose_invert_body_v = theme.invert_body
 let prose_invert_headings_d, _prose_invert_headings_v = theme.invert_headings
 let prose_invert_lead_d, _prose_invert_lead_v = theme.invert_lead
@@ -526,7 +496,6 @@ let prose_invert_pre_bg_d, _invert_pre_bg_v = theme.invert_pre_bg
 let prose_invert_th_borders_d, _invert_th_borders_v = theme.invert_th_borders
 let prose_invert_td_borders_d, _invert_td_borders_v = theme.invert_td_borders
 
-(** Collect all CSS variable declarations *)
 let css_variables =
   [
     prose_body_d;
@@ -579,17 +548,6 @@ let to_class = function
   | `Neutral -> "prose-neutral"
   | `Stone -> "prose-stone"
 
-(** Generate CSS rules for prose elements *)
-
-(* Paragraph and lead styles are defined inline in base_prose_rules *)
-
-(* Link styles are defined inline in base_prose_rules *)
-
-(* Strong styles are defined inline in base_prose_rules *)
-
-(* List styles are defined inline in base_prose_rules *)
-
-(* Heading styles *)
 let heading_rules base =
   [
     Css.rule ~selector:(where base h1)
@@ -641,11 +599,6 @@ let heading_rules base =
       [ Css.color Inherit; Css.font_weight (Weight 700.) ];
   ]
 
-(* Horizontal rule styles are defined inline in base_prose_rules *)
-
-(* Blockquote styles are defined inline in base_prose_rules *)
-
-(* Media element styles *)
 let media_rules base =
   [
     Css.rule ~selector:(where base img)
@@ -656,7 +609,6 @@ let media_rules base =
       [ Css.margin_top (Em 2.0); Css.margin_bottom (Em 2.0) ];
   ]
 
-(* Keyboard styles *)
 let kbd_rules base =
   [
     Css.rule
@@ -693,7 +645,6 @@ let kbd_rules base =
       ];
   ]
 
-(* Pre code block styles *)
 let pre_code_rules base =
   [
     Css.rule ~selector:(where base pre)
@@ -734,7 +685,6 @@ let pre_code_rules base =
       [ content None ];
   ]
 
-(* Code styles *)
 let code_rules base =
   [
     Css.rule ~selector:(where base code)
@@ -772,7 +722,6 @@ let code_rules base =
   ]
   @ pre_code_rules base
 
-(* Table styles *)
 let table_rules base =
   [
     Css.rule ~selector:(where base table)
@@ -818,7 +767,6 @@ let table_rules base =
       [ text_align Start ];
   ]
 
-(* Figure and figcaption styles *)
 let figure_rules base =
   [
     Css.rule
@@ -833,7 +781,6 @@ let figure_rules base =
       ];
   ]
 
-(* Nested list paragraph first/last child spacing *)
 let nested_list_paragraph_rules base =
   [
     Css.rule
@@ -878,14 +825,11 @@ let nested_list_paragraph_rules base =
       [ Css.margin_bottom (Em 1.25) ];
   ]
 
-(* List spacing rules *)
 let list_spacing_rules base =
   [
-    (* Picture img special handling *)
     Css.rule
       ~selector:(where base (picture >> img))
       [ Css.margin_top Zero; Css.margin_bottom Zero ];
-    (* List item styles *)
     Css.rule ~selector:(where base li)
       [ Css.margin_top (Em 0.5); Css.margin_bottom (Em 0.5) ];
     Css.rule
@@ -895,17 +839,14 @@ let list_spacing_rules base =
   ]
   @ nested_list_paragraph_rules base
   @ [
-      (* Nested lists *)
       Css.rule ~selector:(where base nested_lists)
         [ Css.margin_top (Em 0.75); Css.margin_bottom (Em 0.75) ];
-      (* Definition lists *)
       Css.rule ~selector:(where base dl)
         [ Css.margin_top (Em 1.25); Css.margin_bottom (Em 1.25) ];
       Css.rule ~selector:(where base dd)
         [ Css.margin_top (Em 0.5); padding_inline_start (Em 1.625) ];
     ]
 
-(* Table spacing rules *)
 let table_spacing_rules base =
   [
     Css.rule
@@ -936,7 +877,6 @@ let table_spacing_rules base =
       [ Css.padding_inline_end Zero ];
   ]
 
-(* Adjacent element spacing rules *)
 let adjacent_element_spacing_rules base =
   [
     Css.rule
@@ -951,12 +891,10 @@ let adjacent_element_spacing_rules base =
       [ Css.margin_top Zero ];
   ]
 
-(* Figure and boundary rules *)
 let figure_and_boundary_rules base =
   [
     Css.rule ~selector:(where base figure)
       [ Css.margin_top (Em 2.0); Css.margin_bottom (Em 2.0) ];
-    (* First and last child margins *)
     Css.rule
       ~selector:
         (where base
@@ -973,20 +911,16 @@ let figure_and_boundary_rules base =
       [ Css.margin_bottom Zero ];
   ]
 
-(* Additional list and spacing rules *)
 let additional_rules base =
   list_spacing_rules base
   @ adjacent_element_spacing_rules base
   @ table_spacing_rules base
   @ figure_and_boundary_rules base
 
-(* Paragraph and text rules *)
 let paragraph_and_text_rules base =
   [
-    (* Paragraphs *)
     Css.rule ~selector:(where base p)
       [ Css.margin_top (Em 1.25); Css.margin_bottom (Em 1.25) ];
-    (* Lead text *)
     Css.rule
       ~selector:(where base (class_attr "lead"))
       [
@@ -998,10 +932,8 @@ let paragraph_and_text_rules base =
       ];
   ]
 
-(* Link and strong rules *)
 let link_and_strong_rules base =
   [
-    (* Links *)
     Css.rule ~selector:(where base a)
       [
         color (Css.Var prose_links_v);
@@ -1015,10 +947,8 @@ let link_and_strong_rules base =
                thickness = None;
              });
       ];
-    (* Strong *)
     Css.rule ~selector:(where base strong)
       [ Css.color (Css.Var prose_bold_v); Css.font_weight (Weight 600.) ];
-    (* Strong inherit rules - group multiple selectors *)
     Css.rule
       ~selector:
         (Css.Selector.list
@@ -1047,7 +977,6 @@ let ol_type_cs base letter style =
     ~selector:(where base (Css.Selector.compound [ ol; cs_attr ]))
     [ list_style_type style ]
 
-(* Ordered list type variant rules *)
 let ol_type_variant_rules base =
   [
     ol_type_ci base "A" Upper_alpha;
@@ -1061,7 +990,6 @@ let ol_type_variant_rules base =
     ol_type_ci base "1" Decimal;
   ]
 
-(* List marker rules *)
 let list_marker_rules base =
   [
     Css.rule
@@ -1082,10 +1010,8 @@ let list_marker_rules base =
       [ Css.color (Css.Var prose_bullets_v) ];
   ]
 
-(* Lists with markers (markers come AFTER the ul rule like Tailwind) *)
 let list_and_marker_rules base =
   [
-    (* Lists *)
     Css.rule ~selector:(where base ol)
       [
         margin_top (Em 1.25);
@@ -1107,7 +1033,6 @@ let list_and_marker_rules base =
   (* Markers come AFTER ul rule to match Tailwind *)
   @ list_marker_rules base
 
-(* Blockquote and pseudo-element rules *)
 let blockquote_rules base =
   [
     Css.rule ~selector:(where base blockquote)
@@ -1155,14 +1080,12 @@ let blockquote_rules base =
 (* Structural elements with blockquote pseudo-elements interleaved *)
 let structural_element_rules base =
   [
-    (* Definition terms *)
     Css.rule ~selector:(where base dt)
       [
         color (Css.Var prose_headings_v);
         margin_top (Em 1.25);
         Css.font_weight (Weight 600.);
       ];
-    (* Horizontal rules *)
     Css.rule ~selector:(where base hr)
       [
         border_color (Css.Var prose_hr_v);
@@ -1173,7 +1096,6 @@ let structural_element_rules base =
   ]
   @ blockquote_rules base
 
-(* Base prose rules - combines all element rules *)
 let base_prose_rules () =
   let base = "prose" in
   let main_rule =
@@ -1194,7 +1116,6 @@ let base_prose_rules () =
   @ table_rules base @ figure_rules base @ [ variables_rule ]
   @ additional_rules base
 
-(* Configuration type for typography sizes *)
 type size_config = {
   base_font_size : Css.length;
   base_line_height : float;
@@ -1260,7 +1181,6 @@ type size_config = {
   figcaption_line_height : float;
 }
 
-(* Typography heading rules for size variants *)
 let typography_heading_rules selector c =
   let open Selector in
   [
@@ -1297,11 +1217,9 @@ let typography_heading_rules selector c =
       ];
   ]
 
-(* Typography nested list paragraph and definition list rules *)
 let typography_list_nested_rules selector c =
   let open Selector in
   [
-    (* Nested list paragraphs *)
     Css.rule
       ~selector:(prose_child_selector selector (ul >> li ++ p))
       [ Css.margin_top c.li_p_margin_y; Css.margin_bottom c.li_p_margin_y ];
@@ -1317,14 +1235,12 @@ let typography_list_nested_rules selector c =
     Css.rule
       ~selector:(prose_child_selector selector (ol >> li >> (p && last_child)))
       [ Css.margin_bottom c.li_p_last_margin_bottom ];
-    (* Nested lists *)
     Css.rule
       ~selector:(selector ++ prose_where_element nested_lists)
       [
         Css.margin_top c.nested_list_margin_y;
         Css.margin_bottom c.nested_list_margin_y;
       ];
-    (* Definition lists *)
     Css.rule
       ~selector:(selector ++ prose_where_element dl)
       [ Css.margin_top c.dl_margin_y; Css.margin_bottom c.dl_margin_y ];
@@ -1338,7 +1254,6 @@ let typography_list_nested_rules selector c =
       ];
   ]
 
-(* Typography list rules for size variants *)
 let typography_list_rules selector c =
   let open Selector in
   [
@@ -1357,7 +1272,6 @@ let typography_list_rules selector c =
     Css.rule
       ~selector:(selector ++ prose_where_element li)
       [ Css.margin_top c.li_margin_y; Css.margin_bottom c.li_margin_y ];
-    (* List items with padding *)
     Css.rule
       ~selector:
         (Css.Selector.list
@@ -1369,7 +1283,6 @@ let typography_list_rules selector c =
   ]
   @ typography_list_nested_rules selector c
 
-(* Typography table body and footer cell rules *)
 let typography_table_cell_rules selector c =
   let open Selector in
   [
@@ -1384,7 +1297,6 @@ let typography_table_cell_rules selector c =
         Css.padding_bottom c.tbody_td_padding_y;
         Css.padding_inline_start c.tbody_td_padding_x;
       ];
-    (* First and last table cells *)
     Css.rule
       ~selector:
         (selector
@@ -1402,7 +1314,6 @@ let typography_table_cell_rules selector c =
       [ Css.padding_inline_end Zero ];
   ]
 
-(* Typography table rules for size variants *)
 let typography_table_rules selector c =
   let open Selector in
   [
@@ -1428,7 +1339,6 @@ let typography_table_rules selector c =
   ]
   @ typography_table_cell_rules selector c
 
-(* Typography figure and boundary rules for size variants *)
 let typography_figure_rules selector c =
   let open Selector in
   [
@@ -1446,7 +1356,6 @@ let typography_figure_rules selector c =
         Css.font_size c.figcaption_font_size;
         Css.line_height (Num c.figcaption_line_height);
       ];
-    (* First and last child margins *)
     Css.rule
       ~selector:(prose_child_selector selector first_child)
       [ Css.margin_top Zero ];
@@ -1455,7 +1364,6 @@ let typography_figure_rules selector c =
       [ Css.margin_bottom Zero ];
   ]
 
-(* Typography image and media rules for size variants *)
 let typography_media_rules selector c =
   let open Selector in
   [
@@ -1475,7 +1383,6 @@ let typography_media_rules selector c =
       [ Css.margin_top c.img_margin_y; Css.margin_bottom c.img_margin_y ];
   ]
 
-(* Typography code element rules for size variants *)
 let typography_code_rules selector c =
   let open Selector in
   [
@@ -1513,14 +1420,12 @@ let typography_code_rules selector c =
       ];
   ]
 
-(* Typography horizontal rule and following element rules *)
 let typography_hr_rules selector c =
   let open Selector in
   [
     Css.rule
       ~selector:(selector ++ prose_where_element hr)
       [ Css.margin_top c.hr_margin_y; Css.margin_bottom c.hr_margin_y ];
-    (* Following elements *)
     Css.rule
       ~selector:
         (Css.Selector.list
@@ -1533,20 +1438,16 @@ let typography_hr_rules selector c =
       [ Css.margin_top Zero ];
   ]
 
-(* Helper function to generate typography rules for different sizes *)
 let typography_rules selector c =
   let open Selector in
   [
-    (* Base rule *)
     Css.rule ~selector
       [
         Css.font_size c.base_font_size; Css.line_height (Num c.base_line_height);
       ];
-    (* Paragraph *)
     Css.rule
       ~selector:(selector ++ prose_where_element p)
       [ Css.margin_top c.p_margin_y; Css.margin_bottom c.p_margin_y ];
-    (* Lead paragraph *)
     Css.rule
       ~selector:(selector ++ prose_where_element (class_attr "lead"))
       [
@@ -1555,7 +1456,6 @@ let typography_rules selector c =
         Css.font_size c.lead_font_size;
         Css.line_height (Num c.lead_line_height);
       ];
-    (* Blockquote *)
     Css.rule
       ~selector:(selector ++ prose_where_element blockquote)
       [
@@ -1572,7 +1472,6 @@ let typography_rules selector c =
   @ typography_table_rules selector c
   @ typography_figure_rules selector c
 
-(* Size configuration for prose-sm *)
 let sm_config =
   {
     base_font_size = Rem 0.875;
@@ -1639,7 +1538,6 @@ let sm_config =
     figcaption_line_height = 1.33333;
   }
 
-(* Size configuration for prose-lg *)
 let lg_config =
   {
     base_font_size = Rem 1.125;
@@ -1706,7 +1604,6 @@ let lg_config =
     figcaption_line_height = 1.5;
   }
 
-(* Size configuration for prose-xl *)
 let xl_config =
   {
     base_font_size = Rem 1.25;
@@ -1773,7 +1670,6 @@ let xl_config =
     figcaption_line_height = 1.55556;
   }
 
-(* Size configuration for prose-2xl *)
 let xl2_config =
   {
     base_font_size = Rem 1.5;
@@ -1852,7 +1748,6 @@ let xl_size_rules selector =
 let xl2_size_rules selector =
   typography_rules (Css.Selector.class_ selector) xl2_config
 
-(* Helper to create declarations from a list of (var, value) pairs *)
 let bind_prose_vars bindings =
   List.map (fun (var, value) -> Var.set var value) bindings
 
@@ -1904,8 +1799,6 @@ let invert_bindings p =
       (prose_invert_td_borders_var, p.td_borders);
     ]
 
-(* Helper to create color variable bindings for color themes - returns
-   declarations *)
 let color_theme_bindings theme_name =
   match theme_name with
   | "gray" -> normal_bindings gray_normal @ invert_bindings gray_invert
@@ -2015,14 +1908,11 @@ let pp = function
   | `Invert -> "Invert"
   | `Orange -> "Orange"
 
-(** Prose utility constructors *)
 let prose_style variant =
   let rules = to_css_rules variant in
   Style.style ~rules:(Some rules) []
 
-(** Generate complete prose stylesheet *)
 let stylesheet () =
-  (* Generate CSS for all prose variants *)
   let base_rules = to_css_rules `Base in
   let sm_rules = to_css_rules `Sm in
   let lg_rules = to_css_rules `Lg in
@@ -2031,7 +1921,6 @@ let stylesheet () =
   let gray_rules = to_css_rules `Gray in
   let slate_rules = to_css_rules `Slate in
 
-  (* Combine all rules *)
   let all_rules =
     List.concat
       [
@@ -2049,9 +1938,7 @@ let stylesheet () =
 
 let niet = Style.style ~rules:(Some []) []
 
-(* Handler for prose size variants - priority 2 *)
 module Handler = struct
-  (** Local prose utility type for size variants *)
   type t =
     | Prose
     | Prose_sm
@@ -2061,14 +1948,8 @@ module Handler = struct
     | Lead
     | Not_prose
 
-  (** Extensible variant for prose utilities *)
-
-  (** Priority for prose size utilities *)
   let name = "prose"
-
   let priority _ = 2 (* Same as margin to allow interleaving by suborder *)
-
-  (** {1 Utility Conversion Functions} *)
 
   let to_style _theme = function
     | Prose -> prose_style `Base
@@ -2115,20 +1996,11 @@ module Handler = struct
   let examples = []
 end
 
-(* Handler for prose color variants - priority 21 *)
 module Color_Handler = struct
   type t = [ `Gray | `Slate | `Zinc | `Neutral | `Stone | `Invert | `Orange ]
-  (** The prose colour variants, as {!prose_style} names them. *)
 
-  (** Extensible variant for prose color utilities *)
-
-  (** Priority for prose color utilities *)
   let name = "prose-color"
-
   let priority _ = 25 (* Same as color utilities *)
-
-  (** {1 Utility Conversion Functions} *)
-
   let to_style _theme variant = prose_style variant
 
   let to_class = function
@@ -2168,13 +2040,9 @@ module Color_Handler = struct
 end
 
 module Utility_factory = Utility.Make (Handler)
-(** Register both handlers with Utility system *)
-
 module Color_utility = Utility.Make (Color_Handler)
 
-(** Public API *)
 let utility = Utility_factory.v
-
 let color_utility = Color_utility.v
 let prose = utility Handler.Prose
 let prose_sm = utility Handler.Prose_sm

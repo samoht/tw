@@ -1,5 +1,3 @@
-(** Content utilities, for the [::before] and [::after] pseudo-elements. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -23,7 +21,6 @@ module Handler = struct
     | [ "content"; "none" ] -> Ok Content_none
     | "content" :: rest ->
         let joined = String.concat "-" rest in
-        (* Parse arbitrary value syntax: content-["value"] -> value *)
         let bracket_quoted q =
           String.length joined >= 4
           && String.get joined 0 = '['
@@ -72,7 +69,6 @@ module Handler = struct
     | Content_named s -> "content-" ^ s
 
   let suborder = function
-    (* Content *)
     | Content_none -> 13000
     | Content _ -> 10001
     | Content_squote _ -> 10001

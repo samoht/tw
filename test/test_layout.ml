@@ -45,21 +45,17 @@ let test_overflow () =
   check_overflow "overflow-y-hidden"
 
 let of_string_invalid () =
-  (* Invalid layout values *)
   let fail_maybe =
     Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
       (module Tw.Layout.Handler)
   in
 
   fail_maybe [ "inline"; "invalid" ];
-  (* Invalid display *)
   fail_maybe [ "table"; "invalid" ];
-  (* Invalid table display *)
-  (* Note: z-60 is valid in Tailwind v4 (dynamic z-index), so not tested here *)
+  (* z-60 is valid in Tailwind v4 (dynamic z-index); the double dash of z--10 is
+     not *)
   fail_maybe [ "z"; ""; "10" ];
-  (* Double dash z--10 is invalid *)
   fail_maybe [ "unknown" ]
-(* Unknown layout type *)
 
 let test_screen_reader () =
   check_class "sr-only" Tw.Layout.sr_only;
@@ -110,7 +106,6 @@ let test_sr_only_declaration_order () =
        (-1) order)
 
 let test_layout_container () =
-  (* Test that container generates .container rule with width: 100% *)
   let css = Tw.to_css [ Tw.container ] in
   let css_string = Tw.Css.to_string ~minify:true css in
   Alcotest.(check bool)
@@ -119,7 +114,6 @@ let test_layout_container () =
   Alcotest.(check bool) "has width:100%" true (String.contains css_string 'w')
 
 let test_container_vs_at_container () =
-  (* Test the difference between layout .container and @container query *)
   let layout = Tw.to_css [ Tw.container ] in
   let query = Tw.to_css [ Tw.at_container ] in
   let layout_str = Tw.Css.to_string ~minify:true layout in
@@ -202,8 +196,8 @@ let isolation_and_float_slots () =
     (List.sort Int.compare positions)
     positions
 
-(* Visibility, float and break-* typed constructors are newly exposed in tw.mli;
-   check they agree with the parser on class names. *)
+(* The visibility, float and break-* typed constructors agree with the parser on
+   class names. *)
 let test_typed () =
   Test_helpers.check_typed_class "visible" Tw.visible;
   Test_helpers.check_typed_class "invisible" Tw.invisible;

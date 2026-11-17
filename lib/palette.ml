@@ -1,5 +1,3 @@
-(** Tailwind v4's default colour palette. *)
-
 open Srgb
 
 let gray =
@@ -430,7 +428,6 @@ let oklch_css color_name shade =
   | Some oklch -> Some (oklch_to_css oklch)
   | None -> None
 
-(* The shades the Tailwind v4 palette defines for named colors *)
 let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
 
 (* Every colour the palette defines, in the order Tailwind's [@theme] declares

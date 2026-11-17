@@ -94,11 +94,6 @@ let render_nested_utilities ~classes stmts =
       Css.rule ~selector:(nest_on_ampersand ~classes sel) decls)
   |> Statements.merge_same_selector |> Css.v |> Css.to_string ~minify:true
 
-(* The declarations of [names], rewritten to nest under the [&] of whatever rule
-   applies them, plus the statements that must stay at the top of the sheet. A
-   [@layer properties] block holds the initial value of the variables the
-   utilities set, on the universal selector: nested under an author rule it
-   would come out as [.box *], so it is hoisted instead. *)
 (* What goes to the top of the sheet rather than under the [&] that applied the
    utilities: a rule naming no class, which is the [:root] block declaring the
    theme tokens they read, and the three at-rules that stand on their own -
@@ -126,6 +121,8 @@ let at_top_of_sheet stmt =
   | None -> stmt
   | Some _ -> Css.layer ~name:[ "theme" ] [ stmt ]
 
+(* The declarations of [names], rewritten to nest under the [&] of whatever rule
+   applies them, plus the statements that must stay at the top of the sheet. *)
 let nested_utilities ~theme names =
   (* The generated sheet already declares a [theme(static)] theme whole, with
      every keyframe, so a render that only lends its declarations to author CSS
@@ -256,13 +253,6 @@ let variant_names_in css =
     in
     go 0 []
 
-(* The [@variant] body a built-in variant expands to. [Tw.of_string] knows the
-   variants, but only as part of a whole utility, so derive the wrapper from
-   what it emits around a probe with a single declaration and put [@slot] where
-   that declaration was. This is what lets a project's [@utility] carry a
-   built-in prefix, which the [@variant] machinery otherwise only has templates
-   for when the project declared it. *)
-(* Replace every occurrence of [needle] in [hay]. *)
 let replace_all ~needle ~by hay =
   Re.replace_string (Re.compile (Re.str needle)) ~by hay
 
@@ -294,9 +284,11 @@ let drop_bare_amp_rules hay =
   go 0;
   Buffer.contents buf
 
-(* The template a built-in variant stands for, derived from tw's own render of a
-   probe utility under it: every probe declaration becomes the slot, so a
-   variant of several rules, [marker:]'s three, slots each of them. *)
+(* The template a built-in variant stands for, so a project's [@utility] can
+   carry a built-in prefix. [Tw.of_string] knows the variants only as part of a
+   whole utility, so the template is derived from tw's own render of a probe
+   utility under it: every probe declaration becomes the slot, so a variant of
+   several rules, [marker:]'s three, slots each of them. *)
 let builtin_variant_template ~theme name =
   let body, _ = nested_utilities ~theme [ name ^ ":float-none" ] in
   if body = "" then None
@@ -309,10 +301,9 @@ let expand ?(extra_defs = []) ?(udefs = []) ~theme css =
      import's [important] does not reach it. *)
   let theme = { theme with Tw.Scheme.important = false } in
   (* The [@utility] declarations taken out here are the ones an [@apply] in this
-     same file names. Dropping them left [@apply card] resolving against an
-     empty table, so it named no utility and the rule it decorated came out
-     without the declarations the custom utility carries - silently, since an
-     [@apply] that names nothing is not an error. *)
+     same file names, so they join [udefs]. An [@apply] that names nothing is
+     not an error, so without them the rule would silently lose the custom
+     utility's declarations. *)
   let css, own_udefs = Custom_utility.take css in
   let udefs = udefs @ own_udefs in
   let css, defs = Custom_variant.take css in

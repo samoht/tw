@@ -1,5 +1,3 @@
-(** Contain utilities for CSS containment. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -100,7 +98,6 @@ module Handler = struct
         v tw_contain_style_var;
       ]
 
-  (* Create a composable contain style that sets one variable *)
   let composable_contain var set_value =
     let decl = Var.set var (Css.Variables.custom_value_ident set_value) in
     style ~property_rules:contain_property_rules
@@ -140,7 +137,6 @@ module Handler = struct
     match List.assoc_opt class_name of_class_map with
     | Some t -> Ok t
     | None -> (
-        (* Check for arbitrary value: contain-[value] *)
         match Parse.split_class class_name with
         | [ "contain"; v ] when Parse.is_bracket_value v -> (
             let inner = Parse.bracket_inner v in
@@ -155,8 +151,6 @@ end
 module Utility_factory = Utility.Make (Handler)
 
 let utility = Utility_factory.v
-
-(* Convenience functions *)
 let contain_none = utility Handler.None
 let contain_strict = utility Handler.Strict
 let contain_content = utility Handler.Content

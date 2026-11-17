@@ -1,6 +1,3 @@
-(** Scrollbar utilities: scrollbar-width, scrollbar-gutter, scrollbar-thumb,
-    scrollbar-track. *)
-
 module Css = Cascade.Css
 
 let thumb_var =
@@ -68,8 +65,8 @@ module Handler = struct
     | Thumb s -> "scrollbar-thumb-" ^ spec_class s
     | Track s -> "scrollbar-track-" ^ spec_class s
 
-  (* Return (declarations placed on the rule, optional @supports rules) that set
-     [set_var] to the resolved colour. *)
+  (* [(declarations on the rule, @supports rules)] that set [set_var] to the
+     resolved colour. *)
   let value_decls ?theme ~set_var spec :
       Css.declaration list * Css.statement list =
     let keyword k =

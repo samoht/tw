@@ -1,14 +1,11 @@
-(** Tests for the Tw module using canonical CSS comparison with Tailwind v4
-
-    All tests use the `check` function which compares our CSS output with real
-    Tailwind CSS through Cascade's canonical comparison. *)
+(* [check] and [check_list] compare tw's sheet with the pinned Tailwind CLI's
+   through the canonical differ. *)
 
 module Css = Cascade.Css
 open Cascade_diff
 open Alcotest
 open Tw
 
-(* CSS generation *)
 let generate_tw_css ?(minify = false) styles =
   let stylesheet = to_css ~base:true styles in
   stylesheet |> Css.to_string ~minify ~lossless:true
@@ -35,7 +32,6 @@ let slugify s =
   in
   readable ^ "-" ^ String.sub (Digest.to_hex (Digest.string s)) 0 12
 
-(* Test name generation *)
 let test_name_of = function
   | [] -> "empty"
   | names ->
@@ -65,7 +61,6 @@ let debug_files test_name tw_css tailwind_css =
   Tw_tools.Tailwind_gen.write_file tailwind_file tailwind_css;
   (tw_file, tailwind_file)
 
-(* Failure reporting *)
 let report_failure test_name tw_file tailwind_file =
   Fmt.epr "@[<v>@,";
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
@@ -75,8 +70,6 @@ let report_failure test_name tw_file tailwind_file =
   Fmt.epr "  diff -u %s %s@," tw_file tailwind_file;
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,@,"
 
-(* Simple CSS testable that just shows diff on failure *)
-
 let css_testable =
   Alcotest.testable
     (fun fmt css -> Fmt.pf fmt "<css: %d chars>" (String.length css))
@@ -84,14 +77,11 @@ let css_testable =
 
 let check_exact_match tw_styles =
   Test_helpers.require_tailwind_cli ();
-  (* Prepare classnames and raw CSS strings outside the try to use in
-     handlers *)
   let tw_styles = match tw_styles with [] -> [] | styles -> styles in
   let classnames = List.map pp tw_styles in
   let tw_css_raw = ref "" in
   let tailwind_css_raw = ref "" in
   try
-    (* Generate CSS without stripping for original comparison *)
     tw_css_raw := generate_tw_css ~minify:true tw_styles;
     tailwind_css_raw :=
       generate_tailwind_css ~minify:true ~optimize:true classnames;
@@ -115,7 +105,6 @@ let check_exact_match tw_styles =
       let tw_file, tailwind_file = debug_files test_name tw_css tailwind_css in
       report_failure test_name tw_file tailwind_file;
 
-      (* Show diff statistics *)
       let stats =
         Css_compare.stats ~expected_str:tailwind_css ~actual_str:tw_css
           diff_result
@@ -124,7 +113,6 @@ let check_exact_match tw_styles =
       Css_compare.pp_stats stats_buf stats;
       Fmt.epr "%s@,@," (Buffer.contents stats_buf);
 
-      (* Show the actual diff *)
       let diff_buf = Buffer.create 256 in
       Css_compare.pp ~expected:"Tailwind (expected)" ~actual:"Our TW (actual)"
         diff_buf diff_result;
@@ -183,8 +171,6 @@ let check_module utility =
   | _ ->
       Alcotest.failf "%s differs from Tailwind:\n%s" class_name
         (Test_helpers.describe_diff diff)
-
-(* ===== UPSTREAM PARSE PARITY ============================================= *)
 
 (* The case's own [@custom-variant]s, as the two scheme fields that carry them.
    Directive form: "name <template> KEY=value ...", DEFAULT mapped to the
@@ -365,8 +351,6 @@ let upstream_gate_reads_emitted_classes () =
     "an expected CSS with no rule exercises nothing" false
     (class_is_emitted (emitted_selectors "") "flex")
 
-(* ===== CORE TESTS (renamed to shorter names) ===== *)
-
 (* Debug artefacts are named after the classes under test and belong inside the
    checkout: a shared system temp directory is written by every user and every
    concurrent run at once. The name has to separate the runs too - a slug that
@@ -393,18 +377,14 @@ let debug_artefacts () =
       Alcotest.(check bool) (path ^ " was written") true (Sys.file_exists path))
     [ tw_file; tailwind_file ]
 
-let empty_test () =
-  (* Test with no styles to see base output *)
-  check_list []
+let empty_test () = check_list []
 
 let multiple_classes () =
-  (* Test with multiple classes together *)
   check_list [ p 4; m 2; bg blue; text white ];
   check_list [ flex; items_center; justify_center; gap 4 ];
   check_list [ rounded_lg; shadow_md; p 6 ]
 
 let responsive_classes () =
-  (* Test responsive modifiers with multiple classes *)
   check_list [ p 4; md [ p 8 ]; lg [ p 12 ] ];
   check_list [ text_sm; sm [ text_base ]; md [ text_lg ]; lg [ text_xl ] ];
   check_list [ hidden; sm [ block ]; md [ flex ] ]
@@ -882,14 +862,11 @@ let transforms_3d () =
   check snap_end
 
 let content_variants () =
-  (* before/after + content-none *)
   check_list [ before [ content_none ] ];
   check_list [ after [ content_none ] ];
-  (* before + content with auto quotes and arbitrary value class name *)
   (* NOTE: Using ASCII character instead of Unicode (→) because Tailwind v4
      doesn't support Unicode in class names *)
   check_list [ before [ content ">" ] ];
-  (* another simple ASCII content *)
   check_list [ after [ content "*" ] ]
 
 let prose_basic () =
@@ -907,11 +884,8 @@ let prose_ordering () =
   check_list [ mb 0; prose ];
   check_list [ mb 4; mb 8; mb 12; prose ]
 
-(* ===== CROSS-HANDLER ORDERING TESTS ===== *)
-(* Test CSS output ordering when mixing utilities from different handlers.
-   These catch bugs where sort priority/suborder comparisons produce wrong
-   interleaving across handler boundaries. *)
-
+(* Utilities from different handlers interleave across handler boundaries in
+   Tailwind's order. *)
 let ordering_padding_margin () =
   check_list [ p 1; px 3; py 3 ];
   check_list [ m 4; p 4 ];
@@ -948,8 +922,6 @@ let ordering_complex_card () =
       border_color ~shade:200 gray;
       hover [ shadow_md ];
     ]
-
-(* ===== MISSING FEATURE TESTS ===== *)
 
 let typed_utility_surface () =
   check_module Layout.clear_left;
@@ -1028,39 +1000,23 @@ let typed_utility_surface () =
       bg_blend_luminosity;
     ]
 
-(* Helper: parse a Tailwind class string via of_string; fail the test if the
-   class is not recognised by our parser (i.e. the feature is completely
-   missing). *)
 let require_parse class_name =
   match of_string class_name with
   | Ok v -> v
   | Error (`Msg m) ->
       Alcotest.failf "of_string %S failed — API gap: %s" class_name m
 
-(* -- 1. Fractional spacing ------------------------------------------------ *)
-(* Tailwind v4 supports half-step spacing values like space-x-2.5, p-0.5, etc.
-   Our typed API only accepts int, so these must go through of_string.
-   NOTE: space-x-2.5 is currently rejected by of_string (API gap: fractional
-   spacing values are not yet implemented). These tests document the gap. *)
-
 let fractional_spacing () =
-  (* space-x / space-y with fractional values *)
   check (require_parse "space-x-2.5");
   check (require_parse "space-y-3.5");
-  (* padding with fractional values *)
   check (require_parse "p-0.5");
   check (require_parse "p-1.5");
-  (* margin with fractional values *)
   check (require_parse "m-0.5");
   check (require_parse "m-2.5");
-  (* gap with fractional values *)
   check (require_parse "gap-0.5");
   check (require_parse "gap-1.5")
 
 let fractional_translate () =
-  (* translate-x/y with fractional values (e.g. 1/2, 1/3, 1/4) *)
-  (* NOTE: translate-x-1/2 is currently rejected by of_string (API gap:
-     fractional translate values are not yet implemented). *)
   check (require_parse "translate-x-1/2");
   check (require_parse "translate-y-1/2");
   check (require_parse "translate-x-1/3");
@@ -1071,7 +1027,6 @@ let fractional_translate () =
   check (require_parse "translate-y-full")
 
 let fractional_width_height () =
-  (* Width/height with fractional values *)
   check (require_parse "w-1/2");
   check (require_parse "w-1/3");
   check (require_parse "w-2/3");
@@ -1150,41 +1105,23 @@ let arbitrary_misc () =
   check (require_parse "rotate-[17deg]");
   check (require_parse "scale-[1.1]")
 
-(* -- 2. Prose element variant tests --------------------------------------- *)
-(* Tailwind typography plugin provides modifier variants like
-   prose-headings:text-white, prose-pre:bg-gray-900 etc. that target specific
-   element types within prose. Our typed API currently only has prose_lead,
-   prose_gray, prose_slate — no element-targeting variants.
-   NOTE: These are currently rejected by of_string (API gap). *)
-
+(* The typography plugin's element variants ([prose-headings:], [prose-pre:],
+   ...) target one element type inside a prose block. *)
 let prose_element_variants () =
-  (* prose-headings targets h1-h4 within prose *)
   check (require_parse "prose-headings:text-white");
-  (* prose-p targets paragraphs *)
   check (require_parse "prose-p:text-gray-700");
-  (* prose-a targets links *)
   check (require_parse "prose-a:text-blue-500");
-  (* prose-strong targets <strong> *)
   check (require_parse "prose-strong:font-black");
-  (* prose-code targets inline <code> *)
   check (require_parse "prose-code:bg-gray-100");
-  (* prose-pre targets <pre> blocks *)
   check (require_parse "prose-pre:bg-gray-900");
-  (* prose-ol targets ordered lists *)
   check (require_parse "prose-ol:list-decimal");
-  (* prose-ul targets unordered lists *)
   check (require_parse "prose-ul:list-disc");
-  (* prose-li targets list items *)
   check (require_parse "prose-li:my-1");
-  (* prose-blockquote targets blockquotes *)
   check (require_parse "prose-blockquote:italic");
-  (* prose-img targets images *)
   check (require_parse "prose-img:rounded-lg");
-  (* prose-hr targets horizontal rules *)
   check (require_parse "prose-hr:border-gray-300")
 
 let prose_element_variants_combined () =
-  (* Multiple prose element variants together with base prose *)
   check_list
     [
       prose;
@@ -1193,14 +1130,10 @@ let prose_element_variants_combined () =
       require_parse "prose-code:bg-gray-100";
     ]
 
-(* -- 3. Divide utilities -------------------------------------------------- *)
 (* divide-x/divide-y also exist without an explicit width, defaulting to 1px. *)
-
 let divide_width () =
-  (* Basic divide-x and divide-y (1px default) *)
   check (require_parse "divide-x");
   check (require_parse "divide-y");
-  (* Divide with explicit widths *)
   check (require_parse "divide-x-2");
   check (require_parse "divide-x-4");
   check (require_parse "divide-x-8");
@@ -1208,25 +1141,19 @@ let divide_width () =
   check (require_parse "divide-y-4")
 
 let divide_with_reverse () =
-  (* divide-x combined with divide-x-reverse for RTL layouts *)
   check_list [ require_parse "divide-x"; divide_x_reverse ];
   check_list [ require_parse "divide-y"; divide_y_reverse ];
-  (* divide with width + reverse *)
   check_list [ require_parse "divide-x-2"; divide_x_reverse ]
 
 let divide_combined () =
-  (* divide-x and divide-y used together *)
   check_list [ require_parse "divide-x"; require_parse "divide-y" ];
-  (* divide with widths together *)
   check_list [ require_parse "divide-x-2"; require_parse "divide-y-4" ]
 
 let divide_color () =
-  (* divide-color utilities *)
   check (require_parse "divide-blue-500");
   check (require_parse "divide-gray-300");
   check (require_parse "divide-red-600")
 
-(* -- 4. Decoration skip ink ----------------------------------------------- *)
 (* Tailwind v4 has no [decoration-skip-ink-*] utility. *)
 let decoration_skip_ink () =
   Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
@@ -1234,14 +1161,11 @@ let decoration_skip_ink () =
   Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
     "decoration-skip-ink-none"
 
-(* -- 5. Word break utilities ---------------------------------------------- *)
 let word_break_utilities () =
   check break_normal;
   check break_words;
   check break_all;
   check break_keep
-
-(* -- 6. Scroll margin and scroll padding ---------------------------------- *)
 
 let scroll_margin () =
   check_module (Scroll.scroll_mt 4);
@@ -1265,8 +1189,6 @@ let scroll_padding () =
 
 let scroll_margin_padding_combined () = check_list [ scroll_mt 4; scroll_px 2 ]
 
-(* -- 7. Border spacing axis variants -------------------------------------- *)
-
 let border_spacing_axis () =
   check_module (Tables.border_spacing_x 4.);
   check_module (Tables.border_spacing_y 2.)
@@ -1275,50 +1197,34 @@ let border_spacing_combined () =
   check (border_spacing 4);
   check_module (Tables.border_spacing_x 8.)
 
-(* -- 8. Opacity modifiers (Tailwind v3 compat / v4 approach) -------------- *)
-(* In Tailwind v4, bg-opacity-* and text-opacity-* are removed in favor of
-   color opacity syntax like bg-blue-500/50. Test that color-with-opacity
-   works if the API supports it, and document what's missing.
-   NOTE: bg-opacity-* and text-opacity-* are Tailwind v3 utilities and are
-   NOT expected to exist in v4. Instead, slash-opacity syntax should be used. *)
-
+(* Tailwind v4 has no bg-opacity-* or text-opacity-*: the opacity is a slash
+   modifier on the colour, as in bg-blue-500/50. *)
 let color_opacity_slash () =
-  (* Tailwind v4 uses slash syntax: bg-blue-500/50 for 50% opacity *)
   check (require_parse "bg-blue-500/50");
   check (require_parse "bg-blue-500/75");
   check (require_parse "text-white/80");
   check (require_parse "text-gray-900/50");
   check (require_parse "border-red-500/25")
 
-(* -- 9. Nesting variant --------------------------------------------------- *)
-(* The * variant (nesting) targets direct children. Test if it's supported. *)
-
+(* The [*] variant targets direct children. *)
 let nesting_variant () =
   check (require_parse "*:p-4");
   check (require_parse "*:text-blue-500");
   check_list [ require_parse "*:p-4"; require_parse "*:m-2" ]
 
-(* ===== PRECEDENCE TESTS ===== *)
-
 let precedence_base_overrides () =
-  (* Later base utility should win over earlier base of same kind *)
   check_list [ p 4; p 2 ];
   check_list [ text ~shade:600 blue; text blue ]
 
 let precedence_breakpoints () =
-  (* Responsive variants should scope correctly and not affect base *)
   check_list [ p 2; md [ p 8 ] ];
   check_list
     [ text ~shade:400 green; sm [ text green ]; lg [ text ~shade:700 green ] ]
 
 let precedence_states () =
-  (* State modifiers combine without interfering with base *)
   check_list [ bg blue; hover [ bg ~shade:600 blue ] ];
   check_list [ text gray; focus [ text ~shade:700 gray ] ]
 
-(* ===== UTILITY/PROPERTY TESTS (keep essential ones) ===== *)
-
-(* Helpers for comprehensive color coverage *)
 let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
 
 let bg_shades color shade_list =
@@ -1523,10 +1429,8 @@ let all_colors_pinks () =
     (bg_shades fuchsia shades @ bg_shades pink shades @ bg_shades rose shades)
 
 let all_colors_same_shade () =
-  (* Test all colors with shade 500 to verify proper color ordering *)
   check_list
     [
-      (* All color families at shade 500 in Tailwind's canonical order *)
       bg slate;
       bg gray;
       bg zinc;
@@ -1552,38 +1456,15 @@ let all_colors_same_shade () =
     ]
 
 let color_shade_ordering () =
-  (* Test ordering of base colors vs shaded colors to verify formula: base *
-     1000 + shade. This ensures proper ordering in theme layer. Tests that
-     variables appear in the correct order. *)
+  (* The theme layer declares --color-black, then the blue shades in order, then
+     --color-white. *)
   check_list
-    [
-      (* Base colors: get order base*1000 + 0 *)
-      text black;
-      (* --color-black: 1*1000 + 0 = 1000 *)
-      bg white;
-      (* --color-white: 24*1000 + 0 = 24000 *)
-
-      (* Regular colors with shades: get order base*1000 + shade *)
-      bg ~shade:400 blue;
-      (* --color-blue-400: 12*1000 + 400 = 12400 *)
-      bg blue;
-      (* --color-blue-500: 12*1000 + 500 = 12500 *)
-      bg ~shade:600 blue;
-      (* --color-blue-600: 12*1000 + 600 = 12600 *)
-
-      (* Verify order: black < blue-* < white *)
-      (* This tests that the variables appear in the theme layer in order:
-         --color-black, --color-blue-400, --color-blue-500, --color-blue-600, --color-white *)
-    ]
+    [ text black; bg white; bg ~shade:400 blue; bg blue; bg ~shade:600 blue ]
 
 let grid_cols_reordering () =
-  (* Test case showing responsive grid columns that trigger reordering
-     detection. When both md:grid-cols-2 and md:grid-cols-10 are used, they
-     should appear in a specific order within the @media query. This test
-     ensures our diff tool can detect and clearly report such reorderings. *)
+  (* md:grid-cols-2 and md:grid-cols-10 sit in Tailwind's order inside the
+     @media query, whatever order they are given in. *)
   check_list [ md [ grid_cols 10 ]; md [ grid_cols 2 ] ]
-
-(* ===== STABLE ORDERING TESTS ===== *)
 
 let gen_minified_css styles =
   to_css ~base:true styles |> Css.to_string ~minify:true
@@ -1599,19 +1480,14 @@ let assert_stable_ordering ~label styles_a styles_b =
   else Alcotest.(check bool) (label ^ " is stable") true true
 
 let stable_order_basic () =
-  (* Order of independent base utilities must not affect CSS output *)
   assert_stable_ordering ~label:"base utils" Tw.[ p 4; m 2 ] Tw.[ m 2; p 4 ]
 
 let stable_order_with_modifiers () =
-  (* Regular vs responsive media ordering should be independent of input
-     order *)
   assert_stable_ordering ~label:"responsive vs regular"
     Tw.[ bg blue; md [ bg red ] ]
     Tw.[ md [ bg red ]; bg blue ]
 
 let stable_order_complex_modifiers () =
-  (* Complex selectors like group-has/focus-within must also sort
-     deterministically *)
   assert_stable_ordering ~label:"group-has vs responsive"
     Tw.[ group_has "a" [ text black ]; md [ text white ] ]
     Tw.[ md [ text white ]; group_has "a" [ text black ] ];
@@ -1619,18 +1495,13 @@ let stable_order_complex_modifiers () =
     Tw.[ focus_within [ bg red ]; md [ bg blue ] ]
     Tw.[ md [ bg blue ]; focus_within [ bg red ] ]
 
-(* ===== PROPERTY ORDERING TESTS ===== *)
-(* These tests verify that the @layer properties @supports block ordering
-   matches Tailwind. The order depends on which utility groups are used:
-   - Direct scale (scale-105) puts scale vars before duration
-   - Hover scale (hover:scale-105) puts duration before scale *)
-
+(* The order of the [@layer properties] block depends on which utilities a sheet
+   uses: a direct [scale-105] puts the scale variables before the duration, a
+   [hover:scale-105] puts the duration first. *)
 let property_order_scale_first () =
-  (* When scale is used directly, scale vars should come before duration *)
   check_list Tw.[ transform; duration 300; scale 105 ]
 
 let property_order_duration_first () =
-  (* When scale is only via hover, duration should come before scale *)
   check_list Tw.[ transform; duration 300; hover [ scale 105 ] ]
 
 let property_order_cross_family () =
@@ -1756,8 +1627,6 @@ let unknown_class_keeps_source_order () =
     [ "my-app-header"; "js-toggle"; "bg-blu-500" ]
     unknown
 
-(* ===== TEST SUITE ===== *)
-
 (* A [@theme] block that removes a token takes every utility reading it: a
    namespace reset such as [--text-*: initial] leaves [text-lg] no size to
    write, and Tailwind compiles nothing for the candidate. Every family refuses
@@ -1849,11 +1718,9 @@ let core_tests =
     test_case "grid columns reordering" `Slow grid_cols_reordering;
     test_case "grid flex math tracks" `Slow grid_flex_math_tracks;
     test_case "pre-color-mix fallbacks" `Slow pre_color_mix_fallbacks;
-    (* Stable ordering tests *)
     test_case "stable: base utils order" `Quick stable_order_basic;
     test_case "stable: responsive vs regular" `Quick stable_order_with_modifiers;
     test_case "stable: complex modifiers" `Quick stable_order_complex_modifiers;
-    (* Property ordering tests *)
     test_case "property order: scale first" `Slow property_order_scale_first;
     test_case "property order: duration first" `Slow
       property_order_duration_first;
@@ -1864,7 +1731,6 @@ let core_tests =
     test_case "prose with modifiers" `Slow prose_with_modifiers;
     test_case "prose ordering" `Quick prose_ordering;
     test_case "typed utility surface" `Slow typed_utility_surface;
-    (* Cross-handler ordering *)
     test_case "order: padding/margin" `Quick ordering_padding_margin;
     test_case "order: layout/sizing" `Quick ordering_layout_sizing;
     test_case "order: text/bg/border" `Quick ordering_text_bg_border;

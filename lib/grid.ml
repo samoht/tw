@@ -1,8 +1,3 @@
-(** Grid display utilities (grid, inline-grid).
-
-    For grid item placement utilities (col-{i n}, row-{i n}), see Grid_item
-    module. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -11,10 +6,7 @@ module Handler = struct
 
   type t = Grid | Inline_grid
 
-  (** Priority for grid display utilities. Display utilities all share priority
-      4 and are ordered alphabetically by suborder. *)
   let name = "grid"
-
   let priority _ = 4
   let grid = style [ display Grid ]
   let inline_grid = style [ display Inline_grid ]
@@ -39,9 +31,7 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
 let utility = Utility_factory.v
 let grid = utility Grid

@@ -1,18 +1,15 @@
 open Cmdliner
 
-(* Define --seed option *)
 let seed =
   let doc = "Random seed for property-based tests (for reproducibility)" in
   Arg.(value & opt (some int) None & info [ "seed" ] ~docv:"SEED" ~doc)
 
-(* Initialize random seed and return test suites *)
 let setup =
   let init = function
     | Some s ->
         Random.init s;
         Fmt.epr "Using random seed: %d\n%!" s
     | None ->
-        (* Generate a seed from system entropy (time + process id) *)
         let s =
           int_of_float (Unix.gettimeofday () *. 1000.0) lxor Unix.getpid ()
         in
@@ -23,10 +20,8 @@ let setup =
 
 let () =
   Tw_tools.Cascade_provenance.report ();
-  (* Use Alcotest.run_with_args for proper CLI integration *)
   Tw_tools.Tailwind_gen.with_stats @@ fun () ->
   Alcotest.run_with_args "tw" setup
-    (* Return test suites *)
     [
       Test_tw.suite;
       Test_source_scan.suite;

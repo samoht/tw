@@ -1,14 +1,10 @@
-(** Test helper functions for CSS comparison and minimization *)
-
 module Css = Cascade.Css
 module Css_compare = Cascade_diff.Css_compare
 module Tree_diff = Cascade_diff.Tree_diff
 
-(** Check that a utility value produces the expected class name *)
 let check_class expected t =
   Alcotest.check Alcotest.string "class" expected (Tw.Utility.to_class t)
 
-(** Extract utilities layer from CSS *)
 let extract_utilities_layer_rules css =
   let stmts = Css.statements css in
   List.find_map
@@ -19,7 +15,6 @@ let extract_utilities_layer_rules css =
     stmts
   |> Option.value ~default:[]
 
-(** Extract selectors from rules *)
 let extract_rule_selectors stmts =
   List.filter_map
     (fun stmt ->
@@ -277,25 +272,16 @@ let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
 
 (* [Css_compare] drops a declaration its reader rejects from that side's AST
    before the comparison runs, so a real difference can surface as a phantom
-   addition on the side that parsed, or as no difference at all when both sides
-   collapse to the same AST. Which drops are findings follows from what the
-   comparison is for: the canonical diff asks whether a browser could tell the
-   two sheets apart, and cascade's reader drops what a browser drops.
+   addition, or vanish when both sides collapse to the same AST.
 
    A drop is a finding on either side unless it is a value the property's
-   grammar refused ([Bad_value] on a declaration). That is CSS no browser reads:
-   [outline-width: 50%] under [outline-[50%]], the [-webkit-mask-clip: fill-box]
-   twin WebKit's grammar lacks, a [color-mix] mixing amount written as a bare
-   number. The browser keeps the rest of the rule, the comparison compares that
-   rest, and tw is held to what the browser keeps. A dropped rule, a selector
-   the reader refuses, or a construct that failed for any other reason is still
-   a finding on either side: those hide CSS the browser would have read.
-
-   The allowance holds on both sides under the token-stream contract: a bracket
-   no reader took reaches the sheet verbatim because Tailwind puts it there, so
-   [width: [4px]/foo] under [size-[[4px]/foo]] is tw doing what it is held to,
-   and both sides drop the same declaration. See
-   docs/token-stream-contract.md. *)
+   grammar refused ([Bad_value] on a declaration), such as [outline-width: 50%]
+   under [outline-[50%]]. No browser reads that value either, and it keeps the
+   rest of the rule, which is what the comparison compares. A dropped rule or
+   selector, or any other failure, hides CSS a browser would read and stays a
+   finding. The allowance holds for tw too: under the token-stream contract
+   (docs/token-stream-contract.md) a bracket no reader took reaches the sheet
+   verbatim because Tailwind puts it there. *)
 let browser_drops_too (error : Cascade.Error.t) =
   match (error.kind, error.recovery) with
   | ( Cascade.Error.Bad_value _,
@@ -319,8 +305,7 @@ let check_no_dropped_declarations ~test_name diff =
       test_name (List.length dropped)
       (String.concat "\n" (List.map Cascade.Error.to_string dropped))
 
-(** Delta Debugging (ddmin algorithm by Zeller) Minimizes a failing test case by
-    binary search *)
+(* Delta debugging: Zeller's ddmin. *)
 let rec take k l =
   match (k, l) with
   | 0, _ | _, [] -> ([], l)
@@ -343,7 +328,6 @@ let delta_debug check_fails lst =
     if len = 1 then lst
     else
       let subsets = split_into_subsets (max 1 (len / n)) lst in
-      (* Test 1: Try each subset alone (reduce to subset) *)
       let rec try_subsets = function
         | [] -> None
         | subset :: rest ->
@@ -354,7 +338,6 @@ let delta_debug check_fails lst =
           Fmt.epr "Reduced to %d items@." (List.length subset);
           ddmin subset 2
       | None -> (
-          (* Test 2: Try removing each subset (reduce to complement) *)
           let rec try_complements idx = function
             | [] -> None
             | _ :: rest ->
@@ -369,13 +352,10 @@ let delta_debug check_fails lst =
           | Some complement ->
               Fmt.epr "Reduced to %d items@." (List.length complement);
               ddmin complement (max (n - 1) 2)
-          | None ->
-              (* Increase granularity *)
-              if n < len then ddmin lst (min (n * 2) len) else lst)
+          | None -> if n < len then ddmin lst (min (n * 2) len) else lst)
   in
   ddmin lst 2
 
-(** Find minimal failing pair from a list *)
 let minimal_pair check_fails lst =
   let rec find_pair lst =
     match lst with
@@ -390,14 +370,11 @@ let minimal_pair check_fails lst =
   in
   find_pair lst
 
-(** Minimize a failing test case to smallest possible set Uses delta debugging
-    followed by pair finding if needed *)
+(* Delta debugging first, then a search for a failing pair in what is left. *)
 let minimize_failing_case check_fails initial =
   if not (check_fails initial) then None
   else
     let minimal = delta_debug check_fails initial in
-
-    (* If we have more than 2 items, try to find a minimal pair *)
     let final =
       if List.length minimal > 2 then
         match minimal_pair check_fails minimal with
@@ -520,8 +497,6 @@ let render_page ?(inner = box_marker) elements =
             ])
         elements
     @ [ "</body></html>" ])
-
-(* ===== A page for a class list ===== *)
 
 (* The [/name] a [group-*] or [peer-*] variant scopes to, from any segment of a
    class that starts with [prefix]. *)
@@ -1032,15 +1007,8 @@ let class_slots sheet ~layer classes =
 
 (* The order oracle the fuzzer minimises and asserts on. [ordering_diff] runs
    canonically, which folds away a reorder among utilities writing disjoint
-   properties, so a family emitted in the wrong band is invisible to it: the
-   fuzzer could not fail on the one bug class a sort fuzzer exists to find.
-   Reading the order off the bytes is what sees it.
-
-   A pair rather than a count, because a pair is a property of the two classes
-   and nothing else: both sheets order their utilities by a key of their own, so
-   two classes that disagree here disagree in every sheet holding both, whatever
-   else is drawn. That is what a recorded set of known disagreements can be
-   written against; the count {!sheet_order_gap} reports moves with the draw. *)
+   properties, so a family emitted in the wrong band is invisible to it; the
+   order read off the bytes is not. *)
 let inverted_pairs ~tailwind ~tw classes =
   let first_slot sheet layer =
     let tbl = Hashtbl.create 64 in
@@ -1102,9 +1070,6 @@ let describe_dropped dropped =
     (List.length dropped)
     (String.concat "\n" (List.map Cascade.Error.to_string dropped))
 
-(** CSS Test Helpers *)
-
-(** Check if a layer exists in the stylesheet *)
 let has_layer name css =
   List.exists
     (fun stmt ->
@@ -1115,15 +1080,12 @@ let has_layer name css =
       | _ -> false)
     (Css.statements css)
 
-(** Get all custom property names from a layer *)
 let vars_in_layer layer_name css = Css.custom_props ~layer:[ layer_name ] css
 
-(** Check if a variable name exists in a layer *)
 let has_var_in_layer var_name layer_name css =
   let vars = vars_in_layer layer_name css in
   List.exists (fun v -> v = var_name) vars
 
-(** Get all selectors from a layer *)
 let selectors_in_layer layer_name css =
   match Css.layer_block [ layer_name ] css with
   | None -> []
@@ -1135,12 +1097,10 @@ let selectors_in_layer layer_name css =
           | None -> None)
         stmts
 
-(** Check if a selector exists in a layer *)
 let has_selector_in_layer selector layer_name css =
   let sels = selectors_in_layer layer_name css in
   List.mem selector sels
 
-(** Get all media query conditions from stylesheet, recursively *)
 let media_conditions css =
   Css.fold
     (fun acc stmt ->
@@ -1150,11 +1110,9 @@ let media_conditions css =
     [] css
   |> List.rev
 
-(** Check if a specific media condition exists *)
 let has_media_condition condition css =
   List.mem condition (media_conditions css)
 
-(** Return statements for a given media condition, if present *)
 let media_block condition css =
   Css.fold
     (fun acc stmt ->
@@ -1166,7 +1124,6 @@ let media_block condition css =
       | None, _ -> None)
     None css
 
-(* Selector testable and utilities *)
 let pp_selector fmt sel = Fmt.string fmt (Css.Selector.to_string sel)
 let selector_testable = Alcotest.testable pp_selector ( = )
 
@@ -1194,7 +1151,6 @@ let count_selector_in_media_sel ~condition ~selector css =
        (fun acc sel -> if selector_eq sel selector then acc + 1 else acc)
        0
 
-(** Check if inline style contains a specific property *)
 let inline_has_property prop_name inline_style =
   String.split_on_char ';' inline_style
   |> List.exists (fun prop ->
@@ -1202,7 +1158,6 @@ let inline_has_property prop_name inline_style =
       | prop :: _ -> String.trim prop = prop_name
       | [] -> false)
 
-(** Check if declarations contain any var() references *)
 let has_var_in_declarations ?(inline = false) decls =
   (* Anywhere in the value, not only at its head: [calc(var(--spacing)*4)] and
      [color-mix(in oklab, var(--c) 50%, #0000)] reference a variable as much as
@@ -1213,15 +1168,9 @@ let has_var_in_declarations ?(inline = false) decls =
       Astring.String.is_infix ~affix:"var(" (Css.declaration_value ~inline decl))
     decls
 
-(** {1 Utility Generators} *)
-
-(** Common spacing values used in Tailwind *)
 let spacing_values =
   [ 0; 1; 2; 3; 4; 5; 6; 8; 10; 12; 16; 20; 24; 32; 40; 48; 64 ]
 
-(** Global RNG for randomized tests. Initialized with a random seed that is
-    printed to stderr for reproducibility. Set [TEST_SEED] env var to replay a
-    specific seed. *)
 let test_seed =
   let seed =
     match Sys.getenv_opt "TEST_SEED" with
@@ -1243,13 +1192,11 @@ let test_rng = Random.State.make [| test_seed |]
 
 (* The seed a run prints has to replay on its own, and a shared state does not:
    what a test draws then depends on how much randomness ran before it, so a
-   seed that fails the whole suite passes when that one test is run alone. That
-   is how a real ordering defect read as a flake for a whole session. Each
+   seed that fails the whole suite passes when that one test is run alone. Each
    randomised test takes its own state, seeded from the run's seed and its own
    name, so the seed reproduces whatever else runs. *)
 let rng_named name = Random.State.make [| test_seed; Hashtbl.hash name |]
 
-(** Shuffle a list using Fisher-Yates algorithm with the global test RNG. *)
 let shuffle lst =
   let arr = Array.of_list lst in
   let n = Array.length arr in
@@ -1261,8 +1208,6 @@ let shuffle lst =
   done;
   Array.to_list arr
 
-(** {1 Generic Test Patterns} *)
-
 module type Handler = sig
   type t
 
@@ -1270,11 +1215,7 @@ module type Handler = sig
   val to_class : t -> string
 end
 
-(** Generic handler test - checks that parsing and pretty-printing round-trip
-    correctly. Takes a class name string, parses it with of_class, converts back
-    with to_class, and verifies they match. *)
 let check_handler_roundtrip (module H : Handler) class_name =
-  (* Test of_class -> to_class roundtrip *)
   match H.of_class Tw.Scheme.default class_name with
   | Ok result ->
       let class_name2 = H.to_class result in
@@ -1318,9 +1259,8 @@ let negative_corpus () =
 let theme_entry decls =
   Tw_tools.Tailwind_gen.entrypoint [] ^ "@theme { " ^ decls ^ " }\n"
 
-(** Generic test for invalid inputs - expects parsing to fail. [why] says what
-    the rejection means, and is checked rather than taken on trust: the half
-    that needs no CLI here, the Tailwind half in [check_negative_premises]. *)
+(* [why] is checked rather than taken on trust: the half that needs no CLI here,
+   the Tailwind half in [check_negative_premises]. *)
 let check_invalid_input ?(why = Not_a_utility) ?entry (module H : Handler) input
     =
   let theme =
@@ -1402,9 +1342,8 @@ let wrong_premises (entry, classes) =
       | _ -> None)
     classes
 
-(** Ask the pinned CLI whether Tailwind agrees with every negative test that has
-    run. Nothing in [check_invalid_input] itself says Tailwind refuses the class
-    too, so a premise that is simply wrong passes on every run. *)
+(* Nothing in [check_invalid_input] itself says Tailwind refuses the class too,
+   so without this a wrong premise passes on every run. *)
 let check_negative_premises () =
   require_tailwind_cli ();
   match negative_corpus () with
@@ -1433,26 +1372,16 @@ let standard ~roundtrip ~invalid =
       test_case "roundtrip" `Quick roundtrip; test_case "invalid" `Quick invalid;
     ]
 
-(** Helper that takes a list of parts, concatenates with "-", and checks that
-    parsing fails *)
 let check_invalid_parts ?why (module H : Handler) parts =
   let class_name = String.concat "-" parts in
   check_invalid_input ?why (module H) class_name
 
-(** [check_typed_class cls value] checks that the typed constructor [value]
-    pretty-prints to class name [cls] and that [cls] round-trips back through
-    [Tw.of_string] to the same name. Used to pin newly exposed typed
-    constructors against the string parser. *)
 let check_typed_class cls value =
   Alcotest.(check string) cls cls (Tw.pp value);
   match Tw.of_string cls with
   | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
   | Error (`Msg m) ->
       Alcotest.failf "%s: parser rejected its own class: %s" cls m
-
-(* ------------------------------------------------------------------ *)
-(* Adversarial sweep over arbitrary values                             *)
-(* ------------------------------------------------------------------ *)
 
 let rec all_selectors stmts =
   List.concat_map
@@ -1565,11 +1494,10 @@ let adversarial_payloads =
   ]
 
 type sweep_verdict =
-  | Rejected  (** [of_string] refused the class: a legitimate outcome *)
-  | Emitted_nothing  (** parsed, but contributed no rule *)
-  | Matched  (** parsed, and every rule it emits is selected by the class *)
+  | Rejected
+  | Emitted_nothing
+  | Matched
   | Mismatched of string
-      (** parsed, and emitted a rule the class cannot match *)
 
 (* [f ()], naming [cls] and [stage] before an exception it raises propagates: a
    sweep runs thousands of classes and the backtrace alone does not say

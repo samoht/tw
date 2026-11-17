@@ -1,7 +1,5 @@
-(** Tests for the colours a class names and the theme tokens they read. *)
-
 module Css = Cascade.Css
-module Srgb = Tw__.Srgb (* Access internal module *)
+module Srgb = Tw__.Srgb
 module Color_value = Tw__.Color_value
 open Color_value
 

@@ -90,19 +90,14 @@ let of_string_valid () =
   check "rounded-tl-xs"
 
 let of_string_invalid () =
-  (* Invalid border values *)
   let fail_maybe =
     Test_helpers.check_invalid_parts (module Tw.Borders.Handler)
   in
 
   fail_maybe [ "border"; "invalid" ];
-  (* Invalid style *)
   fail_maybe [ "border"; "z" ];
-  (* Invalid side *)
   fail_maybe [ "rounded"; "z" ];
-  (* Invalid corner *)
   fail_maybe [ "unknown" ]
-(* Unknown border type *)
 
 let suborder_matches_tailwind () =
   let open Tw in

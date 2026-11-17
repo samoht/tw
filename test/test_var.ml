@@ -1,25 +1,17 @@
 module Css = Cascade.Css
 open Alcotest
 
-(* Test that variable naming follows conventions *)
 let var_css_output () =
-  (* Create styles that use theme variables *)
   let styles = Tw.[ text_xl; p 4 ] in
   let css = Tw.to_css ~base:false styles in
   let css_str = Css.to_string css in
-
-  (* Should contain CSS variable references *)
   check bool "contains var(--" (String.contains css_str '-') true;
   check bool "CSS output non-empty" (String.length css_str > 0) true
 
-(* Test that variables with fallbacks are serialized correctly *)
 let var_fallback_in_css () =
-  (* Use a utility that might have a fallback *)
   let styles = [ Tw.text Tw.blue ] in
   let css = Tw.to_css ~base:false styles in
   let css_str = Css.to_string css in
-
-  (* Should produce valid CSS *)
   check bool "produces valid CSS" (String.length css_str > 0) true
 
 (* Arbitrary var() values keep the outer variable and its fallback. This is
@@ -99,7 +91,6 @@ let bracket_reference_with_loose_closer () =
   check string "a closed body is read as name and fallback" "var(--a,b)"
     (declaration "top-[var(--a,b)]")
 
-(* Test theme layer contains variables *)
 let var_in_theme_layer () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
   let css = Tw.to_css ~base:true styles in

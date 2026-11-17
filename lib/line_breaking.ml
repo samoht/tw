@@ -1,6 +1,3 @@
-(** Line breaking utilities: white space, text wrap, word break, overflow wrap
-    and hyphens. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

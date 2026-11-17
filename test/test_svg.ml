@@ -57,9 +57,8 @@ let stroke_arbitrary_width_invalid () =
   strokes "stroke-[.]" ".";
   strokes "stroke-[-]" "-"
 
-(* A stroke width is written in plain decimal. Read as an OCaml literal,
-   [stroke-0x4] parsed and then named itself [.stroke-4]: a rule the author
-   never wrote, matching nothing in the markup. *)
+(* A stroke width is written in plain decimal, never read as an OCaml literal:
+   [stroke-0x4] is not [stroke-4]. *)
 let stroke_width_rejects_ocaml_literals () =
   List.iter
     (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)

@@ -1,6 +1,3 @@
-(** Box shadow, inset shadow and opacity utilities, and the ring and shadow
-    variables their [box-shadow] composition shares with {!Ring}. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -34,7 +31,6 @@ module Handler = struct
   }
 
   type t =
-    (* Shadows — shape utilities *)
     | Shadow_none
     | Shadow_2xs
     | Shadow_xs
@@ -53,7 +49,6 @@ module Handler = struct
     | Inset_shadow_theme_opacity of string * Color.opacity_modifier
     | Shadow_arbitrary_opacity of string * Color.opacity_modifier
     | Shadow_shape_opacity of shadow_shape * Color.opacity_modifier
-    (* Shadows — color utilities *)
     | Shadow_color of Color.color * int
     | Shadow_color_opacity of Color.color * int * Color.opacity_modifier
     | Shadow_current
@@ -82,7 +77,6 @@ module Handler = struct
     | Inset_shadow_raw of string * string * Color.opacity_modifier
     | Inset_shadow_arbitrary_opacity of string * Color.opacity_modifier
     | Inset_shadow_shape_opacity of inset_shadow_shape * Color.opacity_modifier
-    (* Inset shadow color utilities *)
     | Inset_shadow_color of Color.color * int
     | Inset_shadow_color_opacity of Color.color * int * Color.opacity_modifier
     | Inset_shadow_current
@@ -99,9 +93,8 @@ module Handler = struct
     | Inset_shadow_bracket_shadow_opacity of string * Color.opacity_modifier
     | Inset_shadow_bracket_var of string
     | Inset_shadow_bracket_var_opacity of string * Color.opacity_modifier
-    (* Opacity *)
     | Opacity of int
-    | Opacity_decimal of float (* For values like opacity-2.5 *)
+    | Opacity_decimal of float (* opacity-2.5 *)
     (* The bracket as written, beside either the number it denotes or, when the
        opacity grammar cannot read it, the author's text: Tailwind hands a
        bracket to the declaration unvalidated. *)
@@ -155,9 +148,6 @@ module Handler = struct
   let name = "effects"
   let priority _ = 27
 
-  (* Shadow variables with property registration. Order: translate (0-2), scale
-     (3-5), border-style (6), gradients (7-15), font-weight (16), shadows
-     (17-22), rings (23-30), animation (31-32). *)
   let shadow_var =
     Var.property_default Css.Shadow
       ~initial:
@@ -188,7 +178,6 @@ module Handler = struct
     Var.property_default Css.Percentage ~initial:(Pct 100.) ~property_order:12
       ~family:`Inset_shadow "tw-inset-shadow-alpha"
 
-  (* Ring variables - positions 13-20 *)
   let ring_color_var =
     Var.channel ~needs_property:true ~property_order:13 ~family:`Ring Css.Color
       "tw-ring-color"
@@ -234,8 +223,6 @@ module Handler = struct
 
   (* No ring-width variable: Tailwind v4 writes the width directly into the
      --tw-ring-shadow calc() expression. *)
-
-  (* ============ Shared shadow helpers ============ *)
 
   let shadow_property_rules =
     [
@@ -450,7 +437,6 @@ module Handler = struct
   let body_color (body : Css.shadow_body) : Css.color =
     match body.color with Some c -> c | None -> Css.Current
 
-  (* Rewrite every layer's colour, one shadow at a time. *)
   let map_shadow_color ~f (sh : Css.shadow) : Css.shadow =
     let map_body (body : Css.shadow_body) : Css.shadow_body =
       { body with color = Some (f (body_color body)) }
@@ -474,13 +460,13 @@ module Handler = struct
     | Css.List shadows -> List.concat_map shadow_colors shadows
     | _ -> []
 
-  (** Wrap a shadow's color with [var(--tw-shadow-color, <fallback>)], each
-      layer's colour giving the fallback. *)
+  (* Each layer's colour becomes [var(--tw-shadow-color, <fallback>)], with [f]
+     of that colour as the fallback. *)
   let wrap_shadow_colors_by ~color_var ~f (sh : Css.shadow) : Css.shadow =
     map_shadow_colors sh ~f:(fun c ->
         Css.Var (Var.reference_with_fallback color_var (f c)))
 
-  (** Converts CSS color functions to hex for Tailwind parity. *)
+  (* Tailwind writes the fallback colour as a hex. *)
   let wrap_shadow_colors ~color_var (sh : Css.shadow) : Css.shadow =
     wrap_shadow_colors_by ~color_var sh ~f:(fun c ->
         match Color.css_color_to_hex c with Some h -> h | None -> c)
@@ -676,8 +662,6 @@ module Handler = struct
               ~composition:box_shadow_composition shadow opacity
         | None -> shadow_none)
 
-  (* ============ Shadow color utilities ============ *)
-
   let shadow_channel : Color.channel =
     {
       color = shadow_color_var;
@@ -703,11 +687,7 @@ module Handler = struct
       ~property_rules:shadow_property_rules
       (alpha @ [ d_shadow; box_shadow_composition v_shadow ])
 
-  (* Inset shadow utilities - sets --tw-inset-shadow and composites
-     box-shadow *)
-
-  (* Compose a built --tw-inset-shadow value into the full box-shadow stack.
-     Shared by the named scale, the bare themed utility and
+  (* Shared by the named scale, the bare themed utility and
      inset-shadow-none. *)
   let inset_shadow_compose inset_value =
     let d_inset_shadow, v_inset_shadow =
@@ -856,8 +836,6 @@ module Handler = struct
     in
     inset_shadow_compose (inset_shadow_of_body body ~color:(Var color_ref))
 
-  (* ============ Inset shadow helpers ============ *)
-
   let inset_shadow_opacity_decl opacity =
     Var.set inset_shadow_alpha_var (Color.opacity_alpha_value opacity)
 
@@ -896,7 +874,6 @@ module Handler = struct
       (declarations
       @ [ inset_box_shadow_composition (Var.reference inset_shadow_var) ])
 
-  (* Parse multi-value shadow (comma-separated) *)
   let parse_multi_shadow (s : string) =
     let parts = Parse.split_top_level ',' s in
     let parsed = List.filter_map parse_arbitrary_shadow parts in
@@ -1005,8 +982,6 @@ module Handler = struct
               ~composition:inset_box_shadow_composition (force_inset shadow)
               opacity
         | None -> inset_shadow_none)
-
-  (* ============ Inset shadow color utilities ============ *)
 
   let inset_shadow_channel : Color.channel =
     {
@@ -1504,21 +1479,19 @@ module Handler = struct
           if has_var 0 then 29988 else 29989
     | Shadow_bracket_var_opacity _ | Shadow_bracket_shadow_opacity _ -> 29988
     | Shadow_shape_opacity _ | Shadow_theme_opacity _ -> 29991
-    (* Shadow shape utilities — all same suborder, natural_compare decides
-       within-group order: bracket values ([) sort before named (none/sm/xl) *)
+    (* One suborder for every shape: the natural comparison of the class names
+       puts a bracket value before the named ones. *)
     | Shadow | Shadow_2xs | Shadow_xs | Shadow_2xl | Shadow_inner | Shadow_lg
     | Shadow_md | Shadow_none | Shadow_sm | Shadow_xl | Shadow_arbitrary _
     | Shadow_raw _ | Shadow_bracket_shadow _ | Shadow_bracket_var _
     | Shadow_theme _ ->
         30000
-    (* Shadow color utilities *)
     | Shadow_color _ | Shadow_color_opacity _ | Shadow_current
     | Shadow_current_opacity _ | Shadow_inherit | Shadow_transparent
     | Shadow_transparent_opacity _ | Shadow_bracket_color _
     | Shadow_bracket_color_opacity _ | Shadow_bracket_color_var _
     | Shadow_bracket_color_var_opacity _ ->
         40000
-    (* Inset shadow opacity utilities — same relative scheme as shadow *)
     | Inset_shadow_arbitrary_opacity (arb, _) ->
         let len = String.length arb in
         let rec has_var i =
@@ -1538,14 +1511,11 @@ module Handler = struct
       ->
         31988
     | Inset_shadow_shape_opacity _ | Inset_shadow_theme_opacity _ -> 31991
-    (* Inset shadow shape utilities — all same suborder, natural_compare
-       decides *)
     | Inset_shadow | Inset_shadow_2xs | Inset_shadow_xs | Inset_shadow_none
     | Inset_shadow_sm | Inset_shadow_arbitrary _ | Inset_shadow_raw _
     | Inset_shadow_bracket_shadow _ | Inset_shadow_bracket_var _
     | Inset_shadow_theme _ ->
         32000
-    (* Inset shadow color utilities *)
     | Inset_shadow_color _ | Inset_shadow_color_opacity _ | Inset_shadow_current
     | Inset_shadow_current_opacity _ | Inset_shadow_inherit
     | Inset_shadow_transparent | Inset_shadow_bracket_color _

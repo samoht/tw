@@ -98,8 +98,7 @@ let int_pos ~name s =
   Option.value (nonnegative_int ~name s)
     ~default:(Error (`Msg ("Invalid " ^ name ^ " value: " ^ s)))
 
-(* Parse decimal values like "0.5", "1.5" for spacing utilities. Valid decimals
-   must be multiples of 0.25 (i.e., value * 4 is integer). *)
+(* A decimal spacing step is a multiple of 0.25. *)
 let decimal_pos ~name s =
   match decimal_float s with
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
@@ -108,7 +107,6 @@ let decimal_pos ~name s =
       else if Float.is_integer (f *. 4.0) then Ok f
       else Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
-(* Parse spacing values - handles both integers and decimals *)
 let spacing_value ~name s =
   match nonnegative_int ~name s with
   | Some (Ok n) when exact (float_of_int n) -> Ok (float_of_int n)
@@ -126,9 +124,8 @@ let int_bounded ~name ~min ~max s =
           ^ string_of_int max ^ ": " ^ s))
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
-(* Check if a value is a valid theme variable name. Theme variable names must
-   not contain '/' — values with '/' that aren't handled as explicit fractions
-   (like 3/4) are invalid class suffixes, not theme references. *)
+(* A suffix with a '/' that is not a fraction (like 3/4) is an invalid class
+   suffix, not a theme reference. *)
 let is_valid_theme_name s = s <> "" && not (String.contains s '/')
 let ( >|= ) r f = Result.map f r
 
@@ -180,7 +177,6 @@ let bracket_close s =
    has a stray bracket in it, which no declaration value takes. *)
 let is_bracket_value s = bracket_close s = Some (String.length s - 1)
 
-(** Extract the inner content from a bracket value "[foo]" → "foo" *)
 let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
 
@@ -950,19 +946,14 @@ let is_var s =
   in
   len > 4 && String.starts_with ~prefix:"var(" s && close 1 4 = Some (len - 1)
 
-(** Check if a bracket value contains a var() reference *)
 let is_bracket_var s =
   if is_bracket_value s then is_var (bracket_inner s) else false
 
-(** Check if a string looks like a CSS color function call (e.g., "rgba(...)",
-    "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
-    followed by '('. *)
 let is_css_color_fn s =
   match String.index_opt s '(' with
   | Some i -> Cascade.Css.Properties.is_color_function (String.sub s 0 i)
   | None -> false
 
-(** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =
   String.length s > 4
   && s.[0] = '('
@@ -976,7 +967,6 @@ let bare_name s =
     Some (String.sub s 2 (String.length s - 2))
   else None
 
-(** Extract the var name from a bare var "(--name)" → "--name" *)
 let bare_var_inner s =
   if is_bare_var s then String.sub s 1 (String.length s - 2) else s
 
@@ -1252,16 +1242,12 @@ let split_atomic sep s =
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
 
-(** Split a class name on '-' but treat '[...]' as atomic. E.g.
-    "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
-    [""; "m"; "[var(--value)]"] *)
+(* "-m-[var(--value)]" → [""; "m"; "[var(--value)]"]. *)
 let split_class_uncached = split_atomic '-'
 
-(** Split a variant chain on ':', treating '[...]' and '(...)' as atomic so a
-    colon inside an arbitrary value or a shorthand var reference (e.g.
-    "hover:bg-[color:var(--x)]") is not read as a variant separator. Always
-    yields (colon count + 1) tokens: joining the result back with ':'
-    reconstructs the input. *)
+(* A colon inside an arbitrary value or a shorthand var reference
+   ("hover:bg-[color:var(--x)]") is not a variant separator. Joining the result
+   back with ':' gives the input. *)
 let split_on_colon = split_atomic ':'
 
 (* Utility.base_of_class offers one class name to every handler in turn until

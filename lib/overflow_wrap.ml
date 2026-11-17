@@ -1,10 +1,3 @@
-(** Overflow wrap utilities for controlling word wrapping behavior.
-
-    What's included:
-    - `wrap-normal` - Default word wrapping.
-    - `wrap-break-word` - Break words to prevent overflow.
-    - `wrap-anywhere` - Break at any character to prevent overflow. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

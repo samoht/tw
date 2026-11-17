@@ -96,8 +96,8 @@ let test_space_px_values () =
   px_step "space-x-px" "1px";
   px_step "-space-x-px" "-1px"
 
-(** Test that CSS values use the correct spacing multiplier. gap-64 should
-    generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
+(* Each step multiplies the spacing scale by its own number: gap-64 is
+   calc(var(--spacing)*64). *)
 let test_css_values () =
   Test_helpers.check_declarations "gap-64" [ "gap:calc(var(--spacing)*64)" ];
   Test_helpers.check_declarations "gap-4" [ "gap:calc(var(--spacing)*4)" ];

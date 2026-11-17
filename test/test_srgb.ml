@@ -1,7 +1,5 @@
-(** Tests for the sRGB conversions and hex spellings. *)
-
 module Css = Cascade.Css
-module Srgb = Tw__.Srgb (* Access internal module *)
+module Srgb = Tw__.Srgb
 open Srgb
 
 let test_rgb_to_oklch_roundtrip () =
@@ -117,14 +115,13 @@ let test_edge_cases () =
    && rgb2.b <= 255)
 
 let accuracy () =
-  (* Test that our OKLCH conversion follows the OKLab specification *)
-  (* Tailwind v4 designed their palette in OKLCH space first, then derived RGB *)
-  (* So converting their RGB back to OKLCH won't perfectly match their original values *)
+  (* Tailwind v4 designs its palette in OKLCH and derives the RGB, so an RGB
+     converted back does not land exactly on the original OKLCH: only the ranges
+     are checked. *)
   let test_color hex_str name =
     match hex_to_rgb hex_str with
     | Some rgb ->
         let oklch = rgb_to_oklch rgb in
-        (* Just verify our conversion produces valid OKLCH values *)
         Alcotest.(check bool)
           (Fmt.str "%s - valid lightness range" name)
           true
@@ -139,8 +136,6 @@ let accuracy () =
           (oklch.h >= 0.0 && oklch.h <= 360.0)
     | None -> Alcotest.failf "Failed to parse hex color %s" hex_str
   in
-
-  (* Test our conversion produces valid OKLCH values *)
   test_color "#3b82f6" "blue-500";
   test_color "#ef4444" "red-500";
   test_color "#6b7280" "gray-500"

@@ -1,5 +1,3 @@
-(** Gap and space-between utilities. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -44,8 +42,6 @@ module Handler = struct
   let space_y_reverse_var =
     Var.property_default Css.Number_percentage ~initial:(Css.Num 0.0)
       ~property_order:3 ~family:`Border "tw-space-y-reverse"
-
-  (** {2 Typed Gap Utilities} *)
 
   let gap_standard ?theme (s : spacing) =
     let decl, len = Spacing.to_decl_len ?theme s in
@@ -106,11 +102,8 @@ module Handler = struct
         | `X -> gap_x_arb len
         | `Y -> gap_y_arb len)
 
-  (** {2 Space Between Utilities} *)
-
-  (* Build margin calc expressions for space utilities. The negative sign is
-     already folded into [spacing_len] (calc(var(--spacing) * -n)), so the
-     reverse mechanism just wraps it once, matching Tailwind. *)
+  (* [spacing_len] already carries the negative sign, as [calc(var(--spacing) *
+     -n)], so the reverse mechanism wraps it once, matching Tailwind. *)
   let space_margin_calcs ~spacing_len ~reverse_var_name =
     let base = Css.Calc.length spacing_len in
     (* Wrap sub-expression as an explicit calc() call, matching Tailwind's
@@ -224,7 +217,6 @@ module Handler = struct
     in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
-  (* Bracket arbitrary space: space-x-[4px], space-y-[10rem] *)
   let space_arb_x (len : Css.length) class_name =
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
@@ -561,19 +553,11 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
-(** Public API *)
 let utility = Utility_factory.v
-
-(** Helpers to create Utility.t from Gap/Space *)
 let gap_util axis value = utility (Gap { axis; value })
-
 let space_util negative axis value = utility (Space { negative; axis; value })
-
-(** {2 Int-based Gap Utilities} *)
 
 (* Gap has no negative form in Tailwind, and the class printer writes a size's
    absolute value, so a negative one is refused rather than printed as a
@@ -595,17 +579,12 @@ let gap_y n = gap_util `Y (Handler.Standard (checked_size "gap_y" n))
 let gap' n = gap_util `All (Handler.Standard (checked_size' "gap'" n))
 let gap_x' n = gap_util `X (Handler.Standard (checked_size' "gap_x'" n))
 let gap_y' n = gap_util `Y (Handler.Standard (checked_size' "gap_y'" n))
-
-(** {2 Special Gap Values} *)
-
 let gap_px = gap_util `All (Handler.Standard `Px)
 let gap_full = gap_util `All (Handler.Standard `Full)
 let gap_x_px = gap_util `X (Handler.Standard `Px)
 let gap_x_full = gap_util `X (Handler.Standard `Full)
 let gap_y_px = gap_util `Y (Handler.Standard `Px)
 let gap_y_full = gap_util `Y (Handler.Standard `Full)
-
-(** {2 Space Between Utilities} *)
 
 let space_x' n =
   let s = `Rem (Float.abs n *. 0.25) in

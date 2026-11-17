@@ -1,6 +1,4 @@
 module Css = Cascade.Css
-(* Tests for prose typography utilities *)
-
 open Tw
 
 let test_classes () =
@@ -47,14 +45,12 @@ let test_css_generation () =
        (Test_helpers.declarations_of_class "prose"))
 
 let test_inline_styles () =
-  (* Prose utilities can generate inline styles from their rules, but CSS
-     variables are filtered out *)
+  (* Prose inline styles come from its rules, with the CSS variables filtered
+     out. *)
   let inline = to_inline_style [ prose ] in
   Alcotest.(check bool)
     "prose generates inline styles" true
     (String.length inline > 0);
-
-  (* Check that CSS variables are filtered out - no "--" should appear *)
   let has_css_vars = Astring.String.is_infix ~affix:"--" inline in
   Alcotest.(check bool) "no CSS variables in inline styles" false has_css_vars;
 

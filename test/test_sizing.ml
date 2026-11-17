@@ -131,14 +131,11 @@ let test_square_sizes () =
   check "size-1/2"
 
 let of_string_invalid () =
-  (* Invalid sizing values *)
   let test_invalid ?why input =
     let class_name = String.concat "-" input in
     check_invalid_input ?why (module Tw.Sizing.Handler) class_name
   in
-
   test_invalid [ "w" ];
-  (* Missing value *)
   test_invalid [ "w"; "invalid" ];
   (* A zero denominator is not a percentage, although Tailwind still emits the
      uncomputable calculation. *)
@@ -149,17 +146,11 @@ let of_string_invalid () =
           which no browser can compute; tw refuses the class instead")
     [ "w"; "1/0" ];
   test_invalid [ "min" ];
-  (* Missing dimension *)
   test_invalid [ "min"; "z"; "4" ];
-  (* Invalid dimension *)
   test_invalid [ "max"; "w"; "8xl" ];
-  (* not a container-scale name *)
   test_invalid [ "inline"; "4xs" ];
-  (* Invalid max size *)
   test_invalid [ "max"; "w"; "screen"; "3xl" ];
-  (* Invalid screen size *)
   test_invalid [ "unknown"; "4" ]
-(* Unknown sizing type *)
 
 let test_aspect_classes () =
   let open Tw in
@@ -196,17 +187,13 @@ let test_aspect_square_inlined () =
   Alcotest.check bool "aspect-square emits no --aspect-square token" false
     (Astring.String.is_infix ~affix:"--aspect-square" css)
 
-(** Test that the programmatic API generates correct class names *)
 let test_class_generation () =
   let open Tw in
-  (* Width: w n should generate w-{n} class *)
   Alcotest.check string "w 1 -> w-1" "w-1" (Tw.pp (w 1));
   Alcotest.check string "w 4 -> w-4" "w-4" (Tw.pp (w 4));
   Alcotest.check string "w 10 -> w-10" "w-10" (Tw.pp (w 10));
   Alcotest.check string "w 64 -> w-64" "w-64" (Tw.pp (w 64));
   Alcotest.check string "w 96 -> w-96" "w-96" (Tw.pp (w 96));
-
-  (* Height: h n should generate h-{n} class *)
   Alcotest.check string "h 1 -> h-1" "h-1" (Tw.pp (h 1));
   Alcotest.check string "h 5 -> h-5" "h-5" (Tw.pp (h 5));
   Alcotest.check string "h 10 -> h-10" "h-10" (Tw.pp (h 10));

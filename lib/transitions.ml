@@ -1,15 +1,3 @@
-(** Transition utilities
-
-    What's included:
-    - `transition-*` - Transition properties (none, all, colors, opacity,
-      shadow, transform).
-    - `duration-*` - Animation/transition duration values.
-    - `delay-*` - Animation/transition delay values.
-    - `ease-*` - Easing functions (linear, in, out, in-out).
-
-    What's not:
-    - Custom timing functions beyond basic easing. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

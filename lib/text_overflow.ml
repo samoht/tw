@@ -1,5 +1,3 @@
-(** Text overflow utilities, [truncate] included. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

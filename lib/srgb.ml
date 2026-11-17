@@ -1,19 +1,7 @@
-(** sRGB colours by the byte: hex spellings and the conversions to and from
-    OKLab and OKLCh. *)
-
 module Css = Cascade.Css
 
-type rgb = {
-  r : int;  (** Red channel (0-255) *)
-  g : int;  (** Green channel (0-255) *)
-  b : int;  (** Blue channel (0-255) *)
-}
-
-type oklch = {
-  l : float;  (** Lightness (0-100) *)
-  c : float;  (** Chroma (0-0.4+) *)
-  h : float;  (** Hue (0-360) *)
-}
+type rgb = { r : int; g : int; b : int }
+type oklch = { l : float; c : float; h : float }
 
 (* The colour-space arithmetic (linearisation, OKLab, the polar OKLCh form) is
    cascade's: a second copy drifts, since a forward matrix straight to LMS and
@@ -156,10 +144,7 @@ let rgba_to_hex r g b a =
   let rgb = "#" ^ Pp.hex_byte r ^ Pp.hex_byte g ^ Pp.hex_byte b in
   if a = 255 then rgb else rgb ^ Pp.hex_byte a
 
-(** Add alpha to a hex color string. Returns #RRGGBBAA format. The opacity is a
-    percentage (0-100). *)
 let hex_with_alpha hex_str opacity_percent =
-  (* Parse hex color *)
   let hex_clean =
     if String.length hex_str > 0 && hex_str.[0] = '#' then
       String.sub hex_str 1 (String.length hex_str - 1)
@@ -176,7 +161,6 @@ let hex_with_alpha hex_str opacity_percent =
     | 8 -> String.sub hex_clean 0 6
     | _ -> hex_clean
   in
-  (* Convert opacity percentage to 8-bit alpha value, with rounding *)
   let alpha = int_of_float ((opacity_percent /. 100.0 *. 255.0) +. 0.5) in
   let alpha_clamped = max 0 (min 255 alpha) in
   let full = hex_clean ^ Pp.hex_byte alpha_clamped in
@@ -335,21 +319,20 @@ let hex_string_of_rgb (r, g, b) =
   set_hex_byte 4 b;
   Bytes.unsafe_to_string buf
 
-(** The byte an rgb() channel stands for, when it stands for one. A var()
-    reference carries no value here, and CSS Color 4's [none] takes the
-    analogous channel of whatever the colour is combined with rather than
-    standing for zero, so neither has a byte. *)
+(* A var() channel carries no value here, and CSS Color 4's [none] takes the
+   analogous channel of whatever the colour is combined with rather than
+   standing for zero, so neither has a byte. *)
 let int_of_channel : Css.channel -> int option = function
   | Css.Int i -> Some (min 255 (max 0 i))
   | Css.Num f -> Some (min 255 (max 0 (Float.to_int (Float.round f))))
   | Css.Pct f -> Some (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
   | Css.Var _ | Css.None -> None
 
-(** How an alpha channel spells inside a hex colour. *)
+(* How an alpha channel spells inside a hex colour. *)
 type folded_alpha =
-  | Opaque  (** no alpha channel at all *)
+  | Opaque (* no alpha channel at all *)
   | Alpha_byte of int
-  | Alpha_unresolvable  (** a var() or calc(), which no hex byte carries *)
+  | Alpha_unresolvable (* a var() or calc(), which no hex byte carries *)
 
 let fold_alpha : Css.alpha -> folded_alpha = function
   | Css.None -> Opaque
@@ -359,7 +342,6 @@ let fold_alpha : Css.alpha -> folded_alpha = function
       Alpha_byte (min 255 (max 0 (Float.to_int (Float.round (f *. 2.55)))))
   | Css.Var _ | Css.Calc _ -> Alpha_unresolvable
 
-(** Convert a typed CSS color to a hex string for Tailwind parity *)
 let css_color_to_hex (c : Css.color) : Css.color option =
   let hex_of_bytes bytes = Some (Css.hex ("#" ^ shorten_hex_str bytes)) in
   match c with
@@ -392,8 +374,6 @@ let css_color_to_hex (c : Css.color) : Css.color option =
       | _ -> None)
   | _ -> None
 
-(** Resolve a typed [Css.color] to its emission form. A hex keeps the spelling
-    the bracket wrote, a colour function is converted to hex where possible. *)
 let resolve_bracket_css_color (css_color : Css.color) : Css.color =
   match css_color with
   (* The bracket's own spelling is the one Tailwind writes back. *)

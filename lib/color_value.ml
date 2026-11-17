@@ -1,6 +1,3 @@
-(** The colours a class names, and the values and theme tokens they resolve to.
-*)
-
 module Css = Cascade.Css
 open Srgb
 
@@ -39,7 +36,6 @@ type color =
   | Css of Css.color
   | Theme_named of string
 
-(* Color constructors *)
 let black = Black
 let white = White
 let gray = Gray
@@ -76,7 +72,6 @@ let hex s =
     | None -> Hex s
   else Hex (shorten_hex_str s)
 
-(* Convert string name to color type *)
 let of_string_exn = function
   | "black" -> Black
   | "white" -> White
@@ -168,7 +163,6 @@ let rgb r g b =
     invalid_arg ("RGB blue value " ^ string_of_int b ^ " out of range [0-255]");
   Rgb { red = r; green = g; blue = b }
 
-(* Convert color to OKLCH data for a given shade *)
 let to_oklch_opt color shade =
   match color with
   | Black -> Some { l = 0.0; c = 0.0; h = 0.0 }
@@ -181,7 +175,6 @@ let to_oklch_opt color shade =
   | Rgb { red; green; blue } ->
       Some (rgb_to_oklch { r = red; g = green; b = blue })
   | Css c -> (
-      (* Extract RGB channels from CSS color for oklch conversion *)
       match c with
       | Css.Hex { r; g; b; _ } | Css.Authored_hex { r; g; b; _ } -> (
           match hex_to_rgb (hex_string_of_rgb (r, g, b)) with
@@ -201,7 +194,6 @@ let to_oklch_opt color shade =
                { r = chan_to_int r; g = chan_to_int g; b = chan_to_int b })
       | _ -> Some { l = 0.0; c = 0.0; h = 0.0 })
   | _ ->
-      (* For named colors, get OKLCH data directly from Tailwind *)
       let color_name =
         match color with
         | Gray -> "gray"
@@ -242,7 +234,6 @@ let to_oklch color shade =
   | Some oklch -> oklch
   | None -> { l = 0.0; c = 0.0; h = 0.0 }
 
-(* Convert color to OKLCH CSS string for a given shade *)
 let to_oklch_css color shade =
   match color with
   | Black -> "#000"
@@ -252,7 +243,6 @@ let to_oklch_css color shade =
   | Rgb { red; green; blue } ->
       rgb_to_oklch { r = red; g = green; b = blue } |> oklch_to_css
   | _ -> (
-      (* For named colors, get from Tailwind *)
       let color_name =
         match color with
         | Gray -> "gray"
@@ -285,7 +275,7 @@ let to_oklch_css color shade =
       in
       match Palette.oklch_css color_name shade with
       | Some value -> value
-      | None -> "oklch(0% 0 0)" (* Fallback *))
+      | None -> "oklch(0% 0 0)")
 
 (* Tailwind writes the powerless hue of an achromatic colour as [none] rather
    than a number. Keeping the component missing matters: a numeric hue lets the
@@ -407,7 +397,6 @@ let named_color_name = function
 
 let is_named_color color = named_color_name color <> ""
 
-(* Get the name of a color as a string *)
 let to_name color =
   if is_named_color color then named_color_name color
   else
@@ -449,22 +438,19 @@ let to_name color =
     | Css Css.Transparent -> "transparent"
     | Css Css.Inherit -> "inherit"
     | Css c ->
-        (* Serialize CSS color to bracket string for class names. Only spaces
-           map to [_]: Tailwind reads an [_] inside a [var()] name as itself,
-           which {!Parse.encode_underscores} would escape. *)
+        (* Only spaces map to [_]: Tailwind reads an [_] inside a [var()] name
+           as itself, which {!Parse.encode_underscores} would escape. *)
         let s = Css.Pp.to_string ~minify:true Css.pp_color c in
         let s = String.map (fun c -> if c = ' ' then '_' else c) s in
         "[" ^ s ^ "]"
     | Theme_named name -> name
     | _ -> ""
 
-(* Pretty printer for colors *)
 let pp color =
   if is_named_color color then named_color_name color
   else
     match color with
     | Hex s ->
-        (* Use Tailwind's arbitrary value syntax [#hex] for hex colors *)
         let hex_value =
           if String.starts_with ~prefix:"#" s then s else "#" ^ s
         in
@@ -504,10 +490,8 @@ let pp color =
     | Theme_named name -> name
     | _ -> ""
 
-(* Check if a color is black or white *)
 let is_base_color = function Black | White -> true | _ -> false
 
-(* Check if a color is a custom color (hex, rgb, or oklch) *)
 let is_custom_color = function
   | Hex _ | Rgb _ | Oklch _ | Css _ -> true
   | _ -> false
@@ -520,7 +504,6 @@ let opacity_keyword = function
   | Css Css.Inherit -> Some Css.Inherit
   | _ -> None
 
-(* Check if a color is a theme-named color (no shade suffix) *)
 let is_theme_named = function Theme_named _ -> true | _ -> false
 
 (* The name a scheme keys a colour's token by: [pink-500], [black], or a project
@@ -547,7 +530,6 @@ let to_css ?theme color shade =
   | Some value -> value
   | None -> palette_css ?theme color shade
 
-(* Check if a color should NOT have a shade suffix in class names *)
 let is_shadeless c = is_base_color c || is_custom_color c || is_theme_named c
 
 let is_valid_shade color shade =
@@ -559,9 +541,8 @@ let check_shade ~utility color shade =
       (utility ^ ": " ^ pp color ^ " has no shade " ^ string_of_int shade
      ^ " (valid shades: 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950)")
 
-(* Theme layer color variable ordering map. See build.mli for detailed layer
-   ordering documentation. Tailwind declares no [--color-transparent] token, but
-   the keyword is a colour a utility can name, so it leads the ranking. *)
+(* Tailwind declares no [--color-transparent] token, but the keyword is a colour
+   a utility can name, so it leads the theme-layer ranking. *)
 let theme_color_order_map =
   List.mapi (fun index name -> (name, index)) ("transparent" :: Palette.names)
 
@@ -580,26 +561,19 @@ let utilities_color_order_map =
   in
   List.mapi (fun index name -> (name, index)) (leading @ alphabetical)
 
-(* Get theme layer order for a color variable. Returns (priority=2, suborder)
-   where 2 indicates these are theme layer variables. *)
+(* Colours are theme group 2. The suborder steps by 1000 to leave room for the
+   shade, and an unknown colour goes last. *)
 let theme_order color_name =
   match List.assoc_opt color_name theme_color_order_map with
-  | Some suborder ->
-      (2, suborder * 1000)
-      (* Priority 2 for theme layer variables, multiply by 1000 for spacing *)
+  | Some suborder -> (2, suborder * 1000)
   | None -> (2, 100000)
-(* Unknown colors go last within theme layer *)
 
-(* Get utilities layer order for conflict resolution. Returns (priority,
-   suborder) for utilities layer ordering. *)
+(* An unknown colour goes last. *)
 let utilities_order color_name =
   match List.assoc_opt color_name utilities_color_order_map with
-  | Some suborder -> (2, suborder) (* Priority 2 for color utilities *)
+  | Some suborder -> (2, suborder)
   | None -> (2, 100)
-(* Unknown colors go last *)
 
-(* Helper function to extract color order with shade for utilities like
-   bg-blue-500, text-red-400, etc. *)
 let suborder_with_shade color_part =
   (* A shadeless name like [black] or [white] has no trailing [-<digits>], and
      [utilities_order] answers for any name, so there is nothing here that can
@@ -622,14 +596,11 @@ let suborder_with_shade color_part =
           let _, color_order = utilities_order color_name in
           (color_order * 1000) + shade)
 
-(* Get theme layer order for a color variable with shade. Formula: (priority=2,
-   base_order * 1000 + shade) This ensures color variables are grouped by color
-   with shades in ascending order. *)
+(* Colour tokens group by colour, shades ascending. *)
 let theme_order_with_shade color_name shade =
   let var_priority, base_order = theme_order color_name in
   (var_priority, base_order + shade)
 
-(* Memoization table for color variables *)
 (* Keyed by [(color, shade)] (shade normalised to 0 for shadeless colours, which
    ignore it) rather than the materialized name, so a cache hit skips building
    the name string entirely - and within one generation bg/text/border share the
@@ -640,8 +611,6 @@ let color_var_cache = Domain_cache.v 128
    their full name, kept separate from the [(color, shade)] cache above. *)
 let property_color_var_cache = Domain_cache.v 64
 
-(* Helper to create a color variable with memoization. Creates theme layer
-   variables with deterministic ordering based on color and shade. *)
 let color_var color shade =
   let shadeless = is_shadeless color in
   let key = (color, if shadeless then 0 else shade) in
@@ -658,13 +627,8 @@ let color_var color shade =
         if shadeless then "color-" ^ escaped_base
         else Pp.str [ "color-"; escaped_base; "-"; string_of_int shade ]
       in
-      (* Create theme variable with deterministic theme layer order: - Base
-         colors use theme_order(color_name) - Shaded colors use
-         theme_order_with_shade(color_name, shade)
-
-         Note: Tailwind v4 appears to order variables by first usage in the
-         input, not by a fixed ordering. Our implementation uses a fixed
-         ordering for determinism and consistency. *)
+      (* A fixed order, for determinism. Tailwind v4 appears to order these
+         tokens by first usage in the input. *)
       let var_order =
         if shadeless then theme_order_with_shade base 0
         else theme_order_with_shade base shade
@@ -866,15 +830,11 @@ let theme_color_decl ?theme name =
       | None -> None)
   | None -> None
 
-(** Get a color variable for a property. Checks if a property-scoped theme value
-    exists (e.g., [--accent-color-blue-500]) and if so creates a property-scoped
-    variable. Otherwise falls back to the generic [--color-{name}] variable. *)
 let property_color_var ?theme ~property_prefix (c : color) shade =
   let color_name = scheme_color_name c shade in
   let prop_name = property_prefix ^ "-" ^ color_name in
   match Scheme.theme_value theme prop_name with
   | Some _ ->
-      (* Property-scoped theme value exists, create scoped variable *)
       let name = prop_name in
       Domain_cache.or_add property_color_var_cache name (fun () ->
           let base = pp c in
@@ -883,13 +843,8 @@ let property_color_var ?theme ~property_prefix (c : color) shade =
             else theme_order_with_shade base shade
           in
           Var.theme Css.Color name ~order:var_order)
-  | None ->
-      (* Fall back to generic --color-{name} *)
-      color_var c shade
+  | None -> color_var c shade
 
-(** Get the color value for use with color variables. Checks for property-scoped
-    theme value first, then scheme, then generic theme value, then the palette.
-*)
 let property_color_value ?theme ~property_prefix (c : color) shade =
   let color_name = scheme_color_name c shade in
   let prop_name = property_prefix ^ "-" ^ color_name in
@@ -905,7 +860,6 @@ let property_color_value ?theme ~property_prefix (c : color) shade =
       match scheme_color ?theme c shade with
       | Some value -> value
       | None -> (
-          (* Check theme value overrides for standard color name *)
           let std_name = "color-" ^ color_name in
           match Scheme.theme_value theme std_name with
           | Some value -> parse_theme_color value
@@ -913,12 +867,6 @@ let property_color_value ?theme ~property_prefix (c : color) shade =
 
 (* Tailwind's [--alpha(<color>/<pct>)] inside an arbitrary value is
    [color-mix(in oklab, <color> <pct>, transparent)]. *)
-
-(** Parse a bracket inner string into a typed [Css.color], if it represents a
-    valid color. Handles hex strings (with [#] prefix), CSS color functions like
-    [rgb(...)], [hsl(...)], etc., and named Tailwind colors (which are converted
-    to their CSS representation via [to_css]). Returns [None] for non-color
-    values. *)
 let parse_bracket_color (inner : string) : Css.color option =
   if Parse.is_var inner then
     (* A bare var() is a valid arbitrary color: border-[var(--x)] and its paren
@@ -945,9 +893,9 @@ let parse_bracket_color (inner : string) : Css.color option =
         else
           (* A bracket holds CSS, so only a colour CSS knows is one: keywords
              and system colours included, [[Field]] and [[light-dark(a,b)]] are
-             values. A palette name is not; Tailwind writes [[emerald]] through
-             as the identifier it is, which browsers drop, where reading it as
-             the 500 shade painted a colour the page does not have. *)
+             values. A palette name is not: Tailwind writes [[emerald]] through
+             as the identifier it is, which browsers drop, and never as the 500
+             shade. *)
           Css.parse_color (Parse.decode_underscores inner)
 
 (* What a bracket value names, once the [color:]/[var(] spellings are told apart

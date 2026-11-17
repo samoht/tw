@@ -75,8 +75,6 @@ let to_css ?theme ?(base = Build.default_config.base) ?forms
 
 let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet
-
-(* Class generation functions *)
 let pp utility = Utility.to_class utility
 let to_classes styles = styles |> List.map Utility.to_class |> String.concat " "
 let modifiers_of_string = Modifiers.of_string
@@ -467,7 +465,6 @@ let removed_token_read ~theme class_str u =
       (Rule.outputs ~theme u)
   else None
 
-(* Parse a single class string into a Tw.t *)
 let of_candidate ~theme class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   let importance, base_class = split_importance base_class in
@@ -565,8 +562,6 @@ let of_classes ?theme s =
 
 let str s = fst (of_classes s)
 
-(** {1 Module Exports} *)
-
 module Style = Style
 module Margin = Margin
 module Padding = Padding
@@ -645,12 +640,6 @@ module Touch = Touch
 module Parse = Parse
 module Mask_gradient = Mask_gradient
 module Property = Property
-
-(* Include flex utilities *)
 include Flex
-
-(* Include grid utilities *)
 include Grid
-
-(* Include cursor utilities *)
 include Cursor

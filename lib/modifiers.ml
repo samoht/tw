@@ -1,17 +1,8 @@
-(** Tailwind variant helpers (hover, focus, dark, responsive, group/peer, etc.)
-*)
-
 module Css = Cascade.Css
-
-(* We work with Utility.t instead of Style.t *)
 open Style
 
-(** Helper to build class selectors *)
 let build_class prefix cls = Css.Selector.Class (prefix ^ cls)
-
-(** Helper functions for building class names *)
 let hover cls = build_class "hover:" cls
-
 let focus cls = build_class "focus:" cls
 let active cls = build_class "active:" cls
 let disabled cls = build_class "disabled:" cls
@@ -25,17 +16,12 @@ let focus_within cls = build_class "focus-within:" cls
 let focus_visible cls = build_class "focus-visible:" cls
 let before cls = build_class "before:" cls
 let after cls = build_class "after:" cls
-
-(** Base marker classes *)
 let group = Css.Selector.Class "group"
-
 let peer = Css.Selector.Class "peer"
 
-(** Helper: compound selector with class prefix and pseudo-class *)
 let class_pseudo prefix cls pseudo =
   Css.Selector.compound [ Css.Selector.Class (prefix ^ ":" ^ cls); pseudo ]
 
-(** Helper: breakpoint name for responsive modifiers *)
 let breakpoint_name qual bp =
   let base =
     match bp with
@@ -47,7 +33,6 @@ let breakpoint_name qual bp =
   in
   match qual with "" -> base | q -> q ^ "-" ^ base
 
-(** Helper: arbitrary breakpoint class selector *)
 let arbitrary_breakpoint_class prefix (w : Style.arbitrary_px) cls =
   Css.Selector.Class (prefix ^ "[" ^ w.text ^ "]:" ^ cls)
 
@@ -55,11 +40,9 @@ let arbitrary_breakpoint_class prefix (w : Style.arbitrary_px) cls =
    utilities through [Style.to_class]. *)
 let compact_length = Style.compact_length
 
-(** Build class selector for an arbitrary length breakpoint *)
 let arbitrary_length_class prefix (l : Style.arbitrary_length) cls =
   Css.Selector.Class (prefix ^ "[" ^ l.text ^ "]:" ^ cls)
 
-(** Helper: direction selector (ltr/rtl) *)
 let dir_selector dir cls =
   let open Css.Selector in
   let dir_sel = Dir dir in
@@ -67,14 +50,12 @@ let dir_selector dir cls =
   let desc_sel = combine attr_sel Descendant universal in
   compound [ Class (dir ^ ":" ^ cls); where [ dir_sel; attr_sel; desc_sel ] ]
 
-(** Helper: inert pseudo-selector *)
 let inert_pseudo () =
   let open Css.Selector in
   let inert_attr = attribute "inert" Presence in
   let inert_desc = combine inert_attr Descendant universal in
   is_ [ inert_attr; inert_desc ]
 
-(** Helper: open pseudo-selector *)
 let open_pseudo () =
   let open Css.Selector in
   is_ [ attribute "open" Presence; Popover_open; Open ]
@@ -94,16 +75,14 @@ let nest_selector ~parent template =
   if Cascade.Nest.contains sel then Cascade.Nest.substitute ~parent sel
   else compound [ parent; compoundable sel ]
 
-(** Parse arbitrary bracket content into a selector tree. In bracket content:
-    [_] = space, [&] = anchor (group/peer). E.g. "&_p" with group anchor ->
-    ":where(.group) p" E.g. "&:hover" with group anchor ->
-    ":where(.group):hover" *)
+(* In bracket content [_] is a space and [&] the group or peer anchor: "&_p" is
+   ":where(.group) p" and "&:hover" is ":where(.group):hover". *)
 let parse_arbitrary_selector_content content anchor =
   let open Css.Selector in
   let s = Parse.decode_underscores content in
   combine (nest_selector ~parent:(where [ anchor ]) s) Descendant universal
 
-(** Build an anchor-based variant selector: :where(.anchor):pseudo combinator *)
+(* [:where(.anchor):pseudo] then [combinator]. *)
 let anchor_pseudo_selector ~anchor ~combinator cls prefix pseudo =
   let open Css.Selector in
   let rel =
@@ -111,7 +90,6 @@ let anchor_pseudo_selector ~anchor ~combinator cls prefix pseudo =
   in
   compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
 
-(** Build a hocus (hover + focus) variant selector for an anchor *)
 let anchor_hocus_selector ~anchor ~combinator cls label =
   let open Css.Selector in
   let rel =
@@ -125,7 +103,6 @@ let anchor_hocus_selector ~anchor ~combinator cls label =
   in
   compound [ Class (label ^ ":" ^ cls); is_ [ rel ] ]
 
-(** Build an arbitrary bracket variant selector for an anchor *)
 let anchor_arbitrary_selector ~anchor ~combinator cls sel label =
   let open Css.Selector in
   let prefix = label ^ "-[" ^ sel ^ "]" in
@@ -142,7 +119,7 @@ let anchor_arbitrary_selector ~anchor ~combinator cls sel label =
   in
   compound [ Class (prefix ^ ":" ^ cls); is_ [ rel ] ]
 
-(** Group variant selector — :where(.group):pseudo descendant *)
+(* [:where(.group):pseudo] then a descendant combinator. *)
 let group_selector cls modifier =
   let gp = anchor_pseudo_selector ~anchor:group ~combinator:Descendant cls in
   match modifier with
@@ -189,7 +166,7 @@ let group_selector cls modifier =
         "group"
   | _ -> Css.Selector.Class cls
 
-(** Peer variant selector — :where(.peer):pseudo ~ *)
+(* [:where(.peer):pseudo] then [~]. *)
 let peer_selector cls modifier =
   let pp =
     anchor_pseudo_selector ~anchor:peer ~combinator:Subsequent_sibling cls
@@ -238,7 +215,6 @@ let peer_selector cls modifier =
         sel "peer"
   | _ -> Css.Selector.Class cls
 
-(** Form state modifier selector dispatch *)
 let form_state_selector cls modifier =
   let cp = class_pseudo in
   match modifier with
@@ -273,7 +249,6 @@ let form_state_selector cls modifier =
   | User_invalid -> cp "user-invalid" cls Css.Selector.User_invalid
   | _ -> group_selector cls modifier
 
-(** Media and responsive modifiers that prefix the class name *)
 let media_prefix_selector cls modifier =
   match modifier with
   | Dark -> Css.Selector.Class ("dark:" ^ cls)
@@ -317,7 +292,6 @@ let media_prefix_selector cls modifier =
       peer_selector cls modifier
   | _ -> form_state_selector cls modifier
 
-(** Structural pseudo-class modifiers *)
 let structural_selector cls modifier =
   let cp = class_pseudo in
   match modifier with
@@ -352,7 +326,6 @@ let structural_selector cls modifier =
   | Empty -> cp "empty" cls Css.Selector.Empty
   | _ -> media_prefix_selector cls modifier
 
-(** Aria and data attribute modifier selectors *)
 let aria_data_selector cls modifier =
   let open Css.Selector in
   match modifier with
@@ -382,7 +355,6 @@ let aria_data_selector cls modifier =
         ]
   | _ -> structural_selector cls modifier
 
-(** Pseudo-element modifier selectors *)
 let pseudo_element_selector cls modifier =
   let cp = class_pseudo in
   match modifier with
@@ -405,7 +377,6 @@ let pseudo_element_selector cls modifier =
       cp "details-content" cls Css.Selector.Details_content
   | _ -> aria_data_selector cls modifier
 
-(** Map prose element variant names to their CSS element selectors *)
 let prose_element_selectors name =
   let open Css.Selector in
   match name with
@@ -423,9 +394,6 @@ let prose_element_selectors name =
       [ Attribute (None, Regular "class", Whitespace_list "lead", None) ]
   | s -> [ Element (None, s) ]
 
-(** Build the inner prose element selector for a prose element variant. Creates
-    ":where(ELTS):not(:where(not-prose, not-prose descendant))" which is
-    combined as a descendant of the outer class selector. *)
 let not_prose_exclusion_selector () =
   let open Css.Selector in
   let not_prose_class = attribute "class" (Whitespace_list "not-prose") in
@@ -438,7 +406,6 @@ let prose_element_inner_selector name =
   compound
     [ where (prose_element_selectors name); not_prose_exclusion_selector () ]
 
-(** Generate CSS selector for a modifier and base class *)
 let to_selector (modifier : modifier) cls =
   let open Css.Selector in
   match modifier with
@@ -448,7 +415,6 @@ let to_selector (modifier : modifier) cls =
   | Disabled -> compound [ disabled cls; Disabled ]
   | Focus_within -> compound [ focus_within cls; Focus_within ]
   | Focus_visible -> compound [ focus_visible cls; Focus_visible ]
-  (* Child/descendant selectors *)
   | Children ->
       let child_sel = combine (Class ("*:" ^ cls)) Child universal in
       is_ [ child_sel ]
@@ -457,7 +423,6 @@ let to_selector (modifier : modifier) cls =
       is_ [ desc_sel ]
   | Ltr -> dir_selector "ltr" cls
   | Rtl -> dir_selector "rtl" cls
-  (* Hocus/Device_hocus — compound :hover, :focus *)
   | Hocus -> compound [ Class ("hocus:" ^ cls); is_ [ Hover; Focus ] ]
   | Device_hocus ->
       compound [ Class ("device-hocus:" ^ cls); is_ [ Hover; Focus ] ]
@@ -474,7 +439,6 @@ let to_selector (modifier : modifier) cls =
   (* Pseudo-elements, aria/data, structural, media, peer, form state *)
   | _ -> pseudo_element_selector cls modifier
 
-(** Check if a modifier generates a hover rule *)
 let is_hover = function Hover | Group_hover | Peer_hover -> true | _ -> false
 
 let wrap m styles =
@@ -482,44 +446,32 @@ let wrap m styles =
   | [] -> Utility.Group []
   | _ -> Utility.Group (List.map (fun t -> Utility.Modified (m, t)) styles)
 
-(* State variants *)
 let hover = wrap Hover
 let focus = wrap Focus
 let active = wrap Active
 let disabled = wrap Disabled
 let focus_within = wrap Focus_within
 let focus_visible = wrap Focus_visible
-
-(* Group/peer markers *)
 let group = Interactivity.group
 let peer = Interactivity.peer
-
-(* Group/peer variants *)
 let group_hover = wrap Group_hover
 let group_focus = wrap Group_focus
 let peer_hover = wrap Peer_hover
 let peer_focus = wrap Peer_focus
 let group_hocus = wrap Group_hocus
 let peer_hocus = wrap Peer_hocus
-
-(* :has() helpers *)
 let has selector styles = wrap (Has selector) styles
 let group_has ?name selector styles = wrap (Group_has (selector, name)) styles
 let peer_has ?name selector styles = wrap (Peer_has (selector, name)) styles
-
-(* Theme/motion/contrast *)
 let dark = wrap Dark
 let motion_safe = wrap Motion_safe
 let motion_reduce = wrap Motion_reduce
 let contrast_more = wrap Contrast_more
 let contrast_less = wrap Contrast_less
 let starting = wrap Starting
-
-(* Pseudo-elements *)
 let before = wrap Pseudo_before
 let after = wrap Pseudo_after
 
-(* Check if a utility already has a responsive modifier *)
 let rec has_responsive_modifier = function
   | Utility.Base _ -> false
   | Utility.Modified (Responsive _, _) -> true
@@ -529,7 +481,6 @@ let rec has_responsive_modifier = function
   | Utility.Aliased (_, t) | Utility.Theme_bound (_, t) ->
       has_responsive_modifier t
 
-(* Validate no nested responsive modifiers *)
 let validate_no_nested_responsive styles =
   List.iter
     (fun style ->
@@ -539,7 +490,6 @@ let validate_no_nested_responsive styles =
            responsive modifiers")
     styles
 
-(* Responsive - with validation to prevent nesting *)
 let sm styles =
   validate_no_nested_responsive styles;
   wrap (Responsive `Sm) styles
@@ -560,7 +510,6 @@ let xl2 styles =
   validate_no_nested_responsive styles;
   wrap (Responsive `Xl_2) styles
 
-(* Max responsive variants *)
 let max_sm styles =
   validate_no_nested_responsive styles;
   wrap (Max_responsive `Sm) styles
@@ -581,7 +530,6 @@ let max_xl2 styles =
   validate_no_nested_responsive styles;
   wrap (Max_responsive `Xl_2) styles
 
-(* Arbitrary breakpoint variants *)
 (* A caller with a bare number has written no bracket, so spell one the way
    [min-[600px]] reads. *)
 let arbitrary_px px : Style.arbitrary_px = { px; text = Pp.float px ^ "px" }
@@ -594,7 +542,6 @@ let max_arbitrary px styles =
   validate_no_nested_responsive styles;
   wrap (Max_arbitrary (arbitrary_px px)) styles
 
-(* ARIA/Peer/Data variants *)
 let peer_checked styles = wrap Peer_checked styles
 let aria_checked styles = wrap Aria_checked styles
 let aria_expanded styles = wrap Aria_expanded styles
@@ -608,8 +555,6 @@ let data_custom key value style =
 
 let data_active styles = wrap Data_active styles
 let data_inactive styles = wrap Data_inactive styles
-
-(* Structural pseudo-class variants *)
 let first styles = wrap First styles
 let last styles = wrap Last styles
 let only styles = wrap Only styles
@@ -621,8 +566,6 @@ let only_of_type styles = wrap Only_of_type styles
 let nth expr styles = wrap (Nth (Style.nth_expr expr)) styles
 let nth_last expr styles = wrap (Nth_last (Style.nth_expr expr)) styles
 let empty styles = wrap Empty styles
-
-(* Form state variants *)
 let checked styles = wrap Checked styles
 let indeterminate styles = wrap Indeterminate styles
 let default styles = wrap Default styles
@@ -643,8 +586,6 @@ let visited styles = wrap Visited styles
 let inert styles = wrap Inert styles
 let user_valid styles = wrap User_valid styles
 let user_invalid styles = wrap User_invalid styles
-
-(* Group/peer structural variants *)
 let group_first styles = wrap Group_first styles
 let group_last styles = wrap Group_last styles
 let group_only styles = wrap Group_only styles
@@ -661,8 +602,6 @@ let peer_even styles = wrap Peer_even styles
 let peer_first_of_type styles = wrap Peer_first_of_type styles
 let peer_last_of_type styles = wrap Peer_last_of_type styles
 let peer_only_of_type styles = wrap Peer_only_of_type styles
-
-(* More group/peer state variants *)
 let group_active styles = wrap Group_active styles
 let group_visited styles = wrap Group_visited styles
 let group_disabled styles = wrap Group_disabled styles
@@ -712,8 +651,6 @@ let group_focus_visible styles = wrap Group_focus_visible styles
 let peer_focus_visible styles = wrap Peer_focus_visible styles
 let group_enabled styles = wrap Group_enabled styles
 let peer_enabled styles = wrap Peer_enabled styles
-
-(* Pseudo-element variants *)
 let marker styles = wrap Pseudo_marker styles
 let selection styles = wrap Pseudo_selection styles
 let placeholder styles = wrap Pseudo_placeholder styles
@@ -724,19 +661,13 @@ let first_line styles = wrap Pseudo_first_line styles
 let details_content styles = wrap Pseudo_details_content styles
 let children styles = wrap Children styles
 let descendants styles = wrap Descendants styles
-
-(* Directionality variants *)
 let ltr styles = wrap Ltr styles
 let rtl styles = wrap Rtl styles
-
-(* Media type variants *)
 let print styles = wrap Print styles
 let portrait styles = wrap Portrait styles
 let landscape styles = wrap Landscape styles
 let forced_colors styles = wrap Forced_colors styles
 let supports cond styles = wrap (Supports_condition cond) styles
-
-(* Prose element variants *)
 let prose_headings styles = wrap (Prose_element "headings") styles
 let prose_p styles = wrap (Prose_element "p") styles
 let prose_a styles = wrap (Prose_element "a") styles
@@ -771,14 +702,12 @@ let prose_thead styles = wrap (Prose_element "thead") styles
 let prose_kbd styles = wrap (Prose_element "kbd") styles
 let prose_lead styles = wrap (Prose_element "lead") styles
 
-(* Parse modifiers (responsive, states) from class string. Handles brackets
-   properly so has-[:checked]:bg-red-500 parses as modifiers=["has-[:checked]"]
-   and base_class="bg-red-500" *)
+(* A colon inside brackets does not split: has-[:checked]:bg-red-500 is
+   modifiers ["has-[:checked]"] and base class "bg-red-500". *)
 let of_string class_str =
   let len = String.length class_str in
   let rec split_parts acc current_start i bracket_depth paren_depth =
     if i >= len then
-      (* End of string - add final part *)
       let part = String.sub class_str current_start (len - current_start) in
       List.rev (part :: acc)
     else
@@ -811,14 +740,11 @@ let of_string class_str =
    until a class fails to select its own rule. *)
 let pp_modifier = Style.pp_modifier
 
-(* Apply a list of modifier strings to a base utility *)
 let apply ?(theme = Scheme.default) modifiers base_utility =
-  (* Convert utility to a list for wrapping *)
   let to_list = function
     | Utility.Group styles -> styles
     | single -> [ single ]
   in
-  (* Apply a single parsed modifier to an accumulated utility *)
   let apply_one acc modifier_str =
     Option.bind acc (fun u ->
         Option.map

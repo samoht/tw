@@ -1,54 +1,20 @@
-(** Theme scheme configuration for customizing CSS output.
-
-    A scheme defines theme overrides that affect how utilities generate CSS.
-    This allows matching Tailwind's test expectations which use custom [@theme]
-    definitions with hex colors and explicit spacing variables. *)
-
 module Css = Cascade.Css
 
-(** Color value - either hex string or oklch components *)
 type color_value =
-  | Hex of string  (** e.g., "#ef4444" *)
+  | Hex of string
   | Oklch of { l : float; c : float; h : float }
-      (** e.g., oklch(63.7% 0.237 25.331) *)
 
 type custom_variant = { values : (string * string) list; template : string }
-(** A [matchVariant]-registered variant: a value map (including a [DEFAULT]
-    entry under the key [""]) and a selector template containing [{}] where the
-    resolved value is substituted. *)
-
 type variant_branch = { media : Css.Media.t option; selector : Css.Selector.t }
-(** One rule of a variant's block body: [selector], with [&] for the element,
-    inside [\@media media] when there is one. *)
 
 type t = {
   colors : (string * color_value) list;
-      (** Color overrides. Key is color name like "red-500". When a color is
-          Hex, opacity modifiers use hex+alpha fallback. When Oklch, opacity
-          modifiers use color-mix fallback. *)
   spacing : (int * Css.length) list;
-      (** Explicit spacing variables. Key is the multiplier (e.g., 4 for
-          --spacing-4). When defined, utilities use var(--spacing-N) instead of
-          calc(var(--spacing) * N). *)
   radius : (string * Css.length) list;
-      (** Explicit radius variables. Key is the radius name (e.g., "none",
-          "full", "sm"). When defined, utilities use var(--radius-NAME) instead
-          of raw values. *)
   default_ring_width : int;
-      (** Default ring width in pixels for bare [ring] utility. Corresponds to
-          Tailwind's [@theme \{ --default-ring-width: Npx \}]. Default: 1. *)
   default_border_width : int;
-      (** Default border width in pixels for bare [border] utility. Corresponds
-          to Tailwind's [@theme \{ --default-border-width: Npx \}]. Default: 1.
-      *)
   default_outline_width : int;
-      (** Default outline width in pixels for bare [outline] utility.
-          Corresponds to Tailwind's [@theme \{ --default-outline-width: Npx \}].
-          Default: 1. *)
   breakpoints : (string * float) list;
-      (** Explicit breakpoint values in px. Key is breakpoint name (e.g., "sm").
-          When defined, responsive media queries use [@media (min-width: Xpx)]
-          instead of rem-based values. *)
   token_overrides : (string * string) list;
   inline_tokens : string list;
   reference_tokens : string list;
@@ -57,27 +23,15 @@ type t = {
   static_theme : bool;
   important : bool;
   prefix : string option;
-      (** Per-render theme token overrides (from a [@theme] block). Key is the
-          variable name without the leading [--] (e.g. "text-shadow-2xs"), value
-          is the CSS string. Threaded replacement for the global
-          [Var.theme_value_overrides]. *)
   custom_variants : (string * custom_variant) list;
-      (** The [@custom-variant]s this [@theme] declared as a value map plus a
-          selector template. *)
   container_variants : (string * Css.Container.t) list;
-      (** The [@custom-variant]s this [@theme] declared with a container-query
-          body. Kept apart from {!custom_variants} because the condition is
-          structural, so the [not-] prefix can negate it soundly. *)
   dark : variant_branch list option;
-      (** The body of a redeclared [dark] variant, one rule per branch; [None]
-          is the built-in [\@media (prefers-color-scheme: dark)]. *)
 }
-(** Theme scheme configuration *)
 
+(* The default token catalog. Utilities publish their entries once at module
+   initialisation, through an [Atomic] so no lock is needed; per-render values
+   stay in [token_overrides]. *)
 module Tokens = Map.Make (String)
-(** Lock-free snapshot of the static v4.3.1 theme-token catalog. Utilities
-    publish their baseline entries once at module initialisation; per-render
-    values remain in {!t.token_overrides}. *)
 
 let default_tokens = Atomic.make Tokens.empty
 
@@ -90,8 +44,6 @@ let rec register_default_token name css =
 let token_default name = Tokens.find_opt name (Atomic.get default_tokens)
 let all_default_tokens () = Tokens.bindings (Atomic.get default_tokens)
 
-(** Default scheme - uses oklch colors and calc-based spacing (matches Tailwind
-    v4 default) *)
 let default : t =
   {
     colors = [];
@@ -134,26 +86,15 @@ let pp t =
       "}";
     ]
 
-(** Lookup a color in the scheme *)
 let color scheme name = List.assoc_opt name scheme.colors
-
-(** Lookup a spacing value in the scheme *)
 let spacing scheme n = List.assoc_opt n scheme.spacing
 
-(** Get hex value for a color if defined as hex *)
 let hex_color scheme name =
   match color scheme name with Some (Hex h) -> Some h | _ -> None
 
-(** Check if spacing has an explicit variable *)
 let has_explicit_spacing scheme n = Option.is_some (spacing scheme n)
-
-(** Lookup a radius value in the scheme *)
 let radius scheme name = List.assoc_opt name scheme.radius
-
-(** Check if radius has an explicit variable *)
 let has_explicit_radius scheme name = Option.is_some (radius scheme name)
-
-(** Lookup a breakpoint px value in the scheme *)
 let breakpoint scheme name = List.assoc_opt name scheme.breakpoints
 
 (* Tailwind reads [--name: initial] in a [@theme] block as "remove this token",
@@ -201,24 +142,17 @@ let clears_namespace name (key, value) =
   String.equal value removed_value
   && (String.equal key "*" || clears_one_namespace name key)
 
-(** Whether a [@theme] block removed [name], either outright or by resetting the
-    namespace it belongs to. A token the block goes on to declare survives its
-    own namespace reset. *)
+(* A token the block goes on to declare survives its own namespace reset. *)
 let is_removed scheme name =
   match List.assoc_opt name scheme.token_overrides with
   | Some value -> String.equal value removed_value
   | None -> List.exists (clears_namespace name) scheme.token_overrides
 
-(** Lookup a per-render theme token override (from a [@theme] block). *)
 let token_override scheme name =
   if is_removed scheme name then None
   else List.assoc_opt name scheme.token_overrides
 
-(** [theme_value theme name] looks up a per-render token override from the
-    optionally-threaded [theme] ([None] when no theme is threaded). Threaded
-    replacement for the global [Var.theme_value]. *)
 let or_default theme = Option.value ~default theme
-
 let theme_value theme name = Option.bind theme (fun s -> token_override s name)
 
 let declares_color theme name =
@@ -226,8 +160,6 @@ let declares_color theme name =
   | None -> false
   | Some t -> color t name <> None || token_override t ("color-" ^ name) <> None
 
-(** Resolve a theme token: override (if any) else the registered default. A
-    token the [@theme] block removed resolves to nothing, default or not. *)
 let token scheme name =
   match token_override scheme name with
   | Some _ as v -> v
@@ -245,10 +177,8 @@ let is_removed_token scheme name =
   && (Option.is_some (token_default name)
      || List.mem_assoc name scheme.token_overrides)
 
-(** Lookup the exact CSS length of a breakpoint. Entrypoint [@theme] tokens take
-    precedence over the legacy px-only record field. A breakpoint the block
-    removed has none: [initial] reads as a length, and a query built from it is
-    one no browser honours. *)
+(* A removed breakpoint has no length: [initial] would read as one, and a query
+   built from it is one no browser honours. *)
 let breakpoint_length scheme name =
   let key = "breakpoint-" ^ name in
   if is_removed scheme key then None
@@ -258,9 +188,6 @@ let breakpoint_length scheme name =
     | None ->
         Option.map (fun px -> (Css.Px px : Css.length)) (breakpoint scheme name)
 
-(** Every breakpoint the theme defines, keyed by name: the registered defaults,
-    the [--breakpoint-*] tokens a [@theme] block set, and the legacy px-only
-    field. *)
 let all_breakpoints scheme =
   let prefix = "breakpoint-" in
   let suffix (key, _) =
@@ -286,9 +213,6 @@ let all_breakpoints scheme =
         in
         Option.map (fun length -> (name, length)) length)
 
-(** [has_breakpoint scheme name] is whether [scheme] still defines the
-    breakpoint [name], reading the same set as {!all_breakpoints} so a variant
-    and a container agree on what the theme has. *)
 let has_breakpoint scheme name = List.mem_assoc name (all_breakpoints scheme)
 
 (* The names a variant may spell, read off the same set: a breakpoint the
@@ -296,8 +220,6 @@ let has_breakpoint scheme name = List.mem_assoc name (all_breakpoints scheme)
    wrote. *)
 let breakpoint_names scheme = List.map fst (all_breakpoints scheme)
 
-(** [with_overrides scheme overrides] returns [scheme] with [overrides] applied
-    on top of any existing token overrides (new entries win). *)
 let with_overrides ?(inline = []) ?(reference = []) ?(static = []) scheme
     overrides =
   let breakpoints =

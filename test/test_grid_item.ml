@@ -40,28 +40,18 @@ let of_string_invalid () =
   in
 
   fail_maybe [ "col" ];
-  (* Missing value *)
   fail_maybe [ "col"; "span" ];
-  (* Missing span value *)
   (* Note: Tailwind v4 accepts col-span-0 and values beyond 12 *)
   fail_maybe [ "col"; "span"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "col"; "start" ];
-  (* Missing start value *)
   fail_maybe [ "col"; "end" ];
 
-  (* Missing end value *)
   fail_maybe [ "row" ];
-  (* Missing value *)
   fail_maybe [ "row"; "span" ];
-  (* Missing span value *)
   (* Note: Tailwind v4 accepts row-span-0 and values beyond 12 *)
   fail_maybe [ "row"; "span"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "row"; "start" ];
-  (* Missing start value *)
   fail_maybe [ "row"; "end" ]
-(* Missing end value *)
 
 let suborder_matches_tailwind () =
   let open Tw in

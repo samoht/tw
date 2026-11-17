@@ -102,24 +102,15 @@ let test_of_string_invalid () =
   let test_invalid =
     Test_helpers.check_invalid_parts (module Tw.Gradients.Handler)
   in
-  (* Invalid gradient direction *)
   test_invalid [ "bg"; "gradient"; "to" ];
-  (* Missing direction *)
   test_invalid [ "bg"; "gradient"; "to"; "invalid" ];
-  (* Invalid direction *)
   test_invalid [ "bg"; "gradient"; "to"; "x" ];
 
-  (* Invalid from/via/to colors *)
   test_invalid [ "from" ];
-  (* Missing color *)
   test_invalid [ "from"; "invalid" ];
-  (* Invalid color *)
   test_invalid [ "via" ];
-  (* Missing color *)
   test_invalid [ "via"; "notacolor" ];
-  (* Invalid color *)
   test_invalid [ "to" ];
-  (* Missing color *)
   test_invalid [ "to"; "xyz" ];
 
   (* Gradient positions and gradient angles are plain decimal: read as OCaml

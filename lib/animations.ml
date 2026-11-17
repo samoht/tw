@@ -1,14 +1,3 @@
-(** Animation utilities
-
-    What's included:
-    - `animate-*` - Predefined animations (spin, ping, pulse, bounce).
-
-    What's not:
-    - Custom keyframe animations beyond the predefined ones.
-
-    Parsing contract (`of_string`):
-    - Accepts ["animate"; ...]. Unknown tokens yield [Utility.unclaimed]. *)
-
 module Css = Cascade.Css
 
 let opt_none : 'a option = None
@@ -137,9 +126,8 @@ module Handler = struct
     | Some value -> keyframes_rules (animation_names value)
     | Option.None -> keyframes_rules (Option.to_list (shorthand_name default))
 
+  (* [--animate-none] is read only when the theme declares it. *)
   let animate_none ?theme () =
-    (* If theme defines --animate-none, use the theme variable. Otherwise use
-       animation: none directly. *)
     match Scheme.theme_value theme "animate-none" with
     | Some _ ->
         let tv = Var.theme Css.Animation "animate-none" ~order:(7, 40) in
@@ -161,8 +149,7 @@ module Handler = struct
         style [ theme_decl; Css.animation (Css.Var none_var) ]
     | None -> style [ Css.animation None ]
 
-  (* Theme variable for animate-spin - slot (7, 41) places it after ease (7,
-     30-34) *)
+  (* The animation tokens follow the ease tokens (7, 30-34). *)
   let animate_spin_var = Var.theme Css.Animation "animate-spin" ~order:(7, 41)
 
   let spin_animation : Css.animation =
@@ -184,8 +171,6 @@ module Handler = struct
     let rules = theme_keyframes ?theme ~token:"animate-spin" spin_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var spin_var) ]
 
-  (* Theme variable for animate-ping - slot (7, 42) places it after animate-spin
-     (7, 41) *)
   let animate_ping_var = Var.theme Css.Animation "animate-ping" ~order:(7, 42)
 
   let ping_animation : Css.animation =
@@ -207,8 +192,6 @@ module Handler = struct
     let rules = theme_keyframes ?theme ~token:"animate-ping" ping_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var ping_var) ]
 
-  (* Theme variable for animate-pulse - slot (7, 43) places it after
-     animate-ping (7, 42) *)
   let animate_pulse_var = Var.theme Css.Animation "animate-pulse" ~order:(7, 43)
 
   let pulse_animation : Css.animation =
@@ -230,8 +213,6 @@ module Handler = struct
     let rules = theme_keyframes ?theme ~token:"animate-pulse" pulse_animation in
     style ~rules [ theme_decl; Css.animation (Css.Var pulse_var) ]
 
-  (* Theme variable for animate-bounce - slot (7, 44) places it after
-     animate-pulse (7, 43) *)
   let animate_bounce_var =
     Var.theme Css.Animation "animate-bounce" ~order:(7, 44)
 
@@ -363,7 +344,6 @@ module Handler = struct
               | Some value -> Ok (Bracket (inner, `Raw value))
               | None -> Error (`Msg "Invalid animation value"))
         else
-          (* Check if it's a named animation with a theme value *)
           let var_name = "animate-" ^ value in
           if Scheme.theme_value (Some theme) var_name <> None then
             Ok (Named value)

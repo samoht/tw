@@ -1,6 +1,3 @@
-(** Filter utilities for visual effects like blur, brightness, and backdrop
-    filters. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -244,7 +241,6 @@ module Handler = struct
   let var_decl var value =
     fst (Css.var ~layer:"utilities" (Var.name var) Css.Filter value)
 
-  (* Set a function's variable and output the composable chain. *)
   let set target f (value : Css.filter) =
     with_chain target [ var_decl (var target f) value ]
 
@@ -261,8 +257,6 @@ module Handler = struct
               wrapped;
           ]
 
-  (* Generate a theme-layer declaration for a theme variable if its value is
-     set. This produces the --name: value entry for the :root, :host block. *)
   let theme_decl_if_set ?theme name =
     match Scheme.theme_value theme name with
     | Some value -> [ Css.custom_property ~layer:"theme" ("--" ^ name) value ]
@@ -385,7 +379,6 @@ module Handler = struct
       Option.Some (Css.Var ref_ : Css.length)
     else Css.parse_length (Parse.decode_underscores inner)
 
-  (* Parse bracket content for angle values (e.g., "45deg") *)
   let parse_bracket_angle s =
     let inner = Parse.bracket_inner s in
     let slen = String.length inner in
@@ -412,7 +405,6 @@ module Handler = struct
           | "grad" -> Option.Some (Grad n)
           | _ -> Option.None)
 
-  (* Parse bracket content for number_percentage values *)
   let parse_bracket_numpct_opt inner : Css.number_percentage option =
     if Parse.is_var inner then
       let bare = Parse.extract_var_name inner in
@@ -447,14 +439,11 @@ module Handler = struct
   let amount target (f : scaled) pct =
     set target (f :> func) (amount_filter f (Pct pct))
 
-  (* Helper to create an angle with calc for negative values *)
   let make_angle n =
     if n >= 0 then Deg (float_of_int n)
     else Calc (Expr (Val (Deg (float_of_int (abs n))), Mul, Num (-1.)))
 
   let neg_angle angle : Css.angle = Calc (Expr (Val angle, Mul, Num (-1.)))
-
-  (* Drop-shadow utilities *)
   let bind_drop_shadow value = Var.set drop_shadow_var value
   let bind_drop_shadow_size value = Var.set drop_shadow_size_var value
   let bind_drop_shadow_color value = Var.set drop_shadow_color_var value
@@ -1323,14 +1312,12 @@ module Handler = struct
                Scheme.is_removed theme ("drop-shadow-" ^ size)
            | _ -> false ->
         Utility.unclaimed
-    (* Drop shadow with opacity modifier on the base: drop-shadow/25 *)
     | [ "drop"; s ]
       when String.starts_with ~prefix:"shadow/" s && String.length s > 7 -> (
         let _, opacity = Color.parse_opacity_modifier ~theme s in
         match opacity with
         | Color.No_opacity -> Utility.unclaimed
         | op -> Ok (Drop_shadow_opacity op))
-    (* Drop shadow *)
     | [ "drop"; "shadow" ] -> Ok Drop_shadow
     | [ "drop"; "shadow"; "xs" ] -> Ok Drop_shadow_xs
     | [ "drop"; "shadow"; "sm" ] -> Ok Drop_shadow_sm
@@ -1354,7 +1341,6 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier ~theme full in
         match opacity with
         | Color.No_opacity -> (
-            (* Try to parse as color *)
             match
               Color.shade_and_opacity_of_strings ~theme
                 (String.split_on_char '-' base)
@@ -1524,8 +1510,6 @@ end
 
 open Handler
 module Utility_factory = Utility.Make (Handler)
-
-(** {1 Public API - Utility Values} *)
 
 let utility = Utility_factory.v
 let blur_none = utility (Blur_none Filter)

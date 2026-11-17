@@ -1,5 +1,4 @@
-(* Tests for Pp module *)
-module Pp = Tw__.Pp (* Access internal module *)
+module Pp = Tw__.Pp
 
 let test_str () =
   let result = Pp.str [ "Hello"; " "; "World" ] in
@@ -70,7 +69,7 @@ let test_primitives () =
   Alcotest.(check string) "int" "42" (Pp.int 42);
   Alcotest.(check string) "int negative" "-5" (Pp.int (-5));
 
-  (* Test float formatting without trailing dot *)
+  (* a whole float prints with no trailing dot *)
   Alcotest.(check string) "float whole" "10" (Pp.float 10.0);
   Alcotest.(check string) "float decimal" "3.14" (Pp.float 3.14)
 

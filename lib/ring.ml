@@ -1,5 +1,3 @@
-(** Ring utilities: ring width and colour, inset ring, ring offset. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -175,8 +173,7 @@ module Handler = struct
   let ring_lg = ring_internal 4
   let ring_xl = ring_internal 8
 
-  (** Bare [ring] — uses scheme's [default_ring_width] (configurable via
-      Tailwind's [@theme \{ --default-ring-width \}], default 1px). *)
+  (* Bare [ring] reads the theme's [--default-ring-width] (1px by default). *)
   let ring_default ?theme () =
     let scheme = Scheme.or_default theme in
     ring_internal scheme.Scheme.default_ring_width
@@ -302,7 +299,6 @@ module Handler = struct
   let parse_bracket_width inner : Css.length =
     match parse_bracket_width_opt inner with Some l -> l | None -> Px 0.
 
-  (* Ring-offset color utilities *)
   let ring_offset_color_with_opacity ?theme color shade opacity =
     palette_channel_opacity ?theme ~property_prefix:"ring-offset-color"
       ring_offset_color_var color shade opacity
@@ -359,7 +355,6 @@ module Handler = struct
     bracket_var_channel_opacity ~merge_key:("ring-offset-" ^ v)
       ring_offset_color_var v opacity
 
-  (* Inset-ring utilities *)
   let inset_ring_color ?theme color shade =
     let cvar =
       Color.property_color_var ?theme ~property_prefix:"inset-ring-color" color
@@ -417,7 +412,6 @@ module Handler = struct
     bracket_var_channel_opacity ~merge_key:("inset-ring-" ^ v)
       inset_ring_color_var v opacity
 
-  (* Ring color utilities *)
   let ring_transparent =
     let d = Var.set ring_color_var Css.Transparent in
     style [ d ]

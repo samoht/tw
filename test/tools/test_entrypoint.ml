@@ -382,10 +382,9 @@ type case = {
   name : string;
   entry : string;
   classes : string list;
-      (** The markup's classes. tw is handed them; the CLI reads them from an
-          [@source inline] the sweep appends to the entrypoint. *)
-  files : (string * string) list;
-      (** Files the entrypoint reads, written beside it. *)
+      (* The markup's classes. tw is handed them; the CLI reads them from an
+         [@source inline] the sweep appends to the entrypoint. *)
+  files : (string * string) list; (* written beside the entrypoint *)
   verdict : verdict;
 }
 

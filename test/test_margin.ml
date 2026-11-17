@@ -154,8 +154,8 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches ~test_name:"margins render like Tailwind"
     (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
 
-(** Test that CSS values use the correct spacing multiplier. m-64 should
-    generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
+(* Each step multiplies the spacing scale by its own number: m-64 is
+   calc(var(--spacing)*64). *)
 let test_css_values () =
   (* The whole declaration, so the property and the spacing multiplicand are
      both checked, not only the tail of the calc. *)

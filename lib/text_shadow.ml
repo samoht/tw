@@ -1,8 +1,4 @@
-(** Text shadow utilities for CSS text-shadow property. *)
-
 module Css = Cascade.Css
-
-(* Capture project Pp helpers before open Css shadows Pp with Css.Pp. *)
 
 module Handler = struct
   open Style
@@ -10,7 +6,6 @@ module Handler = struct
 
   type shape = S_2xs | S_xs | S_sm | S_md | S_lg
 
-  (* Color in an arbitrary shadow value *)
   type t =
     | None
     | Shape of shape
@@ -36,7 +31,7 @@ module Handler = struct
     | Arbitrary_opacity of string * Color.opacity_modifier
     | Raw of string * string
     | Raw_opacity of string * string * Color.opacity_modifier
-    | Named of string  (** a project [--text-shadow-<name>] token *)
+    | Named of string (* a project [--text-shadow-<name>] token *)
     | Named_opacity of string * Color.opacity_modifier
 
   (* A named [--opacity-*] token on a shadow size, not on a colour: Tailwind
@@ -96,8 +91,6 @@ module Handler = struct
   let opacity_decl opacity =
     Var.set text_shadow_alpha_var (Color.opacity_alpha_value opacity)
 
-  (* ============ Parse arbitrary shadow ============ *)
-
   (* CSS text-shadow has no spread, so a fourth length is not one. *)
   let scan_verbatim_colour (s : string) :
       (length * length * length option * Parse.shadow_colour) option =
@@ -130,8 +123,6 @@ module Handler = struct
     match scan_verbatim_colour s with
     | Some _ as shadow -> shadow
     | Stdlib.Option.None -> read_shadow_text (Parse.decode_arbitrary_value s)
-
-  (* ============ Shape definitions ============ *)
 
   (* v4.3.1 default text-shadow scale (the values the bare CLI emits). 2xs/xs
      are single shadows; sm/md/lg are 3-shadow stacks. *)
@@ -191,8 +182,6 @@ module Handler = struct
         ("text-shadow-lg", S_lg);
       ]
 
-  (* Theme token name for a shape's scale value (matches the @theme keys, e.g.
-     --text-shadow-2xs). *)
   let shape_token = function
     | S_2xs -> "text-shadow-2xs"
     | S_xs -> "text-shadow-xs"
@@ -310,8 +299,6 @@ module Handler = struct
     | None -> invalid_arg ("text-shadow-" ^ name ^ ": no such theme token")
     | Some bodies -> layers_alpha_style bodies opacity
 
-  (* ============ Color-setting styles ============ *)
-
   let channel : Color.channel =
     {
       color = text_shadow_color_var;
@@ -320,8 +307,6 @@ module Handler = struct
       metadata = text_shadow_property_metadata;
       property_rules = text_shadow_property_rules;
     }
-
-  (* ============ Arbitrary shadow styles ============ *)
 
   let make_text_shadow_var var_expr : Css.text_shadow =
     Css.Var (Var.bracket (Parse.extract_var_name var_expr))
@@ -386,8 +371,6 @@ module Handler = struct
       ~property_rules:text_shadow_property_rules
       (alpha @ Option.to_list shadow)
 
-  (* ============ Style dispatch ============ *)
-
   let to_style theme t =
     match without_named_size_alpha t with
     | None ->
@@ -450,15 +433,12 @@ module Handler = struct
     | Raw (_, value) -> raw_style value Color.No_opacity
     | Raw_opacity (_, value, opacity) -> raw_style value opacity
 
-  (* ============ Parsing ============ *)
-
   let starts_with prefix s = String.starts_with ~prefix s
 
   let is_shadow_value inner =
     (* A shadow value has explicit length dimensions like "10px_10px" *)
     let has_length_unit s =
       let len = String.length s in
-      (* Scan past digits (and optional decimal part), return position after *)
       let scan_number i =
         let j = ref i in
         while !j < len && s.[!j] >= '0' && s.[!j] <= '9' do
@@ -648,8 +628,6 @@ module Handler = struct
           | Error e -> Error e)
     | _ -> Utility.unclaimed
 
-  (* ============ Class name generation ============ *)
-
   let shape_to_string = function
     | S_2xs -> "2xs"
     | S_xs -> "xs"
@@ -699,8 +677,6 @@ module Handler = struct
     | Named name -> "text-shadow-" ^ name
     | Named_opacity (name, opacity) ->
         "text-shadow-" ^ name ^ "/" ^ Color.pp_opacity opacity
-
-  (* ============ Suborder ============ *)
 
   (* Utilities that set --tw-text-shadow-alpha AND text-shadow come before all
      other utilities. Within that group, relative color @supports (lab) come

@@ -22,8 +22,8 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Scroll.Handler) "scroll";
   Test_helpers.check_invalid_input (module Tw.Scroll.Handler) "scroll-foo"
 
-(* Typed scroll-margin/padding constructors (newly exposed in tw.mli) take an
-   [int]; check they agree with the parser on class names. *)
+(* The typed scroll-margin/padding constructors take an [int] and agree with the
+   parser on class names. *)
 let test_typed () =
   Test_helpers.check_typed_class "scroll-m-4" (Tw.scroll_m 4);
   Test_helpers.check_typed_class "scroll-mx-2" (Tw.scroll_mx 2);

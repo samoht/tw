@@ -1,5 +1,3 @@
-(** CSS rule t types and smart constructors *)
-
 module Css = Cascade.Css
 
 type t =

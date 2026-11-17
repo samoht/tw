@@ -11,17 +11,17 @@ let wrapped_block cls variants body =
   in
   String.concat "" [ class_sel; "{"; wrapped; "}" ]
 
-(* A candidate the project's own declarations govern: it carries a declared
-   variant, it is a declared utility, or it reads as one of a declared
-   functional utility's candidates. *)
-(* The [!] a candidate carries, as a suffix or the v3 prefix, and the name
-   under it: Tailwind marks every declaration of the utility [!important]. *)
+(* The [!] a candidate carries, as a suffix or the v3 prefix, and the name under
+   it: Tailwind marks every declaration of the utility [!important]. *)
 let importance name =
   let n = String.length name in
   if n > 1 && name.[n - 1] = '!' then (true, String.sub name 0 (n - 1))
   else if n > 1 && name.[0] = '!' then (true, String.sub name 1 (n - 1))
   else (false, name)
 
+(* A candidate the project's own declarations govern: it carries a declared
+   variant, it is a declared utility, or it reads as one of a declared
+   functional utility's candidates. *)
 let is_custom_routed ~theme ~defs ~udefs cls =
   let variants, bare = Custom_variant.split_declared defs cls in
   let segs = Custom_variant.segments bare in
@@ -33,14 +33,6 @@ let is_custom_routed ~theme ~defs ~udefs cls =
      [tab-*], which takes the bracket. *)
   || Option.is_some (Custom_utility.functional_body ~theme ~udefs name)
 
-(* Candidates the built-in generator cannot produce: a variant the project
-   redefined via [@custom-variant] (e.g. a class-based [dark:]), which
-   [Tw.of_string] only knows in its built-in [@media (prefers-color-scheme:
-   dark)] form, and a class the project declared with [@utility], which
-   [Tw.of_string] does not know at all. Both go through the same expansion the
-   author CSS uses: the declarations land under the escaped class, wrapped in
-   the declared variants, and cascade flattens the nesting into the project's
-   selector. *)
 (* The class a routed rule belongs to: its selector's first class, which is the
    declared utility itself for both [.line-y] and [.line-y:before]. *)
 let rec first_class_of_statement stmt =
@@ -349,6 +341,14 @@ let place_routed stmts sheet =
   | [], [] -> sheet
   | lead, trail -> Css.v (lead @ Css.statements sheet @ trail)
 
+(* Candidates the built-in generator cannot produce: a variant the project
+   redefined via [@custom-variant] (e.g. a class-based [dark:]), which
+   [Tw.of_string] only knows in its built-in [@media (prefers-color-scheme:
+   dark)] form, and a class the project declared with [@utility], which
+   [Tw.of_string] does not know at all. Both go through the same expansion the
+   author CSS uses: the declarations land under the escaped class, wrapped in
+   the declared variants, and cascade flattens the nesting into the project's
+   selector. *)
 let custom_routed_utilities ~theme ~defs ~udefs candidates =
   let hoisted = Buffer.create 0 in
   let seen = Hashtbl.create 64 in

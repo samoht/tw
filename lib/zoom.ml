@@ -1,5 +1,3 @@
-(** zoom utilities *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -18,7 +16,7 @@ module Handler = struct
   (* Tailwind emits [zoom-*] between the transforms and the animations. It
      shares the transforms' priority rather than taking one of its own, there
      being no integer left between the two, and starts past every suborder
-     transforms.ml assigns (2004 at the time of writing). *)
+     transforms.ml assigns. *)
   let priority _ = 9
 
   let suborder = function

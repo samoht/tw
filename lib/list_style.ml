@@ -1,5 +1,3 @@
-(** List style utilities: marker type, position and image. *)
-
 module Css = Cascade.Css
 
 module Handler = struct

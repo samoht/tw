@@ -1,20 +1,3 @@
-(** Border utilities for border styles, widths, and radii
-
-    What's included:
-    - Border widths: `border`, `border-0/2/4/8`, and side/axis variants.
-    - Border styles: `border-solid/dashed/dotted/double/none` via a CSS var.
-    - Border radius: `rounded-*` and `rounded-full`.
-    - Side-specific border radius: `rounded-t-*`, `rounded-r-*`, `rounded-b-*`,
-      `rounded-l-*` for top/right/bottom/left sides.
-    - Corner-specific border radius: `rounded-tl-*`, `rounded-tr-*`,
-      `rounded-br-*`, `rounded-bl-*` for individual corners.
-    - Outline offsets and simple ring helpers.
-
-    Parsing contract (`of_string`):
-    - Accepts tokens like ["border"], ["border"; "t"], ["rounded"; "md"],
-      ["ring"; "2"], ["outline"; "offset"; "4"]. Unknown tokens yield
-      [Utility.unclaimed]. *)
-
 module Css = Cascade.Css
 
 (* Which corners a [rounded-*] utility rounds: every corner, one physical or
@@ -66,8 +49,7 @@ module Handler = struct
   open Css
 
   type t =
-    | (* Border width utilities *)
-      Border
+    | Border
     | Border_0
     | Border_2
     | Border_4
@@ -87,8 +69,7 @@ module Handler = struct
       (* side ("t"/"r"/"b"/"l") with a width Tailwind spells in px: border-t-16.
          The 0/2/4/8 constructors below keep their own names, as Border_0/2/4/8
          do beside Border_width. *)
-    | (* Border side/axis utilities *)
-      Border_t
+    | Border_t
     | Border_r
     | Border_b
     | Border_l
@@ -105,19 +86,15 @@ module Handler = struct
     | Border_e_width of int
     | Border_bs_width of int
     | Border_be_width of int
-    | (* Border style utilities *)
-      Border_solid
+    | Border_solid
     | Border_dashed
     | Border_dotted
     | Border_double
     | Border_hidden
     | Border_none
-    | (* Border radius utilities. One parametric variant over (position, size);
-         the bare [rounded] is [Rounded (Corner.All, Rsz_default)] and arbitrary
-         brackets are [Rounded (pos, Rsz_arbitrary inner)]. *)
+    | (* The bare [rounded] is [Rounded (Corner.All, Rsz_default)]. *)
       Rounded of Corner.t * rounded_size
-    | (* Outline utilities *)
-      Outline
+    | Outline
     | Outline_0
     | Outline_width of int (* outline-1, outline-2, outline-4, outline-8 *)
     | Outline_width_bracket of
@@ -156,16 +133,13 @@ module Handler = struct
         28
     | _ -> 19
 
-  (* Create border style variable with @property for utilities that reference
-     it. Position 6 to match Tailwind's order after translate (0-2) and scale
+  (* Property order 6 follows Tailwind: after translate (0-2) and scale
      (3-5). *)
   let border_style_var =
     Var.property_default Css.Border_style
       ~initial:(Solid : Css.border_style)
       ~property_order:6 ~family:`Border "tw-border-style"
 
-  (* Helper for border utilities that reference the variable with @property
-     default *)
   let make_border_util additional_props =
     let border_ref = Var.reference border_style_var in
     let property_rule =
@@ -176,7 +150,6 @@ module Handler = struct
     style ~property_rules:property_rule
       (border_style (Var border_ref) :: additional_props)
 
-  (* Helper for border style utilities that set the variable *)
   let border_style_util border_style_value =
     let decl = Var.set border_style_var border_style_value in
     style [ decl; border_style border_style_value ]
@@ -197,8 +170,6 @@ module Handler = struct
   let border_width_bracket_style width =
     make_border_util [ Css.border_width width ]
 
-  (* Helper for border side utilities that reference the variable with @property
-     default *)
   let make_side_util side_props_fn =
     let border_ref = Var.reference border_style_var in
     let property_rule =
@@ -273,10 +244,7 @@ module Handler = struct
 
   let side_width side w = make_side_util (fun v -> side_width_props side v w)
   let side_width_px side n = side_width side (Px (float_of_int n))
-
-  (** Border side utilities with specific widths *)
   let border_solid = border_style_util Solid
-
   let border_dashed = border_style_util Dashed
   let border_dotted = border_style_util Dotted
   let border_double = border_style_util Double
@@ -472,22 +440,18 @@ module Handler = struct
         style (decl :: radius_decls_for_position pos (Var r : Css.length))
     | None -> style (radius_decls_for_position pos default)
 
-  (* Helper: return (decls, length_val) for the bare --radius variable. When
-     theme_value "radius" is set (e.g. @config theme), emit the var declaration
-     and use var(--radius). Otherwise inline .25rem directly. *)
+  (* The bare [--radius] is declared and referenced only when the theme sets it
+     ([@config]); otherwise the value is inlined. *)
   let radius_decl_and_val ?theme () : Css.declaration list * Css.length =
     if Scheme.theme_value theme "radius" <> None then
       let decl, r = Var.binding radius_var (Rem 0.25) in
       ([ decl ], Css.Var r)
     else ([], Css.Rem 0.25)
 
-  (* Sized radius (xs/sm/md/lg/xl/2xl/3xl/4xl): always bind the theme var with
-     its default and reference it. *)
   let sized_radius var default pos =
     let decl, r = Var.binding var default in
     style (decl :: radius_decls_for_position pos (Var r : Css.length))
 
-  (* The single parametric radius style covering every (position, size) pair. *)
   let rounded_style ?theme pos size =
     match size with
     | Rsz_none ->
@@ -528,7 +492,6 @@ module Handler = struct
              (fun property -> Parse.opaque_declaration property value)
              (radius_properties_for_position pos))
 
-  (* Outline style variable - used by outline utilities that set the style *)
   let outline_style_var =
     (* Tailwind emits @property --tw-outline-style after the ring group and
        before the filters. property_order 21 places it just after
@@ -537,7 +500,6 @@ module Handler = struct
       ~initial:(Solid : Css.outline_style)
       ~property_order:21 ~family:`Border "tw-outline-style"
 
-  (* Base outline utility - sets outline-style from var and width from scheme *)
   let outline ?theme () =
     let oref = Var.reference outline_style_var in
     let property_rule =
@@ -549,7 +511,6 @@ module Handler = struct
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Px width) ]
 
-  (* Outline-0: style from var + width: 0 *)
   let outline_0 =
     let oref = Var.reference outline_style_var in
     let property_rule =
@@ -560,7 +521,6 @@ module Handler = struct
     style ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width Zero ]
 
-  (* Outline numeric width: outline-1, outline-2, outline-4, outline-8 *)
   let outline_width_style n =
     let oref = Var.reference outline_style_var in
     let property_rule =
@@ -574,7 +534,6 @@ module Handler = struct
         Css.outline_width (Px (float_of_int n));
       ]
 
-  (* Outline bracket width: outline-[12px], outline-[1.5] *)
   let outline_width_bracket_style (width : Css.border_width) =
     let oref = Var.reference outline_style_var in
     let property_rule =
@@ -611,7 +570,6 @@ module Handler = struct
       (Css.outline_style (Css.Var oref)
       :: Option.to_list (Parse.opaque_declaration "outline-width" value))
 
-  (* Outline typed bracket width: outline-[length:var(...)], etc. *)
   let outline_width_var_style v =
     let oref = Var.reference outline_style_var in
     let property_rule =
@@ -619,7 +577,6 @@ module Handler = struct
       | Some rule -> rule
       | None -> Css.empty
     in
-    (* Strip type prefix like "length:" before extracting var name *)
     let var_part =
       match String.index_opt v ':' with
       | Some i -> String.sub v (i + 1) (String.length v - i - 1)
@@ -630,11 +587,10 @@ module Handler = struct
     style ~merge_key:"outline-" ~property_rules:property_rule
       [ Css.outline_style (Css.Var oref); Css.outline_width (Var var_ref) ]
 
-  (* Outline style utilities that set the variable *)
+  (* In forced-colors mode the outline comes back as a shorthand with an
+     offset. *)
   let outline_hidden =
     let decl = Var.set outline_style_var Css.None in
-    (* Base style: outline-style: none *)
-    (* In forced-colors mode, reset outline with shorthand + offset *)
     let forced_colors_active =
       Css.Media.Cond
         (Css.Media.Feature
@@ -662,7 +618,6 @@ module Handler = struct
   (* Outline offset accepts any bare integer, like the border widths. *)
   let outline_offset_px n = style [ Css.outline_offset (Px (float_of_int n)) ]
 
-  (* Negative outline offset - use calc(Npx * -1) format *)
   let neg_outline_offset n =
     let calc : Css.length =
       Calc (Expr (Val (Px (float_of_int n)), Mul, Num (-1.)))
@@ -685,7 +640,6 @@ module Handler = struct
     let border_default () = border_default ~theme () in
     let outline () = outline ~theme () in
     function
-    (* Border width utilities *)
     | Border -> border_default ()
     | Border_0 -> border_0
     | Border_2 -> border_2
@@ -703,7 +657,6 @@ module Handler = struct
             @ Option.to_list
                 (Parse.opaque_declaration (side_width_property side) value))
     | Border_side_width (side, n) -> side_width_px side n
-    (* Border side/axis utilities *)
     | Border_t -> side_width_px "t" 1
     | Border_r -> side_width_px "r" 1
     | Border_b -> side_width_px "b" 1
@@ -720,16 +673,13 @@ module Handler = struct
     | Border_e_width n -> side_width_px "e" n
     | Border_bs_width n -> side_width_px "bs" n
     | Border_be_width n -> side_width_px "be" n
-    (* Border style utilities *)
     | Border_solid -> border_solid
     | Border_dashed -> border_dashed
     | Border_dotted -> border_dotted
     | Border_double -> border_double
     | Border_hidden -> border_hidden
     | Border_none -> border_none
-    (* Border radius utilities (parametric) *)
     | Rounded (pos, size) -> rounded_style ~theme pos size
-    (* Outline utilities *)
     | Outline -> outline ()
     | Outline_0 -> outline_0
     | Outline_width n -> outline_width_style n
@@ -751,7 +701,6 @@ module Handler = struct
     | Neg_outline_offset_raw (_, v) ->
         style (Option.to_list (Parse.opaque_declaration "outline-offset" v))
 
-  (* Parse the side/corner segment of a class into the corners it rounds. *)
   let corner_of_string = function
     | "s" -> Some Corner.Start
     | "e" -> Some Corner.End
@@ -769,7 +718,6 @@ module Handler = struct
     | "bl" -> Some Corner.Bottom_left
     | _ -> None
 
-  (* Parse a rounded size token (the t-shirt segment of a class). *)
   let rounded_size_of_string = function
     | "none" -> Some Rsz_none
     | "xs" -> Some Rsz_xs
@@ -790,12 +738,11 @@ module Handler = struct
     rounded_size_of_string n = None
     && Scheme.theme_value (Some theme) ("radius-" ^ n) <> None
 
-  (* Forty apart, so a side's widths and its bracket never reach the next. *)
-  (* Every border width writes a property another one writes too, so their
-     order decides which wins. Tailwind groups them side-major: the all-sides
-     width first, then each axis and logical side, then the physical sides.
-     Each side gets a hundred-wide band, since a width the scale does not name
-     still has to sort between its neighbours. *)
+  (* Every border width writes a property another one writes too, so their order
+     decides which wins. Tailwind groups them side-major: the all-sides width
+     first, then each axis and logical side, then the physical sides. Each side
+     gets a hundred-wide band, since a width the scale does not name still has
+     to sort between its neighbours. *)
   let width_band = function
     | "" -> 300
     | "x" -> 400
@@ -816,8 +763,6 @@ module Handler = struct
   let width_bracket_slot side = width_band side + 99
 
   let suborder = function
-    (* Border radius utilities - flat suborder per position group for natural
-       sort by class name *)
     | Rounded (pos, _) -> (
         (* Position groups sort by the CSS properties they write, matching
            Tailwind: the logical corners (start/end) first, then the physical
@@ -1220,10 +1165,8 @@ module Utility_factory = Utility.Make (Handler)
 
 let utility = Utility_factory.v
 
-(** Separate handler for outline style utilities that need to come after outline
-    colors (priority 23) AND after ring/shadow effects (priority 25). These are:
-    outline-dashed, outline-dotted, outline-double, outline-none, outline-solid.
-*)
+(* Outline styles sort after the outline colours and the ring and shadow
+   effects, so they have a handler of their own. *)
 module Outline_style_handler = struct
   open Style
 
@@ -1280,9 +1223,6 @@ end
 module Outline_style_utility = Utility.Make (Outline_style_handler)
 
 let outline_style_utility = Outline_style_utility.v
-
-(** {1 Border Width Utilities} *)
-
 let border = utility Border
 let border_0 = utility Border_0
 let border_2 = utility Border_2
@@ -1294,17 +1234,12 @@ let border_b = utility Border_b
 let border_l = utility Border_l
 let border_x = utility Border_x
 let border_y = utility Border_y
-
-(** {1 Border Style Utilities} *)
-
 let border_solid = utility Border_solid
 let border_dashed = utility Border_dashed
 let border_dotted = utility Border_dotted
 let border_double = utility Border_double
 let border_hidden = utility Border_hidden
 let border_none = utility Border_none
-
-(** {1 Border Color Utilities} *)
 
 (* Border width utilities with semantic names matching tw.mli *)
 let border_xs = border (* 1px *)
@@ -1315,9 +1250,6 @@ let border_xl = border_8 (* 8px *)
 let border_2xl = border_8 (* 8px *)
 let border_3xl = border_8 (* 8px *)
 let border_full = border_8 (* 8px *)
-
-(** {1 Border Radius Utilities} *)
-
 let rounded = utility (Rounded (Corner.All, Rsz_default))
 let rounded_none = utility (Rounded (Corner.All, Rsz_none))
 let rounded_xs = utility (Rounded (Corner.All, Rsz_xs))
@@ -1329,9 +1261,6 @@ let rounded_2xl = utility (Rounded (Corner.All, Rsz_2xl))
 let rounded_3xl = utility (Rounded (Corner.All, Rsz_3xl))
 let rounded_4xl = utility (Rounded (Corner.All, Rsz_4xl))
 let rounded_full = utility (Rounded (Corner.All, Rsz_full))
-
-(** {2 Side-specific rounded utilities - top} *)
-
 let rounded_t = utility (Rounded (Corner.Top, Rsz_default))
 let rounded_t_none = utility (Rounded (Corner.Top, Rsz_none))
 let rounded_t_xs = utility (Rounded (Corner.Top, Rsz_xs))
@@ -1343,9 +1272,6 @@ let rounded_t_2xl = utility (Rounded (Corner.Top, Rsz_2xl))
 let rounded_t_3xl = utility (Rounded (Corner.Top, Rsz_3xl))
 let rounded_t_4xl = utility (Rounded (Corner.Top, Rsz_4xl))
 let rounded_t_full = utility (Rounded (Corner.Top, Rsz_full))
-
-(** {2 Side-specific rounded utilities - right} *)
-
 let rounded_r = utility (Rounded (Corner.Right, Rsz_default))
 let rounded_r_none = utility (Rounded (Corner.Right, Rsz_none))
 let rounded_r_xs = utility (Rounded (Corner.Right, Rsz_xs))
@@ -1357,9 +1283,6 @@ let rounded_r_2xl = utility (Rounded (Corner.Right, Rsz_2xl))
 let rounded_r_3xl = utility (Rounded (Corner.Right, Rsz_3xl))
 let rounded_r_4xl = utility (Rounded (Corner.Right, Rsz_4xl))
 let rounded_r_full = utility (Rounded (Corner.Right, Rsz_full))
-
-(** {2 Side-specific rounded utilities - bottom} *)
-
 let rounded_b = utility (Rounded (Corner.Bottom, Rsz_default))
 let rounded_b_none = utility (Rounded (Corner.Bottom, Rsz_none))
 let rounded_b_xs = utility (Rounded (Corner.Bottom, Rsz_xs))
@@ -1371,9 +1294,6 @@ let rounded_b_2xl = utility (Rounded (Corner.Bottom, Rsz_2xl))
 let rounded_b_3xl = utility (Rounded (Corner.Bottom, Rsz_3xl))
 let rounded_b_4xl = utility (Rounded (Corner.Bottom, Rsz_4xl))
 let rounded_b_full = utility (Rounded (Corner.Bottom, Rsz_full))
-
-(** {2 Side-specific rounded utilities - left} *)
-
 let rounded_l = utility (Rounded (Corner.Left, Rsz_default))
 let rounded_l_none = utility (Rounded (Corner.Left, Rsz_none))
 let rounded_l_xs = utility (Rounded (Corner.Left, Rsz_xs))
@@ -1385,9 +1305,6 @@ let rounded_l_2xl = utility (Rounded (Corner.Left, Rsz_2xl))
 let rounded_l_3xl = utility (Rounded (Corner.Left, Rsz_3xl))
 let rounded_l_4xl = utility (Rounded (Corner.Left, Rsz_4xl))
 let rounded_l_full = utility (Rounded (Corner.Left, Rsz_full))
-
-(** {2 Corner-specific rounded utilities - top-left} *)
-
 let rounded_tl = utility (Rounded (Corner.Top_left, Rsz_default))
 let rounded_tl_none = utility (Rounded (Corner.Top_left, Rsz_none))
 let rounded_tl_xs = utility (Rounded (Corner.Top_left, Rsz_xs))
@@ -1399,9 +1316,6 @@ let rounded_tl_2xl = utility (Rounded (Corner.Top_left, Rsz_2xl))
 let rounded_tl_3xl = utility (Rounded (Corner.Top_left, Rsz_3xl))
 let rounded_tl_4xl = utility (Rounded (Corner.Top_left, Rsz_4xl))
 let rounded_tl_full = utility (Rounded (Corner.Top_left, Rsz_full))
-
-(** {2 Corner-specific rounded utilities - top-right} *)
-
 let rounded_tr = utility (Rounded (Corner.Top_right, Rsz_default))
 let rounded_tr_none = utility (Rounded (Corner.Top_right, Rsz_none))
 let rounded_tr_xs = utility (Rounded (Corner.Top_right, Rsz_xs))
@@ -1413,9 +1327,6 @@ let rounded_tr_2xl = utility (Rounded (Corner.Top_right, Rsz_2xl))
 let rounded_tr_3xl = utility (Rounded (Corner.Top_right, Rsz_3xl))
 let rounded_tr_4xl = utility (Rounded (Corner.Top_right, Rsz_4xl))
 let rounded_tr_full = utility (Rounded (Corner.Top_right, Rsz_full))
-
-(** {2 Corner-specific rounded utilities - bottom-right} *)
-
 let rounded_br = utility (Rounded (Corner.Bottom_right, Rsz_default))
 let rounded_br_none = utility (Rounded (Corner.Bottom_right, Rsz_none))
 let rounded_br_xs = utility (Rounded (Corner.Bottom_right, Rsz_xs))
@@ -1427,9 +1338,6 @@ let rounded_br_2xl = utility (Rounded (Corner.Bottom_right, Rsz_2xl))
 let rounded_br_3xl = utility (Rounded (Corner.Bottom_right, Rsz_3xl))
 let rounded_br_4xl = utility (Rounded (Corner.Bottom_right, Rsz_4xl))
 let rounded_br_full = utility (Rounded (Corner.Bottom_right, Rsz_full))
-
-(** {2 Corner-specific rounded utilities - bottom-left} *)
-
 let rounded_bl = utility (Rounded (Corner.Bottom_left, Rsz_default))
 let rounded_bl_none = utility (Rounded (Corner.Bottom_left, Rsz_none))
 let rounded_bl_xs = utility (Rounded (Corner.Bottom_left, Rsz_xs))
@@ -1441,9 +1349,6 @@ let rounded_bl_2xl = utility (Rounded (Corner.Bottom_left, Rsz_2xl))
 let rounded_bl_3xl = utility (Rounded (Corner.Bottom_left, Rsz_3xl))
 let rounded_bl_4xl = utility (Rounded (Corner.Bottom_left, Rsz_4xl))
 let rounded_bl_full = utility (Rounded (Corner.Bottom_left, Rsz_full))
-
-(** {2 Logical property rounded utilities - start} *)
-
 let rounded_s = utility (Rounded (Corner.Start, Rsz_default))
 let rounded_s_none = utility (Rounded (Corner.Start, Rsz_none))
 let rounded_s_xs = utility (Rounded (Corner.Start, Rsz_xs))
@@ -1455,9 +1360,6 @@ let rounded_s_2xl = utility (Rounded (Corner.Start, Rsz_2xl))
 let rounded_s_3xl = utility (Rounded (Corner.Start, Rsz_3xl))
 let rounded_s_4xl = utility (Rounded (Corner.Start, Rsz_4xl))
 let rounded_s_full = utility (Rounded (Corner.Start, Rsz_full))
-
-(** {2 Logical property rounded utilities - end} *)
-
 let rounded_e = utility (Rounded (Corner.End, Rsz_default))
 let rounded_e_none = utility (Rounded (Corner.End, Rsz_none))
 let rounded_e_xs = utility (Rounded (Corner.End, Rsz_xs))
@@ -1469,9 +1371,6 @@ let rounded_e_2xl = utility (Rounded (Corner.End, Rsz_2xl))
 let rounded_e_3xl = utility (Rounded (Corner.End, Rsz_3xl))
 let rounded_e_4xl = utility (Rounded (Corner.End, Rsz_4xl))
 let rounded_e_full = utility (Rounded (Corner.End, Rsz_full))
-
-(** {2 Logical corner rounded utilities - start-start} *)
-
 let rounded_ss = utility (Rounded (Corner.Start_start, Rsz_default))
 let rounded_ss_none = utility (Rounded (Corner.Start_start, Rsz_none))
 let rounded_ss_xs = utility (Rounded (Corner.Start_start, Rsz_xs))
@@ -1483,9 +1382,6 @@ let rounded_ss_2xl = utility (Rounded (Corner.Start_start, Rsz_2xl))
 let rounded_ss_3xl = utility (Rounded (Corner.Start_start, Rsz_3xl))
 let rounded_ss_4xl = utility (Rounded (Corner.Start_start, Rsz_4xl))
 let rounded_ss_full = utility (Rounded (Corner.Start_start, Rsz_full))
-
-(** {2 Logical corner rounded utilities - start-end} *)
-
 let rounded_se = utility (Rounded (Corner.Start_end, Rsz_default))
 let rounded_se_none = utility (Rounded (Corner.Start_end, Rsz_none))
 let rounded_se_xs = utility (Rounded (Corner.Start_end, Rsz_xs))
@@ -1497,9 +1393,6 @@ let rounded_se_2xl = utility (Rounded (Corner.Start_end, Rsz_2xl))
 let rounded_se_3xl = utility (Rounded (Corner.Start_end, Rsz_3xl))
 let rounded_se_4xl = utility (Rounded (Corner.Start_end, Rsz_4xl))
 let rounded_se_full = utility (Rounded (Corner.Start_end, Rsz_full))
-
-(** {2 Logical corner rounded utilities - end-end} *)
-
 let rounded_ee = utility (Rounded (Corner.End_end, Rsz_default))
 let rounded_ee_none = utility (Rounded (Corner.End_end, Rsz_none))
 let rounded_ee_xs = utility (Rounded (Corner.End_end, Rsz_xs))
@@ -1511,9 +1404,6 @@ let rounded_ee_2xl = utility (Rounded (Corner.End_end, Rsz_2xl))
 let rounded_ee_3xl = utility (Rounded (Corner.End_end, Rsz_3xl))
 let rounded_ee_4xl = utility (Rounded (Corner.End_end, Rsz_4xl))
 let rounded_ee_full = utility (Rounded (Corner.End_end, Rsz_full))
-
-(** {2 Logical corner rounded utilities - end-start} *)
-
 let rounded_es = utility (Rounded (Corner.End_start, Rsz_default))
 let rounded_es_none = utility (Rounded (Corner.End_start, Rsz_none))
 let rounded_es_xs = utility (Rounded (Corner.End_start, Rsz_xs))
@@ -1525,9 +1415,6 @@ let rounded_es_2xl = utility (Rounded (Corner.End_start, Rsz_2xl))
 let rounded_es_3xl = utility (Rounded (Corner.End_start, Rsz_3xl))
 let rounded_es_4xl = utility (Rounded (Corner.End_start, Rsz_4xl))
 let rounded_es_full = utility (Rounded (Corner.End_start, Rsz_full))
-
-(** {1 Outline Utilities} *)
-
 let outline = utility Outline
 
 let outline_width n =

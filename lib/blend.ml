@@ -1,5 +1,3 @@
-(** Blend mode utilities: mix-blend-mode and background-blend-mode. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -62,8 +60,6 @@ module Handler = struct
   let mix_blend_luminosity = style [ mix_blend_mode Luminosity ]
   let mix_blend_plus_darker = style [ mix_blend_mode Plus_darker ]
   let mix_blend_plus_lighter = style [ mix_blend_mode Plus_lighter ]
-
-  (* Background blend mode styles *)
   let bg_blend_normal = style [ background_blend_mode Normal ]
   let bg_blend_multiply = style [ background_blend_mode Multiply ]
   let bg_blend_screen = style [ background_blend_mode Screen ]
