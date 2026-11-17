@@ -52,8 +52,9 @@ module Handler = struct
     | Int of int (* mask-linear-45 → calc(1deg * 45); mask-linear-1 → 1deg *)
     | Arb of string
       (* mask-linear-[3rad] → 171.887deg, read and converted at style time *)
-    | Arb_neg of string
-  (* -mask-linear-[3rad] → calc(171.887deg * -1) *)
+    | Arb_neg of string * string
+  (* -mask-linear-[3rad] → calc(171.887deg * -1), with the token stream written
+     when the value is no angle *)
 
   (* The colour a stop names, as the class spelled it. *)
   type stop_color =
@@ -711,13 +712,10 @@ module Handler = struct
     | Arb s ->
         let s = bracket_value s in
         set var (Option.value (arbitrary_angle s) ~default:(invalid_angle s))
-    | Arb_neg s -> (
-        let s = bracket_value s in
-        match arbitrary_angle s with
+    | Arb_neg (s, raw) -> (
+        match arbitrary_angle (bracket_value s) with
         | Some a -> set var (negated a)
-        | None ->
-            custom_property ~layer:"utilities" (Var.css_name var)
-              ("calc(" ^ s ^ " * -1)"))
+        | None -> custom_property ~layer:"utilities" (Var.css_name var) raw)
 
   (* The angle shorthands take the whole gradient from the position variable
      unless a stop utility has filled the stops variable in. *)
@@ -1232,6 +1230,20 @@ module Handler = struct
           | Some stop -> Ok stop
           | None -> invalid)
 
+  (* An angle bracket Tailwind would refuse names no utility. A negated one
+     carries the token stream Tailwind writes when the value is no angle. *)
+  let bracket_angle ~negative angle n =
+    let inner = Parse.bracket_inner n in
+    let value = Parse.arbitrary_declaration_value inner in
+    let bracket =
+      if negative then
+        Option.map
+          (fun raw -> Arb_neg (inner, raw))
+          (Option.bind value Parse.negated_declaration_value)
+      else Option.map (fun _ -> Arb inner) value
+    in
+    match bracket with Some b -> Ok (angle b) | None -> Utility.unclaimed
+
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
@@ -1273,8 +1285,7 @@ module Handler = struct
     (* mask-linear-N (angle), mask-linear-[arb] *)
     | [ "mask"; "linear"; n ] -> (
         if Parse.is_bracket_value n then
-          let inner = Parse.bracket_inner n in
-          Ok (Linear_angle (Arb inner))
+          bracket_angle ~negative:false (fun a -> Linear_angle a) n
         else
           match Parse.decimal_int n with
           | Some i -> Ok (Linear_angle (Int i))
@@ -1282,8 +1293,7 @@ module Handler = struct
     (* -mask-linear-N (negative angle), -mask-linear-[arb] *)
     | [ ""; "mask"; "linear"; n ] -> (
         if Parse.is_bracket_value n then
-          let inner = Parse.bracket_inner n in
-          Ok (Linear_angle (Arb_neg inner))
+          bracket_angle ~negative:true (fun a -> Linear_angle a) n
         else
           match Parse.decimal_int n with
           | Some i -> Ok (Linear_angle (Int (-i)))
@@ -1326,8 +1336,7 @@ module Handler = struct
     (* mask-conic-N (angle), mask-conic-[arb] *)
     | [ "mask"; "conic"; n ] -> (
         if Parse.is_bracket_value n then
-          let inner = Parse.bracket_inner n in
-          Ok (Conic_angle (Arb inner))
+          bracket_angle ~negative:false (fun a -> Conic_angle a) n
         else
           match Parse.decimal_int n with
           | Some i -> Ok (Conic_angle (Int i))
@@ -1335,8 +1344,7 @@ module Handler = struct
     (* -mask-conic-N (negative angle), -mask-conic-[arb] *)
     | [ ""; "mask"; "conic"; n ] -> (
         if Parse.is_bracket_value n then
-          let inner = Parse.bracket_inner n in
-          Ok (Conic_angle (Arb_neg inner))
+          bracket_angle ~negative:true (fun a -> Conic_angle a) n
         else
           match Parse.decimal_int n with
           | Some i -> Ok (Conic_angle (Int (-i)))
@@ -1392,12 +1400,12 @@ module Handler = struct
         if n < 0 then "-mask-linear-" ^ string_of_int (-n)
         else "mask-linear-" ^ string_of_int n
     | Linear_angle (Arb s) -> "mask-linear-[" ^ s ^ "]"
-    | Linear_angle (Arb_neg s) -> "-mask-linear-[" ^ s ^ "]"
+    | Linear_angle (Arb_neg (s, _)) -> "-mask-linear-[" ^ s ^ "]"
     | Conic_angle (Int n) ->
         if n < 0 then "-mask-conic-" ^ string_of_int (-n)
         else "mask-conic-" ^ string_of_int n
     | Conic_angle (Arb s) -> "mask-conic-[" ^ s ^ "]"
-    | Conic_angle (Arb_neg s) -> "-mask-conic-[" ^ s ^ "]"
+    | Conic_angle (Arb_neg (s, _)) -> "-mask-conic-[" ^ s ^ "]"
     | Radial -> "mask-radial"
     | Radial_at (Keyword pos) ->
         "mask-radial-at-" ^ String.concat "-" (String.split_on_char ' ' pos)
