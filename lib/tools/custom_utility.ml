@@ -542,3 +542,23 @@ let functional_body ~theme ~udefs cls =
    NAME-* { ... }] one whose candidate carries a value its body reads back with
    [--value()] and [--modifier()]. Both forms are read. *)
 let take css = take_named_defs "@utility" css
+
+(* A body is a declaration block, so it reads as one under a placeholder
+   selector; an [@apply] in it is an at-rule and names no property. *)
+let custom_properties udefs =
+  List.concat_map
+    (fun (_, body) ->
+      match Cascade.Css.of_string (String.concat "" [ "&{"; body; "}" ]) with
+      | Error _ -> []
+      | Ok parsed ->
+          Cascade.Css.fold
+            (fun acc stmt ->
+              match Cascade.Css.as_rule stmt with
+              | Some (_, declarations, _) ->
+                  List.filter_map Cascade.Css.custom_declaration_name
+                    declarations
+                  @ acc
+              | None -> acc)
+            [] parsed.Cascade.Css.stylesheet)
+    udefs
+  |> List.sort_uniq String.compare

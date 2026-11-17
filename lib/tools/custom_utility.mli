@@ -26,3 +26,8 @@ val is_functional_candidate : (string * string) list -> string -> bool
 (** [is_functional_candidate udefs cls] is [true] when [cls] parses as a
     candidate of a functional declaration of [udefs], whether or not its reads
     then resolve. *)
+
+val custom_properties : (string * string) list -> string list
+(** [custom_properties udefs] is the custom properties the bodies of [udefs] set
+    themselves, nested rules included and [@apply] excluded. They are the
+    project's own, read by CSS tw does not generate. *)
