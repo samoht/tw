@@ -75,7 +75,6 @@ module Handler = struct
   (* The numeric variants sort in the priority-26 band the late text families
      share, after font stretch. *)
   let priority _ = 26
-  let err_not_utility = Error (`Msg "Not a font-variant-numeric utility")
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -89,7 +88,7 @@ module Handler = struct
     | [ "tabular"; "nums" ] -> Ok Tabular_nums
     | [ "diagonal"; "fractions" ] -> Ok Diagonal_fractions
     | [ "stacked"; "fractions" ] -> Ok Stacked_fractions
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Normal_nums -> "normal-nums"

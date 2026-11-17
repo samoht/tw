@@ -127,7 +127,7 @@ module Handler = struct
         match Parse.decimal_int n with
         | Some i -> Ok (Columns_count i)
         | None -> Error (`Msg "Invalid columns value"))
-    | _ -> Error (`Msg "Not a columns utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Columns_auto -> "columns-auto"

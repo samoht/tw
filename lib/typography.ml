@@ -440,7 +440,6 @@ module Typography_early = struct
      priority 26 via a suborder just above text-transform (~8360, in
      lib/text_transform.ml). *)
   let priority = function Italic | Not_italic -> 26 | _ -> 24
-  let err_not_utility = Error (`Msg "Not an early typography utility")
 
   (* Lookup table for named text sizes: (name, size_var, default_rem) *)
   let text_size_data =
@@ -732,14 +731,14 @@ module Typography_early = struct
             let decoded = Parse.decode_underscores value in
             if is_font_family_value decoded then
               Ok (Font_bracket_family_name (raw, decoded))
-            else err_not_utility
+            else Utility.unclaimed
         in
         let weight raw value =
           if Parse.is_var value then Ok (Font_bracket_weight_var (raw, value))
           else
             match Parse.decimal_int value with
             | Some n -> Ok (Font_bracket_weight (raw, n))
-            | None -> err_not_utility
+            | None -> Utility.unclaimed
         in
         if String.length inner > 0 && inner.[0] = '"' then
           (* font-["arial_rounded"] → the decoded bracket text becomes the
@@ -766,7 +765,7 @@ module Typography_early = struct
         else
           match Parse.arbitrary_declaration_value inner with
           | Some raw -> Ok (Font_features_raw (inner, raw))
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
     | [ "font"; "features"; v ] when Parse.is_bare_var v ->
         Ok (Font_features_bare_var v)
     | [ "font"; "thin" ] -> Ok Font_thin
@@ -811,7 +810,7 @@ module Typography_early = struct
           | Stdlib.Option.None -> (
               match Parse.arbitrary_declaration_value inner with
               | Some value -> Ok (Leading_raw (inner, value))
-              | None -> err_not_utility))
+              | None -> Utility.unclaimed))
     | "leading" :: (_ :: _ as rest)
       when is_theme_leading theme (String.concat "-" rest) ->
         Ok (Leading_theme (String.concat "-" rest))
@@ -829,29 +828,29 @@ module Typography_early = struct
             | Stdlib.Option.Some lh_mod ->
                 if Parse.is_bracket_value base then
                   let inner = Parse.bracket_inner base in
-                  if is_color_bracket inner then err_not_utility
+                  if is_color_bracket inner then Utility.unclaimed
                   else if is_valid_bracket_font_size inner then
                     Ok (Text_bracket_fs_lh (inner, lh_mod))
-                  else err_not_utility
+                  else Utility.unclaimed
                 else if is_named_size base then
                   Ok (Text_named_lh (base, lh_mod))
                 else if is_theme_text_size theme base then
                   Ok (Text_theme_lh (base, lh_mod))
-                else err_not_utility
-            | Stdlib.Option.None -> err_not_utility)
+                else Utility.unclaimed
+            | Stdlib.Option.None -> Utility.unclaimed)
         | Stdlib.Option.None ->
             if Parse.is_bracket_value part then
               let inner = Parse.bracket_inner part in
-              if is_color_bracket inner then err_not_utility
+              if is_color_bracket inner then Utility.unclaimed
               else if is_valid_bracket_font_size inner then
                 Ok (Text_bracket_fs inner)
               else
                 match hinted_font_size_token_stream inner with
                 | Stdlib.Option.Some value ->
                     Ok (Text_bracket_fs_raw (inner, value))
-                | Stdlib.Option.None -> err_not_utility
+                | Stdlib.Option.None -> Utility.unclaimed
             else if is_theme_text_size theme part then Ok (Text_theme part)
-            else err_not_utility)
+            else Utility.unclaimed)
     (* A project token's name may span several segments, and the line-height
        modifier still rides on the last one. *)
     | "text" :: (_ :: _ :: _ as rest) -> (
@@ -861,10 +860,10 @@ module Typography_early = struct
           -> (
             match parse_lh_modifier theme lh_str with
             | Stdlib.Option.Some lh_mod -> Ok (Text_theme_lh (base, lh_mod))
-            | Stdlib.Option.None -> err_not_utility)
+            | Stdlib.Option.None -> Utility.unclaimed)
         | _ when is_theme_text_size theme joined -> Ok (Text_theme joined)
-        | _ -> err_not_utility)
-    | _ -> err_not_utility
+        | _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let lh_to_string = function
     | Spacing n -> string_of_int n

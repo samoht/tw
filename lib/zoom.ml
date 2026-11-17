@@ -66,15 +66,14 @@ module Handler = struct
         | None -> (
             match parse_arbitrary n with
             | Some v -> Ok (Arbitrary (n, v))
-            | None when not (Parse.is_bracket_value n) ->
-                Error (`Msg "Not a zoom utility")
+            | None when not (Parse.is_bracket_value n) -> Utility.unclaimed
             | None -> (
                 match
                   Parse.arbitrary_declaration_value (Parse.bracket_inner n)
                 with
                 | Some raw -> Ok (Raw (n, raw))
-                | None -> Error (`Msg "Not a zoom utility"))))
-    | _ -> Error (`Msg "Not a zoom utility")
+                | None -> Utility.unclaimed)))
+    | _ -> Utility.unclaimed
 
   let examples = [ Percent 100. ]
 end

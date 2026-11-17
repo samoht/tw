@@ -1174,7 +1174,6 @@ module Handler = struct
         let var_ref : Css.opacity Css.var = Var.bracket bare_name in
         style [ Css.opacity (Css.Var var_ref) ]
 
-  let err_not_utility = Error (`Msg "Not an effects utility")
   let starts prefix s = String.starts_with ~prefix s
 
   let parse_shadow_bracket ~theme v =
@@ -1184,7 +1183,7 @@ module Handler = struct
       (* The hint says how to read the value written after it; only a var()
          reference there names a custom property. *)
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
-      if not (is_shadow_bracket shadow_part) then err_not_utility
+      if not (is_shadow_bracket shadow_part) then Utility.unclaimed
       else
         match opacity with
         | Color.No_opacity -> Ok (Shadow_bracket_shadow shadow_part)
@@ -1206,7 +1205,7 @@ module Handler = struct
       | None when not (is_shadow_bracket inner) -> (
           match Parse.arbitrary_declaration_value inner with
           | Some value -> Ok (Shadow_raw (inner, value, opacity))
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | None -> (
           match opacity with
           | Color.No_opacity -> Ok (Shadow_arbitrary inner)
@@ -1230,12 +1229,12 @@ module Handler = struct
   let parse_inset_shadow_bracket ~theme v =
     let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let inner = Parse.bracket_inner base_str in
-    if spells_inset inner then err_not_utility
+    if spells_inset inner then Utility.unclaimed
     else if starts "shadow:" inner then
       (* The hint says how to read the value written after it; only a var()
          reference there names a custom property. *)
       let shadow_part = String.sub inner 7 (String.length inner - 7) in
-      if not (is_shadow_bracket shadow_part) then err_not_utility
+      if not (is_shadow_bracket shadow_part) then Utility.unclaimed
       else
         match opacity with
         | Color.No_opacity -> Ok (Inset_shadow_bracket_shadow shadow_part)
@@ -1257,7 +1256,7 @@ module Handler = struct
       | None when not (is_shadow_bracket inner) -> (
           match Parse.arbitrary_declaration_value inner with
           | Some value -> Ok (Inset_shadow_raw (inner, value, opacity))
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | None -> (
           match opacity with
           | Color.No_opacity -> Ok (Inset_shadow_arbitrary inner)
@@ -1275,14 +1274,14 @@ module Handler = struct
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
-    | [ "shadow" ] when Scheme.is_removed theme "shadow" -> err_not_utility
+    | [ "shadow" ] when Scheme.is_removed theme "shadow" -> Utility.unclaimed
     | [ base ]
       when String.starts_with ~prefix:"shadow/" base
            && Scheme.is_removed theme "shadow" ->
-        err_not_utility
-    | [ "shadow"; n ] when removed_size theme "shadow" n -> err_not_utility
+        Utility.unclaimed
+    | [ "shadow"; n ] when removed_size theme "shadow" n -> Utility.unclaimed
     | [ "inset"; "shadow"; n ] when removed_size theme "inset-shadow" n ->
-        err_not_utility
+        Utility.unclaimed
     | [ "shadow"; "none" ] -> Ok Shadow_none
     | [ "shadow"; "2xs" ] -> Ok Shadow_2xs
     | [ "shadow"; "xs" ] -> Ok Shadow_xs
@@ -1291,7 +1290,7 @@ module Handler = struct
     | [ base ] when String.starts_with ~prefix:"shadow/" base -> (
         let _, opacity = Color.parse_opacity_modifier ~theme base in
         match opacity with
-        | Color.No_opacity -> err_not_utility
+        | Color.No_opacity -> Utility.unclaimed
         | op -> Ok (Shadow_shape_opacity (Default, op)))
     | [ "shadow"; "md" ] -> Ok Shadow_md
     | [ "shadow"; "lg" ] -> Ok Shadow_lg
@@ -1305,7 +1304,7 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Shadow_current
-        | Color.No_opacity -> err_not_utility
+        | Color.No_opacity -> Utility.unclaimed
         | _ -> Ok (Shadow_current_opacity opacity))
     | [ "shadow"; v ]
       when String.length v > 0
@@ -1316,7 +1315,7 @@ module Handler = struct
     | [ "shadow"; name ] when String.contains name '/' -> (
         let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
-        | _, Color.No_opacity -> err_not_utility
+        | _, Color.No_opacity -> Utility.unclaimed
         | "2xs", op -> Ok (Shadow_shape_opacity (Two_xs, op))
         | "xs", op -> Ok (Shadow_shape_opacity (Xs, op))
         | "sm", op -> Ok (Shadow_shape_opacity (Sm, op))
@@ -1332,30 +1331,30 @@ module Handler = struct
         | base, op -> (
             match Color.shade_of_strings ~theme [ base ] with
             | Ok (c, s) -> Ok (Shadow_color_opacity (c, s, op))
-            | Error _ -> err_not_utility))
+            | Error _ -> Utility.unclaimed))
     | [ "shadow"; color; shade ] -> (
         match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
         | Ok (c, s, Color.No_opacity) -> Ok (Shadow_color (c, s))
         | Ok (c, s, opacity) -> Ok (Shadow_color_opacity (c, s, opacity))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     (* A shadeless colour has no shade segment: shadow-white, shadow-black. *)
     | [ "shadow"; name ] when is_theme_shadow theme name ->
         Ok (Shadow_theme name)
     | [ "shadow"; color ] -> (
         match Color.shade_of_strings ~theme [ color ] with
         | Ok (c, s) -> Ok (Shadow_color (c, s))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "inset"; "shadow"; "none" ] -> Ok Inset_shadow_none
     | [ "inset"; "shadow"; "2xs" ] -> Ok Inset_shadow_2xs
     | [ "inset"; "shadow"; "xs" ] -> Ok Inset_shadow_xs
     | [ "inset"; "shadow"; "sm" ] -> Ok Inset_shadow_sm
     (* Bare `inset-shadow` has no v4.3.1 default token; accept it only when a
        threaded @theme defines --inset-shadow. inset-shadow-{md,lg,xl,2xl} do
-       not exist in v4.3.1 and fall through to err_not_utility. *)
+       not exist in v4.3.1 and fall through to Utility.unclaimed. *)
     | [ "inset"; "shadow" ]
       when Scheme.theme_value (Some theme) "inset-shadow" <> None ->
         Ok Inset_shadow
-    | [ "inset"; "shadow" ] -> err_not_utility
+    | [ "inset"; "shadow" ] -> Utility.unclaimed
     | [ "inset"; "shadow"; name ] when is_theme_inset_shadow theme name ->
         Ok (Inset_shadow_theme name)
     | [ "inset"; "shadow"; "inherit" ] -> Ok Inset_shadow_inherit
@@ -1365,7 +1364,7 @@ module Handler = struct
         let base, opacity = Color.parse_opacity_modifier ~theme current_str in
         match opacity with
         | Color.No_opacity when base = "current" -> Ok Inset_shadow_current
-        | Color.No_opacity -> err_not_utility
+        | Color.No_opacity -> Utility.unclaimed
         | _ -> Ok (Inset_shadow_current_opacity opacity))
     | [ "inset"; "shadow"; v ]
       when String.length v > 0
@@ -1376,7 +1375,7 @@ module Handler = struct
     | [ "inset"; "shadow"; name ] when String.contains name '/' -> (
         let base, opacity = Color.parse_opacity_modifier ~theme name in
         match (base, opacity) with
-        | _, Color.No_opacity -> err_not_utility
+        | _, Color.No_opacity -> Utility.unclaimed
         | "2xs", op -> Ok (Inset_shadow_shape_opacity (Ish_2xs, op))
         | "xs", op -> Ok (Inset_shadow_shape_opacity (Ish_xs, op))
         | "sm", op -> Ok (Inset_shadow_shape_opacity (Ish_sm, op))
@@ -1386,16 +1385,16 @@ module Handler = struct
         | base, op -> (
             match Color.shade_of_strings ~theme [ base ] with
             | Ok (c, s) -> Ok (Inset_shadow_color_opacity (c, s, op))
-            | Error _ -> err_not_utility))
+            | Error _ -> Utility.unclaimed))
     | [ "inset"; "shadow"; color; shade ] -> (
         match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
         | Ok (c, s, Color.No_opacity) -> Ok (Inset_shadow_color (c, s))
         | Ok (c, s, opacity) -> Ok (Inset_shadow_color_opacity (c, s, opacity))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "inset"; "shadow"; color ] -> (
         match Color.shade_of_strings ~theme [ color ] with
         | Ok (c, s) -> Ok (Inset_shadow_color (c, s))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "opacity"; n ] when String.length n > 0 && n.[0] = '[' ->
         let len = String.length n in
         if len > 2 && n.[len - 1] = ']' then
@@ -1407,16 +1406,16 @@ module Handler = struct
             | None -> (
                 match Parse.arbitrary_declaration_value inner with
                 | Some v -> Ok (Opacity_arbitrary (inner, `Raw v))
-                | None -> err_not_utility)
-        else err_not_utility
+                | None -> Utility.unclaimed)
+        else Utility.unclaimed
     | [ "opacity"; n ] -> (
         match Parse.spacing_value ~name:"opacity" n with
         | Ok f when String.contains n '.' -> Ok (Opacity_decimal f)
         | Ok f ->
             let i = int_of_float f in
-            if i >= 0 && i <= 100 then Ok (Opacity i) else err_not_utility
-        | Error _ -> err_not_utility)
-    | _ -> err_not_utility
+            if i >= 0 && i <= 100 then Ok (Opacity i) else Utility.unclaimed
+        | Error _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   (* A shadeless colour (white, black, a theme name) takes no shade suffix. *)
   let color_shade c s =

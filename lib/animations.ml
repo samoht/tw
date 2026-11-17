@@ -7,8 +7,7 @@
     - Custom keyframe animations beyond the predefined ones.
 
     Parsing contract (`of_string`):
-    - Accepts ["animate"; ...]. Unknown tokens yield `Error (`Msg "Not an
-      animation utility")`. *)
+    - Accepts ["animate"; ...]. Unknown tokens yield [Utility.unclaimed]. *)
 
 module Css = Cascade.Css
 
@@ -368,8 +367,8 @@ module Handler = struct
           let var_name = "animate-" ^ value in
           if Scheme.theme_value (Some theme) var_name <> None then
             Ok (Named value)
-          else Error (`Msg "Not an animation utility")
-    | _ -> Error (`Msg "Not an animation utility")
+          else Utility.unclaimed
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | No_animation -> "animate-none"

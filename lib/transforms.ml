@@ -3,7 +3,6 @@
 module Css = Cascade.Css
 
 (** Error helpers. *)
-let err_not_utility = Error (`Msg "Not a transform utility")
 
 module Handler = struct
   open Style
@@ -1002,7 +1001,7 @@ module Handler = struct
         Some
           (match Parse.fraction v with
           | Some (n, d) -> Ok (Fraction (n, d))
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
     | (X | Y | Z), _ -> Option.map (fun f -> Ok (Step f)) (parse_spacing_step v)
     | All, _ -> None
 
@@ -1018,7 +1017,7 @@ module Handler = struct
       match sign with
       | Neg when neg_bracket v -> ok (Bracket inner)
       | Pos when Option.is_some (read op axis inner) -> ok (Bracket inner)
-      | Neg | Pos -> err_not_utility
+      | Neg | Pos -> Utility.unclaimed
     else
       let value = if op = Translate then translate_amount axis v else None in
       match value with
@@ -1040,8 +1039,8 @@ module Handler = struct
     | _ :: _ :: _ as rest when op = Translate && sign = Pos ->
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then op_of_value op All sign value
-        else err_not_utility
-    | _ -> err_not_utility
+        else Utility.unclaimed
+    | _ -> Utility.unclaimed
 
   (* A bracket after a property-valued family: the value its grammar reads, or
      the token stream as written. *)
@@ -1054,8 +1053,8 @@ module Handler = struct
       | None -> (
           match Parse.arbitrary_declaration_value inner with
           | Some value -> Ok (raw inner value)
-          | None -> err_not_utility)
-    else err_not_utility
+          | None -> Utility.unclaimed)
+    else Utility.unclaimed
 
   (* A named depth, then a project's [--perspective-*] token, then a bracket. *)
   let perspective_of_parts theme rest =
@@ -1063,7 +1062,7 @@ module Handler = struct
     match List.find_opt (fun d -> [ depth_name d ] = rest) depths with
     | Some d -> Ok (Perspective d)
     | None when is_theme_perspective theme value -> Ok (Perspective_theme value)
-    | None when not (Parse.is_bracket_value value) -> err_not_utility
+    | None when not (Parse.is_bracket_value value) -> Utility.unclaimed
     | None -> (
         let inner = Parse.bracket_inner value in
         match length_of_inner inner with
@@ -1071,7 +1070,7 @@ module Handler = struct
         | None -> (
             match Parse.arbitrary_declaration_value inner with
             | Some v -> Ok (Perspective_raw (inner, v))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
 
   let of_class theme class_name =
     match Parse.split_class class_name with
@@ -1122,7 +1121,7 @@ module Handler = struct
               ~arbitrary:(fun s v -> Origin_arbitrary (s, v))
               ~raw:(fun s v -> Origin_raw (s, v))
               Css.Properties.read_transform_origin rest)
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let op_name = function
     | Translate -> "translate"

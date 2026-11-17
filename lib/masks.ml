@@ -651,7 +651,7 @@ module Handler = struct
                   else Longhand.Image
                 in
                 opaque class_name longhand inner))
-    | _ -> Error (`Msg "Not a mask utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | No_mask -> "mask-none"

@@ -147,7 +147,7 @@ module Handler = struct
           if class_name.[len - 1] = ']' then
             Ok (Arbitrary (String.sub class_name 9 (len - 10)))
           else Error (`Msg "Invalid contain arbitrary value")
-        else Error (`Msg "Not a contain utility")
+        else Utility.unclaimed
 
   let examples = [ Strict ]
 end

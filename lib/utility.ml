@@ -81,6 +81,8 @@ let register (type a) (module M : Registered with type t = a) =
   in
   add ()
 
+let unclaimed = Error (`Msg "not claimed by this handler")
+
 module Make (M : Handler) = struct
   type base += Self of M.t
 

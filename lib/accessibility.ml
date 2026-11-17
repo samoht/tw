@@ -9,7 +9,7 @@
 
     Parsing contract (`of_string`):
     - Accepts ["forced"; "color"; "adjust"; "auto" | "none"]. Unknown tokens
-      yield `Error (`Msg "Not an accessibility utility")`. *)
+      yield [Utility.unclaimed]. *)
 
 module Css = Cascade.Css
 open Style
@@ -35,7 +35,7 @@ module Handler = struct
     match parts with
     | [ "forced"; "color"; "adjust"; "auto" ] -> Ok Auto
     | [ "forced"; "color"; "adjust"; "none" ] -> Ok No_adjust
-    | _ -> Error (`Msg "Not an accessibility utility")
+    | _ -> Utility.unclaimed
 
   let examples = [ Auto ]
 end

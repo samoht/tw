@@ -65,7 +65,6 @@ module Handler = struct
      then the decoration colour, style and thickness and the underline offset,
      all in the priority-26 band the late text families share. *)
   let priority _ = 26
-  let err_not_utility = Error (`Msg "Not a text-decoration utility")
 
   (* Tailwind reads the bracket as a colour unless it is a length or a
      percentage, so a bare number lands on the colour branch whether it is
@@ -135,12 +134,12 @@ module Handler = struct
                     | Color.No_opacity -> Ok (Decoration_bracket_color (raw, c))
                     | _ ->
                         Ok (Decoration_bracket_color_opacity (raw, c, opacity)))
-                | None -> err_not_utility
+                | None -> Utility.unclaimed
               in
               let bracket_pct raw value =
                 match parse_decoration_pct value with
                 | Some len -> Ok (Decoration_bracket_pct (raw, len))
-                | None -> err_not_utility
+                | None -> Utility.unclaimed
               in
               let bracket_thickness raw value =
                 if
@@ -150,7 +149,7 @@ module Handler = struct
                 else
                   match parse_decoration_thickness value with
                   | Some len -> Ok (Decoration_bracket_thickness (raw, len))
-                  | None -> err_not_utility
+                  | None -> Utility.unclaimed
               in
               (* A data-type hint says how to read the value written after it,
                  so only a var() reference there names a custom property. *)
@@ -189,7 +188,7 @@ module Handler = struct
                     then
                       match parse_decoration_pct inner with
                       | Some len -> Ok (Decoration_bracket_pct (inner, len))
-                      | None -> err_not_utility
+                      | None -> Utility.unclaimed
                     else if is_bare_number inner then
                       (* Tailwind resolves the ambiguous unitless spelling
                          through the colour candidate path. Its declaration is
@@ -201,7 +200,7 @@ module Handler = struct
                       match parse_decoration_thickness inner with
                       | Some len ->
                           Ok (Decoration_bracket_thickness (inner, len))
-                      | None -> err_not_utility)
+                      | None -> Utility.unclaimed)
             else
               (* Try parsing as number (decoration thickness) *)
               match Parse.int_any base_str with
@@ -216,12 +215,12 @@ module Handler = struct
                       Ok (Decoration_color (c, None))
                   | Ok (c, shade, opacity) ->
                       Ok (Decoration_color_opacity (c, shade, opacity))
-                  | Error _ -> err_not_utility)))
+                  | Error _ -> Utility.unclaimed)))
     | [ "decoration"; color; shade ] -> (
         match Color.shade_and_opacity_of_strings ~theme [ color; shade ] with
         | Ok (c, s, Color.No_opacity) -> Ok (Decoration_color (c, Some s))
         | Ok (c, s, opacity) -> Ok (Decoration_color_opacity (c, s, opacity))
-        | Error _ -> err_not_utility)
+        | Error _ -> Utility.unclaimed)
     | [ "underline"; "offset"; "auto" ] -> Ok Underline_offset_auto
     | [ "underline"; "offset"; "0" ] -> Ok Underline_offset_0
     | [ "underline"; "offset"; "1" ] -> Ok Underline_offset_1
@@ -237,23 +236,23 @@ module Handler = struct
           | None -> (
               match Parse.arbitrary_declaration_value inner with
               | Some raw -> Ok (Underline_offset_raw (inner, raw))
-              | None -> err_not_utility))
+              | None -> Utility.unclaimed))
     | [ "underline"; "offset"; n ] -> (
         match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_px px)
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ ""; "underline"; "offset"; n ] when Parse.is_bracket_value n -> (
         let inner = Parse.bracket_inner n in
         if Parse.is_var inner then Ok (Underline_offset_neg_var inner)
         else
           match arbitrary_length_after_hint inner with
           | Some len -> Ok (Underline_offset_neg_arbitrary (inner, len))
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
     | [ ""; "underline"; "offset"; n ] -> (
         match Parse.decimal_float n with
         | Some px -> Ok (Underline_offset_neg_px px)
-        | None -> err_not_utility)
-    | _ -> err_not_utility
+        | None -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Decoration_color (color, None) -> "decoration-" ^ Color.pp color

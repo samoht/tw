@@ -280,8 +280,6 @@ module Handler = struct
     | Basis_full -> 43003
     | Basis_named _ -> 44000
 
-  let err_not_utility = Error (`Msg "Not a flex property utility")
-
   (* [basis-1/2] and [flex-1/2] fold the fraction to a percentage, which a zero
      denominator has none of. Every other numerator and denominator reads. *)
   let parse_fraction s =
@@ -352,11 +350,11 @@ module Handler = struct
         let inner = Parse.bracket_inner n in
         match arbitrary_factor inner with
         | Some v -> Ok (Flex_grow_arbitrary (inner, v))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "grow"; n ] -> (
         match Parse.decimal_int n with
         | Some i when i > 0 -> Ok (Flex_grow_n i)
-        | _ -> err_not_utility)
+        | _ -> Utility.unclaimed)
     | [ "flex"; "shrink" ] -> Ok Flex_shrink_legacy
     | [ "shrink" ] -> Ok Flex_shrink
     | [ "flex"; "shrink"; "0" ] -> Ok Flex_shrink_0_legacy
@@ -365,7 +363,7 @@ module Handler = struct
         let inner = Parse.bracket_inner n in
         match arbitrary_factor inner with
         | Some v -> Ok (Flex_shrink_arbitrary (inner, v))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "basis"; "0" ] -> Ok Basis_0
     | [ "basis"; "1" ] -> Ok Basis_1
     | [ "basis"; "auto" ] -> Ok Basis_auto
@@ -394,7 +392,7 @@ module Handler = struct
              ~none:
                (match Parse.arbitrary_declaration_value inner with
                | Some raw -> Ok (Basis_raw (inner, raw))
-               | None -> err_not_utility)
+               | None -> Utility.unclaimed)
              ~some:(fun value -> Ok (Basis_arbitrary (inner, value)))
     | [ "basis"; value ] -> (
         match Parse.decimal_int value with
@@ -408,7 +406,7 @@ module Handler = struct
                    [var(--container-<name>)] for the whole scale. *)
                 if Spacing.is_named_spacing value || is_container_size value
                 then Ok (Basis_named value)
-                else err_not_utility))
+                else Utility.unclaimed))
     | [ "order"; "first" ] -> Ok Order_first
     | [ "order"; "last" ] -> Ok Order_last
     | [ "order"; "none" ] -> Ok Order_none
@@ -421,11 +419,11 @@ module Handler = struct
           | None -> (
               match Parse.arbitrary_declaration_value inner with
               | Some raw -> Ok (Order_raw (inner, raw))
-              | None -> err_not_utility)
+              | None -> Utility.unclaimed)
         else
           match Parse.decimal_int value with
           | Some n when n >= 0 -> Ok (Order n)
-          | _ -> err_not_utility)
+          | _ -> Utility.unclaimed)
     | "" :: "order" :: rest when rest <> [] -> (
         (* Negative order: -order-4, -order-[var(--value)] *)
         let value = String.concat "-" rest in
@@ -433,17 +431,17 @@ module Handler = struct
           let inner = Parse.bracket_inner value in
           match arbitrary_order inner with
           | Some o -> Ok (Neg_order_arbitrary (inner, o))
-          | None -> err_not_utility
+          | None -> Utility.unclaimed
         else
           match Parse.decimal_int value with
           | Some n when n >= 1 -> Ok (Neg_order n)
-          | _ -> err_not_utility)
+          | _ -> Utility.unclaimed)
     | [ "flex"; value ] when Parse.is_bracket_value value -> (
         (* Arbitrary flex: flex-[123] *)
         let inner = Parse.bracket_inner value in
         match arbitrary_flex inner with
         | Some v -> Ok (Flex_arbitrary (inner, v))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "flex"; value ] -> (
         (* Try fraction first (e.g., "1/2") *)
         match parse_fraction value with
@@ -452,8 +450,8 @@ module Handler = struct
             (* Try numeric value (e.g., "99") *)
             match Parse.decimal_int value with
             | Some n when n > 1 -> Ok (Flex_n n)
-            | _ -> err_not_utility))
-    | _ -> err_not_utility
+            | _ -> Utility.unclaimed))
+    | _ -> Utility.unclaimed
 
   let to_class = function
     (* Flex shortcuts *)

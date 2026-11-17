@@ -18,7 +18,6 @@ module Handler = struct
      [truncate] also writes [overflow] and sorts just before the overflow
      utilities (priority 18). *)
   let priority = function Truncate -> 17 | _ -> 26
-  let err_not_utility = Error (`Msg "Not a text-overflow utility")
 
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
@@ -27,7 +26,7 @@ module Handler = struct
     | [ "overflow"; "ellipsis" ] -> Ok Overflow_ellipsis
     | [ "text"; "clip" ] -> Ok Text_clip
     | [ "truncate" ] -> Ok Truncate
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Text_ellipsis -> "text-ellipsis"

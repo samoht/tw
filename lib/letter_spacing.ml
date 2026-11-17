@@ -70,7 +70,6 @@ module Handler = struct
      the late text families share: text-wrap (290) and the word-wrapping
      families follow in lib/line_breaking.ml. *)
   let priority _ = 26
-  let err_not_utility = Error (`Msg "Not a letter-spacing utility")
 
   (* The length a [tracking-[...]] bracket denotes, read with cascade's own
      grammar so [calc()] and the function forms come for free. [None] is a
@@ -99,7 +98,7 @@ module Handler = struct
               | None -> Error (`Msg ("Invalid tracking value: " ^ inner))))
     | "" :: "tracking" :: rest when rest <> [] -> (
         let value = String.concat "-" rest in
-        if not (Parse.is_bracket_value value) then err_not_utility
+        if not (Parse.is_bracket_value value) then Utility.unclaimed
         else
           let inner = Parse.bracket_inner value in
           if Parse.is_var inner then Ok (Neg_tracking_var inner)
@@ -121,7 +120,7 @@ module Handler = struct
     | "tracking" :: (_ :: _ :: _ as rest)
       when is_theme_tracking theme (String.concat "-" rest) ->
         Ok (Tracking_theme (String.concat "-" rest))
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Tracking_arbitrary (v, _) -> "tracking-[" ^ v ^ "]"

@@ -432,7 +432,6 @@ module Handler = struct
 
   (* ============ Parsing ============ *)
 
-  let err_not_utility = Error (`Msg "Not a text shadow utility")
   let starts_with prefix s = String.starts_with ~prefix s
 
   let is_shadow_value inner =
@@ -476,7 +475,7 @@ module Handler = struct
     | [ "text"; "shadow"; "none" ] -> Ok None
     (* Bare `text-shadow` is not a utility in v4 (no `--text-shadow` token); the
        named scale is `text-shadow-{2xs,xs,sm,md,lg}`. *)
-    | [ "text"; "shadow" ] -> err_not_utility
+    | [ "text"; "shadow" ] -> Utility.unclaimed
     (* A sized text shadow inlines its token's value, so one the [@theme] block
        removed is refused here rather than read through a [var()]. *)
     | [ "text"; "shadow"; size_str ]
@@ -484,7 +483,7 @@ module Handler = struct
            | ("2xs" | "xs" | "sm" | "md" | "lg") as size ->
                Scheme.is_removed theme ("text-shadow-" ^ size)
            | _ -> false ->
-        err_not_utility
+        Utility.unclaimed
     | [ "text"; "shadow"; size_str ] -> (
         let base, opacity = Color.parse_opacity_modifier ~theme size_str in
         let shape_opt =
@@ -501,7 +500,7 @@ module Handler = struct
         | Some shape, op -> Ok (Shape_opacity (shape, op))
         | Stdlib.Option.None, Color.No_opacity when base = "inherit" ->
             Ok Inherit
-        | Stdlib.Option.None, _ when base = "inherit" -> err_not_utility
+        | Stdlib.Option.None, _ when base = "inherit" -> Utility.unclaimed
         | Stdlib.Option.None, Color.No_opacity when base = "transparent" ->
             Ok Transparent
         | Stdlib.Option.None, op when base = "transparent" ->
@@ -509,7 +508,7 @@ module Handler = struct
         | Stdlib.Option.None, _ when starts_with "current" base -> (
             match opacity with
             | Color.No_opacity when base = "current" -> Ok Current
-            | Color.No_opacity -> err_not_utility
+            | Color.No_opacity -> Utility.unclaimed
             | op -> Ok (Current_opacity op))
         | Stdlib.Option.None, _ when Parse.is_bracket_value base -> (
             let inner = Parse.bracket_inner base in
@@ -544,7 +543,7 @@ module Handler = struct
                 match opacity with
                 | Color.No_opacity -> Ok (Bracket_shadow payload)
                 | op -> Ok (Bracket_shadow_opacity (payload, op))
-              else err_not_utility
+              else Utility.unclaimed
             else if Parse.is_var inner && not (is_shadow_value inner) then
               match opacity with
               | Color.No_opacity -> Ok (Bracket_var inner)
@@ -564,7 +563,7 @@ module Handler = struct
                   if parse_arbitrary_shadow inner = Stdlib.Option.None then
                     (* Not a shadow, so not a utility: it used to fall back to
                        [text-shadow: none]. *)
-                    err_not_utility
+                    Utility.unclaimed
                   else
                     match opacity with
                     | Color.No_opacity -> Ok (Arbitrary inner)
@@ -604,7 +603,7 @@ module Handler = struct
           match Color.shade_of_strings ~theme color_parts with
           | Ok (color, shade) -> Ok (Color (color, shade))
           | Error e -> Error e)
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   (* ============ Class name generation ============ *)
 

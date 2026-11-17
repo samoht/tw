@@ -16,7 +16,6 @@ module Handler = struct
 
   let name = "content"
   let priority _ = 35
-  let err_not_utility = Error (`Msg "Not a content utility")
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -60,10 +59,10 @@ module Handler = struct
           | Error _ -> (
               match Parse.arbitrary_declaration_value inner with
               | Some value -> Ok (Content_raw (inner, `Raw value))
-              | None -> err_not_utility)
+              | None -> Utility.unclaimed)
         end
-        else err_not_utility
-    | _ -> err_not_utility
+        else Utility.unclaimed
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Content_none -> "content-none"
