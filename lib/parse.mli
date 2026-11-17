@@ -295,8 +295,11 @@ val starts_with_math_function : string -> bool
     the numeric side. *)
 
 val is_var : string -> bool
-(** [is_var s] returns [true] if [s] starts with ["var("]. Works on inner
-    bracket content (without surrounding brackets). *)
+(** [is_var s] is [true] when the whole of [s] is one [var()] call: the paren
+    that opens it closes at the end of [s], with brackets, quoted strings and
+    escapes inside it read as the tokeniser reads them. [var(--a)] and
+    [var(--a,var(--b))] are one call; [var(--a) 1px] and [var(--a),foo] are not.
+    Works on inner bracket content (without surrounding brackets). *)
 
 val is_bracket_var : string -> bool
 (** [is_bracket_var s] returns [true] if [s] is a bracket-wrapped var()

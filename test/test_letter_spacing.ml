@@ -57,8 +57,20 @@ let test_project_tracking_token () =
 let test_invalid () =
   check_invalid_input (module Tw.Letter_spacing.Handler) "tracking-tightest"
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "tracking-[var(--a)_1px]";
+      "tracking-[var(--a),foo]";
+      "-tracking-[var(--a)_1px]";
+      "-tracking-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "letter spacing" `Quick test_letter_spacing;
     test_case "arbitrary tracking token stream" `Quick
       test_arbitrary_tracking_token_stream;

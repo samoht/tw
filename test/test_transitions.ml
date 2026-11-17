@@ -223,9 +223,21 @@ let test_unknown_hint_is_not_the_value () =
   List.iter Test_helpers.check_class_matches_tailwind
     [ "transition-[foo:color]"; "transition-[foo:var(--x)]" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "ease-[var(--a)_1px]";
+      "ease-[var(--a),foo]";
+      "transition-[var(--a)_1px]";
+      "transition-[var(--a),foo]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "initial resets" `Quick test_initial_resets;
       Alcotest.test_case "arbitrary token streams agree" `Quick
         test_arbitrary_token_streams_agree;

@@ -109,6 +109,12 @@
   `text-shadow-[shadow:notashadow]` were refused. A data-type hint other than
   `color:` makes the bracket a shadow, so `text-shadow-[bogus:0_0_2px_red]`
   reads as one (#961).
+- A bracket that opens with a `var()` and goes on past it, such as
+  `p-[var(--a)_1px]` or `font-[var(--a),foo]`, is written as it stands, as
+  Tailwind does. tw read it as one custom property and wrote
+  `padding: var(--var\(--a\)_1px)`; `bg-[…]`, `mask-[…]` and
+  `decoration-[…]` also send it to their last resort, since Tailwind infers no
+  type from a value opening with `var()` (#962).
 
 ### Project stylesheets
 

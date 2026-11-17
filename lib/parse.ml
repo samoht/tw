@@ -617,12 +617,6 @@ let call_body name s =
 
 let split_top_level sep s =
   let len = String.length s in
-  let rec after_string q i =
-    if i >= len then len
-    else if s.[i] = '\\' then after_string q (i + 2)
-    else if s.[i] = q then i + 1
-    else after_string q (i + 1)
-  in
   let rec go depth start i acc =
     if i >= len then List.rev (String.sub s start (len - start) :: acc)
     else
@@ -630,7 +624,7 @@ let split_top_level sep s =
       | c when c = sep && depth = 0 ->
           go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
       | '\\' -> go depth start (i + 2) acc
-      | ('"' | '\'') as q -> go depth start (after_string q (i + 1)) acc
+      | ('"' | '\'') as q -> go depth start (string_end s (i + 1) q) acc
       | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
       | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
       | _ -> go depth start (i + 1) acc
@@ -940,8 +934,21 @@ let opaque_declaration property value =
     Cascade.Css.Declaration.parse_opaque_declaration property value
   else None
 
-(** Check if a string starts with "var(" — works on inner bracket content *)
-let is_var s = String.starts_with ~prefix:"var(" s && String.length s > 4
+let is_var s =
+  let len = String.length s in
+  (* the index of the bracket closing the one opened before [i] *)
+  let rec close depth i =
+    if i >= len then None
+    else
+      match s.[i] with
+      | '\\' -> close depth (i + 2)
+      | ('"' | '\'') as q -> close depth (string_end s (i + 1) q)
+      | '(' | '[' | '{' -> close (depth + 1) (i + 1)
+      | (')' | ']' | '}') when depth = 1 -> Some i
+      | ')' | ']' | '}' -> close (depth - 1) (i + 1)
+      | _ -> close depth (i + 1)
+  in
+  len > 4 && String.starts_with ~prefix:"var(" s && close 1 4 = Some (len - 1)
 
 (** Check if a bracket value contains a var() reference *)
 let is_bracket_var s =

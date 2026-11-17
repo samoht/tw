@@ -141,8 +141,22 @@ let typed_negative () =
       ignore (px' (-0.5)));
   check_typed_class "p-0" (p 0)
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "p-[var(--a)_1px]";
+      "p-[var(--a),foo]";
+      "px-[var(--a)_1px]";
+      "px-[var(--a),foo]";
+      "pt-[var(--a)_1px]";
+      "pt-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "typed constructors: negative size" `Quick typed_negative;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;

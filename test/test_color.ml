@@ -1156,8 +1156,22 @@ let test_bg_current_named_opacity () =
        transparent)";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "accent-[var(--a)_1px]";
+      "accent-[var(--a),foo]";
+      "caret-[var(--a)_1px]";
+      "caret-[var(--a),foo]";
+      "placeholder-[var(--a)_1px]";
+      "placeholder-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     ( "Current and var colour opacity from a var",
       `Quick,
       test_current_and_var_opacity_var );

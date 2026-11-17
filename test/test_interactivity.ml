@@ -114,8 +114,15 @@ let test_will_change_underscore_escape () =
   Test_helpers.check_declarations ~minify:false {|will-change-[a\_b]|}
     [ "will-change: a_b" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "will-change-[var(--a)_1px]"; "will-change-[var(--a),foo]" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "will-change underscore escape" `Quick
       test_will_change_underscore_escape;
     test_case "select" `Quick test_select;

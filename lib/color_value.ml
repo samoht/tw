@@ -970,7 +970,7 @@ let parse_bracket_hint inner =
       match parse_bracket_color value with
       | Some c -> Some (Plain_color c)
       | None -> None
-  else if String.starts_with ~prefix:"var(" inner then Some (Bare_var inner)
+  else if Parse.is_var inner then Some (Bare_var inner)
   else
     match parse_bracket_color inner with
     | Some c -> Some (Plain_color c)

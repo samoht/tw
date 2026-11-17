@@ -92,9 +92,16 @@ let test_arbitrary_order () =
       "columns-[var(--b)]";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "columns-[var(--a)_1px]"; "columns-[var(--a),foo]" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "columns arbitrary width" `Quick
         test_columns_arbitrary_width;
       Alcotest.test_case "arbitrary token stream" `Quick

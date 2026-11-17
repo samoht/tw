@@ -439,8 +439,15 @@ let test_bracket_shadow_mix_polyfill () =
       ^ ")";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "text-shadow-[var(--a)_1px]"; "text-shadow-[var(--a),foo]" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     Alcotest.test_case "colour hint takes a colour" `Quick
       test_colour_hint_takes_a_colour;
     Alcotest.test_case "shadow hint takes a shadow" `Quick

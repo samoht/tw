@@ -847,8 +847,22 @@ let test_bracket_data_type_hint_reads_the_value () =
         (Tw.pp (Result.get_ok (Tw.of_string cls))))
     [ "text-[length:notalength]"; "text-[length:12]" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "font-[var(--a)_1px]";
+      "font-[var(--a),foo]";
+      "font-features-[var(--a)_1px]";
+      "font-features-[var(--a),foo]";
+      "leading-[var(--a)_1px]";
+      "leading-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;
     test_case "arbitrary underscore escape" `Quick

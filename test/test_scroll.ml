@@ -124,9 +124,23 @@ let test_data_type_hint_before_the_length_reader () =
     (Test_helpers.check_invalid_input (module Tw.Scroll.Handler))
     [ "scroll-m-[:4px]"; "scroll-m-[length:]" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "scroll-m-[var(--a)_1px]";
+      "scroll-m-[var(--a),foo]";
+      "scroll-p-[var(--a)_1px]";
+      "scroll-p-[var(--a),foo]";
+      "scroll-mt-[var(--a)_1px]";
+      "scroll-mt-[var(--a),foo]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "data-type hint before the length reader" `Quick
         test_data_type_hint_before_the_length_reader;
       Alcotest.test_case "typed constructors" `Quick test_typed;

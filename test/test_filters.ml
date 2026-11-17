@@ -785,8 +785,36 @@ let test_negated_token_stream () =
       "-backdrop-hue-rotate-[url(x.png)_center]";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "blur-[var(--a)_1px]";
+      "blur-[var(--a),foo]";
+      "brightness-[var(--a)_1px]";
+      "brightness-[var(--a),foo]";
+      "contrast-[var(--a)_1px]";
+      "contrast-[var(--a),foo]";
+      "grayscale-[var(--a)_1px]";
+      "grayscale-[var(--a),foo]";
+      "invert-[var(--a)_1px]";
+      "invert-[var(--a),foo]";
+      "saturate-[var(--a)_1px]";
+      "saturate-[var(--a),foo]";
+      "sepia-[var(--a)_1px]";
+      "sepia-[var(--a),foo]";
+      "backdrop-blur-[var(--a)_1px]";
+      "backdrop-blur-[var(--a),foo]";
+      "backdrop-brightness-[var(--a)_1px]";
+      "backdrop-brightness-[var(--a),foo]";
+      "backdrop-opacity-[var(--a)_1px]";
+      "backdrop-opacity-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "drop-shadow arbitrary opacity" `Quick
       test_drop_shadow_arbitrary_opacity;
