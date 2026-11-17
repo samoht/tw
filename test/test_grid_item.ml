@@ -228,10 +228,30 @@ let test_negated_bracket_token_stream () =
          "-row-3";
        ])
 
+(* The class name is what the markup carries, so it keeps the bracket as the
+   author wrote it, even where the value is respelled: [calc(1+2)] is spaced out
+   for the declaration and not for the selector. *)
+let test_grid_bracket_class_as_written () =
+  List.iter
+    (fun cls ->
+      match Tw.of_string cls with
+      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+      | Ok u -> Alcotest.(check string) "class round-trips" cls (Tw.pp u))
+    [
+      "col-[calc(1+2)]";
+      "col-start-[calc(1+2)]";
+      "row-end-[calc(1+2)]";
+      "col-span-[calc(1+2)]";
+      "row-[span_2/span_3]";
+      {|col-start-[var(--a\_b)]|};
+    ]
+
 let tests =
   [
     test_case "negated bracket token stream" `Quick
       test_negated_bracket_token_stream;
+    test_case "grid bracket class as written" `Quick
+      test_grid_bracket_class_as_written;
     test_case "grid-item brackets peel a data-type hint" `Quick
       test_grid_item_brackets_peel_a_hint;
     test_case "grid line underscore escape" `Quick

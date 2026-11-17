@@ -181,8 +181,11 @@ module Handler = struct
      written, which is what Tailwind does with it. *)
   let span_arbitrary property_name property raw =
     (* The stored text is the class name's, hint included; the value is what
-       follows the hint. *)
-    let s = Option.value (Parse.value_after_hint raw) ~default:raw in
+       follows the hint, through the arbitrary-value pipeline. *)
+    let s =
+      Parse.decode_arbitrary_value
+        (Option.value (Parse.value_after_hint raw) ~default:raw)
+    in
     match Parse.decimal_int s with
     | Some n -> style [ property (Span n, Span n) ]
     | None ->
@@ -359,14 +362,10 @@ module Handler = struct
     | Neg_line_arbitrary (`Row_start, _, _) -> 2099
     | Neg_line_arbitrary (`Row_end, _, _) -> 2399
 
+  (* The bracket text as written, which is what the class name carries,
+     data-type hint included. *)
   let parse_arbitrary s =
-    (* The bracket text, through the arbitrary-value pipeline: [_] becomes a
-       space, [\_] a literal underscore, and a CSS math function gets the spaces
-       its grammar needs around a binary operator. This is what the class name
-       carries, so any data-type hint stays on it. *)
-    if Parse.is_bracket_value s then
-      Some (Parse.decode_arbitrary_value (Parse.bracket_inner s))
-    else None
+    if Parse.is_bracket_value s then Some (Parse.bracket_inner s) else None
 
   (* The same text with a data-type hint taken off, which is what a value reader
      wants: the hint chooses which longhand a bracket lands in and says nothing
@@ -389,7 +388,7 @@ module Handler = struct
         | None ->
             Option.map
               (fun v -> (raw, `Raw v))
-              (Parse.arbitrary_declaration_value (Parse.bracket_inner s)))
+              (Parse.arbitrary_declaration_value raw))
     | _ -> None
 
   (* Tailwind negates any bracket on a grid line as [calc(<value> * -1)]. *)
@@ -546,10 +545,7 @@ module Handler = struct
         | Error _ -> Utility.unclaimed)
     | _ -> Utility.unclaimed
 
-  let to_class_arbitrary s =
-    (* The value is held decoded, so the bracket it goes back into spells a
-       space [_] and an underscore [\_]. *)
-    "[" ^ Parse.encode_underscores s ^ "]"
+  let to_class_arbitrary s = "[" ^ s ^ "]"
 
   let to_class = function
     (* Column *)
