@@ -320,11 +320,6 @@ contract.
   a `url()` with a word after it.
 - `text-shadow-[…]` refuses every shape but a colour keyword.
 
-`shadow-[foo:red]` reaches the shadow reader as `red` and writes
-`--tw-shadow: red`, where the CLI writes
-`--tw-shadow: var(--tw-shadow-color, red)`. In the CLI the hint sends the
-bracket to the shadow-colour branch.
-
 Two mask readings are wrong in a way this contract does not reach, because
 their readers accept the bracket. `mask-[30%_50%,70%_50%]` is a `mask-size` to
 Tailwind and a `mask-position` to tw, which also drops half of each pair.

@@ -779,12 +779,22 @@ module Handler = struct
           filter filter_chain;
         ])
 
+  (* One [drop-shadow()] per layer, each layer's colour routed through the
+     colour channel. *)
   let drop_shadow_raw value =
-    match
-      Parse.wrap_declaration_value ~before:"drop-shadow(" ~after:")" value
-    with
-    | None -> style []
-    | Some wrapped ->
+    let colour c =
+      String.concat ""
+        [ "var("; Var.css_name drop_shadow_color_var; ","; c; ")" ]
+    in
+    let layer l =
+      Parse.wrap_declaration_value ~before:"drop-shadow(" ~after:")"
+        (Parse.replace_shadow_colours colour l)
+    in
+    let layers = List.map layer (Parse.split_top_level ',' value) in
+    match List.filter_map Fun.id layers with
+    | wrapped when List.length wrapped < List.length layers -> style []
+    | wrapped ->
+        let wrapped = String.concat " " wrapped in
         style ~metadata:filter_property_metadata
           ~property_rules:filter_property_rules
           [

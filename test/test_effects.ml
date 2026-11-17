@@ -1100,6 +1100,9 @@ let test_unread_shadow_colour () =
       "shadow-[1px_2px_3px_4px_5px]";
       "inset-shadow-[foo:red]";
       "inset-shadow-[red_foo]";
+      "inset-shadow-[red_foo,1px_2px]";
+      "shadow-[foo:red]/50";
+      "shadow-[foo:1px_2px]/50";
     ]
 
 let tests =
