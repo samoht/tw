@@ -180,7 +180,7 @@ let test_cascade_prose_separation () =
   (* Test showing how sorting breaks intentional separation of .prose rules *)
 
   (* Extract prose rules to see their structure *)
-  let rules = Tw.Rule.outputs Tw.Prose.prose in
+  let rules = Tw.Rule.ordered_outputs Tw.Prose.prose in
   let pairs = Tw.Build.selector_props_pairs rules in
 
   Fmt.pr "@.=== Prose Rule Separation Test ===@.";
@@ -234,7 +234,7 @@ let test_cascade_color_override () =
   in
 
   (* Extract rules *)
-  let rules = styles |> List.concat_map Tw.Rule.outputs in
+  let rules = styles |> List.concat_map Tw.Rule.ordered_outputs in
   let pairs = Tw.Build.selector_props_pairs rules in
 
   Fmt.pr "@.=== Color Override Cascade Test ===@.";

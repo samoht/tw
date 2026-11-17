@@ -5,6 +5,15 @@
 - `Tw.Var.ref_only` and its type `'a Tw.Var.ref_only` are removed. Nothing
   created such a variable; one that a utility reads with a fallback and
   another sets is a `Var.channel` (#919).
+- `Build.conflict_order` is removed, and `Rule.outputs` loses `?order_tbl`:
+  `Rule.ordered_outputs` pairs each rule with the order of the utility that
+  built it, and `Build.selector_props_pairs` reads those pairs (#920).
+
+### Utilities
+
+- A `!`-prefixed utility that only the project's `@theme` makes valid, such as
+  `!bg-brand`, sorts with its family rather than after every other utility
+  (#920).
 
 ### Project stylesheets
 

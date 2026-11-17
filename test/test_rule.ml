@@ -20,6 +20,38 @@ let check_extract_selector_props () =
       check string "correct selector" ".p-4" (Css.Selector.to_string selector)
   | _ -> fail "Expected Regular rule"
 
+(* A modifier moves a rule without changing the utility it belongs to, and each
+   item of a group keeps its own utility's order. *)
+let check_ordered_outputs () =
+  let order_of cls =
+    Tw.Utility.base_of_class Tw.Scheme.default cls
+    |> Result.get_ok |> Tw.Utility.order
+  in
+  let pair = Alcotest.(pair int int) in
+  List.iter
+    (fun (order, _) ->
+      check pair "hover:p-4 sorts as p-4" (order_of "p-4") order)
+    (Tw.Rule.ordered_outputs (hover [ p 4 ]));
+  List.iter
+    (fun (order, rule) ->
+      match rule with
+      | Media_query { base_class = Some "md:p-4"; _ } ->
+          check pair "md:p-4 sorts as p-4" (order_of "p-4") order
+      | Media_query { base_class = Some "md:bg-blue-500"; _ } ->
+          check pair "md:bg-blue-500 sorts as bg-blue-500"
+            (order_of "bg-blue-500") order
+      | rule -> failf "unexpected rule %s" (Tw.Output.pp rule))
+    (Tw.Rule.ordered_outputs (md [ p 4; bg blue ]))
+
+(* A mark around a group writes rules that belong to no single utility. *)
+let check_ordered_outputs_marked_group () =
+  match
+    Tw.Rule.ordered_outputs
+      (Tw.Utility.Important (false, Tw.Utility.Group [ p 4; bg blue ]))
+  with
+  | _ -> fail "a marked group has no single order"
+  | exception Invalid_argument _ -> ()
+
 let check_extract_hover () =
   let rules = Tw.Rule.outputs (hover [ bg blue ]) in
   check int "single rule extracted" 1 (List.length rules);
@@ -756,6 +788,10 @@ let tests =
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
+    test_case "ordered outputs carry the base order" `Quick
+      check_ordered_outputs;
+    test_case "ordered outputs refuse a marked group" `Quick
+      check_ordered_outputs_marked_group;
     test_case "extract selector props - responsive" `Quick
       check_extract_responsive;
     test_case "extract selector props - responsive md" `Quick

@@ -190,9 +190,9 @@ conflict resolve in Tailwind's order:
 - **Suborder**: `Utility.S.suborder` orders variants inside the family. It is a
   plain function on the module's variant type, as in `box_sizing.ml`'s
   `let suborder = function Border -> 0 | Content -> 1`.
-- **Lookup**: `Build.conflict_order` resolves the pair for a selector, and
-  `Sort.compare_indexed_rules` sorts on it with the source index as a stable
-  tiebreaker.
+- **Lookup**: `Rule.ordered_outputs` pairs each rule with the pair of the
+  utility that built it, modifiers and all, and `Sort.compare_indexed_rules`
+  sorts on it with the source index as a stable tiebreaker.
 - **Variants**: a rule carrying a modifier prefix does not sort on the pair at
   all until every variant key it holds has tied; `Sort.compare_indexed_rules`
   reads `variant_orders` first, and `lib/sort.mli` describes the key.

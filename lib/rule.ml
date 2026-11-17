@@ -2617,6 +2617,13 @@ and apply_modifier_to_media_query ?theme modifier ~inner_condition ~selector
                (requeried ~inner_condition ~old_class:bc ~modified_class ~nested
                   ~rebased))
 
+(* A modifier moves a rule without changing the utility it belongs to, so every
+   rule it answers with keeps that utility's order. *)
+let modified_rule ?theme modifier (order, rule) =
+  List.map
+    (fun rule -> (order, rule))
+    (apply_modifier_to_rule ?theme modifier rule)
+
 let handle_modified ?theme util_inner modifier base_style extract_fn =
   (* Strip the outermost modifier if it matches the one being applied, to avoid
      doubled prefixes like .focus\:focus\:ring. But preserve inner modifiers for
@@ -2634,7 +2641,7 @@ let handle_modified ?theme util_inner modifier base_style extract_fn =
   in
   let base_class_name = Utility.to_class inner_util in
   let base_rules = extract_fn base_class_name inner_util style in
-  let expanded = List.map (apply_modifier_to_rule ?theme modifier) base_rules in
+  let expanded = List.map (modified_rule ?theme modifier) base_rules in
   match modifier with
   | Style.Pseudo_marker | Style.Pseudo_selection ->
       (* These variants expand one source rule into several browser-safe
@@ -2662,7 +2669,7 @@ let handle_modified ?theme util_inner modifier base_style extract_fn =
   | Style.Pseudo_before | Style.Pseudo_after ->
       let declared = ref [] in
       List.concat expanded
-      |> List.filter (fun rule ->
+      |> List.filter (fun (_, rule) ->
           match rule with
           | Regular { selector; props; _ }
             when List.exists reads_content_var props ->
@@ -2891,43 +2898,46 @@ let utility_style theme util =
   let style = Utility.to_style theme util in
   if theme.Scheme.important then Style.map_important style else style
 
-let outputs ?(theme = Scheme.default) ?order_tbl util =
-  let rec utility_order = function
-    | Utility.Base b -> Some (Utility.order b)
-    | Utility.Modified (_, u)
-    | Utility.Important (_, u)
-    | Utility.Aliased (_, u)
-    | Utility.Theme_bound (_, u) ->
-        utility_order u
-    | Utility.Group _ -> None
-  in
+(* The order of the base utility under [u]'s modifiers and marks. [handle_group]
+   hands each item of a bare group its own utility, so a group reaches here only
+   under a mark, and the rule has no single utility. *)
+let rec base_order = function
+  | Utility.Base b -> Utility.order b
+  | Utility.Modified (_, u)
+  | Utility.Important (_, u)
+  | Utility.Aliased (_, u)
+  | Utility.Theme_bound (_, u) ->
+      base_order u
+  | Utility.Group _ as u ->
+      invalid_arg ("Rule.ordered_outputs: no single order for " ^ Utility.pp u)
+
+let ordered_outputs ?(theme = Scheme.default) util =
   let rec extract_with_class class_name util_inner = function
     | Style.Style { props; rules; merge_key; pseudo_suffix; _ } -> (
-        (* Record the base utility's order under the class name we already
-           built, so the caller does not have to re-derive it from the
-           string. *)
-        (match (order_tbl, utility_order util_inner) with
-        | Some tbl, Some order ->
-            if not (Hashtbl.mem tbl class_name) then
-              Hashtbl.add tbl class_name order
-        | _ -> ());
         let sel =
           match pseudo_suffix with
           | None -> Css.Selector.Class class_name
           | Some pseudo ->
               Css.Selector.compound [ Css.Selector.Class class_name; pseudo ]
         in
-        match rules with
-        | None ->
-            if props = [] then []
-            else
-              [
-                regular ~selector:sel ~props ~base_class:class_name ?merge_key
-                  ();
-              ]
-        | Some rule_list ->
-            extract_style_with_rules ~sel ~class_name ?merge_key ~props
-              rule_list)
+        let outputs =
+          match rules with
+          | None ->
+              if props = [] then []
+              else
+                [
+                  regular ~selector:sel ~props ~base_class:class_name ?merge_key
+                    ();
+                ]
+          | Some rule_list ->
+              extract_style_with_rules ~sel ~class_name ?merge_key ~props
+                rule_list
+        in
+        match outputs with
+        | [] -> []
+        | _ ->
+            let order = base_order util_inner in
+            List.map (fun output -> (order, output)) outputs)
     | Style.Modified (modifier, base_style) ->
         handle_modified ~theme util_inner modifier base_style extract_with_class
     | Style.Group styles ->
@@ -2944,4 +2954,9 @@ let outputs ?(theme = Scheme.default) ?order_tbl util =
   let results = extract_with_class class_name util style in
   match prefix with
   | None -> results
-  | Some p -> List.map (written_with_prefix p) results
+  | Some p ->
+      List.map
+        (fun (order, output) -> (order, written_with_prefix p output))
+        results
+
+let outputs ?theme util = List.map snd (ordered_outputs ?theme util)
