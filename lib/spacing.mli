@@ -44,12 +44,6 @@ val named_spacing_ref : string -> Css.length
     [var(--spacing-name)] for a named spacing value (e.g., "big" ->
     [var(--spacing-big)]). *)
 
-val named_spacing_binding :
-  ?theme:Scheme.t -> string -> Css.declaration option * Css.length
-(** [named_spacing_binding ?theme name] creates a theme variable binding for a
-    named spacing value, returning both the theme declaration (if theme value is
-    set) and a var reference. *)
-
 val to_decl_len :
   ?theme:Scheme.t ->
   ?negative:bool ->

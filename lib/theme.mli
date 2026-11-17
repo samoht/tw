@@ -21,10 +21,6 @@ val spacing_times : float -> string option
 val spacing_base : Css.length
 (** [spacing_base] is the base spacing value ([0.25rem]). *)
 
-val spacing_n_var : int -> Css.length Var.theme
-(** [spacing_n_var n] creates the [--spacing-n] variable for explicit spacing
-    values. *)
-
 val has_spacing_step : ?theme:Scheme.t -> float -> bool
 (** [has_spacing_step ?theme n] is whether step [n] of the spacing scale still
     resolves. Tailwind reads a bare step off [--spacing-<n>] when the theme

@@ -148,10 +148,6 @@ val hex : string -> color
 val rgb : int -> int -> int -> color
 (** [rgb r g b] creates color from RGB values. *)
 
-val of_string_exn : string -> color
-(** [of_string_exn name] converts a color name string to a color type. Raises
-    Failure if unknown color. *)
-
 val of_string : string -> (color, [ `Msg of string ]) result
 (** [of_string name] converts a color name string to a color type, returning a
     Result. *)
@@ -298,10 +294,6 @@ val theme_token : Scheme.t -> string -> string option
 
 val theme_order : string -> int * int
 (** [theme_order c] returns the theme layer order for a color variable. *)
-
-val theme_order_with_shade : string -> int -> int * int
-(** [theme_order_with_shade c s] returns the theme layer order for a color with
-    shade. *)
 
 val utilities_order : string -> int * int
 (** [utilities_order c] returns the utilities layer order for conflict

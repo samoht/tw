@@ -145,15 +145,6 @@ val default_mono_font_family_var : Css.font_family Var.theme
 (** [default_mono_font_family_var] is the CSS variable for the default monospace
     font family, referencing --font-mono. *)
 
-val font_sans_var : Css.font_family Var.theme
-(** [font_sans_var] is the CSS variable for the sans-serif font family. *)
-
-val font_serif_var : Css.font_family Var.theme
-(** [font_serif_var] is the CSS variable for the serif font family. *)
-
-val font_mono_var : Css.font_family Var.theme
-(** [font_mono_var] is the CSS variable for the monospace font family. *)
-
 val default_sans_stack : Css.font_family
 (** [default_sans_stack] is Tailwind's default [--font-sans] value: the platform
     system-font stack. *)

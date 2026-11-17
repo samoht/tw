@@ -67,10 +67,6 @@ val opacity_suffix : opacity_modifier -> string
 val opacity_to_percent : opacity_modifier -> float
 (** [opacity_to_percent modifier] returns the opacity as a float percentage. *)
 
-val opacity_var_bare : string -> string
-(** [opacity_var_bare v] is the bare custom-property name inside an opacity
-    modifier, written either as ["[var(--x)]"] or as the ["(--x)"] shorthand. *)
-
 val opacity_var_bare_of : opacity_modifier -> string option
 (** [opacity_var_bare_of opacity] is the custom property the modifier reads its
     percentage from, when it names one rather than giving a number. *)
@@ -134,14 +130,6 @@ val hex_alpha_color :
 (** [hex_alpha_color ?theme color shade opacity] returns a hex color with alpha
     if the color is defined in the scheme, otherwise None. This is useful for
     properties where Tailwind outputs simple hex+alpha without [@supports]. *)
-
-val relative_color_supports : Css.Supports.t
-(** [relative_color_supports] is the guard for relative colour syntax:
-    [(color: lab(from red l a b))]. *)
-
-val relative_alpha : opacity_modifier -> Css.color -> Css.color
-(** [relative_alpha opacity c] is Tailwind's [oklab(from c l a b / alpha)]: [c]
-    with the modifier's alpha in place of its own. *)
 
 val shadow_alpha_decls :
   opacity_modifier ->
@@ -318,29 +306,8 @@ type channel = {
 }
 (** A family's colour custom property and its alpha companion. *)
 
-val channel_style :
-  ?decls:Css.declaration list ->
-  channel ->
-  fallback:Css.color ->
-  Css.color ->
-  Style.t
-(** [channel_style ?decls ch ~fallback c] sets [ch] to [fallback] and, behind
-    the guard, to [c] at the channel's alpha, with [decls] declared beside it.
-*)
-
 val channel_inherit : channel -> Style.t
 (** [channel_inherit ch] sets [ch] to [inherit], which no alpha applies to. *)
-
-val palette_hex :
-  ?theme:Scheme.t ->
-  ?property_prefix:string ->
-  Color_value.color ->
-  int ->
-  string
-(** [palette_hex ?theme ?property_prefix c shade] is the hex a browser without
-    [color-mix()] reads for [c] at [shade]: the scheme's own hex, else the
-    [property_prefix]-scoped token [theme] declares, else its [--color-*] token,
-    else the palette colour converted. *)
 
 val channel_color :
   ?theme:Scheme.t -> channel -> Color_value.color -> int -> Style.t
@@ -381,14 +348,10 @@ val channel_bracket_color_opacity :
     colour [c] at [opacity]: a colour with a hex spelling carries the alpha byte
     in the open, one without takes an sRGB mix there. *)
 
-val bracket_var_ref : string -> Css.color
-(** [bracket_var_ref v] is the reference the [var()] expression [v] of a bracket
-    names, as a colour. *)
-
 val bracket_var_color : string -> Css.color
 (** [bracket_var_color v] is the colour a [var()] token in an arbitrary value
-    paints with: the colour reader's reading of [v] when it has one, else
-    {!bracket_var_ref}. *)
+    paints with: the colour reader's reading of [v] when it has one, else a
+    reference to the variable [v] names. *)
 
 val shadow_token_colour : Parse.shadow_colour -> Css.color
 (** [shadow_token_colour t] is the colour a bracket shadow layer wrote, as the
