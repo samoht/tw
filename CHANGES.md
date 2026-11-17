@@ -103,6 +103,12 @@
   `decoration-[--c]` and `decoration-[url(x.png)_center]` were refused, and
   `decoration-[2]` wrote an empty rule. A thickness takes no opacity modifier,
   as in Tailwind (#960).
+- `text-shadow-[…]` writes a bracket that Tailwind does not read as a colour
+  into `text-shadow` as Tailwind does, opacity modifier included:
+  `text-shadow-[foo]`, `text-shadow-[10px]` and
+  `text-shadow-[shadow:notashadow]` were refused. A data-type hint other than
+  `color:` makes the bracket a shadow, so `text-shadow-[bogus:0_0_2px_red]`
+  reads as one (#961).
 
 ### Project stylesheets
 

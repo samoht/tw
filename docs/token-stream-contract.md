@@ -329,7 +329,12 @@ unit or a value after an `angle:` hint.
 These families refuse shapes the CLI writes out. Each is a defect against the
 contract.
 
-- `text-shadow-[…]` refuses every shape but a colour keyword.
+- `text-shadow-[…]` refuses a bracket Tailwind reads as a colour that no
+  colour reader takes, such as `#zz`, because the CLI mixes the raw token into
+  the colour channel. It also refuses a shadow layer with two lengths and one
+  word that is neither a length nor a colour, such as `0_1px_notacolour`,
+  which the CLI wraps as the layer's colour. And `text-shadow-[color:foo]`
+  writes `var(--foo)` where the CLI mixes `foo` itself.
 - `space-x-[…]` and `space-y-[…]`, negated or not, refuse every bracket that
   is not a length or a `var()`. Tailwind writes the value inside the margin
   pair's `calc()`, and cascade's `length` has no case that keeps tokens it
