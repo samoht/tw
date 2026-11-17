@@ -126,12 +126,44 @@ let of_string_invalid () =
 
   fail_maybe [ "shadow"; "3xl" ];
   (* Invalid shadow size *)
-  fail_maybe [ "unknown" ];
-  (* Tailwind emits opacity: 1.1, which the browser clamps to 1, so this refusal
-     is a tw gap. *)
-  match Tw.Effects.Handler.of_class Tw.Scheme.default "opacity-110" with
-  | Ok _ -> fail "Expected error for: opacity-110"
-  | Error _ -> ()
+  fail_maybe [ "unknown" ]
+
+(* Tailwind reads a bare opacity as any non-negative multiple of 0.25 written
+   the way the number prints, with no upper bound: [opacity-110] is
+   [opacity:1.1], which the browser clamps to 1. A leading dot, a trailing zero
+   or a leading zero is not how the number prints, and 12.3 is not a quarter
+   step, so Tailwind emits nothing for those. *)
+let bare_opacity_scale () =
+  let rejected =
+    Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+      (module Tw.Effects.Handler)
+  in
+  check "opacity-110";
+  check "opacity-150.5";
+  Test_helpers.check_declarations "opacity-110" [ "opacity:1.1" ];
+  Test_helpers.check_declarations "opacity-1000" [ "opacity:10" ];
+  Test_helpers.check_declarations "opacity-150.5" [ "opacity:1.505" ];
+  Test_helpers.check_declarations "opacity-12.25" [ "opacity:.1225" ];
+  rejected "opacity-12.3";
+  rejected "opacity-.5";
+  rejected "opacity-50.0";
+  rejected "opacity-007"
+
+(* Tailwind orders the opacity utilities by the class name, compared digit run
+   by digit run: [opacity-12.5] before [opacity-12.25], every bare value before
+   a bracket, and [opacity-(--y)] first. *)
+let opacity_order_matches_tailwind () =
+  Test_helpers.check_class_order ~test_name:"opacity order"
+    [
+      "opacity-[.5]";
+      "opacity-1000";
+      "opacity-12.25";
+      "opacity-110";
+      "opacity-12.5";
+      "opacity-(--y)";
+      "opacity-2";
+      "opacity-[var(--x)]";
+    ]
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -1116,6 +1148,9 @@ let tests =
       test_inset_shadow_theme_override_grammar;
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
+    test_case "bare opacity scale" `Quick bare_opacity_scale;
+    test_case "opacity order matches Tailwind" `Quick
+      opacity_order_matches_tailwind;
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
