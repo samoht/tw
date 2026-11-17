@@ -1,5 +1,11 @@
 ## Unreleased
 
+### Breaking changes
+
+- `Tw.Var.ref_only` and its type `'a Tw.Var.ref_only` are removed. Nothing
+  created such a variable; one that a utility reads with a fallback and
+  another sets is a `Var.channel` (#919).
+
 ### Project stylesheets
 
 - An entrypoint saved with CR LF line ends keeps its `@apply` bodies,
