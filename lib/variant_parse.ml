@@ -197,21 +197,21 @@ let try_has_shorthand s =
   else None
 
 (* A bare arbitrary variant with no [&] anchor compounds onto the utility's own
-   class, so it has to be a single compound selector: [[code]] and [[.line]] are
-   fine, [[>img]] and [[@media_print]] are not. The bracket is read as a
-   selector rather than scanned for combinator characters, because [~] and [|]
-   spell an attribute operator as well as a combinator: [[data-size~=large]] is
-   a compound and [[p_~_span]] is not, and only the grammar separates them. [_]
+   class, through [:is()] where it is not a compound itself, so any selector
+   reads: [[.line]], [[p_~_span]], [[.a,.b]]. A leading combinator has nothing
+   to combine with, so [[>img]] is refused, and so is [[@media_print]]. [_]
    stands for a space here, the decoding {!Modifiers.nest_selector} applies. *)
-let is_compound_selector inner =
+let is_arbitrary_selector inner =
   let s = Parse.decode_underscores inner in
   let cursor = Cascade.Cursor.of_string s in
+  let relative = function Css.Selector.Relative _ -> true | _ -> false in
   match Css.Selector.read_strict_selector_list cursor with
   | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _) -> false
-  | List _ | Combined _ | Relative _ -> false
+  | Relative _ -> false
+  | List sels when List.exists relative sels -> false
   | _ ->
       (* The reader stops at the first thing it cannot use, so trailing rubbish
-         has to be refused here: it is not part of the compound. *)
+         has to be refused here: it is not part of the selector. *)
       Cascade.Cursor.ws cursor;
       Cascade.Cursor.is_done cursor
 
@@ -686,14 +686,14 @@ let bracket_value_patterns s =
     (fun () ->
       try_with "group-["
         (fun sel ->
-          if sel <> "" && (String.contains sel '&' || is_compound_selector sel)
+          if sel <> "" && (String.contains sel '&' || is_arbitrary_selector sel)
           then Some sel
           else None)
         (fun sel -> Group_arbitrary sel));
     (fun () ->
       try_with "peer-["
         (fun sel ->
-          if sel <> "" && (String.contains sel '&' || is_compound_selector sel)
+          if sel <> "" && (String.contains sel '&' || is_arbitrary_selector sel)
           then Some sel
           else None)
         (fun sel -> Peer_arbitrary sel));
@@ -702,7 +702,7 @@ let bracket_value_patterns s =
       if String.length s >= 3 && s.[0] = '[' && s.[String.length s - 1] = ']'
       then
         let inner = String.sub s 1 (String.length s - 2) in
-        if String.contains inner '&' || is_compound_selector inner then
+        if String.contains inner '&' || is_arbitrary_selector inner then
           Some (Arbitrary_selector inner)
         else None
       else None);

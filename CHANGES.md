@@ -95,6 +95,11 @@
   `data-` variant keeps its `_`: `aria-_`, `group-data-_` and `has-data-a_b`
   compile instead of being refused, emitting `[data-]` or raising, and a name
   no attribute can hold, such as `data-a.b`, is refused (#946).
+- An arbitrary selector variant with no `&` takes any selector, as Tailwind
+  writes it into `:is()`: `[p_~_span]:underline` is `:is(p~span)` and
+  `[.a,.b]:underline` is `:is(.a,.b)`, under `group-[...]` and `peer-[...]`
+  too, where every combinator and list was refused. `[*]` is `:is(*)`, where
+  it compounded into a selector browsers drop (#947).
 
 ### OCaml API
 
