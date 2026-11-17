@@ -372,6 +372,20 @@ module Handler = struct
     | Some body -> layers_alpha_style [ body ] opacity
     | Stdlib.Option.None -> style [ Css.text_shadow Css.None ]
 
+  let raw_style value opacity =
+    let shadow =
+      Parse.opaque_declaration "text-shadow"
+        (Color.raw_shadow_color ~color_var:text_shadow_color_var value opacity)
+    in
+    let alpha =
+      match opacity with
+      | Color.No_opacity -> []
+      | _ -> [ opacity_decl opacity ]
+    in
+    style ~metadata:text_shadow_property_metadata
+      ~property_rules:text_shadow_property_rules
+      (alpha @ Option.to_list shadow)
+
   (* ============ Style dispatch ============ *)
 
   let to_style theme t =
@@ -433,15 +447,8 @@ module Handler = struct
     | Arbitrary arb -> arbitrary_shadow_style ~theme arb
     | Arbitrary_opacity (arb, opacity) ->
         arbitrary_shadow_opacity_style arb opacity
-    | Raw (_, value) ->
-        style ~metadata:text_shadow_property_metadata
-          ~property_rules:text_shadow_property_rules
-          (Option.to_list (Parse.opaque_declaration "text-shadow" value))
-    | Raw_opacity (_, value, opacity) ->
-        style ~metadata:text_shadow_property_metadata
-          ~property_rules:text_shadow_property_rules
-          (opacity_decl opacity
-          :: Option.to_list (Parse.opaque_declaration "text-shadow" value))
+    | Raw (_, value) -> raw_style value Color.No_opacity
+    | Raw_opacity (_, value, opacity) -> raw_style value opacity
 
   (* ============ Parsing ============ *)
 
@@ -482,65 +489,15 @@ module Handler = struct
     in
     has_length_unit inner && not has_typed_prefix
 
-  (* Whether Tailwind writes a shadow bracket into text-shadow as it stands. In
-     each comma layer it wraps the first colour it finds, and failing one, the
-     single word that is neither a keyword nor length-like when the layer holds
-     two lengths; a layer with fewer than two lengths, or with two unknown
-     words, it leaves alone. *)
-  let tailwind_writes_verbatim value =
-    let is_length_like w =
-      let w =
-        if String.starts_with ~prefix:"-" w then
-          String.sub w 1 (String.length w - 1)
-        else w
-      in
-      w <> ""
-      && ((w.[0] >= '0' && w.[0] <= '9')
-         || (String.length w > 1 && w.[0] = '.' && w.[1] >= '0' && w.[1] <= '9')
-         )
-    in
-    let layer_verbatim layer =
-      let words =
-        Parse.split_top_level ' ' (String.trim layer)
-        |> List.filter (fun w -> w <> "")
-      in
-      let classify (colour, lengths, unknown) w =
-        let fn =
-          Stdlib.Option.map
-            (fun i -> String.lowercase_ascii (String.sub w 0 i))
-            (String.index_opt w '(')
-        in
-        match fn with
-        | Some f when Css.Properties.is_color_function f || f = "--alpha" ->
-            (true, lengths, unknown)
-        | Some ("calc" | "clamp" | "max" | "min" | "--spacing") ->
-            (colour, lengths + 1, unknown)
-        | Some _ -> (colour, lengths, unknown + 1)
-        | Stdlib.Option.None -> (
-            match String.lowercase_ascii w with
-            | "inset" | "inherit" | "initial" | "revert" | "unset" ->
-                (colour, lengths, unknown)
-            | _ when is_length_like w -> (colour, lengths + 1, unknown)
-            | _ when w.[0] = '#' || Color.parse_bracket_color w <> None ->
-                (true, lengths, unknown)
-            | _ -> (colour, lengths, unknown + 1))
-      in
-      let colour, lengths, unknown =
-        List.fold_left classify (false, 0, 0) words
-      in
-      (not colour) && (lengths < 2 || unknown >= 2)
-    in
-    List.for_all layer_verbatim (Parse.split_top_level ',' value)
-
-  (* A bracket no reader takes, written as the author spelled it where Tailwind
-     does the same. *)
+  (* A bracket no reader takes, written as the author spelled it with its colour
+     picked out the way Tailwind picks it. *)
   let raw_shadow spelling opacity =
     match Parse.arbitrary_declaration_value spelling with
-    | Some value when tailwind_writes_verbatim value -> (
+    | Some value -> (
         match opacity with
         | Color.No_opacity -> Ok (Raw (spelling, value))
         | op -> Ok (Raw_opacity (spelling, value, op)))
-    | _ -> Utility.unclaimed
+    | None -> Utility.unclaimed
 
   (* A hint other than [color:] says the bracket is a shadow, and only a var()
      after it names a custom property. *)
@@ -640,7 +597,15 @@ module Handler = struct
                         | Color.No_opacity -> Ok (Bracket_color (inner, c))
                         | op -> Ok (Bracket_color_opacity (inner, c, op)))
                     | Stdlib.Option.None -> (
-                        if parse_arbitrary_shadow inner = Stdlib.Option.None
+                        if
+                          (* Tailwind reads a [#] or a colour function as a
+                             colour, which it mixes into the colour channel as a
+                             raw token; cascade's colours cannot hold that. *)
+                          String.starts_with ~prefix:"#" inner
+                          || Parse.is_css_color_fn inner
+                        then Utility.unclaimed
+                        else if
+                          parse_arbitrary_shadow inner = Stdlib.Option.None
                         then raw_shadow inner opacity
                         else
                           match opacity with

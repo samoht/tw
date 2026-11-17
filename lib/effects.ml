@@ -8,7 +8,6 @@ module Handler = struct
 
   (* Capture the project Pp helpers before [open Css] shadows Pp with Css.Pp. *)
   let pp_float = Pp.float
-  let pp_str = Pp.str
 
   open Css
 
@@ -295,34 +294,10 @@ module Handler = struct
 
   (* A shadow no reader takes keeps the tokens the author wrote, with its colour
      routed through the family's channel variable. *)
-  let raw_shadow_color ~color_var value opacity =
-    let fallback color =
-      match opacity with
-      | Color.No_opacity -> color
-      | _
-        when String.starts_with ~prefix:"current" (String.lowercase_ascii color)
-        ->
-          Option.value ~default:color
-            (Parse.alpha_mix ~alpha:(Color.opacity_percentage opacity) color)
-      | _ ->
-          pp_str
-            [
-              "oklab(from ";
-              color;
-              " l a b / ";
-              Css.Pp.to_string ~minify:true
-                (Css.Values.pp_percentage ~always:true)
-                (Color.opacity_percentage opacity);
-              ")";
-            ]
-    in
-    Parse.replace_shadow_colours
-      (fun color ->
-        pp_str [ "var("; Var.css_name color_var; ","; fallback color; ")" ])
-      value
-
   let shadow_raw value opacity =
-    let value = raw_shadow_color ~color_var:shadow_color_var value opacity in
+    let value =
+      Color.raw_shadow_color ~color_var:shadow_color_var value opacity
+    in
     let shadow_decl =
       Css.custom_property ~layer:"utilities" (Var.css_name shadow_var) value
     in
@@ -903,7 +878,7 @@ module Handler = struct
 
   let inset_shadow_raw value opacity =
     let value =
-      raw_shadow_color ~color_var:inset_shadow_color_var value opacity
+      Color.raw_shadow_color ~color_var:inset_shadow_color_var value opacity
     in
     let shadow_decl =
       Css.custom_property ~layer:"utilities"
