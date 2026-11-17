@@ -694,8 +694,7 @@ let theme_function_default_namespaces () =
 
 (* Tailwind spells the same lookup [--theme(--x)] as well, and that spelling
    references the token instead of inlining it: the CLI writes [padding:
-   var(--spacing)] and the binding beside it. It admits neither a v3 dot path
-   nor an alpha, both of which Tailwind reads some other way. *)
+   var(--spacing)] and the binding beside it. It admits no v3 dot path. *)
 let theme_function_custom_property_reference () =
   let rejected =
     Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
@@ -706,15 +705,76 @@ let theme_function_custom_property_reference () =
     [ "color:var(--color-red-500)" ];
   Test_helpers.check_declarations "p-[--theme(--nope,1rem)]" [ "padding:1rem" ];
   rejected "p-[--theme(spacing.4)]";
-  rejected "p-[--theme(--nope)]";
-  (* Tailwind reads the alpha and emits a color-mix() of --color-red-500 at 25%,
-     so this refusal is a tw gap. *)
-  match Tw.of_string "bg-[--theme(--color-red-500/25%)]" with
-  | Ok u ->
-      Alcotest.failf
-        "expected bg-[--theme(--color-red-500/25%%)] to be rejected, got %s"
-        (Tw.pp u)
-  | Error _ -> ()
+  rejected "p-[--theme(--nope)]"
+
+(* An alpha on the reference spelling mixes the reference with transparent:
+   4.3.3 writes [color-mix(in oklab, var(--color-red-500) 25%, transparent)] for
+   [bg-[--theme(--color-red-500/25%)]], with a resolved fallback ahead of it. A
+   bare number is the fraction, a [var()] is mixed at as written, the slash may
+   carry spaces, and an alpha of 100% leaves the reference alone. The alpha
+   reads the same in every colour family. *)
+let theme_function_custom_property_alpha () =
+  let red_at percent =
+    [
+      "background-color:color-mix(in srgb,oklch(63.7%.237 25.331) " ^ percent
+      ^ ",transparent)";
+      "background-color:color-mix(in oklab,var(--color-red-500) " ^ percent
+      ^ ",transparent)";
+    ]
+  in
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/25%)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/0.25)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/.25)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500_/_25%)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/25%,red)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/0)]"
+    (red_at "0%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/100%)]"
+    [ "background-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/1)]"
+    [ "background-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "text-[--theme(--color-black/12.5%)]"
+    [
+      "color:color-mix(in srgb,#000 12.5%,transparent)";
+      "color:color-mix(in oklab,var(--color-black) 12.5%,transparent)";
+    ];
+  Test_helpers.check_declarations "border-[--theme(--color-red-500/var(--a))]"
+    [
+      "border-color:oklch(63.7%.237 25.331)";
+      "border-color:color-mix(in oklab,var(--color-red-500) \
+       var(--a),transparent)";
+    ];
+  Test_helpers.check_declarations "[color:--theme(--color-red-500/25%)]"
+    [
+      "color:color-mix(in srgb,oklch(63.7%.237 25.331) 25%,transparent)";
+      "color:color-mix(in oklab,var(--color-red-500) 25%,transparent)";
+    ];
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "bg-[--theme(--color-nope/25%)]"
+
+(* The inlining spelling reads the same alphas: a [var()] alpha mixes the
+   resolved colour at that percentage, and a space may follow the slash. A space
+   before it ends the key in a space, which no theme carries, so 4.3.3 emits
+   nothing for that one. *)
+let theme_function_alpha_spellings () =
+  Test_helpers.check_declarations "bg-[theme(--color-red-500/_25%)]"
+    [
+      "background-color:color-mix(in oklab,oklch(63.7%.237 25.331) \
+       25%,transparent)";
+    ];
+  Test_helpers.check_declarations "bg-[theme(--color-red-500/var(--a))]"
+    [
+      "background-color:oklch(63.7%.237 25.331)";
+      "background-color:color-mix(in oklab,oklch(63.7%.237 25.331) \
+       var(--a),transparent)";
+    ];
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "bg-[theme(--color-red-500_/_25%)]"
 
 (* Tailwind emits no rule at all for a [theme()] naming a key its resolved theme
    does not carry, so a class carrying one is not a utility. A bare segment
@@ -1802,6 +1862,9 @@ let core_tests =
       theme_function_default_namespaces;
     test_case "--theme(--x) references the token" `Quick
       theme_function_custom_property_reference;
+    test_case "--theme(--x/alpha) mixes the reference" `Quick
+      theme_function_custom_property_alpha;
+    test_case "theme() alpha spellings" `Quick theme_function_alpha_spellings;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;
