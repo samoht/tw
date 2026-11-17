@@ -218,7 +218,3 @@ val order : base -> int * int
 (** [order u] is the [(priority, suborder)] of [u].
 
     @raise Failure if no registered handler handles [u]. *)
-
-val deduplicate : t list -> t list
-(** [deduplicate utils] keeps the last occurrence of each utility of [utils], in
-    reverse order: [deduplicate [a; b; c; a]] is [[a; c; b]]. *)

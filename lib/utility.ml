@@ -321,12 +321,3 @@ let order (u : base) : int * int =
         | None -> try_handlers rest)
   in
   try_handlers (handlers_snapshot ())
-
-let deduplicate utilities =
-  let rec go seen acc = function
-    | [] -> List.rev acc
-    | u :: rest ->
-        if List.mem u seen then go seen acc rest
-        else go (u :: seen) (u :: acc) rest
-  in
-  go [] [] (List.rev utilities)

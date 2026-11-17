@@ -37,31 +37,6 @@ let test_theme_bound () =
                props)
       | _ -> fail "expected p-4 to be a single style")
 
-let test_deduplicate () =
-  let open Tw.Utility in
-  let u1 =
-    match base_of_class Tw.Scheme.default "p-0" with
-    | Ok u -> Base u
-    | Error _ -> failwith "parse failed"
-  in
-  let u2 =
-    match base_of_class Tw.Scheme.default "p-1" with
-    | Ok u -> Base u
-    | Error _ -> failwith "parse failed"
-  in
-  let u3 =
-    match base_of_class Tw.Scheme.default "p-0" with
-    | Ok u -> Base u
-    | Error _ -> failwith "parse failed"
-  in
-  let result = deduplicate [ u1; u2; u3 ] in
-  check int "deduplicate length" 2 (List.length result)
-
-let test_deduplicate_empty () =
-  let open Tw.Utility in
-  let result = deduplicate [] in
-  check int "empty list dedup" 0 (List.length result)
-
 (* Only the relative order of the priority groups matters for the CSS. *)
 let test_order_priorities () =
   let open Tw.Utility in
@@ -369,8 +344,6 @@ let tests =
     test_case "no class claimed twice" `Quick test_no_class_claimed_twice;
     test_case "base_of_class invalid input" `Quick test_base_of_class_invalid;
     test_case "theme_bound carries a binding" `Quick test_theme_bound;
-    test_case "deduplicate preserves order" `Quick test_deduplicate;
-    test_case "deduplicate handles empty list" `Quick test_deduplicate_empty;
     test_case "order_of_property" `Quick test_order_of_property;
     test_case "order_of_property skips a vendor prefix" `Quick
       test_order_of_property_skips_vendor_prefix;

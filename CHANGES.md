@@ -10,10 +10,10 @@
   built it, and `Build.selector_props_pairs` reads those pairs (#920).
 - `Tw.Utility.base_of_strings`, `Tw.Spacing.to_length`,
   `Tw.Spacing.margin_to_length`, `Tw.Spacing.margin_to_length_neg`,
-  `Tw.Property.sort_by_order`, `Tw.Scheme.is_static_token`,
-  `Tw.Scheme.is_hex_color`, `Tw.Color.round_n` and `Tw.Color.Tailwind` are
-  removed: nothing called them. `Tw.Utility.base_of_class` takes the class
-  `base_of_strings` assembled from its parts (#922).
+  `Tw.Utility.deduplicate`, `Tw.Property.sort_by_order`,
+  `Tw.Scheme.is_static_token`, `Tw.Scheme.is_hex_color`, `Tw.Color.round_n`
+  and `Tw.Color.Tailwind` are removed: nothing called them. `Tw.Utility.base_of_class` takes the class
+  `base_of_strings` assembled from its parts (#922, #970).
 - `Tw.Color.opacity_var_bare`, `Tw.Color.relative_color_supports`,
   `Tw.Color.relative_alpha`, `Tw.Color.channel_style`, `Tw.Color.palette_hex`,
   `Tw.Color.bracket_var_ref`, `Tw.Color.of_string_exn`,
