@@ -10,20 +10,20 @@ open Utility
     [Invalid_argument] when its size is negative. *)
 
 val gap : int -> t
-(** [gap n] sets gap to [n] × 0.25rem. *)
+(** [gap n] sets gap to [n] x 0.25rem. *)
 
 val gap' : float -> t
 (** [gap' n] is {!gap} for a half-step scale value (e.g. [gap' 0.5] for
     [gap-0.5]). *)
 
 val gap_x : int -> t
-(** [gap_x n] sets column-gap to [n] × 0.25rem. *)
+(** [gap_x n] sets column-gap to [n] x 0.25rem. *)
 
 val gap_x' : float -> t
 (** [gap_x' n] is {!gap_x} for a half-step scale value. *)
 
 val gap_y : int -> t
-(** [gap_y n] sets row-gap to [n] × 0.25rem. *)
+(** [gap_y n] sets row-gap to [n] x 0.25rem. *)
 
 val gap_y' : float -> t
 (** [gap_y' n] is {!gap_y} for a half-step scale value. *)

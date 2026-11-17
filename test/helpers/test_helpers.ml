@@ -1411,7 +1411,8 @@ let selectors_of_utility u =
    to six hex digits naming a code point, with an optional single whitespace
    closing the run, or the next character literally. Comparing this way rather
    than re-escaping the class keeps the check independent of which spelling
-   cascade picks: [caf\\e9 ] and [café] are the same selector. *)
+   cascade picks: [caf\\e9 ] and [caf] followed by a literal U+00E9 are the same
+   selector. *)
 let unescape_selector s =
   let n = String.length s in
   let buf = Buffer.create n in

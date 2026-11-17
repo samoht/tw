@@ -15,10 +15,10 @@
     taken out before the file reaches cascade's parser. *)
 
 val read_file : string -> string
-(** [read_file path] is the contents of [path] preprocessed as CSS Syntax 3 §3.3
-    preprocesses the input stream: CR LF, a lone CR and FF each become LF, so
-    the text passes see one line end whatever platform saved the file. Raises
-    [Sys_error] when the file cannot be read. *)
+(** [read_file path] is the contents of [path] preprocessed as CSS Syntax 3
+    section 3.3 preprocesses the input stream: CR LF, a lone CR and FF each
+    become LF, so the text passes see one line end whatever platform saved the
+    file. Raises [Sys_error] when the file cannot be read. *)
 
 (** {1 Declared variants and utilities} *)
 

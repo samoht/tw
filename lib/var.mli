@@ -28,9 +28,9 @@
 
     - {b Utilities layer}: Ordered by "conflict resolution" groups to ensure
       predictable cascade. Utilities are grouped and sorted by group priority,
-      then by per-group suborder. Examples: display → position → margin →
-      background → padding → typography → border → sizing → effects →
-      interactivity → flexbox/grid → gap → container/prose. Within background
+      then by per-group suborder. Examples: display -> position -> margin ->
+      background -> padding -> typography -> border -> sizing -> effects ->
+      interactivity -> flexbox/grid -> gap -> container/prose. Within background
       colors, sort uses canonical palette order; for margins/padding, "all"
       precedes axis which precedes side-specific.
 

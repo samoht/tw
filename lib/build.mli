@@ -1,4 +1,4 @@
-(** CSS layer assembly — converts {!Output.t} lists into Tailwind's layered
+(** CSS layer assembly: converts {!Output.t} lists into Tailwind's layered
     stylesheet.
 
     This module is the final stage of the pipeline. It takes the flat list of

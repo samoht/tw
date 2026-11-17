@@ -1,6 +1,6 @@
 module Css = Cascade.Css
 
-(* CSS Syntax 3 §3.3: CR LF, a lone CR and FF are each one LF. *)
+(* CSS Syntax 3 section 3.3: CR LF, a lone CR and FF are each one LF. *)
 let preprocess s =
   if not (String.exists (function '\r' | '\x0c' -> true | _ -> false) s) then s
   else

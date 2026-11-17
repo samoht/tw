@@ -252,7 +252,7 @@ module Handler = struct
        lists grow, grow-0, grow-3, grow-7, grow-[2], grow-[<value>]. *)
     | Flex_grow_arbitrary (_, `Number f) -> 35000 + int_of_float f
     | Flex_grow_arbitrary _ -> 39000
-    (* Basis: fractions → arbitrary → keywords alphabetical → named *)
+    (* Basis: fractions -> arbitrary -> keywords alphabetical -> named *)
     | Basis_fraction (n, m) -> 40000 + (n * 10) + m
     | Basis_arbitrary _ | Basis_raw _ -> 42000
     | Basis_0 -> 43000

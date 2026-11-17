@@ -68,7 +68,7 @@ val spacing_value : name:string -> string -> (float, [> `Msg of string ]) result
 
 val is_valid_theme_name : string -> bool
 (** [is_valid_theme_name s] returns [true] if [s] is a valid theme variable
-    name. Names containing ['/'] are rejected — such values are invalid class
+    name. Names containing ['/'] are rejected: such values are invalid class
     suffixes, not theme references. *)
 
 val ( >|= ) : ('a, 'e) result -> ('a -> 'b) -> ('b, 'e) result

@@ -516,9 +516,10 @@ let test_bracket_data_type_hint_reads_the_value () =
     "outline-[length:notawidth] round-trips" "outline-[length:notawidth]"
     (Tw.pp (Result.get_ok (Tw.of_string "outline-[length:notawidth]")))
 
-(* [border-[…]] routes on the hint: [length:] and [line-width:] name the width,
-   and the width reader sees only what follows. [rounded-[…]] names its longhand
-   already, so it takes any hint. Both keep the hint in the class name. *)
+(* [border-[...]] routes on the hint: [length:] and [line-width:] name the
+   width, and the width reader sees only what follows. [rounded-[...]] names its
+   longhand already, so it takes any hint. Both keep the hint in the class
+   name. *)
 let test_border_width_data_type_hint () =
   let width cls value =
     check_declarations cls

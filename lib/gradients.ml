@@ -474,7 +474,7 @@ module Handler = struct
         | Ok space -> Some (Css.In (space, None))
         | Error _ -> None)
 
-  (* "125deg" → "125deg", "1.3rad" → "74.4845deg", anything else as it is.
+  (* "125deg" -> "125deg", "1.3rad" -> "74.4845deg", anything else as it is.
      "100grad" stays "100grad": reading the value as a real [<angle>] tells
      gradians from radians, where matching on the "rad" suffix would not. *)
   let bracket_value_to_css decoded =
@@ -1066,7 +1066,7 @@ module Handler = struct
     | Bg_radial_interp (_, css) -> bg_radial_interp' css
     | Bg_radial_bracket (_, v) -> bg_radial_bracket' v
 
-  (* Splits on the first '/': "r/oklab" → ("r", Some "oklab"), "45" → ("45",
+  (* Splits on the first '/': "r/oklab" -> ("r", Some "oklab"), "45" -> ("45",
      None). *)
   let split_mod s =
     match String.index_opt s '/' with

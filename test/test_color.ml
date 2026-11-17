@@ -960,7 +960,7 @@ let test_bracket_color_hint_reads_the_value () =
 
 (* The four families that never consulted a hint. Each writes one colour
    longhand, so any hint reaches it and the colour reader sees what follows;
-   [border-[…]] is the exception, where [length:] and [line-width:] name the
+   [border-[...]] is the exception, where [length:] and [line-width:] name the
    width the borders handler owns. The hint stays in the class name. *)
 let test_bracket_colour_hint_in_every_colour_family () =
   Test_helpers.check_declarations "border-[color:red]" [ "border-color:red" ];

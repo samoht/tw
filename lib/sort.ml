@@ -665,7 +665,7 @@ let natural_extract_number s i =
   in
   go i 0
 
-(* Skip CSS escape backslash before '#': compare \# as #. Only unescape \# —
+(* Skip CSS escape backslash before '#': compare \# as #. Only \# is unescaped:
    other escapes like \/ need the backslash for correct opacity modifier
    ordering. *)
 let natural_skip_hash_escape s i len =

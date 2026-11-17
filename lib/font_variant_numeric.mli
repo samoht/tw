@@ -17,7 +17,7 @@ val lining_nums : t
 (** [lining_nums] uses lining numeral forms. *)
 
 val oldstyle_nums : t
-(** [oldstyle_nums] uses old‑style (text) figures. *)
+(** [oldstyle_nums] uses old-style (text) figures. *)
 
 val proportional_nums : t
 (** [proportional_nums] uses proportional-width numbers. *)

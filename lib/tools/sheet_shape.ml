@@ -210,11 +210,11 @@ let hoist_layer_blocks stmts =
       stmts
 
 (* A token the project declared in an [@theme inline] block has no declaration
-   of its own — the value goes into the utility instead. Two exceptions: one
-   that refers to itself, where inlining would leave the reference dangling, and
-   one some other rule still reads. That has to be judged over the whole
-   document: the typography plugin's [.prose code] reads [--font-mono] from the
-   components layer. *)
+   of its own: the value goes into the utility instead. Two exceptions: one that
+   refers to itself, where inlining would leave the reference dangling, and one
+   some other rule still reads. That has to be judged over the whole document:
+   the typography plugin's [.prose code] reads [--font-mono] from the components
+   layer. *)
 let drop_unread_inline_tokens ~theme stmts =
   if Tw.Scheme.(theme.inline_tokens) = [] then stmts
   else

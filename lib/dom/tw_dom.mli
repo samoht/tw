@@ -2,13 +2,13 @@
 
     Manages one or more [<style data-tw="runtime">] elements in the document
     head. Utilities are registered at runtime and their CSS is injected into the
-    DOM. The injected CSS grows monotonically — utilities are never removed. A
+    DOM. The injected CSS grows monotonically: utilities are never removed. A
     newly discovered batch is compiled and injected as its own small element
     rather than by recompiling and re-serialising everything seen so far; small
     elements are periodically folded into one canonical, fully sorted and
     deduplicated element. A selector matching [style[data-tw="runtime"]] can
-    therefore match more than one element at a time — use {!css} to read the
-    full accumulated stylesheet as one string.
+    therefore match more than one element at a time. Use {!css} to read the full
+    accumulated stylesheet as one string.
 
     Usage with Helix:
     {[
@@ -45,7 +45,7 @@ val use : Tw.t list -> string
     conflict resolution between two utilities registered in different ticks
     follows registration order rather than Tailwind's canonical family order
     (utilities registered in the same [use] call, e.g. a base utility and its
-    variant, are unaffected — they compile and sort together). *)
+    variant, are unaffected: they compile and sort together). *)
 
 val flush : unit -> unit
 (** [flush ()] injects any rules {!use} has registered but not yet written to

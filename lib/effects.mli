@@ -39,7 +39,7 @@ val shadow_xl : t
 (** [shadow_xl] applies an extra-large shadow. *)
 
 val shadow_2xl : t
-(** [shadow_2xl] applies a 2× extra-large shadow. *)
+(** [shadow_2xl] applies a 2x extra-large shadow. *)
 
 val shadow_inner : t
 (** [shadow_inner] applies an inner (inset) shadow. *)

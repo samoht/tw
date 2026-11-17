@@ -41,11 +41,11 @@ module Handler = struct
         string (* arbitrary values like "25%" - stored without brackets *)
 
   type mask_angle =
-    | Int of int (* mask-linear-45 → calc(1deg * 45); mask-linear-1 → 1deg *)
+    | Int of int (* mask-linear-45 -> calc(1deg * 45); mask-linear-1 -> 1deg *)
     | Arb of string
-      (* mask-linear-[3rad] → 171.887deg, read and converted at style time *)
+      (* mask-linear-[3rad] -> 171.887deg, read and converted at style time *)
     | Arb_neg of string * string
-  (* -mask-linear-[3rad] → calc(171.887deg * -1), with the token stream written
+  (* -mask-linear-[3rad] -> calc(171.887deg * -1), with the token stream written
      when the value is no angle *)
 
   (* The colour a stop names, as the class spelled it. *)
@@ -502,7 +502,7 @@ module Handler = struct
       spacing_theme_decl value @ mask_image_decls
       @ [
           edge_composition;
-          (* Right group first, then left group — interleaved order *)
+          (* Right group first, then left group: interleaved order *)
           edge_gradient Right;
           position_decl ?theme right_vars pos_end value;
           edge_gradient Left;
@@ -516,7 +516,7 @@ module Handler = struct
       spacing_theme_decl value @ mask_image_decls
       @ [
           edge_composition;
-          (* Top group first, then bottom group — interleaved order *)
+          (* Top group first, then bottom group: interleaved order *)
           edge_gradient Top;
           position_decl ?theme top_vars pos_end value;
           edge_gradient Bottom;

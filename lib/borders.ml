@@ -821,7 +821,7 @@ module Handler = struct
     | Border_hidden -> 1403
     | Border_none -> 1404
     | Border_solid -> 1405
-    (* Outline utilities — hidden first, then width, then offset. The colors
+    (* Outline utilities: hidden first, then width, then offset. The colors
        (color.ml, 3000-28000) and the styles (Outline_style_handler,
        30000-30004) close the family. *)
     | Outline_hidden -> 1990
@@ -831,7 +831,7 @@ module Handler = struct
     | Outline_width_bracket _ | Outline_width_dropped _ | Outline_width_raw _ ->
         2009
     | Outline_width_var _ -> 2010
-    (* Outline offset — negatives before positives *)
+    (* Outline offset: negatives before positives *)
     | Neg_outline_offset n -> 2200 + n
     | Neg_outline_offset_var _ | Neg_outline_offset_raw _ -> 2209
     | Outline_offset n -> 2210 + n

@@ -171,9 +171,9 @@ module Handler = struct
 
   (* A data-type hint chooses the longhand and says nothing about the value, so
      a family that writes one colour longhand reads what follows any hint.
-     [border-[…]] is the exception: [length:] and [line-width:] name the width,
-     which the borders handler owns, and naming them in [not_mine] leaves such a
-     bracket to it rather than reading the value here as a colour. *)
+     [border-[...]] is the exception: [length:] and [line-width:] name the
+     width, which the borders handler owns, and naming them in [not_mine] leaves
+     such a bracket to it rather than reading the value here as a colour. *)
   let bracket_color_after_hint ?(not_mine = []) inner : Css.color option =
     match Parse.data_type_hint inner with
     | Some (hint, _) when List.mem hint not_mine -> None

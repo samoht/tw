@@ -34,10 +34,10 @@ Every CSS variable in our system follows one of these patterns (3 variable const
 ## Choosing the Right Pattern
 
 Use this decision tree:
-1. **Is it a design token shared across utilities?** → Pattern 1 (Theme)
-2. **Does it need a default that some utilities override?** → Pattern 2 (Property_default)
-3. **Do multiple utilities contribute to compose a value?** → Pattern 3 (Channel)
-4. **Is it always set when used?** → Pattern 4 (Always-set)
+1. **Is it a design token shared across utilities?** -> Pattern 1 (Theme)
+2. **Does it need a default that some utilities override?** -> Pattern 2 (Property_default)
+3. **Do multiple utilities contribute to compose a value?** -> Pattern 3 (Channel)
+4. **Is it always set when used?** -> Pattern 4 (Always-set)
 
 ## Key Building Blocks
 
@@ -208,10 +208,10 @@ conflict resolve in Tailwind's order:
 ### Step 1: Choose Your Pattern
 
 Ask yourself these questions in order:
-1. **Is it a design token?** (font size, color, spacing) → Pattern 1 (Theme)
-2. **Does it have a default that some utilities override?** (border-style: solid) → Pattern 2 (Property_default)
-3. **Do multiple utilities contribute parts?** (transforms, filters) → Pattern 3 (Channel)
-4. **Otherwise** → Pattern 4 (Always-set)
+1. **Is it a design token?** (font size, color, spacing) -> Pattern 1 (Theme)
+2. **Does it have a default that some utilities override?** (border-style: solid) -> Pattern 2 (Property_default)
+3. **Do multiple utilities contribute parts?** (transforms, filters) -> Pattern 3 (Channel)
+4. **Otherwise** -> Pattern 4 (Always-set)
 
 ### Step 2: Implement According to Pattern
 

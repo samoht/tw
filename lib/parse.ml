@@ -9,7 +9,7 @@ let is_canonical_digits s = is_digits s && (String.length s = 1 || s.[0] <> '0')
 (* A class suffix is written in plain decimal, but OCaml's literal grammar also
    admits [0x]/[0o]/[0b] bases, [_] digit separators, hex-float exponents and a
    leading [+]. Handing a suffix straight to [int_of_string_opt] therefore reads
-   [p-0x4] as 4 and emits [.p-4] — a rule nobody wrote, and not a class Tailwind
+   [p-0x4] as 4 and emits [.p-4]: a rule nobody wrote, and not a class Tailwind
    accepts. Both readers below check the spelling first. *)
 let decimal_int s =
   if is_canonical_digits (without_sign s) then int_of_string_opt s else None
@@ -40,7 +40,7 @@ let decimal_float s =
 
 (* A fraction suffix is two plain decimals around one [/]: [w-1/2], [top-3/8],
    [basis-13/17]. Neither side carries a sign, neither takes a redundant leading
-   zero, and the denominator is drawn from no fixed list — Tailwind divides
+   zero, and the denominator is drawn from no fixed list: Tailwind divides
    whatever it is given. *)
 let fraction s =
   match String.split_on_char '/' s with
@@ -186,9 +186,9 @@ let bracket_inner s =
 type exempt_span = Verbatim | Literal_underscore
 
 (* In an arbitrary value [_] stands for a space, and [\_] for a literal
-   underscore — otherwise a value that needs one could not be written. The two
-   readings differ only in what a bare [_] stands for, which [plain] carries,
-   and in [exempt], the spans read under one of the rules above. *)
+   underscore, so that a value that needs one can be written. The two readings
+   differ only in what a bare [_] stands for, which [plain] carries, and in
+   [exempt], the spans read under one of the rules above. *)
 let read_underscores ~plain ~exempt s =
   let len = String.length s in
   let buf = Buffer.create len in
@@ -1242,7 +1242,7 @@ let split_atomic sep s =
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
 
-(* "-m-[var(--value)]" → [""; "m"; "[var(--value)]"]. *)
+(* "-m-[var(--value)]" -> [""; "m"; "[var(--value)]"]. *)
 let split_class_uncached = split_atomic '-'
 
 (* A colon inside an arbitrary value or a shorthand var reference

@@ -210,7 +210,7 @@ val max_w_screen_xl : t
 (** [max_w_screen_xl] sets max-width to extra-large breakpoint width. *)
 
 val max_w_screen_2xl : t
-(** [max_w_screen_2xl] sets max-width to 2× extra-large breakpoint width. *)
+(** [max_w_screen_2xl] sets max-width to 2x extra-large breakpoint width. *)
 
 val min_h : int -> t
 (** [min_h n] sets min-height using spacing scale. *)

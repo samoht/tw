@@ -314,7 +314,7 @@ let test_bracket_data_type_hint_reads_the_value () =
     [ "background-color:url(x.png) center" ]
 
 (* Tailwind knows two spellings for the hint that names a background-position,
-   and [bg-[…]] routes on the one the author wrote while the class name keeps
+   and [bg-[...]] routes on the one the author wrote while the class name keeps
    it. *)
 let test_percentage_hint_names_a_position () =
   check_declarations "bg-[percentage:50%]" [ "background-position:50%" ];

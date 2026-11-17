@@ -259,7 +259,7 @@ let test_named_font_family_sub_tokens () =
    unit, percentages, font-size keywords (larger/smaller/xxx-large/...),
    clamp(...), and var(...). Bare identifiers without a unit are rejected --
    including things that look like hex colors but lack the leading '#' (CSS
-   Color §5.4.6). *)
+   Color section 5.4.6). *)
 let test_text_bracket_size_valid () =
   check "text-[16px]";
   check "text-[1.5rem]";

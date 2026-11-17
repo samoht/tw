@@ -77,7 +77,7 @@ let extract_quoted_strings line =
       if Re.Group.test m 1 then Re.Group.get m 1 else Re.Group.get m 2)
 
 (* Strip quoted strings from a line so we can detect unquoted brackets. E.g.
-   ['z-\[123\]', 'foo'] becomes [, ] — the ] inside quotes is removed. *)
+   ['z-\[123\]', 'foo'] becomes [, ]: the ] inside quotes is removed. *)
 let strip_quoted s =
   let buf = Buffer.create (String.length s) in
   let len = String.length s in
@@ -108,13 +108,12 @@ let strip_quoted s =
     classes (e.g., [Theme_inline] inlines variable values instead of using
     [var()] references). *)
 type theme_config =
-  | Theme  (** [@theme { ... }] — standard theme with variable references *)
-  | Theme_inline
-      (** [@theme inline { ... }] — values inlined at compile time *)
+  | Theme  (** [@theme { ... }]: standard theme with variable references *)
+  | Theme_inline  (** [@theme inline { ... }]: values inlined at compile time *)
   | Theme_reference
-      (** [@theme reference { ... }] — reference-only, no [@property] rules *)
+      (** [@theme reference { ... }]: reference-only, no [@property] rules *)
   | Theme_inline_reference
-      (** [@theme inline reference { ... }] — inlined + reference *)
+      (** [@theme inline reference { ... }]: inlined + reference *)
   | No_theme  (** No [@theme] block, just [@tailwind utilities;] *)
   | Run  (** Uses [run()] helper instead of [compileCss()] *)
 
@@ -692,7 +691,7 @@ let parse_file filename =
      the [)] that closes the call. *)
   let expect_open = Re.Pcre.regexp {|\.toEqual\s*\(|} in
 
-  (* Config detection patterns — order matters: most specific first *)
+  (* Config detection patterns: order matters: most specific first *)
   let compile_css_re = Re.Pcre.regexp {|compileCss\s*\(|} in
   let run_call_re = Re.Pcre.regexp {|\brun\s*\(|} in
   let theme_inline_ref_re =
@@ -1036,7 +1035,7 @@ let parse_file filename =
       | In_array name ->
           current_classes :=
             List.rev_append (extract_quoted_strings line) !current_classes;
-          (* Check for unquoted ] to detect array end — don't be fooled by ]
+          (* Check for unquoted ] to detect array end: don't be fooled by ]
              inside quoted class names like 'z-[123]' *)
           let stripped = strip_quoted line in
           if Astring.String.is_infix ~affix:"]" stripped then

@@ -1461,7 +1461,7 @@ module Handler = struct
     | Opacity _ | Opacity_decimal _ | Opacity_arbitrary _ | Opacity_var _ -> 0
     (* Shadow shape+opacity utilities come before regular shapes. Within
        arbitrary opacity, sort by arb color type: var() first, then
-       currentcolor, then hex — matching Tailwind ordering *)
+       currentcolor, then hex, as Tailwind orders them. *)
     | Shadow_arbitrary_opacity (arb, _) ->
         if String.contains arb '#' then 29990
         else

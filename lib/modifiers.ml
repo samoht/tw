@@ -426,7 +426,7 @@ let to_selector (modifier : modifier) cls =
   | Hocus -> compound [ Class ("hocus:" ^ cls); is_ [ Hover; Focus ] ]
   | Device_hocus ->
       compound [ Class ("device-hocus:" ^ cls); is_ [ Hover; Focus ] ]
-  (* Prose element variants — the class, then the elements it targets inside it.
+  (* Prose element variants: the class, then the elements it targets inside it.
      Returning the class alone loses the descendant part wherever the selector
      is built from here rather than in the routing, which is every rule that is
      already a query: [prose-p:md:text-lg] styled the container instead of its

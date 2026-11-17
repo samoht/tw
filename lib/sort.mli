@@ -59,7 +59,7 @@ type variant_component = {
     in, plus what separates two tokens that share that slot. *)
 
 type indexed_rule = {
-  index : int;  (** Source position — used as a stable tiebreaker. *)
+  index : int;  (** Source position: used as a stable tiebreaker. *)
   rule_type :
     [ `Regular
     | `Media of Css.Media.t
