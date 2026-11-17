@@ -107,23 +107,12 @@ The `tw` binary supports three backend modes:
   are compared for equivalence rather than byte-for-byte. `--diff-mode` selects
   a stricter mode (`tree` reports regrouping, `string` reports text).
 
-Example diff output:
-<!-- $MDX skip -->
-```bash
-$ dune exec -- tw --single="supports-[backdrop-filter]:bg-black/50" --diff
-Differences found between Tailwind and tw for 'supports-[backdrop-filter]:bg-black/50':
-
---- Tailwind
-+++ tw
-└─ @layer utilities (1 removed)
-   ├─ .supports-\[backdrop-filter\]\:bg-black\/50
-   │     - background-color color-mix(in oklab, var(--color-black) 50%, #0000)
-   └─ @supports (backdrop-filter: var(--tw)) (added)
-      └─ .supports-\[backdrop-filter\]\:bg-black\/50 (added)
-```
-
-That one is a known minifier difference, not a tw bug; `docs/parity.md` lists
-the residual the site comparison tolerates.
+When the sheets differ, `--diff` prints a tree under `--- Tailwind` and
+`+++ tw` headers. Each layer, at-rule and selector is a branch; a container
+counts what changed inside it, such as `(1 removed)`, and a node only one side
+has is marked `(added)` or `(removed)`. A declaration only one side has is a
+`-` or `+` line, and a changed value reads `* property: old -> new`.
+`docs/parity.md` lists the residual the site comparison tolerates.
 
 > Note: Use `tmp/` (repo-local) for debug artefacts; do **not** use `/tmp`. Update any older scripts accordingly.
 
@@ -325,7 +314,7 @@ and the fields it keys on.
   3. **"reordered"** - Rules within a container are in wrong order:
      ```
      └─ @layer utilities (1 reordered)
-        └─ .flex-col <-> @media (min-width:48rem)
+        └─ .flex-col ↔  @media (min-width:48rem)
      ```
      **Fix**: This is a Regular vs Media ordering issue. Check `compare_regular_vs_media` in
      `lib/sort.ml`. It reads the rule's `has_modifier_colon` field, set from
