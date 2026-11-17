@@ -219,8 +219,7 @@ let test_translate_zero_keeps_unit () =
     ]
 
 (* Bare-integer translate-N / -translate-N set both axes to calc(var(--spacing)
-   * n); they used to be unknown classes (only the per-axis translate-x-N /
-   translate-y-N parsed). *)
+ * n), like the per-axis translate-x-N / translate-y-N. *)
 let test_translate_spacing () =
   check "translate-2";
   check "translate-8";
@@ -241,11 +240,11 @@ let test_translate_spacing () =
     ]
 
 (* A fractional spacing step on translate, in both signs: translate-x-0.5 and
-   -translate-y-0.5 used to be unknown classes since the axis took an int. The
-   unit step folds to the bare variable, as Tailwind writes it. *)
+   -translate-y-0.5. The unit step folds to the bare variable, as Tailwind
+   writes it. *)
 let test_translate_spacing_steps () =
   (* Channel then the [translate] shorthand that reads it. A z step widens the
-     shorthand to three channels, which the affixes could not say. *)
+     shorthand to three channels. *)
   let xy cls channel value =
     Test_helpers.check_declarations cls
       [
@@ -402,8 +401,7 @@ let test_arbitrary_transform_token_streams () =
   emits "scale-[abc]" "scale:abc";
   emits "rotate-[abc]" "rotate:abc";
   emits "rotate-[1.5px]" "rotate:1.5px";
-  (* A bare skew sets both axes and the transform chain that reads them, which
-     the affix on one channel never said. *)
+  (* A bare skew sets both axes and the transform chain that reads them. *)
   Test_helpers.check_declarations "skew-[1.5]"
     [
       "--tw-skew-x:skewX(1.5)";
@@ -427,9 +425,9 @@ let test_project_perspective_token () =
     (Result.is_error (Tw.of_string ~theme "perspective-nope"))
 
 (* The [@property] block for the five rotate/skew channels belongs to
-   [transform]. [transform-cpu] and [transform-gpu] only read them, and asking
-   for the rules there put a whole [@layer properties] and five [@property]
-   rules in a sheet whose one transform utility was either of those two. *)
+   [transform]. [transform-cpu] and [transform-gpu] only read them, so a sheet
+   whose one transform utility is either of those two has no [@layer properties]
+   and no [@property] rule. *)
 let test_property_rules_belong_to_transform () =
   let property_rules cls =
     match Tw.of_string cls with
@@ -606,8 +604,7 @@ let test_arbitrary_transform_reads_the_whole_bracket () =
    about the value. The three families reading a bracket through one typed
    cursor each write one longhand, so every hint lands there and the reader is
    handed what follows it; the hint stays in the class name, which is what the
-   markup carries. All three were given the hint as well, read nothing, and the
-   classes were refused where Tailwind writes the value through. *)
+   markup carries. Tailwind writes the value through. *)
 let test_transform_brackets_peel_a_hint () =
   List.iter
     (fun (cls, decl) ->
@@ -615,9 +612,7 @@ let test_transform_brackets_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          (* The whole list, which is where "lands in one longhand" is said: an
-             affix passes just as well beside a second declaration the hint was
-             not supposed to produce. *)
+          (* The whole list: the hint lands in one longhand. *)
           Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("origin-[position:top]", "transform-origin: top");

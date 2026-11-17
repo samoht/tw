@@ -56,8 +56,8 @@ let test_scan_bracket_before_whitespace () =
     [ "accent-current"; "accent-inherit" ]
     (known_classes source)
 
-(* A candidate never spans a line. An unbalanced bracket used to keep the
-   scanner reading to the end of the file, so every class after it was lost. *)
+(* A candidate never spans a line, so an unbalanced bracket loses no class on
+   the lines after it. *)
 let test_unbalanced_bracket_stops_at_newline () =
   let src = "flex\nafter:content-[unbalanced\nblock\ngrid\n" in
   let found = Tw_tools.Source_scan.candidates src in
@@ -83,10 +83,8 @@ const f = fn(arg)|}
     "a call is not a candidate" false (List.mem "fn(arg)" found)
 
 (* Tailwind's extractor refuses a candidate whose [/modifier] opens on [-] or
-   [_], and refuses the whole candidate rather than truncating it: measured
-   2026-09-13, the CLI emits nothing at all for [bg-red-500/-2], not the
-   truncated [bg-red-500]. tw's scanner read one where Tailwind reads none, so a
-   sheet tw built carried rules the author's own toolchain never writes. Only a
+   [_], and refuses the whole candidate rather than truncating it: the CLI emits
+   nothing at all for [bg-red-500/-2], not the truncated [bg-red-500]. Only a
    [/] the utility itself carries counts; one inside a bracket or a paren group
    belongs to the value. *)
 let test_scan_modifier_boundary () =

@@ -53,8 +53,8 @@ module Handler = struct
     | Y_scroll -> ("y-scroll", style [ overflow_y Scroll ], 563)
     | Y_visible -> ("y-visible", style [ overflow_y Visible ], 564)
 
-  (* Every constructor, for the class-name lookup. A missing entry costs a class
-     that no longer parses, which the round-trip test reports. *)
+  (* Every constructor, for the class-name lookup. A missing entry leaves a
+     class that does not parse, which the round-trip test reports. *)
   let all =
     [
       Auto;

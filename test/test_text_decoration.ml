@@ -13,9 +13,8 @@ let test_text_decoration () =
   check "decoration-2";
   check "decoration-blue-500"
 
-(* A shade the palette does not define is not a colour. [decoration-*] read the
-   shade without checking it, so the class was accepted and then referenced a
-   variable no theme declares. *)
+(* A shade the palette does not define is not a colour, so the class is refused
+   rather than referencing a variable no theme declares. *)
 let test_decoration_undefined_shade () =
   let rejected =
     Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
@@ -45,11 +44,9 @@ let test_underline_offset_bracket_keeps_its_class () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          (* The whole selector, not an affix of it: the rule this test is
-             about, [.underline-offset-0] for [underline-offset-[0.0]], is a
-             selector the affix for the bracket form would simply miss rather
-             than contradict. And the value, which says the unit the author
-             wrote survived. *)
+          (* The whole selector, so [.underline-offset-0] for
+             [underline-offset-[0.0]] fails it, and the value, so the unit the
+             author wrote survives. *)
           Alcotest.(check (list string))
             (cls ^ " selects itself") [ escaped ]
             (Test_helpers.selectors_of_utility u);
@@ -172,9 +169,8 @@ let test_decoration_shadeless_opacity () =
   rejected "decoration-white/"
 
 (* A modifier reading a custom property mixes that property into the guarded
-   value, on [currentcolor] and on a bracket [var()] as on a palette colour.
-   Both arms folded the modifier to a percentage, which a var() has none of, so
-   the mix said [100%] and the modifier was dropped. *)
+   value, on [currentcolor] and on a bracket [var()] as on a palette colour,
+   rather than folding it to a percentage the var() does not have. *)
 let test_decoration_opacity_var () =
   let mixed cls fallback colour =
     check_declarations cls
@@ -213,9 +209,7 @@ let test_decoration_opacity_fallback () =
       [ ("color-brand", "oklch(55% 0.2 250)") ]
   in
   (* All three arms: the fallback, then the enhancement aliased for WebKit and
-     unaliased. The affixes these replace named the fallback alone for the first
-     three, so nothing held the enhancement to carrying the same alpha the
-     fallback folded in - which is the whole subject of this test. *)
+     unaliased, each carrying the alpha the fallback folds in. *)
   let emits cls fallback enhanced =
     Test_helpers.check_declarations ~theme cls
       [
@@ -237,9 +231,8 @@ let test_decoration_opacity_fallback () =
     "color-mix(in oklab,var(--color-brand) var(--a),transparent)"
 
 (* A bracket colour CSS names without spelling it as a function - a named
-   colour, a keyword - is a decoration colour too. The reader admitted only a
-   [#] hex and a colour function, so [decoration-[rebeccapurple]] was an unknown
-   class, with or without an opacity modifier. *)
+   colour, a keyword - is a decoration colour too, with or without an opacity
+   modifier. *)
 let test_decoration_bracket_named_color () =
   check_declarations "decoration-[rebeccapurple]"
     [ "text-decoration-color:rebeccapurple" ];

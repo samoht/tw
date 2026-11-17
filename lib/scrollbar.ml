@@ -88,8 +88,8 @@ module Handler = struct
        the same keyword inside a [color-mix()] takes [currentcolor], which is
        what the upstream fixtures hold.)
 
-       [transparent] typed: a token stream is exactly what folds to [#0000], so
-       spelling it as text produced the divergence the text was meant to avoid.
+       [transparent] typed: as text in a token stream it folds to [#0000], the
+       same divergence, while the typed keyword prints as [transparent].
 
        Neither shows up under [--diff] on one class - nothing reads the property
        in a one-class sheet and canonical mode prunes it - so the check is

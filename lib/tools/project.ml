@@ -25,8 +25,7 @@ let raised_rendering = function
    value it cannot serialise. Such a class produces no rule, so it is dropped
    rather than let it abort the whole sheet. The sheet is rendered once for
    every class, and only a render that raises splits the classes, down to those
-   that do: a separate probe render before the real one cost as much as the real
-   one. *)
+   that do, since a separate probe render would cost as much as the real one. *)
 let render_known render known =
   match render known with
   | sheet -> (known, sheet)
@@ -79,11 +78,11 @@ let utilities ~theme ?entrypoint ~base classes =
   let routed_count, routed_extra, routed_stmts =
     Routing.custom_routed_utilities ~theme ~defs ~udefs routed
   in
-  (* Routed custom variants no longer pass through the typed modifier parser,
-     but the sorter still needs their exact names so a declaration such as
-     [not-dark] is not mistaken for the built-in [not-] compound slot. Dummy
-     selector values are sufficient here: routed candidates already carry the
-     expanded author CSS in [extra], and only the registered names are read. *)
+  (* Routed custom variants skip the typed modifier parser, but the sorter still
+     needs their exact names so a declaration such as [not-dark] is not mistaken
+     for the built-in [not-] compound slot. Dummy selector values are sufficient
+     here: routed candidates already carry the expanded author CSS in [extra],
+     and only the registered names are read. *)
   let sort_theme =
     let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
     let custom_variants =

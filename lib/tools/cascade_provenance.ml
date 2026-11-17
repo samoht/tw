@@ -53,9 +53,8 @@ let cascade_constraint root =
 
 (* The sha alone does not say how far a live checkout has moved. A sibling
    checkout parked on someone else's branch fails tw tests that pass against
-   cascade's main, and reading that as a tw regression costs an afternoon; the
-   branch name and the distance are what turn the failure into a question about
-   cascade. *)
+   cascade's main, so the branch name and the distance are reported to show that
+   such a failure comes from cascade. *)
 let checkout_position dir =
   let branch =
     match Fmt.kstr run_line "git -C %s rev-parse --abbrev-ref HEAD" dir with

@@ -102,11 +102,11 @@ let style_el_count () =
     0
 
 (* A class registered on its own tick lands in its own small element rather than
-   a full recompile over everything seen so far - the fix for the quadratic
-   rebuild. Drip-feeding distinct classes one flush at a time must therefore see
-   more than one element at some point; a batch large enough to dwarf whatever
-   is already consolidated then folds everything - deltas and all - back into
-   exactly one element, and the aggregated content must match a plain
+   a full recompile over everything seen so far, so the rebuild is not
+   quadratic. Drip-feeding distinct classes one flush at a time must therefore
+   see more than one element at some point; a batch large enough to dwarf
+   whatever is already consolidated then folds everything - deltas and all -
+   back into exactly one element, and the aggregated content must match a plain
    [Tw_dom.css ()] compile regardless of how many elements it came from. *)
 let dom_incremental_consolidation () =
   Tw_dom.init ~base:false ();

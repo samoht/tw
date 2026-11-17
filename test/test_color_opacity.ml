@@ -61,9 +61,8 @@ let test_opacity_modifier_rejects_non_numeric () =
     ]
 
 (* The modifier's [/] is the last one outside a bracket, as Tailwind reads a
-   candidate, so the [/] a bracket value spells stays inside it:
-   [shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50] was an unknown class, the first [/]
-   having split the bracket in two. *)
+   candidate, so the [/] a bracket value spells stays inside it, as in
+   [shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50]. *)
 let test_modifier_slash_outside_bracket () =
   List.iter
     (fun cls ->

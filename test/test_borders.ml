@@ -34,8 +34,8 @@ let of_string_valid () =
   check "border-x-0";
   check "border-y-8";
 
-  (* A side or axis takes any integer, as the bare border does: border-x-16 was
-     rejected where Tailwind emits border-inline-width: 16px. *)
+  (* A side or axis takes any integer, as the bare border does: Tailwind emits
+     border-inline-width: 16px for border-x-16. *)
   check "border-x-16";
   check "border-y-16";
   check "border-t-16";
@@ -165,7 +165,7 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches ~test_name:"borders render like Tailwind"
     (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
 
-(* rounded-sm's default radius is .25rem in v4.3.1, not the old .125rem. *)
+(* rounded-sm's default radius is .25rem in v4.3.1. *)
 let test_rounded_sm_default () =
   check_sheet "rounded-sm"
     "@layer theme,components,utilities;@layer \
@@ -199,7 +199,7 @@ let test_rounded_side_full_inlined () =
      utilities{.rounded-l-full{border-top-left-radius:3.40282e38px;border-bottom-left-radius:3.40282e38px}}"
 
 (* Numeric outline widths (outline-1/2/4/8) emit outline-width: Npx with the
-   outline-style var; they used to be unknown classes. *)
+   outline-style var. *)
 let test_outline_widths () =
   check_declarations "outline-1"
     [ "outline-style:var(--tw-outline-style)"; "outline-width:1px" ];
@@ -215,9 +215,8 @@ let test_outline_offset_arbitrary () =
   check_declarations "outline-offset-[3px]" [ "outline-offset:3px" ]
 
 (* outline-hidden's forced-colors reset is its own @media block; under a state
-   modifier (focus, focus-within) the block must use the modified selector, not
-   the bare .outline-hidden, and stay grouped with the regular rule. It used to
-   keep the bare selector and reorder before the regular rule. *)
+   modifier (focus, focus-within) the block uses the modified selector, not the
+   bare .outline-hidden, and follows the regular rule. *)
 let test_outline_hidden_modifier_forced_colors () =
   check_sheet "focus:outline-hidden"
     "@layer theme,components,utilities;@layer theme;@layer components;@layer \
@@ -256,7 +255,7 @@ let test_outline_ordering () =
     (Test_helpers.shuffle utilities)
 
 (* Arbitrary per-side border widths (border-t-[1px], ...) emit the side width
-   plus the side border-style var; they used to be unknown classes. *)
+   plus the side border-style var. *)
 let test_border_side_arbitrary_width () =
   check_declarations "border-t-[1px]"
     [ "border-top-style:var(--tw-border-style)"; "border-top-width:1px" ];
@@ -282,8 +281,7 @@ let test_logical_side_borders () =
       "border-inline-end-width:1px";
     ]
 
-(* Arbitrary outline and border widths take any CSS length unit, not just the
-   px/rem/em/% the hand-rolled suffix parsers knew: Tailwind emits
+(* Arbitrary outline and border widths take any CSS length unit: Tailwind emits
    outline-width: 3rem for outline-[3rem] and border-width: 3vw for
    border-[3vw]. *)
 let test_bracket_width_units () =
@@ -307,9 +305,7 @@ let test_bracket_width_units () =
     [ "border-top-style:var(--tw-border-style)"; "border-top-width:3vw" ]
 
 (* A math function in a width bracket stands for the width it computes, so it is
-   a width and not a colour. The bracket was classified by its first character,
-   which put [calc(...)] on the colour side and refused the class Tailwind
-   renders. *)
+   a width and not a colour. *)
 let test_bracket_math_function_width () =
   check_declarations "border-[calc(1rem_+_2px)]"
     [ "border-style:var(--tw-border-style)"; "border-width:calc(1rem + 2px)" ];
@@ -352,8 +348,7 @@ let test_bracket_line_width_keywords () =
 
 (* A [--radius-*] token the project declared in its [@theme] names a corner
    radius the built-in scale has no slot for. Tailwind generates the utility
-   from it, on the all-corners form and on every side and corner; tw rejected
-   the class outright, so the project token emitted nothing. *)
+   from it, on the all-corners form and on every side and corner. *)
 let test_project_radius_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("radius-blob", "3rem") ]
@@ -379,11 +374,8 @@ let test_project_radius_token () =
     (Result.is_error (Tw.of_string ~theme "rounded-nope"))
 
 (* Every [border-<side>-<n>] writes the same [border-top-width], so their
-   relative order decides which one wins. The four nullary widths (0, 2, 4, 8)
-   were sorted on an ordinal that packed them into four slots and left the
-   bracket in the next one, so any other width sorted past the bracket:
-   [border-t-6] landed after [border-t-\[3px\]] where Tailwind puts it between 4
-   and 8. *)
+   relative order decides which one wins. Tailwind sorts them by the number they
+   name, [border-t-6] between 4 and 8, and the bracket after every one. *)
 let test_side_width_order () =
   Test_helpers.check_class_order ~test_name:"border side widths"
     [
@@ -398,8 +390,7 @@ let test_side_width_order () =
     ]
 
 (* The axis and logical sides take an arbitrary width the same way the physical
-   sides do. The bracket arm matched the four physical sides only, so an axis or
-   logical side fell through to the colour path and failed there. *)
+   sides do. *)
 let test_axis_arbitrary_width () =
   let side cls family width =
     check_declarations cls
@@ -421,9 +412,8 @@ let test_axis_arbitrary_width () =
   check_declarations "border-x-[1e]" [ "border-inline-color:1e" ]
 
 (* Every axis and logical side writes a width some other side writes too, so
-   their relative order decides which one wins. The families were packed into
-   bands ten wide, so [border-x-25] landed on [border-s-5]'s slot and the two
-   sorted by class name instead. *)
+   their relative order decides which one wins: each family keeps its own band,
+   whatever the width it names. *)
 let test_axis_width_order () =
   Test_helpers.check_class_order ~test_name:"border axis widths"
     [
@@ -444,9 +434,7 @@ let test_axis_width_order () =
     ]
 
 (* The all-sides widths sort by the number they name, and the bracket sorts
-   after every one of them. The four the scale names (0, 2, 4, 8) took the first
-   four slots of the band and the rest counted from the same base, so [border-3]
-   landed on [border-8]'s slot and [border-40] sorted past the bracket. *)
+   after every one of them. *)
 let test_all_sides_width_order () =
   Test_helpers.check_class_order ~test_name:"border widths"
     [
@@ -462,7 +450,7 @@ let test_all_sides_width_order () =
     ]
 
 (* An axis or logical bracket width sorts inside its own side's band, after the
-   numeric widths, the way the physical sides already do. *)
+   numeric widths, the way the physical sides do. *)
 let test_axis_arbitrary_width_order () =
   Test_helpers.check_class_order ~test_name:"border axis bracket widths"
     [
@@ -484,9 +472,7 @@ let test_axis_arbitrary_width_order () =
 (* A bracket whose content is not a length is not a width, and the colour is
    each of these families' last resort, so it goes there rather than being
    refused - a refusal drops the selector, where a declaration the browser
-   discards leaves the rule in place. It used to be refused by the parser, which
-   at least did not raise from the length conversion once the sheet was
-   rendered, the defect before that. *)
+   discards leaves the rule in place. *)
 let test_invalid_bracket_widths () =
   (* [outline-] falls through to its colour, which is the family's last resort,
      so a bracket the width reader declines is a declaration rather than a

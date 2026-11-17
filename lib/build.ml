@@ -464,9 +464,8 @@ let sort_indexed_blocks indexed =
 (* Convert selector/props pairs to CSS rules. *)
 (* Internal: build rule sets from pre-extracted outputs. *)
 let rule_sets_from_selector_props all_rules =
-  (* All rules (including hover) are now sorted together. Hover rules are
-     converted to Media "(hover:hover)" rules in rule_to_triple, so they
-     participate in the normal media query sorting. *)
+  (* Hover rules sort with the others: [rule_to_triple] turns them into
+     [(hover:hover)] media rules, so they take part in the media query sort. *)
   let indexed =
     all_rules |> List.map rule_to_triple |> deduplicate_typed_triples
     |> add_index
@@ -627,12 +626,11 @@ let extract_non_tw_custom_declarations selector_props =
   List.rev !insertion_order
 
 (* Substitute per-render [@theme] token overrides into extracted theme-layer
-   declarations. This is the threaded replacement for the override seam that
-   used to live in [Var.binding]: a Theme-role variable whose token is
-   overridden in [theme] emits the override value instead of its registered
-   default. A token the block removed ([--spacing: initial]) has no declaration
-   left to emit. [custom_declaration_name] returns the full [--name] form; the
-   scheme keys overrides by the bare name. *)
+   declarations: a Theme-role variable whose token is overridden in [theme]
+   emits the override value instead of its registered default. A token the block
+   removed ([--spacing: initial]) has no declaration left to emit.
+   [custom_declaration_name] returns the full [--name] form; the scheme keys
+   overrides by the bare name. *)
 let apply_token_override theme decl =
   match Css.custom_declaration_name decl with
   | Some full_name
@@ -936,12 +934,11 @@ let derived_font_feature_decls ~theme ~have =
       | _ -> None)
 
 (* A runtime theme declaration attached to a utility is a dependency carrier,
-   not independent output. A zero-valued spacing utility, for example, has
-   already folded its value to [0px] and no longer reads [--spacing]. Non-
-   runtime theme declarations retain Tailwind's emission semantics even when the
-   utility folded their value. [theme(static)] is the explicit runtime
-   exception: it asks for the whole theme whether a utility reads each token or
-   not. *)
+   not independent output. A zero-valued spacing utility, for example, folds its
+   value to [0px] and does not read [--spacing]. Non- runtime theme declarations
+   retain Tailwind's emission semantics even when the utility folded their
+   value. [theme(static)] is the explicit runtime exception: it asks for the
+   whole theme whether a utility reads each token or not. *)
 let keep_extracted_theme_decl ~theme ~referenced decl =
   theme.Scheme.static_theme
   || (not (Var.is_runtime_declaration decl))

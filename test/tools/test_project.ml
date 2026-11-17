@@ -525,9 +525,7 @@ let test_forms_plugin_base () =
 
 (* The forms reset is the plugin's, not preflight's: an entrypoint importing
    Tailwind in parts without [tailwindcss/preflight.css] still gets it from
-   4.3.3, in [@layer base] and with no preflight beside it. tw built the reset
-   into the base layer it writes only with preflight, and placed base content
-   only for a preflight import, so the sheet had neither. *)
+   4.3.3, in [@layer base] and with no preflight beside it. *)
 let test_forms_plugin_base_without_preflight () =
   let css =
     compiled_with ~base:true ~classes:[ "p-2" ] "forms-no-preflight"

@@ -114,9 +114,7 @@ module Handler = struct
       | Arbitrary (_, len) ->
           if negative then
             (* [calc(<value> * -1)], the spelling Tailwind writes whatever the
-               unit. Folding the sign into the number instead was done from a
-               table listing a few units, so [4px] came out [-4px] while [2em],
-               which the table missed, already carried the calc. *)
+               unit. *)
             style
               [ prop (Calc (Calc.mul (Calc.length len) (Calc.float (-1.)))) ]
           else style [ prop len ]

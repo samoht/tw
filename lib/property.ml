@@ -9,13 +9,9 @@ let split statements =
 (* Keeps the FIRST rule for a name. CSS Properties and Values API 1 says a later
    [@property] replaces an earlier one, so this looks backwards, and it is
    deliberate: tw's contract is Tailwind parity, and Tailwind resolves the
-   collision the same way. Measured 2026-08-28 with an entrypoint declaring
-   [@property --tw-shadow-color] with its own syntax and initial-value after
-   [@import "tailwindcss"]: both tw and the real CLI emit one rule for that
-   name, the built-in, and neither carries the author's initial-value.
-
-   So there is no reproducer here today. Turn this into last-wins only when one
-   exists, because doing it on the spec alone would move tw off Tailwind. *)
+   collision the same way: an entrypoint that declares [@property
+   --tw-shadow-color] after [@import "tailwindcss"] gets the built-in rule,
+   without the author's initial-value. *)
 let dedup property_rules =
   let seen = Hashtbl.create 16 in
   List.filter

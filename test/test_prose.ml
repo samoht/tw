@@ -25,9 +25,8 @@ let test_combinations () =
 
 (* [prose] is a component, so its 77 rules are not worth spelling out; what
    these check is that the right selectors and the right declarations are among
-   them. Membership in the lists is exact where a substring was not: the affix
-   [.prose] matched every descendant rule as well as the root one, and the h1
-   affix stopped mid-selector. *)
+   them. Membership in the lists is exact, where a substring [.prose] would also
+   match every descendant rule. *)
 let test_css_generation () =
   let utility =
     match Tw.of_string "prose" with
@@ -64,14 +63,13 @@ let test_inline_styles () =
   Alcotest.(check string) "prose-gray has no inline styles" "" inline_gray
 
 (* prose-invert remaps the palette to the inverted vars; prose-orange overrides
-   the link accent colours. Both used to be no-ops / unknown. *)
+   the link accent colours. *)
 let test_color_variants () =
   Alcotest.(check bool)
     "prose-invert remaps body to the invert var" true
     (List.mem "--tw-prose-body:var(--tw-prose-invert-body)"
        (Test_helpers.declarations_of_class "prose-invert"));
-  (* A colour variant sets only the accents it names, which the pair of searches
-     this replaces could not say. *)
+  (* A colour variant sets only the accents it names. *)
   Test_helpers.check_declarations "prose-orange"
     [
       "--tw-prose-links:oklch(64.6%.222 41.116)";
@@ -138,18 +136,14 @@ let test_default_theme_colours () =
     ]
     (prose_root_variables ())
 
-(* Real-CLI parity for the typography plugin. Until now prose had no comparison
-   against the actual @tailwindcss/typography output (always enabled in
-   Tailwind_gen) -- only checks of tw's own structure -- so the README's "fully
-   supported" claim was unproven for the plugin. check_ordering_matches does a
-   full canonical diff against the real CLI and fails on any difference, exactly
-   as the forms suite does. *)
+(* Real-CLI parity for the typography plugin, which Tailwind_gen always enables.
+   check_ordering_matches does a full canonical diff against the real CLI and
+   fails on any difference, as the forms suite does. *)
 let test_size_parity () =
   Test_helpers.check_ordering_matches ~test_name:"prose sizes match Tailwind"
     [ prose; prose_sm; prose_lg; prose_xl; prose_2xl ]
 
-(* Covers the five gray ramps (zinc/neutral/stone were stubs emitting nothing
-   before this commit's parent), the invert remap and the orange accent. *)
+(* Covers the five gray ramps, the invert remap and the orange accent. *)
 let test_color_theme_parity () =
   Test_helpers.check_ordering_matches
     ~test_name:"prose colour themes match Tailwind"
@@ -272,9 +266,8 @@ let test_element_variant_rendering () =
   Test_helpers.check_rendering_matches ~inner:prose_document
     ~test_name:"prose element variants render like Tailwind" element_variants
 
-(* Every variant the plugin registers, against the real CLI. Eight of them were
-   not recognised at all, and the selector the rest built dropped whatever an
-   inner variant had put on it. *)
+(* Every variant the plugin registers, against the real CLI, each keeping what
+   an inner variant put on its selector. *)
 let test_element_variant_parity () =
   Test_helpers.check_ordering_matches
     ~test_name:"prose element variants match Tailwind"

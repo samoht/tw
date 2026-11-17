@@ -188,19 +188,16 @@ let test_late_typography_before_whitespace () =
 
 (* Tailwind orders container variants as it orders breakpoints: every [@max-*]
    block first, widest first, then the [@min-*] blocks narrowest first, so
-   [@max-lg] sits before [@sm] and [@lg]. tw wrote the [@lg] block before
-   [@max-lg], and the canonical differ reads the two as moved once it equates
-   [not (width >= X)] with [(width < X)], which it does since cascade #1250.
-   [@max-lg] and [@lg] are disjoint, and [@max-lg] and [@sm] are not, so the
-   order is what an element carrying both computes under. *)
+   [@max-lg] sits before [@sm] and [@lg]. [@max-lg] and [@lg] are disjoint, and
+   [@max-lg] and [@sm] are not, so the order is what an element carrying both
+   computes under. *)
 let test_container_max_before_min () =
   Test_helpers.check_class_order
     ~test_name:"@max-* container variants before @min-*"
     [ "@lg:flex"; "@sm:block"; "@max-sm:inline"; "@max-lg:hidden" ];
-  (* The pair alone sorted the other way round: the comparator projected a
-     container width onto the breakpoint order through the range feature only,
-     and the compact [Min_width_rem] the parser builds for a bare width had no
-     key, so the two fell through to a tier that put [@lg] first. *)
+  (* The pair alone too: the compact [Min_width_rem] the parser builds for a
+     bare width takes its place in the breakpoint order like the range
+     feature. *)
   Test_helpers.check_class_order ~test_name:"@max-lg before @lg on their own"
     [ "@lg:flex"; "@max-lg:hidden" ];
   Test_helpers.check_class_order ~test_name:"@max-lg before @sm on their own"
@@ -712,10 +709,10 @@ let test_priority_order_per_group () =
   Test_helpers.check_ordering_matches
     ~test_name:"priority order matches Tailwind" utilities
 
-(* Verify utility families emit in Tailwind's canonical order. Priority is now
-   per-variant (visibility, z-index and order live in modules whose other
-   variants sort elsewhere), so this asserts the emitted rule order directly
-   rather than poking module-level priority constants. *)
+(* Utility families emit in Tailwind's canonical order. Priority is per-variant
+   (visibility, z-index and order live in modules whose other variants sort
+   elsewhere), so this asserts the emitted rule order directly rather than
+   module-level priority constants. *)
 let test_handler_priority_ordering () =
   let classes =
     [
@@ -951,10 +948,7 @@ let test_suborder_within_group () =
 
    The pool is keyed by the lib/ module that exports its entries, and
    [test_pool_covers_every_family] reads tw.ml's include list back and fails on
-   a module with nothing under it. A hand-written list nothing checks drifts:
-   the one this replaces reached 103 constructors of tw.mli's 1030, and no seed
-   could compile a [hover:] or an [md:] rule at all, modifiers exporting 210
-   constructors the pool never touched. *)
+   a module with nothing under it, so the pool cannot drift from the API. *)
 
 (* An entry is written as the class a user types, which is what the reader takes
    back, so a typo fails inside a test rather than at module initialisation. The
@@ -1445,8 +1439,8 @@ let dressing_of cls =
   else Any
 
 (* How much of a draw wears a variant. All of it would compare one media block
-   against another and never a plain rule against one, and none of it is where
-   the pool was. *)
+   against another and never a plain rule against one, and none of it would
+   compare plain rules alone. *)
 let dress rng ~dressing u =
   let alone =
     match dressing with
@@ -1533,10 +1527,8 @@ let pool_entries () =
    Both directions can hold between one pair of handlers, since a family may
    straddle two of Tailwind's bands, so each is its own entry.
 
-   This is the ordering debt the whole-sheet gate counts - 299 of 3885
-   statements in test/parity/sheet_order.ml - named rather than counted. Without
-   it the fuzzer fails on nearly every seed for misorderings that predate it;
-   with it a pair outside the list fails a draw.
+   These are the misorderings the whole-sheet gate in test/parity/sheet_order.ml
+   counts, named rather than counted, so a pair outside the list fails a draw.
    [test_known_inversions_are_exact] measures the set over the whole pool and
    fails when it grows and when one of these is fixed, so the list can only
    shrink, and closing a bug is what forces an entry out of it. Both oracles
@@ -1710,13 +1702,10 @@ let test_mask_type_arbitrary_order () =
    Tailwind's, read off the CLI once and frozen here, so this is tw against a
    recorded answer rather than against itself.
 
-   {b It does not cover suborder}, which was the reason it was written. Measured
-   2026-09-13: disabling the suborder tier of [compare_order] in [lib/sort.ml]
-   leaves this test green, because the order below is settled by priority. The
-   suborder tier is load-bearing — without it the whole-sheet gate reports 418
-   of 3961 statements out of place — but its effect is emergent across the whole
-   sheet and does not reproduce on any small set of classes tried. See the
-   backlog entry on suborder coverage before adding to this. *)
+   {b It does not cover suborder}: the order below is settled by priority, so
+   disabling the suborder tier of [compare_order] in [lib/sort.ml] leaves it
+   green. The suborder tier shows only across the whole sheet, which the
+   whole-sheet gate checks. *)
 let test_family_order_without_the_cli () =
   let classes =
     [
@@ -1890,11 +1879,7 @@ let test_border_width_color_ordering () =
   (* Test that border width utilities (borders.ml, priority 16) come before
    * border color utilities (borders.ml, priority 16) and background utilities
    * (backgrounds.ml, priority 18 for gradients, color.ml priority 21 for colors).
-   *
-   * This test verifies the fix for the ordering issue where border-b was
-   * being separated from border-gray-200 by bg-* utilities.
-   *
-   * We use of_string to test the actual parsing behavior. *)
+   * so no bg-* utility separates border-b from border-gray-200. *)
   let classes = [ "border-b"; "bg-blue-600"; "bg-white"; "border-gray-200" ] in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   Test_helpers.check_ordering_matches
@@ -1933,16 +1918,12 @@ let test_container_query_call_order () =
    across the families that carry them. *)
 (* A [peer-] variant sorts inside the peer group by the variant it wraps, the
    way a [group-] one does: Tailwind writes peer-checked, then peer-hover, then
-   peer-focus. [peer-hover] used to be special-cased into [group-hover]'s slot,
-   which pulled it out of the group entirely and put it in front of every other
-   [peer-] spelling. The fuzzer found it as
-   [peer-checked:contain-layout **:peer-hover:contain-strict] and it read as a
-   flake for a session, because the seed that failed the whole suite passed
-   when the sort tests were run alone. *)
+   peer-focus. [peer-hover] has no slot of its own ahead of the other [peer-]
+   spellings. *)
 let test_peer_variant_group_order () =
   Test_helpers.check_class_order ~test_name:"peer variants sort as Tailwind"
     [ "peer-checked:grid"; "peer-hover:block"; "peer-focus:flex" ];
-  (* The group- family is the shape peer- now follows. *)
+  (* The group- family has the same shape. *)
   Test_helpers.check_class_order ~test_name:"group variants sort as Tailwind"
     [ "group-checked:grid"; "group-hover:block"; "group-focus:flex" ]
 
@@ -2311,10 +2292,8 @@ let emitted_classes css classes =
 let test_color_mix_supports_companion_order () =
   (* A colour with an opacity modifier emits a hex fallback plus an @supports
      block carrying the color-mix version, and the fallback has to come first or
-     it wins in the browsers that support color-mix. Under a variant the
-     @supports rules were ordered by the supports-* variant key, which a colour
-     utility does not have, so they all tied and drifted away from their base
-     rule. *)
+     it wins in the browsers that support color-mix. Under a variant each
+     @supports rule stays beside its base rule. *)
   let classes =
     [
       "data-checked:ring-gray-950/10";
@@ -2403,13 +2382,11 @@ let test_custom_dark_keeps_builtin_slot () =
 
 (* A custom variant with two branches, the site's [dark] with a class branch and
    a [prefers-color-scheme] one, routes its utilities through the custom variant
-   path, and there an opacity colour, which carries a [@supports] twin, sorted
-   after every plain utility of a later family instead of in its family's place:
-   [dark:hover:text-white] came out before [dark:hover:bg-white/50] where
-   Tailwind writes the background first, and on the site the [dark:hover:bg-*]
-   pair in the other order is a cascade difference for an element carrying both.
-   Expected order measured with Tailwind 4.3.3 through the same entrypoint on
-   2026-09-15. *)
+   path, and there an opacity colour, which carries a [@supports] twin, keeps
+   its family's place: Tailwind writes [dark:hover:bg-white/50] before
+   [dark:hover:text-white], and the other order is a cascade difference for an
+   element carrying both. The expected order is Tailwind 4.3.3's through the
+   same entrypoint. *)
 let test_custom_variant_supports_twin_keeps_family_order () =
   let defs =
     [

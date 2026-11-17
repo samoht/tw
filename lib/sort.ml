@@ -29,7 +29,7 @@ type selector_kind =
 
 (* One component of a rule's variant sort key: the slot the token sorts in, plus
    what separates two tokens that share it. A breakpoint token carries the width
-   it names, so [sm] and [md] no longer collapse onto one key; a group-/ peer-
+   it names, so [sm] and [md] get distinct keys; a group-/ peer-
    token carries the state it wraps, so [group-focus] and [group-has] keep their
    order; data and arbitrary tokens carry the value that distinguishes groups
    inside their slot. *)
@@ -227,11 +227,8 @@ type indexed_rule = {
 (* Debug *)
 (* ======================================================================== *)
 
-(* The comparator's tracing, driven by [TW_DEBUG_SORT]. Nothing called the
-   setter this used to expose, so the flag was always false and every trace
-   below it was unreachable in any build - the diagnostic that sort work most
-   wants was dead. An environment variable makes it usable without a recompile
-   and without an API nobody calls. *)
+(* The comparator traces its decisions when [TW_DEBUG_SORT] is set in the
+   environment, so tracing needs no recompile. *)
 let debug_compare = Sys.getenv_opt "TW_DEBUG_SORT" <> None
 let debug_compare_enabled () = debug_compare
 

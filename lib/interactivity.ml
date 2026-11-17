@@ -5,7 +5,7 @@
 
     What's not:
     - Browser-specific interaction properties not surfaced in `Css`.
-    - Cursor utilities (now in Cursor module).
+    - Cursor utilities, which are in [Cursor].
 
     Parsing contract (`of_string`):
     - Accepts tokens like ["select"; "none"], ["scroll"; "smooth"],

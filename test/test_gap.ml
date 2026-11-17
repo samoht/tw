@@ -82,9 +82,8 @@ let mixed_gap_axis_arbitrary_order_matches_tailwind () =
 (* space-x-px / -space-x-px use a literal +/-1px gap (no --spacing multiple),
    wrapped in the reverse calc like the numeric variants. *)
 let test_space_px_values () =
-  (* The whole list, which is where "sets no --spacing" is said: it used to be a
-     search for a name that must not appear, and the px step writes both
-     margins, not just the one the affix named. *)
+  (* The whole list, which is where "sets no --spacing" is said, and the px step
+     writes both margins. *)
   let px_step cls step =
     Test_helpers.check_declarations ~minify:false cls
       [
@@ -135,8 +134,8 @@ let test_gap_candidate_boundaries () =
   Test_helpers.check_class_order ~test_name:"gap candidate boundaries"
     [ "space-y-2"; "gap-px"; "gap-[5cqw]"; "gap-10"; "gap-(--gap)"; "gap-1.5" ]
 
-(* gap'/gap_x'/gap_y' take a half-step float; space_x/space_y flipped from float
-   to int with a [']-suffixed float sibling, same convention as [p]/[p']. *)
+(* gap'/gap_x'/gap_y' take a half-step float; space_x/space_y take an int and
+   have a [']-suffixed float sibling, same convention as [p]/[p']. *)
 let typed_prime () =
   let open Tw in
   check_typed_class "gap-0.5" (gap' 0.5);

@@ -231,8 +231,8 @@ let default_font_family_var =
 let default_mono_font_family_var =
   Var.theme Css.Font_family "default-mono-font-family" ~order:(8, 42)
 
-(* Tailwind v4.3.2 replaced the [ui-sans-serif, system-ui, ...] default with the
-   platform system-font stack. *)
+(* Tailwind's default sans stack (v4.3.2 on) is the platform system-font
+   stack. *)
 let default_sans_stack : Css.font_family =
   List
     [

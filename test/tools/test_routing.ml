@@ -144,8 +144,8 @@ let test_functional_routing () =
 
 (* A [@utility] body is author text tw does not validate. An unclosed brace in
    one must cost that class alone: assembled into a single sheet, the block
-   swallows every utility written after it, and the sheet as a whole no longer
-   parses, which dropped the lot. *)
+   would swallow every utility written after it, and the sheet as a whole would
+   not parse. *)
 let test_malformed_utility_spares_the_others () =
   let udefs =
     [

@@ -39,7 +39,7 @@ let test_tracking_normal_unit () =
 
 (* A [--tracking-*] token the project declared in its [@theme] names a letter
    spacing the built-in scale has no slot for. Tailwind generates the utility
-   from it, channel variable included; tw rejected the class outright. *)
+   from it, channel variable included. *)
 let test_project_tracking_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("tracking-airy", "0.2em") ]

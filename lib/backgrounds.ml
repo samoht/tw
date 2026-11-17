@@ -318,10 +318,10 @@ module Handler = struct
               (Css.parse_length v))
     | _ -> None
 
-  (* A bracket background-position: [120px_120px], [top], [left_10px_top_20px].
-     The whole [<position>] grammar, so the hand-rolled reading that only knew
-     lengths and two-keyword pairs no longer drops [top] on the floor. [None]
-     means the bracket is not a position, which [of_class] rejects. *)
+  (* A bracket background-position: [120px_120px], [top], [left_10px_top_20px],
+     read with the whole [<position>] grammar, so a single keyword such as [top]
+     is kept. [None] means the bracket is not a position, which [of_class]
+     rejects. *)
   let parse_bracket_position inner : Css.position_value option =
     let cursor = Cascade.Cursor.of_string (Parse.decode_underscores inner) in
     match
@@ -352,8 +352,8 @@ module Handler = struct
     Option.bind (bracket_value_after_hint inner) read
 
   (* A bracket background-image: a gradient, a url(), or a comma-separated layer
-     list. [None] means the bracket is not an image, which [of_class] rejects:
-     [bg-[image:nope]] used to parse and then emit an empty rule. *)
+     list. [None] means the bracket is not an image, which [of_class] rejects,
+     so [bg-[image:nope]] is not a utility. *)
   let image_of_text css_str : Css.background_image option =
     match Css.parse_background_image css_str with
     | Some [ img ] -> Some (Css.minify_background_image img)
@@ -704,8 +704,7 @@ module Handler = struct
           | _, Some ("size", v) -> Ok (Bg_bracket_size v)
           | _ when has_bracket_position_hint inner -> (
               (* The hint forces a background-position; a value the grammar
-                 rejects is not a utility. It used to fall through to a
-                 plausible-looking [center]. *)
+                 rejects is not a utility, never a default [center]. *)
               let v =
                 Option.value (Parse.value_after_hint inner) ~default:inner
               in

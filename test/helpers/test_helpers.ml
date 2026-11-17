@@ -291,12 +291,10 @@ let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
    the reader refuses, or a construct that failed for any other reason is still
    a finding on either side: those hide CSS the browser would have read.
 
-   This used to be allowed on Tailwind's side only, on the premise that tw
-   writes through typed values, so a declaration its own reader refused was a
-   defect in tw rather than a spelling. The token-stream contract overtakes that
-   premise: a bracket no reader took reaches the sheet verbatim because Tailwind
-   puts it there, so [width: [4px]/foo] under [size-[[4px]/foo]] is tw doing
-   what it is held to, and both sides drop the same declaration. See
+   The allowance holds on both sides under the token-stream contract: a bracket
+   no reader took reaches the sheet verbatim because Tailwind puts it there, so
+   [width: [4px]/foo] under [size-[[4px]/foo]] is tw doing what it is held to,
+   and both sides drop the same declaration. See
    docs/token-stream-contract.md. *)
 let browser_drops_too (error : Cascade.Error.t) =
   match (error.kind, error.recovery) with

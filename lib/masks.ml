@@ -281,8 +281,8 @@ module Handler = struct
 
   (* A bracket mask-position: the whole [<position>] grammar, one position per
      mask layer, comma-separated. [None] means the bracket is not a position,
-     which [of_class] rejects: [mask-[position:top]] used to fall through the
-     hand-rolled reading to a plausible-looking [center]. *)
+     which [of_class] rejects, so [mask-[position:top]] is no class at all
+     rather than [center]. *)
   let parse_bracket_position inner : Css.position_value list option =
     let one entry : Css.position_value option =
       let cursor = Cascade.Cursor.of_string (Parse.decode_underscores entry) in

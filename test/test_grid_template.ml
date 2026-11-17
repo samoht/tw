@@ -43,7 +43,7 @@ let of_string_valid () =
   check "auto-rows-max";
   check "auto-rows-fr";
 
-  (* Arbitrary values with mixed units (was crashing on '%' before) *)
+  (* Arbitrary values with mixed units, [%] included *)
   check "grid-cols-[1fr_40%]";
   check "grid-cols-[200px]";
   check "grid-cols-[1fr_2fr]";
@@ -53,7 +53,7 @@ let of_string_valid () =
   check "auto-rows-[1.5rem]";
 
   (* Arbitrary grid functions: repeat()/minmax()/fit-content(), incl. nesting
-     and auto-fill/auto-fit (used to be rejected as unknown classes). *)
+     and auto-fill/auto-fit. *)
   check "grid-cols-[minmax(0,1fr)]";
   check "grid-cols-[repeat(3,minmax(0,1fr))]";
   check "grid-cols-[repeat(2,1fr_2fr)]";
@@ -101,8 +101,7 @@ let of_string_invalid () =
   ()
 
 (* A bracket the track grammar cannot read is not refused: Tailwind hands it to
-   the declaration as written, and so does tw. Reading it must not raise, which
-   [grid-cols-[1fr_40%]] once did mid-run. *)
+   the declaration as written, and so does tw, without raising. *)
 let test_unreadable_tracks_pass_through () =
   Test_helpers.check_declarations "grid-cols-[totally_garbage]"
     [ "grid-template-columns:totally garbage" ];

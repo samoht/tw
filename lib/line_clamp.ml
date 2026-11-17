@@ -62,10 +62,8 @@ module Handler = struct
 
   (* A project [@theme] token is a namespace key, not a value Tailwind type-
      checks at build time: any override of [--line-clamp-none], decimal or not,
-     switches the utility to the variable-driven form. Reading it with
-     [int_of_string_opt] let an OCaml-only spelling like [0x3] through by
-     accident and rejected a spelling like [banana] that Tailwind still honours,
-     so the branch no longer parses the value at all. *)
+     switches the utility to the variable-driven form, so the branch does not
+     parse the value: [banana] switches it too. *)
   let line_clamp_none_style ?theme () =
     match Scheme.theme_value theme "line-clamp-none" with
     | Some value_str ->

@@ -23,8 +23,7 @@ let test_line_clamp_none_theme_override () =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("line-clamp-none", "0x3") ]
   in
   let variable_form theme =
-    (* The whole list: the box properties travel with the clamp, so an affix on
-       the clamp alone passes on a utility that lost them. *)
+    (* The whole list: the box properties travel with the clamp. *)
     Test_helpers.check_declarations ~theme ~minify:false "line-clamp-none"
       [
         "-webkit-line-clamp: var(--line-clamp-none)";

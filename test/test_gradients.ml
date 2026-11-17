@@ -31,10 +31,9 @@ let test_gradient_colors () =
   Alcotest.check string "via-blue-600" "via-blue-600" (Utility.to_class via);
   Alcotest.check string "to-green-500" "to-green-500" (Utility.to_class to_)
 
-(* A theme token keeps the palette's value whichever utility references it. A
-   gradient stop with an opacity used to register [--color-gray-950] as the hex
-   its fallback is built from, so one [to-gray-950/40] on a page moved every
-   other use of the token off the palette's oklch. *)
+(* A theme token keeps the palette's value whichever utility references it: a
+   gradient stop with an opacity registers [--color-gray-950] as the palette's
+   oklch, not as the hex its fallback is built from. *)
 let test_gradient_stop_opacity_theme_colour () =
   let key = "--color-gray-950:" in
   let theme_value cls =
@@ -78,12 +77,11 @@ let test_via_none () =
     [ "--tw-gradient-via-stops: initial" ]
 
 (* Bare bg-radial / bg-conic (and bg-conic-{angle}) set --tw-gradient-position
-   to the default oklab interpolation and the matching gradient image; they used
-   to be unknown classes (only the /interp and bracket forms were handled). *)
+   to the default oklab interpolation and the matching gradient image, as the
+   /interp and bracket forms do. *)
 let test_radial_conic () =
   (* Each writes the position channel and the image, in that order, and nothing
-     else. The affixes these replace checked one declaration each, so bg-radial
-     was never held to emitting only a radial gradient. *)
+     else. *)
   Test_helpers.check_declarations ~minify:false "bg-radial"
     [
       "--tw-gradient-position: in oklab";
@@ -140,9 +138,8 @@ let test_of_string_invalid () =
     (module Tw.Gradients.Handler)
     "bg-red-500"
 
-(* An arbitrary gradient angle in radians is converted to degrees. A negative
-   angle used to come out as its floor plus a positive fraction, so
-   bg-linear-[-0.5rad] rendered -29.3521deg instead of -28.6479deg. *)
+(* An arbitrary gradient angle in radians is converted to degrees, a negative
+   one included: bg-linear-[-0.5rad] is -28.6479deg. *)
 let test_bracket_gradient_radians () =
   let writes cls angle =
     Test_helpers.check_declarations ~minify:false cls
@@ -155,13 +152,9 @@ let test_bracket_gradient_radians () =
   writes "bg-linear-[-0.5rad]" "-28.6479deg";
   writes "bg-linear-[1.3rad]" "74.4845deg"
 
-(* [-bg-linear-[value]] accepts only angles, gated by a check that used to spell
-   "is this an angle" as [String.ends_with ~suffix:"rad" value]. That suffix
-   also matches "grad" (gradians end in "rad" too), so it stripped "100grad"
-   down to "100g", failed to read it as a number, and rejected the class
-   outright where Tailwind accepts it and negates the value as calc(100grad *
-   -1). Reading the bracket as a real CSS angle tells grad and rad apart; a
-   non-angle bracket like [to_bottom] still has to be rejected. *)
+(* [-bg-linear-[value]] accepts only angles, read as a CSS angle so grad and rad
+   stay apart: Tailwind negates [100grad] as calc(100grad * -1). A non-angle
+   bracket like [to_bottom] is rejected. *)
 let test_bracket_gradient_negated_angle_units () =
   Test_helpers.check_declarations ~minify:false "-bg-linear-[100grad]"
     [
@@ -200,13 +193,10 @@ let legacy_gradient_alias_order_matches_tailwind () =
       "bg-linear-[45deg]";
     ]
 
-(* Arbitrary rgb()/rgba() gradient stops set the gradient colour rather than
-   being silently dropped as a position (they used to produce no
-   --tw-gradient-from). *)
+(* Arbitrary rgb()/rgba() gradient stops set the gradient colour, not a
+   position. *)
 let test_gradient_rgba_stop () =
-  (* The whole list. The affixes these replace were prefixes of the [-position]
-     channels, so either would have passed on a utility that set only a position
-     - the very thing the test was written to rule out. *)
+  (* The whole list, so a utility that set only a [-position] channel fails. *)
   Test_helpers.check_declarations ~minify:false "from-[rgba(5,74,218,0.60)]"
     [
       "--tw-gradient-from: #054ada99";
@@ -226,7 +216,7 @@ let test_gradient_rgba_stop () =
 
 (* A gradient stop-position utility (from-10%) registers the whole
    --tw-gradient-* @property family, like the colour utilities, matching the
-   CLI. It used to register only the three *-position properties. *)
+   CLI. *)
 let test_gradient_stop_position_properties () =
   let css =
     match Tw.of_string "from-10%" with
@@ -327,8 +317,7 @@ let test_gradient_stop_position_token_stream () =
 
 (* A gradient interpolation modifier names a colour space. Tailwind writes an
    unknown one through as [in <space>], so only the shapes it refuses are
-   refused here; the ones it took used to raise out of [to_css], and the linear
-   forms silently dropped the modifier instead. *)
+   refused here, and the linear forms keep the modifier too. *)
 let test_gradient_interpolation () =
   let rejected =
     Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
@@ -361,9 +350,7 @@ let test_gradient_interpolation () =
   has "bg-conic/[in_hsl_longer_hue]" "conic" "in hsl longer hue";
   (* The linear forms carry the modifier into the @supports rule rather than
      dropping it, so they write the channel twice: the angle alone for a browser
-     without interpolation, then the interpolated form. The affixes these
-     replace named only the second, and so never said what the fallback a
-     browser actually reaches is. *)
+     without interpolation, then the interpolated form. *)
   let has_linear cls angle =
     Test_helpers.check_declarations ~minify:false cls
       [
@@ -402,8 +389,7 @@ let test_bracket_data_type_hint_reads_the_value () =
 
 (* A stop written as a length or a percentage sets the stop's position, and a
    position takes no modifier: Tailwind names no utility for [from-[10px]/50],
-   hinted or not, and for the var() a hint types as one. tw read the bracket as
-   a colour once a modifier followed it and mixed the length. *)
+   hinted or not, and for the var() a hint types as one. *)
 let test_gradient_position_refuses_modifier () =
   let invalid =
     Test_helpers.check_invalid_input (module Tw.Gradients.Handler)
@@ -424,8 +410,7 @@ let test_gradient_position_refuses_modifier () =
    Tailwind's polyfill writes: the bare value in the open, for a browser with no
    [color-mix()], and the mix behind the colour-mix guard, reading the property
    the class named. A named token reads the theme's percentage into an sRGB mix
-   in the open and the token itself behind the guard. tw folded every modifier
-   it could not read to [100%] and wrote nothing beside it. *)
+   in the open and the token itself behind the guard. *)
 let test_gradient_raw_stop_modifier () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]

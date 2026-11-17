@@ -23,8 +23,7 @@ let test_ring_of_string_valid () =
 
 (* A colour the project's [@theme] declares names a ring colour the way a
    shadeless palette colour does, with an optional [/opacity], on the ring, the
-   inset ring and the offset. The three arms read the palette alone, so
-   [ring-brand] was an unknown class where [shadow-brand] was not. *)
+   inset ring and the offset, as [shadow-brand] does. *)
 let test_ring_theme_colour () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-brand", "#123456") ]
@@ -74,7 +73,7 @@ let test_ring_shadeless_color () =
   Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility "ring-red"
 
 (* ring-inset registers the ring/shadow @property family, like the other ring
-   utilities; it used to emit only the --tw-ring-inset declaration. *)
+   utilities, beside its --tw-ring-inset declaration. *)
 let test_ring_inset_property_rules () =
   let open Tw in
   let css =
@@ -90,9 +89,7 @@ let test_ring_inset_property_rules () =
 
 (* The ring, inset ring and ring offset colours take the same modifier the same
    way: a palette colour, [currentcolor] or a bracket [var()] whose modifier
-   reads a custom property mixes that property into the guarded value. Each
-   family kept its own copies of the opacity arms, and every one folded the
-   modifier to a percentage, so the guarded mix said [100%]. *)
+   reads a custom property mixes that property into the guarded value. *)
 let test_ring_colour_opacity_var () =
   let mixed var cls fallback colour =
     Test_helpers.check_declarations ~minify:false cls
@@ -137,9 +134,7 @@ let test_ring_bracket_hex_named_opacity () =
 (* A shadeless palette colour names the ring offset the way it names the ring:
    Tailwind 4.3.3 writes [--tw-ring-offset-color:var(--color-white)] for
    [ring-offset-white], and folds an opacity into [#ffffff80] beside a
-   [color-mix()]. Only the ring had a shadeless arm, so [ring-offset-white] and
-   [ring-offset-black] reached the width reader and were unknown classes. A bare
-   number after [ring-offset-] is still a width. *)
+   [color-mix()]. A bare number after [ring-offset-] is still a width. *)
 let test_ring_offset_shadeless_color () =
   Test_helpers.check_declarations "ring-offset-white"
     [ "--tw-ring-offset-color:var(--color-white)" ];
@@ -168,9 +163,8 @@ let test_ring_offset_shadeless_color () =
 
 (* A bracket ring width is the ring [ring-2] draws with its width replaced: it
    reads [--tw-ring-inset] and [--tw-ring-color], and declares them, as the
-   scale does. [ring-[3px]] left both out of the properties layer, so the sheet
-   dropped the reads and the ring lost its inset toggle and its colour. A width
-   takes no opacity: Tailwind compiles nothing for [ring-[3px]/50]. *)
+   scale does, so the ring keeps its inset toggle and its colour. A width takes
+   no opacity: Tailwind compiles nothing for [ring-[3px]/50]. *)
 let test_ring_bracket_width_reads_its_variables () =
   Test_helpers.check_declarations "ring-[3px]"
     [

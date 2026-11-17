@@ -59,8 +59,8 @@ let ensure_style_el () =
 let set_text_content el s = El.set_children el [ El.txt (Jstr.v s) ]
 
 (* Fold everything registered so far into [main_el] with one from-scratch
-   compile, matching exactly what a full rebuild produces today, and drop the
-   delta elements it now supersedes. *)
+   compile, so it holds exactly what a full rebuild produces, and drop the delta
+   elements it supersedes. *)
 let consolidate () =
   let el = ensure_style_el () in
   let styles = List.rev !all_styles in

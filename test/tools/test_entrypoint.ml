@@ -232,9 +232,9 @@ let test_layered_import_hoists_to_the_top () =
    This is the invariant a parity comparison misses: the rule [@apply] emits is
    byte-identical to the reference in every one of these cases, so a diff of
    the utilities layer passes while the page renders unstyled, because nothing
-   declares the token the rule reads. Colours and spacing hid it for a long
-   time - those two are rescued downstream by [Build.referenced_theme_decls],
-   so the families that carry their own namespace were the only ones broken.
+   declares the token the rule reads. Colours and spacing are declared
+   downstream by [Build.referenced_theme_decls]; the families that carry their
+   own namespace are not.
 
    The check is self-contained rather than a comparison, so it needs no CLI and
    holds for any utility added later. *)
@@ -287,9 +287,8 @@ let check_no_dangling_var label css =
         (String.concat ", --" missing)
         css
 
-(* One per theme namespace a utility reads through [var()]. The six spellings
-   that were always right are here too, so a fix that trades one for the other
-   cannot pass. *)
+(* One per theme namespace a utility reads through [var()], colours and spacing
+   included. *)
 let applied_utilities =
   [
     "rounded-lg";
@@ -370,17 +369,13 @@ let test_apply_declared_utility () =
    tw the way the [tw] CLI compiles a project and by the pinned CLI, and the two
    sheets compared whole.
 
-   Every defect found in this area since the corpus went in has been invisible
-   to the markup sweeps: the utility rules were byte-identical and only the
-   theme layer differed, or a value shorthand passed through unexpanded and the
-   browser dropped the declaration. A class list cannot reach any of it, so the
+   A class list cannot reach a theme layer that differs under byte-identical
+   utility rules, or a value shorthand passed through unexpanded, so the
    entrypoint is the unit under test.
 
    A case declares what the CLI says about it: parity, or a divergence with the
-   reason it is one. Either verdict can fail. A divergence that starts matching
-   fails as surely as a parity case that stops, so a gap that gets fixed reports
-   itself rather than going quiet, and the change that fixes it moves the case
-   to parity. *)
+   reason it is one. Either verdict can fail: a divergence that starts matching
+   fails as surely as a parity case that stops, and must move to parity. *)
 type verdict = Parity | Diverges of string
 
 type case = {

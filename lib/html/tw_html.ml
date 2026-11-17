@@ -432,7 +432,6 @@ let style ?at ?(tw = []) css =
     forms = false;
   }
 
-(* Void is now an alias for empty *)
 let void = empty
 
 (* Forms *)

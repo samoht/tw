@@ -10,13 +10,13 @@ let of_string_valid () =
   check_display "flex";
   check_display "inline-flex";
 
-  (* Direction - now in Flex_layout *)
+  (* Direction, owned by Flex_layout *)
   check_layout "flex-row";
   check_layout "flex-row-reverse";
   check_layout "flex-col";
   check_layout "flex-col-reverse";
 
-  (* Wrap - now in Flex_layout *)
+  (* Wrap, owned by Flex_layout *)
   check_layout "flex-wrap";
   check_layout "flex-wrap-reverse";
   check_layout "flex-nowrap";

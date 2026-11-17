@@ -6,13 +6,10 @@ let basic_svg () =
   check_class "fill-none" Tw.Svg.fill_none;
   check_class "stroke-2" Tw.Svg.stroke_2
 
-(* Shadeless stroke colours (stroke-white/black) used to be swallowed by the
-   stroke-width case and rejected; the width case now only matches integers, so
-   they reach the colour parse. *)
+(* The stroke-width case matches integers only, so shadeless stroke colours
+   (stroke-white/black) reach the colour parse. *)
 let stroke_shadeless_colors () =
-  (* The whole list, which is what "parses as a colour, not a width" means: the
-     affix on [stroke:] left open whether a [stroke-width] was written beside
-     it. *)
+  (* The whole list: a colour and no [stroke-width] beside it. *)
   Test_helpers.check_declarations "stroke-white" [ "stroke:var(--color-white)" ];
   Test_helpers.check_declarations "stroke-black" [ "stroke:var(--color-black)" ];
   (* Integer widths still parse as widths, not colours. The [px] is Tailwind's
@@ -50,8 +47,7 @@ let stroke_arbitrary_width_units () =
 
 (* A bracket that is not a length is not a width, and it is not rendered as a
    zero width either: the colour is this family's last resort, so it reaches
-   [stroke] verbatim, which is what the CLI writes. Each of these used to be
-   refused, which dropped the selector. *)
+   [stroke] verbatim, which is what the CLI writes. *)
 let stroke_arbitrary_width_invalid () =
   let strokes cls value =
     Test_helpers.check_declarations cls [ "stroke:" ^ value ]
@@ -70,12 +66,9 @@ let stroke_width_rejects_ocaml_literals () =
     [ "stroke-0x4"; "stroke-04"; "stroke-1_0" ]
 
 (* A bracket colour CSS names without spelling it as a function - a named
-   colour, a keyword - is a stroke colour too. The stroke reader told colours
-   from widths by looking for a [#] or a colour function, so
-   [stroke-[rebeccapurple]] fell through to the width reader and was refused. An
-   opacity modifier then folds into the colour the bracket named: fill and
-   stroke read the bracket text back as a hex and answered black for every
-   colour with no hex spelling. *)
+   colour, a keyword - is a stroke colour too, so [stroke-[rebeccapurple]] is a
+   colour and not a width. An opacity modifier folds into the colour the bracket
+   names, whether or not it is spelled as a hex. *)
 let bracket_named_color () =
   let emits decl cls = Test_helpers.check_declarations cls [ decl ] in
   emits "stroke:rebeccapurple" "stroke-[rebeccapurple]";
@@ -140,9 +133,8 @@ let bracket_data_type_hint_reads_the_value () =
     (Tw.pp (Result.get_ok (Tw.of_string "stroke-[length:notawidth]")))
 
 (* A modifier reading a custom property mixes that property into the guarded
-   value on a bracket [var()] as on a palette colour. The bracket-var arms
-   folded the modifier to a percentage, which a var() has none of, so the mix
-   said [100%] and the modifier was dropped. *)
+   value on a bracket [var()] as on a palette colour, rather than folding it to
+   a percentage the var() does not have. *)
 let bracket_var_opacity_var () =
   let mixed cls property =
     Test_helpers.check_declarations ~minify:false cls
@@ -157,9 +149,9 @@ let bracket_var_opacity_var () =
   mixed "stroke-[color:var(--c)]/[var(--o)]" "stroke"
 
 (* A named [--opacity-*] token is read off the theme before the bracket is read,
-   or the modifier stays glued to the bracket: [fill-[var(--c)]/half] painted
-   the text [[var(--c)]/half] and [fill-[#123456]/half] a declaration no reader
-   takes, where Tailwind mixes [var(--opacity-half)] into both. *)
+   or the modifier stays glued to the bracket. Tailwind mixes
+   [var(--opacity-half)] into both [fill-[var(--c)]/half] and
+   [fill-[#123456]/half]. *)
 let bracket_named_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]

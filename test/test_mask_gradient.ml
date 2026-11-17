@@ -110,9 +110,8 @@ let test_arbitrary_stop_position () =
 let invalid = Test_helpers.check_invalid_input (module Tw.Mask_gradient.Handler)
 
 (* A bare stop is a spacing step or a whole percentage. Tailwind reads the step
-   in quarters, so 2.25 is one where tw stopped at halves, and a percentage has
-   to be a whole number spelled without a sign, bracketed or not: 12.5% is no
-   stop at all. *)
+   in quarters, so 2.25 is one, and a percentage has to be a whole number
+   spelled without a sign, bracketed or not: 12.5% is no stop at all. *)
 let test_steps_and_percentages () =
   has "mask-linear-from-2.25"
     "--tw-mask-linear-from-position: calc(var(--spacing) * 2.25);";
@@ -137,8 +136,8 @@ let test_steps_and_percentages () =
 
 (* Tailwind reads a bracket stop by its data-type hint, or infers one when the
    author wrote none: a hex, a colour function or a colour keyword is the stop's
-   colour, a var() or anything else its position. tw read every bracket as a
-   position, and wrote a hint into the sheet rather than peeling it. *)
+   colour, a var() or anything else its position. A hint is peeled, never
+   written into the sheet. *)
 let test_bracket_stop_classification () =
   has "mask-linear-from-[#fff]" "--tw-mask-linear-from-color: #fff;";
   has "mask-linear-from-[red]" "--tw-mask-linear-from-color: red;";
@@ -165,8 +164,7 @@ let test_bracket_stop_classification () =
   invalid "mask-linear-from-[:10px]"
 
 (* A bracket position goes into the sheet as the author spelled it, sign and
-   dashes included, and a --spacing() call is the step it computes. tw refused
-   every bracket opening with a dash. *)
+   dashes included, and a --spacing() call is the step it computes. *)
 let test_bracket_position_spellings () =
   has "mask-linear-from-[-10px]" "--tw-mask-linear-from-position: -10px;";
   has "mask-linear-from-[--x]" "--tw-mask-linear-from-position: --x;";
@@ -177,8 +175,7 @@ let test_bracket_position_spellings () =
   check "mask-linear-from-[--spacing(4)]"
 
 (* The (--x) shorthand names a custom property, and the degenerate (--) one with
-   an empty name: Tailwind writes var(--) for it whatever the hint, where tw
-   wrote var(----) for the colour and the length hint into the value. *)
+   an empty name: Tailwind writes var(--) for it whatever the hint. *)
 let test_degenerate_var_shorthand () =
   has "mask-linear-from-(color:--)" "--tw-mask-linear-from-color: var(--);";
   has "mask-linear-from-(length:--)" "--tw-mask-linear-from-position: var(--);";
@@ -194,8 +191,7 @@ let test_degenerate_var_shorthand () =
    colour utility does: a palette entry writes what a browser without
    color-mix() reads in the open and the mix behind the guard, a bracket colour
    mixes in place, a var() and currentcolor keep their own value in the open,
-   and 100% is the colour itself. A position takes no modifier. tw refused every
-   modifier on a stop.
+   and 100% is the colour itself. A position takes no modifier.
 
    In the open, Tailwind writes the palette entry's sRGB mix and tw the hex it
    resolves to, the way every colour family here does; the two render alike. *)

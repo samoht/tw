@@ -5,9 +5,8 @@ let check = check_handler_roundtrip (module Tw.Content.Handler)
 
 let test_content () =
   check "content-none";
-  (* Arbitrary content round-trips with its original quote style: the
-     double-quoted form already worked, the single-quoted form used to mangle to
-     content-[["x"]]. *)
+  (* Arbitrary content round-trips with its original quote style, single quotes
+     included. *)
   check "content-[\"x\"]";
   check "content-['x']";
   (* unquoted function values *)
@@ -18,8 +17,8 @@ let test_content () =
     [ "--tw-content:attr(before)"; "content:var(--tw-content)" ]
 
 (* content-<token> parses only when the @theme defines --content-<token>; a bare
-   word like content-wrapper with no token is rejected (it used to parse as a
-   named content value, a false positive Tailwind does not emit). *)
+   word like content-wrapper with no token is rejected, as Tailwind emits
+   nothing for it. *)
 let test_content_named_requires_theme () =
   Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
     (module Tw.Content.Handler)

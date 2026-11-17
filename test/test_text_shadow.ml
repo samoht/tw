@@ -17,16 +17,15 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Text_shadow.Handler) "text-shadow"
 
 (* The v4.3.1 default text-shadow scale: text-shadow-2xs uses alpha .15
-   (#00000026), not the .1 (#0000001a) tw emitted before theme-threading. *)
+   (#00000026). *)
 let test_default_scale () =
-  (* The whole declaration. A bare hex could match the theme binding rather than
-     the utility, which is exactly what this test is about. *)
+  (* The whole declaration: a bare hex could match the theme binding rather than
+     the utility. *)
   Test_helpers.check_declarations "text-shadow-2xs"
     [ "text-shadow:0px 1px 0px var(--tw-text-shadow-color,#00000026)" ]
 
 (* A threaded @theme override for the text-shadow token flows through to the
-   inlined value (here .1 = #0000001a), which is impossible without
-   threading. *)
+   inlined value (here .1 = #0000001a). *)
 let test_theme_override () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -39,7 +38,7 @@ let test_theme_override () =
    fallback Tailwind emits before its guarded [color-mix()] declaration. *)
 let test_palette_color_keeps_oklch () =
   (* Both arms: the unguarded fallback in its authored OKLCH, then the mix
-     behind the guard. The affix named the first alone. *)
+     behind the guard. *)
   Test_helpers.check_declarations "text-shadow-sky-300"
     [
       "--tw-text-shadow-color:oklch(82.8%.111 230.318)";
@@ -47,9 +46,8 @@ let test_palette_color_keeps_oklch () =
        var(--tw-text-shadow-alpha),transparent)";
     ]
 
-(* An arbitrary text-shadow reads every CSS length, not the px/rem/em subset. A
-   token that is not a length used to drop out of the list and shift its
-   neighbours along, so [0 1ch 2px] became a two-length [0 2px]. *)
+(* An arbitrary text-shadow reads every CSS length, not the px/rem/em subset, so
+   [0 1ch 2px] keeps its three lengths. *)
 let test_arbitrary_lengths () =
   (* The whole list, which is what says the bare form writes one declaration and
      the modified form writes two: the alpha channel travels with the value, and
@@ -72,8 +70,7 @@ let test_arbitrary_lengths () =
    function made the whole value stop being a shadow. A static one folds to its
    hex form; one with a channel that has no byte value stays as written. *)
 let test_arbitrary_color_function () =
-  (* The whole declaration, offsets included: an affix on the colour slot said
-     nothing about the lengths in front of it. *)
+  (* The whole declaration, the lengths in front of the colour included. *)
   let emits cls shadow =
     Test_helpers.check_declarations cls [ "text-shadow:" ^ shadow ]
   in
@@ -145,10 +142,8 @@ let test_arbitrary_named_colour () =
   Test_helpers.check_class_matches_tailwind "text-shadow-[0_1px_notacolour]"
 
 (* A [#] value is only a colour when what follows is a hex spelling, both as the
-   whole bracket and as the colour of an arbitrary shadow. The reader kept the
-   text after the [#] as-is and the raising constructor saw it when the sheet
-   was rendered, so a malformed hex escaped as an exception instead of failing
-   the parse. *)
+   whole bracket and as the colour of an arbitrary shadow. A malformed hex fails
+   the parse rather than raising when the sheet is rendered. *)
 let test_invalid_bracket_hex () =
   colour_channel_holds_a_token "text-shadow-[#zz]";
   colour_channel_holds_a_token "text-shadow-[#]";
@@ -165,9 +160,8 @@ let test_invalid_bracket_hex () =
   Test_helpers.check_declarations "text-shadow-[0_1px_2px_#ff0000]"
     [ "text-shadow:0 1px 2px var(--tw-text-shadow-color,#f00)" ]
 
-(* A bracket colour is a colour whatever spelling it takes. The bare-colour arm
-   reached only the hex reader, so a name, an [oklch()] or an [rgb()] fell
-   through to the arbitrary-shadow reader and was rejected outright. *)
+(* A bracket colour is a colour whatever spelling it takes: a hex, a name, an
+   [oklch()] or an [rgb()]. *)
 let test_bracket_plain_colour () =
   (* Both arms of each: unguarded, then the mix behind the @supports guard. *)
   let emits cls colour =
@@ -247,9 +241,8 @@ let test_colour_opacity_var () =
     ]
 
 (* The [color:] hint says the payload is a colour, not that it names a variable.
-   Every payload was read as a variable name, so [text-shadow-[color:red]]
-   emitted [var(--red)] where Tailwind emits [red]. A [var()] payload still
-   reads as one, and the class name keeps the hint. *)
+   [text-shadow-[color:red]] emits [red], as Tailwind does. A [var()] payload
+   reads as a variable, and the class name keeps the hint. *)
 let test_colour_hint_takes_a_colour () =
   let has cls colour mixed =
     Test_helpers.check_declarations cls
@@ -274,8 +267,8 @@ let test_colour_hint_takes_a_colour () =
           (Result.get_ok (Tw.of_string "text-shadow-[color:red]"))))
 
 (* The [shadow:] hint says the payload is a shadow, not that it names a
-   variable. [text-shadow-[shadow:12px_12px_#0088cc]] wrote [text-shadow:
-   var(--12px_12px_#0088cc)]. *)
+   variable: [text-shadow-[shadow:12px_12px_#0088cc]] is no
+   [var(--12px_12px_#0088cc)]. *)
 let test_shadow_hint_takes_a_shadow () =
   Test_helpers.check_declarations "text-shadow-[shadow:12px_12px_#0088cc]"
     [ "text-shadow:12px 12px var(--tw-text-shadow-color,#08c)" ];
@@ -330,11 +323,11 @@ let test_underscore_escape () =
     [ "text-shadow: 0 0 1px var(--tw-text-shadow-color, var(--a_b))" ]
 
 (* A project [--text-shadow-<name>] is a text-shadow utility, with the modifier
-   the scale takes: [text-shadow-pop] and [text-shadow-pop/50] were unknown
-   classes. Its layers read as a box shadow's do, a trailing [var()] being the
-   colour, and under a modifier a [var()] layer keeps its authored colour in the
-   open and takes the alpha behind the relative colour guard, with the
-   [color-mix()] guard for a [currentcolor] layer nested inside. *)
+   the scale takes: [text-shadow-pop] and [text-shadow-pop/50]. Its layers read
+   as a box shadow's do, a trailing [var()] being the colour, and under a
+   modifier a [var()] layer keeps its authored colour in the open and takes the
+   alpha behind the relative colour guard, with the [color-mix()] guard for a
+   [currentcolor] layer nested inside. *)
 let test_project_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -374,9 +367,8 @@ let test_project_token () =
 
 (* A text shadow read whole from a custom property takes a modifier, under the
    [shadow:] hint as well: the alpha channel is set and the value kept, as
-   Tailwind writes it. The bare form was refused, and the hinted one dropped the
-   modifier from the name and the value; a hinted literal shadow folds the alpha
-   as the plain bracket does. *)
+   Tailwind writes it, and the modifier stays in the name. A hinted literal
+   shadow folds the alpha as the plain bracket does. *)
 let test_var_shadow_takes_a_modifier () =
   Test_helpers.check_declarations "text-shadow-[var(--s)]/50"
     [ "--tw-text-shadow-alpha:50%"; "text-shadow:var(--s)" ];

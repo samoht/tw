@@ -153,7 +153,7 @@ let test_family_decimal_suffixes_reject_non_decimal_spellings () =
 
 (* The opacity modifier rides on every colour utility, so one reader that admits
    an OCaml literal admits it across the whole palette. The shade is the same
-   suffix a step earlier: [bg-red-0500] emitted [.bg-red-500]. *)
+   kind of suffix, so [bg-red-0500] is refused too. *)
 let test_colour_modifier_rejects_non_decimal_spellings () =
   List.iter unknown
     [
@@ -169,8 +169,7 @@ let test_colour_modifier_rejects_non_decimal_spellings () =
       "text-red-0x500";
     ]
 
-(* A fraction is two plain decimals: [w-04/2] emitted [width: 200%] for a class
-   Tailwind does not emit at all. *)
+(* A fraction is two plain decimals: Tailwind emits nothing for [w-04/2]. *)
 let test_fraction_suffixes_reject_non_decimal_spellings () =
   List.iter unknown
     [
@@ -220,9 +219,8 @@ let test_family_suffixes_round_trip () =
     ]
 
 (* A spacing suffix is read as a float and its scale printed back as an int.
-   Past 2^53 the float no longer holds the integer written, and past 2^62 the
-   int wraps round: [p-100000000000000000000] emitted [.p-1] with a negative
-   padding, overriding the real [p-1]. Such a suffix names nothing. *)
+   Past 2^53 the float does not hold the integer written, and past 2^62 the int
+   wraps round, so such a suffix names nothing. *)
 let test_huge_spacing_suffixes_are_rejected () =
   List.iter unknown
     [
@@ -583,9 +581,9 @@ let test_alpha_call () =
 
 (* Tailwind substitutes [--alpha(<color>/<alpha>)] wherever it stands in an
    arbitrary value, as it does [--spacing()], writing the [color-mix()] it
-   denotes in its place: the call was read only when it was the whole value. The
-   alpha is scaled the way {!Tw.Parse.alpha_call} scales it, a whole one leaves
-   the colour itself, and a call missing either half stays as written for the
+   denotes in its place, not only when the call is the whole value. The alpha is
+   scaled the way {!Tw.Parse.alpha_call} scales it, a whole one leaves the
+   colour itself, and a call missing either half stays as written for the
    refusal that follows. The same bytes inside a quoted string are a string
    literal. *)
 let test_alpha_fn_expands_in_place () =

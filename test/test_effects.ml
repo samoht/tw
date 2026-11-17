@@ -28,9 +28,9 @@ let of_string_valid () =
 
 (* A project shadow takes a [/opacity] the way a built-in size does: the
    modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
-   does, and [--tw-shadow-alpha] carries it. [shadow-card/50] was an unknown
-   class. An arbitrary shadow whose colour carries an alpha of its own folds the
-   same way; the colour's alpha was kept or multiplied instead. *)
+   does, and [--tw-shadow-alpha] carries it. An arbitrary shadow whose colour
+   carries an alpha of its own folds the same way: the modifier's alpha replaces
+   the colour's. *)
 let test_project_shadow_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -71,9 +71,9 @@ let test_project_shadow_opacity () =
    utility supplies the keyword, so Tailwind writes the author's on top of it,
    [inset inset 0 1px red]: a value a registered [syntax: "*"] property holds
    and the [box-shadow] composition then cannot compute, so the element draws no
-   shadow at all. That value has no typed form; refusing the class draws nothing
-   for it, where tw used to draw the shadow the author did not get.
-   [check_invalid_input] does not apply: Tailwind compiles the class. *)
+   shadow at all. That value has no typed form, and refusing the class draws
+   nothing for it either. [check_invalid_input] does not apply: Tailwind
+   compiles the class. *)
 let test_inset_shadow_bracket_refuses_inset () =
   List.iter
     (fun cls ->
@@ -241,8 +241,8 @@ let test_inset_shadow_roundtrip () =
   check "inset-shadow-sm"
 
 let test_inset_shadow_invalid () =
-  (* Bare inset-shadow has no v4.3.1 default token, and md/lg/xl/2xl were
-     removed from the scale. *)
+  (* Bare inset-shadow has no v4.3.1 default token, and the scale has no
+     md/lg/xl/2xl. *)
   Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow";
   Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow-md";
   Test_helpers.check_invalid_input
@@ -272,9 +272,8 @@ let test_inset_shadow_theme_override () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("inset-shadow-sm", "inset 0 1px 1px rgb(0 0 0 / 0.05)") ]
   in
-  (* The whole list, which is where "drops the default" is said: it used to be a
-     second search for a spelling that must not appear, and a sheet with no rule
-     in it satisfies that too. *)
+  (* The whole list, which is where "drops the default" is said; a search for
+     the default's absence would also pass on a sheet with no rule in it. *)
   Test_helpers.check_declarations ~theme "inset-shadow-sm"
     [
       "--tw-inset-shadow:inset 0 1px 1px var(--tw-inset-shadow-color,rgb(0 0 \
@@ -284,14 +283,10 @@ let test_inset_shadow_theme_override () =
 
 (* The override is read through the CSS shadow grammar, so it carries whatever
    that grammar allows: a length in any unit, a fourth length for the spread,
-   and the colour in the spelling the project wrote. The reader used to take a
-   [px] or [rem] suffix and a three-length body only, and answered nothing for
-   the rest, which put the built-in [inset 0 2px 4px] in the sheet and lost the
-   override without saying so. *)
+   and the colour in the spelling the project wrote. *)
 let test_inset_shadow_theme_override_grammar () =
-  (* The whole list per override. "The default is not substituted" was a search
-     for a spelling that must not appear; the list says it by construction, and
-     also that the colour the project wrote reached the fallback slot. *)
+  (* The whole list per override says the default is not substituted, and that
+     the colour the project wrote reaches the fallback slot. *)
   let holds ~override body =
     let theme =
       Tw.Scheme.with_overrides Tw.Scheme.default
@@ -417,13 +412,8 @@ let test_arbitrary_shadow_lengths () =
   inset_shadow "inset-shadow-[0_bogus_2px]"
     "inset 0 var(--tw-inset-shadow-color,bogus) 2px"
 
-(* An arbitrary inset shadow whose colour is one CSS knows by name. Two readers
-   decide the bracket between them: the one that accepts it as a shadow reads
-   every colour spelling, the one that then builds the value knows only a hex, a
-   var() and a colour function. A named colour passed the first and failed the
-   second, so the whole shadow fell out as [inset-shadow-none] - lengths, spread
-   and colour together. A token that is no colour at all, such as [bogus], never
-   reached the second reader and was right throughout. *)
+(* An arbitrary inset shadow whose colour is one CSS knows by name keeps its
+   lengths, spread and colour, in a single shadow and in a layer list. *)
 let test_arbitrary_inset_shadow_named_colour () =
   let inset_shadow cls value =
     Test_helpers.check_declarations cls
@@ -439,19 +429,17 @@ let test_arbitrary_inset_shadow_named_colour () =
     "inset 0 0 var(--tw-inset-shadow-color,red),inset 0 0 \
      var(--tw-inset-shadow-color,blue)"
 
-(* The same bracket under an opacity modifier. The reader that builds the value
-   there has no fall-back to the reader that accepted the bracket, so a colour
-   keyword, a leading colour, the [inset] keyword and a layer list all lost the
-   whole shadow and the modifier with it.
+(* The same bracket under an opacity modifier: a colour keyword, a leading
+   colour, the [inset] keyword and a layer list each keep the shadow and the
+   modifier.
 
    Tailwind writes the colour as [oklab(from <colour> l a b / <alpha>)] and lets
    its minifier fold it, so a colour whose value is fixed where it is written
    arrives folded and unguarded; the modifier's alpha replaces the colour's own
    rather than multiplying it.
 
-   The two neighbours are pinned alongside because a fix to one reader can break
-   the other: a hex already folded correctly, and a token that is no colour at
-   all never reaches this reader. *)
+   The two neighbours are pinned alongside, as they take other readers: a hex,
+   and a token that is no colour at all. *)
 let test_arbitrary_shadow_named_colour_opacity () =
   let red_50 = "oklab(62.79553606%.22486306 .1258463/.5)" in
   let shadow cls value =
@@ -576,8 +564,7 @@ let test_arbitrary_shadow_colour_opacity () =
 (* A bracket colour with no sRGB hex - [oklch()] and the other wide-gamut
    spellings - has no hex to fold the modifier's alpha into, so the alpha has to
    stay a mix. Tailwind writes the plain fallback in sRGB and the guarded value
-   in oklab; the colour used to fall through untouched, which painted the shadow
-   fully opaque and dropped the modifier. *)
+   in oklab. *)
 let test_bracket_colour_opacity_without_hex () =
   Test_helpers.check_declarations "shadow-[oklch(0.7_0.1_200)]/50"
     [
@@ -594,9 +581,8 @@ let test_bracket_colour_opacity_without_hex () =
     ]
 
 (* A hex bracket colour whose modifier reads a custom property keeps that
-   property inside the guarded [color-mix]. The hex arm folded the modifier into
-   an alpha byte, which a var() has no value for, so the modifier was dropped
-   and the shadow painted fully opaque.
+   property inside the guarded [color-mix] rather than folding it into an alpha
+   byte, which a var() has no value for.
 
    Read unminified: the CLI keeps the [#f00] the class wrote, and minified
    printing folds a colour to its shortest hex, so an expanded [#ff0000] reads
@@ -618,9 +604,7 @@ let test_bracket_hex_opacity_var () =
 
 (* A palette colour, [currentcolor] or a [color:var()] whose modifier reads a
    custom property mixes that property into the guarded value, the way the
-   bracket hex above does. The shared channel builders folded every modifier to
-   a percentage, which a var() has none of, so the guarded mix said [100%] and
-   the modifier was dropped. The plain fallback keeps the colour whole: a var()
+   bracket hex above does. The plain fallback keeps the colour whole: a var()
    gives it no percentage to carry. *)
 let test_palette_colour_opacity_var () =
   let mixed colour alpha =
@@ -651,8 +635,7 @@ let test_palette_colour_opacity_var () =
 
 (* An [--alpha()] standing among a bracket shadow's lengths is the colour it
    denotes, as it is anywhere in an arbitrary value: Tailwind writes the
-   [color-mix()] in its place and the shadow reads on. The bracket read the call
-   only as a whole value, so a shadow spelling one was refused. *)
+   [color-mix()] in its place and the shadow reads on. *)
 let test_bracket_shadow_alpha_fn () =
   let composition =
     "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
@@ -678,7 +661,7 @@ let test_bracket_shadow_alpha_fn () =
    property or [currentcolor] is written with the mix's first colour behind the
    family's channel in the open, and as written behind the colour-mix guard,
    with the composition after both. A mix the author spelled out reads the same
-   as one an [--alpha()] expands to. tw wrote the mix alone. *)
+   as one an [--alpha()] expands to. *)
 let test_bracket_shadow_mix_polyfill () =
   let composition =
     "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
@@ -717,12 +700,11 @@ let test_bracket_shadow_mix_polyfill () =
       composition;
     ]
 
-(* A named [--opacity-*] token is read off the theme before the bracket, or the
-   modifier stays glued to it: [shadow-[color:var(--c)]/half] was a shadow
-   spelled [[color:var(--c)]/half], a class no markup carries, where Tailwind
-   mixes [var(--opacity-half)] into the colour. A shadow size under the token is
-   the size alone: Tailwind reads no alpha off a named modifier there and writes
-   the shadow as if none were given. *)
+(* A named [--opacity-*] token is read off the theme before the bracket, so the
+   modifier does not stay glued to it: Tailwind mixes [var(--opacity-half)] into
+   the colour of [shadow-[color:var(--c)]/half]. A shadow size under the token
+   is the size alone: Tailwind reads no alpha off a named modifier there and
+   writes the shadow as if none were given. *)
 let test_bracket_named_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
@@ -757,9 +739,6 @@ let test_bracket_named_opacity () =
    comes from a separate, correctly-scaled computation, so --tw-shadow-alpha
    here is a plain, unconverted echo of what the class wrote. *)
 let test_shadow_bracket_alpha_tracking () =
-  (* The [lacks] checks that used to sit beside each list here - "no
-     --tw-shadow-alpha:2500%" - said nothing the list does not already say, and
-     passed on a sheet with no rule in it. *)
   let shadow_lg alpha painted =
     [
       "--tw-shadow-alpha:" ^ alpha;
@@ -850,9 +829,8 @@ let test_arbitrary_bracket_color_token_stream () =
       composes_box_shadow;
     ]
 
-(* A shade the palette does not define is not a colour. These utilities read the
-   shade without checking it, so the class was accepted and then rendered a
-   fabricated black or a reference to a variable no theme declares. *)
+(* A shade the palette does not define is not a colour, so the class is refused
+   rather than rendering a variable no theme declares. *)
 let test_undefined_shade () =
   let rejected =
     Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
@@ -912,7 +890,7 @@ let test_arbitrary_opacity_token_stream () =
 (* A [--shadow-*] or [--inset-shadow-*] token the project declared in its
    [@theme] names a shadow the built-in scale has no slot for. Tailwind
    generates the utility from each, routing the colour through the family's
-   shadow-colour channel; tw rejected both outright. *)
+   shadow-colour channel. *)
 let test_project_shadow_tokens () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -1018,7 +996,7 @@ let test_project_shadow_trailing_var_colour () =
    takes the alpha through a [color-mix()] behind its own guard, which nests
    inside the relative one when both are needed. A list of literal colours with
    a literal alpha folds outright, and the scale's own shadows go the same way,
-   [shadow-inner] included, which had no modifier at all. *)
+   [shadow-inner] included. *)
 let test_shadow_list_alpha_guards () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -1067,8 +1045,8 @@ let test_shadow_list_alpha_guards () =
 
 (* A shadow read whole from a custom property takes a modifier: there is no
    colour in the value to fold the alpha into, so Tailwind sets the alpha
-   channel and leaves the value as it is. The class was refused, and under the
-   [shadow:] hint the modifier was dropped from the name and the value. *)
+   channel and leaves the value as it is. Under the [shadow:] hint the modifier
+   stays in the name and the value. *)
 let test_var_shadow_takes_a_modifier () =
   Test_helpers.check_declarations "shadow-[var(--s)]/50"
     [ "--tw-shadow-alpha:50%"; "--tw-shadow:var(--s)"; composes_box_shadow ];
