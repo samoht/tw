@@ -945,6 +945,18 @@ let pseudo_selector_of_modifier = function
   | _ -> Css.Selector.Focus
 (* fallback *)
 
+(* An [in-] or [not-] bracket stands alone inside [:where()] or [:not()]: an [&]
+   is the element itself, a universal there, and a selector with none is written
+   as it would compound onto a class. [_] is a space. *)
+let standalone_bracket content =
+  let sel =
+    Css.Selector.read
+      (Cascade.Cursor.of_string (Parse.decode_underscores content))
+  in
+  if Cascade.Nest.contains sel then
+    Cascade.Nest.substitute ~parent:Css.Selector.universal sel
+  else Modifiers.compoundable sel
+
 (** Parse a bracket pseudo-class string into a CSS selector. *)
 let parse_bracket_pseudo content =
   match Css.Selector.of_string content with
@@ -957,22 +969,14 @@ let parse_bracket_pseudo content =
          is also every element, so the two agree on what they match. *)
       Css.Selector.Class content
 
-(* The [:not()] a selector bracket negates to: a pseudo-class, or arbitrary
-   content in which [_] is a space and [&] the utility's own element, which
-   inside a negation becomes the universal selector. So [not-[.os-macos_&]]
-   negates the descendant context [.os-macos &] as [:not(.os-macos <star>)]. The
-   transformed string is read as a selector so combinators and compounds
-   flatten, rather than escaped as one class name. *)
+(* The [:not()] a selector bracket negates to: a pseudo-class, or a
+   {!standalone_bracket}. So [not-[.os-macos_&]] negates the descendant context
+   [.os-macos &] as [:not(.os-macos <star>)], and [not-[p_~_span]] is
+   [:not(:is(p~span))]. *)
 let not_bracket_selector content =
   if String.starts_with ~prefix:":" content then
     Css.Selector.Not [ parse_bracket_pseudo content ]
-  else
-    let sel_str = Parse.decode_underscores content in
-    Css.Selector.Not
-      [
-        Cascade.Nest.substitute ~parent:Css.Selector.universal
-          (Css.Selector.read (Cascade.Cursor.of_string sel_str));
-      ]
+  else Css.Selector.Not [ standalone_bracket content ]
 
 (* A data or aria variant is one attribute selector, and that is the whole of
    what [:not()] or [:has()] holds. *)
@@ -1255,21 +1259,10 @@ let parse_bracket_media content =
     | "print" -> negate_media print_media
     | _ -> negate_media (Css.Media.of_string rest)
 
-(** Parse in-[...] bracket content into an ancestor selector. Class selectors
-    (starting with .) are used directly; others are wrapped in :is(). *)
-let in_bracket_ancestor content =
-  if String.starts_with ~prefix:"." content then
-    (* Class selector: .group → Class "group" inside :where() *)
-    let cls = String.sub content 1 (String.length content - 1) in
-    Css.Selector.Class cls
-  else
-    (* Element or other selector: p → :is(p) inside :where() *)
-    Css.Selector.Is [ Css.Selector.Element (None, content) ]
-
 (** Handle in-[...] bracket modifier. Returns a list of rules. *)
 let handle_in_bracket content base_class props =
   let modified_class = "in-[" ^ content ^ "]:" ^ base_class in
-  let ancestor = in_bracket_ancestor content in
+  let ancestor = standalone_bracket content in
   let sel =
     Css.Selector.combine (Css.Selector.Where [ ancestor ])
       Css.Selector.Descendant (Css.Selector.Class modified_class)
@@ -1309,7 +1302,7 @@ let not_in_rule ~modified_class ~ancestor props =
 let handle_not_in_bracket content base_class props =
   not_in_rule
     ~modified_class:("not-in-[" ^ content ^ "]:" ^ base_class)
-    ~ancestor:(in_bracket_ancestor content)
+    ~ancestor:(standalone_bracket content)
     props
 
 (** Handle the not-in-data-* modifier. Returns a list of rules. *)

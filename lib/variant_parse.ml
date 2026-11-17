@@ -1177,7 +1177,9 @@ let try_in_modifier s =
     if String.starts_with ~prefix:"[" rest then
       let after = String.sub rest 1 (String.length rest - 1) in
       match matching_bracket after with
-      | Some i when i = String.length after - 1 ->
+      | Some i
+        when i = String.length after - 1
+             && is_arbitrary_selector (String.sub after 0 i) ->
           Some (In_bracket (String.sub after 0 i))
       | _ -> None
     else if
@@ -1199,7 +1201,9 @@ let try_not_in_modifier s =
   else
     let rest = String.sub s 8 (String.length s - 8) in
     match matching_bracket rest with
-    | Some i when i = String.length rest - 1 ->
+    | Some i
+      when i = String.length rest - 1
+           && is_arbitrary_selector (String.sub rest 0 i) ->
         Some (Not (In_bracket (String.sub rest 0 i)))
     | _ -> None
 
