@@ -222,8 +222,8 @@ let group_selector cls modifier =
   | Group_focus -> gp "group-focus" Focus
   | Group_first -> gp "group-first" First_child
   | Group_last -> gp "group-last" Last_child
-  | Group_odd -> gp "group-odd" (Nth_child (Odd, None))
-  | Group_even -> gp "group-even" (Nth_child (Even, None))
+  | Group_odd -> gp "group-odd" (Nth_child (An_plus_b (2, 1), None))
+  | Group_even -> gp "group-even" (Nth_child (An_plus_b (2, 0), None))
   | Group_only -> gp "group-only" Only_child
   | Group_first_of_type -> gp "group-first-of-type" First_of_type
   | Group_last_of_type -> gp "group-last-of-type" Last_of_type
@@ -272,8 +272,8 @@ let peer_selector cls modifier =
   | Peer_checked -> pp "peer-checked" Checked
   | Peer_first -> pp "peer-first" First_child
   | Peer_last -> pp "peer-last" Last_child
-  | Peer_odd -> pp "peer-odd" (Nth_child (Odd, None))
-  | Peer_even -> pp "peer-even" (Nth_child (Even, None))
+  | Peer_odd -> pp "peer-odd" (Nth_child (An_plus_b (2, 1), None))
+  | Peer_even -> pp "peer-even" (Nth_child (An_plus_b (2, 0), None))
   | Peer_only -> pp "peer-only" Only_child
   | Peer_first_of_type -> pp "peer-first-of-type" First_of_type
   | Peer_last_of_type -> pp "peer-last-of-type" Last_of_type
@@ -396,8 +396,8 @@ let structural_selector cls modifier =
   | First -> cp "first" cls Css.Selector.First_child
   | Last -> cp "last" cls Css.Selector.Last_child
   | Only -> cp "only" cls Css.Selector.Only_child
-  | Odd -> cp "odd" cls Css.Selector.(Nth_child (Odd, None))
-  | Even -> cp "even" cls Css.Selector.(Nth_child (Even, None))
+  | Odd -> cp "odd" cls Css.Selector.(Nth_child (An_plus_b (2, 1), None))
+  | Even -> cp "even" cls Css.Selector.(Nth_child (An_plus_b (2, 0), None))
   | First_of_type -> cp "first-of-type" cls Css.Selector.First_of_type
   | Last_of_type -> cp "last-of-type" cls Css.Selector.Last_of_type
   | Only_of_type -> cp "only-of-type" cls Css.Selector.Only_of_type
@@ -458,21 +458,15 @@ let aria_data_selector cls modifier =
 let pseudo_element_selector cls modifier =
   let cp = class_pseudo in
   match modifier with
-  | Pseudo_before ->
-      Css.Selector.compound
-        [ before cls; Css.Selector.Before Css.Selector.Double ]
-  | Pseudo_after ->
-      Css.Selector.compound
-        [ after cls; Css.Selector.After Css.Selector.Double ]
+  | Pseudo_before -> Css.Selector.compound [ before cls; Css.Selector.Before ]
+  | Pseudo_after -> Css.Selector.compound [ after cls; Css.Selector.After ]
   | Pseudo_marker -> cp "marker" cls Css.Selector.Marker
   | Pseudo_selection -> cp "selection" cls Css.Selector.Selection
   | Pseudo_placeholder -> cp "placeholder" cls Css.Selector.Placeholder
   | Pseudo_backdrop -> cp "backdrop" cls Css.Selector.Backdrop
   | Pseudo_file -> cp "file" cls Css.Selector.File_selector_button
-  | Pseudo_first_letter ->
-      cp "first-letter" cls (Css.Selector.First_letter Css.Selector.Double)
-  | Pseudo_first_line ->
-      cp "first-line" cls (Css.Selector.First_line Css.Selector.Double)
+  | Pseudo_first_letter -> cp "first-letter" cls Css.Selector.First_letter
+  | Pseudo_first_line -> cp "first-line" cls Css.Selector.First_line
   | Pseudo_details_content ->
       cp "details-content" cls Css.Selector.Details_content
   | _ -> aria_data_selector cls modifier
@@ -1155,9 +1149,9 @@ let quote_value value =
    and pull the pieces [parse_data_expr] hands back out of it. *)
 let data_attribute_of_bracket bracket =
   match Css.Selector.of_string bracket with
-  | Css.Selector.Attribute (_, Css.Selector.Data name, m, flag) ->
+  | Ok (Css.Selector.Attribute (_, Css.Selector.Data name, m, flag)) ->
       ("data-" ^ name, m, flag)
-  | _ -> invalid_arg ("not a data attribute: " ^ bracket)
+  | Ok _ | Error _ -> invalid_arg ("not a data attribute: " ^ bracket)
 
 (* Parse a [data-[...]] bracket body (the interior text, no brackets) into an
    attribute name, match operator and optional case-sensitivity flag. Tailwind
@@ -1220,9 +1214,7 @@ let bracket_media_condition inner =
     let cond =
       String.trim (Parse.decode_underscores (String.sub inner 6 (n - 6)))
     in
-    match Css.Media.of_string_strict cond with
-    | media -> Some media
-    | exception Cascade.Cursor.Parse_error _ -> None
+    Result.to_option (Css.Media.of_string_strict cond)
   else None
 
 (* An at-rule in brackets is a variant too: [[@supports(display:grid)]],
@@ -1308,6 +1300,13 @@ let supports_property_test cond =
           )
       else None
 
+(* Authored condition text, read by the grammar; the modifier parser has
+   validated it, so a condition that does not read is a bug, raised. *)
+let read_supports_condition cond =
+  match Css.Supports.of_string (space_supports_keywords cond) with
+  | Ok condition -> condition
+  | Error e -> invalid_arg (Cascade.Error.to_string e)
+
 let normalize_supports_condition condition_str =
   let cond = Parse.decode_underscores condition_str in
   if
@@ -1323,7 +1322,7 @@ let normalize_supports_condition condition_str =
   then
     (* Already parenthesised, so it is the condition the author wrote; only the
        real grammar reader can make sense of arbitrary authored text. *)
-    Css.Supports.of_string (space_supports_keywords cond)
+    read_supports_condition cond
   else
     match supports_property_test cond with
     | Some (prop, value) ->
@@ -1333,7 +1332,7 @@ let normalize_supports_condition condition_str =
         (* A negation, a function such as [selector(...)] or
            [font-format(opentype)], or a condition joined with [and]/[or]; again
            arbitrary authored text, so the real grammar reader parses it. *)
-        Css.Supports.of_string (space_supports_keywords cond)
+        read_supports_condition cond
     | None ->
         (* Bare property name: backdrop-filter tests against var(--tw), the same
            expansion as the bare custom property above. A lone identifier is not
@@ -1824,13 +1823,12 @@ let bracket_supports_condition content =
       String.trim (Parse.decode_underscores (String.sub content 9 (n - 9)))
     in
     match Css.Supports.of_string cond with
-    | Css.Supports.And _ | Css.Supports.Or _
-    | Css.Supports.Not (Css.Supports.And _ | Css.Supports.Or _) ->
+    | Ok
+        ( Css.Supports.And _ | Css.Supports.Or _
+        | Css.Supports.Not (Css.Supports.And _ | Css.Supports.Or _) ) ->
         None
-    | condition -> Some condition
-    | exception (Cascade.Cursor.Parse_error _ | Invalid_argument _ | Failure _)
-      ->
-        None
+    | Ok condition -> Some condition
+    | Error _ | (exception (Invalid_argument _ | Failure _)) -> None
   else None
 
 (** Check if bracket content is valid for not-[...] patterns. Rejects combinator

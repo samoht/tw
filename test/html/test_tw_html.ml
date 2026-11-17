@@ -509,7 +509,7 @@ let test_page_theme () =
             {
               media = None;
               selector =
-                Tw.Css.Selector.of_string
+                Tw.Css.Selector.v
                   "&:where([data-theme=dark], [data-theme=dark] *)";
             };
           ];

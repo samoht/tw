@@ -149,21 +149,11 @@ let check_exact_match tw_styles =
       (* A filesystem error already names the path and the reason; wrapping it
          as an unexpected exception buries both. *)
       fail msg
-  | Cascade.Reader.Parse_error err ->
-      let details = Cascade.Reader.pp_parse_error err in
-      (* Print a more helpful parse error with context and callstack. *)
+  | Cascade.Error.Parse_error err ->
+      (* The message gives the line and column, then the source line with a
+         caret under the span. *)
+      let details = Cascade.Error.to_string err in
       Fmt.epr "CSS parse error:\n%s@." details;
-      (* Also try to show a quick 80-char window around the position in both
-         strings for extra context. *)
-      let show_window name s pos =
-        let start = max 0 (pos - 40) in
-        let len = min (String.length s - start) 80 in
-        if len > 0 then
-          let snippet = String.sub s start len in
-          Fmt.epr "[%s context @ %d]: %S@." name pos snippet
-      in
-      show_window "Our TW" !tw_css_raw err.position;
-      show_window "Tailwind" !tailwind_css_raw err.position;
       fail ("CSS parse error: " ^ details)
   | exn ->
       (* Fallback: print full exception type/name if it's not a CSS parse
@@ -228,9 +218,9 @@ let upstream_variants directives =
           let first = String.sub header 0 i in
           let rest = String.sub header (i + 1) (String.length header - i - 1) in
           if first <> "not" && not (String.contains first '(') then
-            Css.Container.Named (first, Css.Container.of_string rest)
-          else Css.Container.of_string header
-      | None -> Css.Container.of_string header
+            Css.Container.Named (first, Css.Container.v rest)
+          else Css.Container.v header
+      | None -> Css.Container.v header
     in
     match String.split_on_char ' ' d with
     | "container" :: name :: (_ :: _ as rest) -> (

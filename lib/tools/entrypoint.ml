@@ -1578,7 +1578,7 @@ let negated_at_rule name prelude =
   let header keyword to_string negate of_string =
     Option.map
       (fun condition -> String.concat "" [ keyword; " "; to_string condition ])
-      (negate (of_string prelude))
+      (Option.bind (Result.to_option (of_string prelude)) negate)
   in
   match name with
   | "media" ->
@@ -1617,7 +1617,10 @@ let negated_path path =
       let selectors =
         all_some
           (List.map
-             (fun s -> negated_selector (Css.Selector.of_string s))
+             (fun s ->
+               Option.bind
+                 (Result.to_option (Css.Selector.of_string s))
+                 negated_selector)
              selectors)
       in
       let conditions =

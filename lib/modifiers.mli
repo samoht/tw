@@ -758,12 +758,11 @@ val parse_data_expr :
     operator, and an optional case-sensitivity flag. Handles [$=], [^=], [*=],
     [~=], [|=] and bare [=]; underscores in the attribute name and value stand
     for spaces, per Tailwind's arbitrary-value convention. Reads the decoded
-    expression through {!Css.Selector.of_string}, so it raises
-    [Invalid_argument] or [Cascade.Cursor.Parse_error] on a malformed
-    expression; callers parsing untrusted class strings validate first and only
-    call this once that validation has already succeeded. Used both to build the
-    selector at render time and, by that earlier validation, to reject a
-    malformed expression at parse time. *)
+    expression through {!Css.Selector.of_string}, and raises [Invalid_argument]
+    when it does not read as a data attribute; callers parsing untrusted class
+    strings validate first and only call this once that validation has already
+    succeeded. Used both to build the selector at render time and, by that
+    earlier validation, to reject a malformed expression at parse time. *)
 
 (** {1 Variant Ordering}
 

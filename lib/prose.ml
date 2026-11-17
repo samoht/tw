@@ -143,11 +143,9 @@ let video = Css.Selector.element "video"
 
 (* Pseudo-element helpers that apply pseudo AFTER the where clause *)
 let with_before selector =
-  Css.Selector.compound [ selector; Css.Selector.Before Css.Selector.Single ]
+  Css.Selector.compound [ selector; Css.Selector.Before ]
 
-let with_after selector =
-  Css.Selector.compound [ selector; Css.Selector.After Css.Selector.Single ]
-
+let with_after selector = Css.Selector.compound [ selector; Css.Selector.After ]
 let radius len = Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 
 (* blockquote paragraph pseudo-element selectors were only used in removed

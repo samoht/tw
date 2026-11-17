@@ -454,7 +454,7 @@ let test_container_variant_is_theme_local () =
   let declaring : Tw.Scheme.t =
     {
       Tw.Scheme.default with
-      container_variants = [ ("has-a", Css.Container.of_string "style(--a)") ];
+      container_variants = [ ("has-a", Css.Container.v "style(--a)") ];
     }
   in
   check bool "the declaring theme resolves its own variant" true

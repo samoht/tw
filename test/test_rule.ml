@@ -637,14 +637,12 @@ let dark_theme =
         [
           {
             media = Some (Css.Media.of_string "(prefers-color-scheme: dark)");
-            selector =
-              Css.Selector.of_string "&:where(:root:not([data-theme=light]) *)";
+            selector = Css.Selector.v "&:where(:root:not([data-theme=light]) *)";
           };
           {
             media = None;
             selector =
-              Css.Selector.of_string
-                "&:where([data-theme=dark], [data-theme=dark] *)";
+              Css.Selector.v "&:where([data-theme=dark], [data-theme=dark] *)";
           };
         ];
   }
