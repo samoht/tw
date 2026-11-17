@@ -51,13 +51,16 @@ module Handler = struct
   open Style
   open Css
 
+  type 'a bracket = [ `Typed of 'a | `Raw of string ]
+
   type t =
     (* Column *)
     | Col of int
     | Neg_col of int (* -col-12 = calc(12 * -1) *)
     (* The author's bracket text travels with the grid line it denotes, so the
-       class name is spelled exactly as it was written. *)
-    | Col_arbitrary of string * (Css.grid_line * Css.grid_line)
+       class name is spelled exactly as it was written. A bracket the grid-line
+       grammar declines is a [`Raw] token stream. *)
+    | Col_arbitrary of string * (Css.grid_line * Css.grid_line) bracket
       (* col-[span_123/span_123] *)
     | Col_auto
     | Col_span of int
@@ -66,17 +69,17 @@ module Handler = struct
     | Col_start of int
     | Neg_col_start of int
     | Col_start_auto
-    | Col_start_arbitrary of string * Css.grid_line
+    | Col_start_arbitrary of string * Css.grid_line bracket
     | Col_start_named of string (* col-start-custom *)
     | Col_end of int
     | Neg_col_end of int
     | Col_end_auto
-    | Col_end_arbitrary of string * Css.grid_line
+    | Col_end_arbitrary of string * Css.grid_line bracket
     | Col_end_named of string (* col-end-custom *)
     (* Row *)
     | Row of int
     | Neg_row of int
-    | Row_arbitrary of string * (Css.grid_line * Css.grid_line)
+    | Row_arbitrary of string * (Css.grid_line * Css.grid_line) bracket
     | Row_auto
     | Row_span of int
     | Row_span_arbitrary of string (* row-span-[var(--my-variable)] *)
@@ -84,12 +87,12 @@ module Handler = struct
     | Row_start of int
     | Neg_row_start of int
     | Row_start_auto
-    | Row_start_arbitrary of string * Css.grid_line
+    | Row_start_arbitrary of string * Css.grid_line bracket
     | Row_start_named of string (* row-start-custom *)
     | Row_end of int
     | Neg_row_end of int
     | Row_end_auto
-    | Row_end_arbitrary of string * Css.grid_line
+    | Row_end_arbitrary of string * Css.grid_line bracket
     | Row_end_named of string (* row-end-custom *)
     | Neg_line_arbitrary of line * string * string
   (* -col-[...]: the bracket as written, and its negated token stream *)
@@ -121,8 +124,7 @@ module Handler = struct
   let neg_col n = style [ grid_column (Num (-n), Auto) ]
 
   (* The grid line a bracket denotes. [None] is a bracket the grid-line grammar
-     cannot read, and [of_class] refuses the utility rather than leaving
-     [to_style] to raise. *)
+     cannot read. *)
   let read_gl s : Css.grid_line option =
     let cursor = Cascade.Cursor.of_string s in
     match
@@ -143,7 +145,16 @@ module Handler = struct
     | Ok (Var _) | Error _ ->
         Option.map (fun gl -> (gl, (Auto : Css.grid_line))) (read_gl s)
 
-  let col_arbitrary pair = style [ grid_column pair ]
+  (* A token stream on a grid line, negated or not, goes into the line's
+     longhand as it stands. *)
+  let line_token_stream line v =
+    style (Option.to_list (Parse.opaque_declaration (line_property line) v))
+
+  let arbitrary line declaration : _ bracket -> _ = function
+    | `Typed v -> style [ declaration v ]
+    | `Raw v -> line_token_stream line v
+
+  let col_arbitrary = arbitrary `Col grid_column
 
   let col_auto ?theme () =
     match Scheme.theme_value theme "grid-column-auto" with
@@ -196,7 +207,7 @@ module Handler = struct
   let col_span_full = style [ grid_column (Num 1, Num (-1)) ]
   let col_start n = style [ grid_column_start (Num n) ]
   let neg_col_start n = style [ grid_column_start (Num (-n)) ]
-  let col_start_arbitrary gl = style [ grid_column_start gl ]
+  let col_start_arbitrary = arbitrary `Col_start grid_column_start
 
   let col_start_auto ?theme () =
     match Scheme.theme_value theme "grid-column-start-auto" with
@@ -208,7 +219,7 @@ module Handler = struct
 
   let col_end n = style [ grid_column_end (Num n) ]
   let neg_col_end n = style [ grid_column_end (Num (-n)) ]
-  let col_end_arbitrary gl = style [ grid_column_end gl ]
+  let col_end_arbitrary = arbitrary `Col_end grid_column_end
 
   let col_end_auto ?theme () =
     match Scheme.theme_value theme "grid-column-end-auto" with
@@ -220,7 +231,7 @@ module Handler = struct
 
   let row n = style [ grid_row (Num n, Auto) ]
   let neg_row n = style [ grid_row (Num (-n), Auto) ]
-  let row_arbitrary pair = style [ grid_row pair ]
+  let row_arbitrary = arbitrary `Row grid_row
 
   let row_auto ?theme () =
     match Scheme.theme_value theme "grid-row-auto" with
@@ -233,7 +244,7 @@ module Handler = struct
   let row_span_full = style [ grid_row (Num 1, Num (-1)) ]
   let row_start n = style [ grid_row_start (Num n) ]
   let neg_row_start n = style [ grid_row_start (Num (-n)) ]
-  let row_start_arbitrary gl = style [ grid_row_start gl ]
+  let row_start_arbitrary = arbitrary `Row_start grid_row_start
 
   let row_start_auto ?theme () =
     match Scheme.theme_value theme "grid-row-start-auto" with
@@ -245,7 +256,7 @@ module Handler = struct
 
   let row_end n = style [ grid_row_end (Num n) ]
   let neg_row_end n = style [ grid_row_end (Num (-n)) ]
-  let row_end_arbitrary gl = style [ grid_row_end gl ]
+  let row_end_arbitrary = arbitrary `Row_end grid_row_end
 
   let row_end_auto ?theme () =
     match Scheme.theme_value theme "grid-row-end-auto" with
@@ -301,9 +312,7 @@ module Handler = struct
     | Row_end_arbitrary (_, gl) -> row_end_arbitrary gl
     | Row_end_auto -> row_end_auto ()
     | Row_end_named s -> row_end_named s
-    | Neg_line_arbitrary (line, _, value) ->
-        style
-          (Option.to_list (Parse.opaque_declaration (line_property line) value))
+    | Neg_line_arbitrary (line, _, value) -> line_token_stream line value
 
   let suborder = function
     (* Column utilities - negative, positive, arbitrary, auto, span, span-arb,
@@ -371,10 +380,16 @@ module Handler = struct
     else None
 
   (* The pair a family stores: the class name's text, and the value read off the
-     peeled one. *)
+     peeled one, or the token stream Tailwind writes when [read] declines it. *)
   let parse_arbitrary_pair read s =
     match (parse_arbitrary s, parse_arbitrary_value s) with
-    | Some raw, Some value -> Option.map (fun x -> (raw, x)) (read value)
+    | Some raw, Some value -> (
+        match read value with
+        | Some x -> Some (raw, `Typed x)
+        | None ->
+            Option.map
+              (fun v -> (raw, `Raw v))
+              (Parse.arbitrary_declaration_value (Parse.bracket_inner s)))
     | _ -> None
 
   (* Tailwind negates any bracket on a grid line as [calc(<value> * -1)]. *)

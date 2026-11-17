@@ -82,6 +82,10 @@
   `bg-[--theme(--color-red-500/25%)]`, compiles to the `color-mix()` of the
   token at that alpha Tailwind writes, where tw refused it. `theme()` and
   `--theme()` also read a `var()` alpha and a space after the slash (#940).
+- `col-[…]`, `col-start-[…]`, `col-end-[…]`, `row-[…]`, `row-start-[…]` and
+  `row-end-[…]` write a bracket the grid-line grammar does not read, such as
+  `col-[10px]` or `row-end-[url(x.png)_center]`, into their longhand as
+  Tailwind does, where tw refused the class (#956).
 
 ### Project stylesheets
 

@@ -324,8 +324,6 @@ unit or a value after an `angle:` hint.
 These families refuse shapes the CLI writes out. Each is a defect against the
 contract.
 
-- `col-[…]`, `col-start-[…]`, `col-end-[…]`, `row-[…]`, `row-start-[…]` and
-  `row-end-[…]` refuse a length and a `url()` with a word after it.
 - `font-[…]`, `list-[…]` and `will-change-[…]` refuse a length, `calc(1+2)`
   and a `url()` with a word after it.
 - `decoration-[…]` refuses an identifier, a dashed identifier, `calc(1+2)` and
