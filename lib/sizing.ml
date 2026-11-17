@@ -917,7 +917,6 @@ open Handler
 module Utility_factory = Utility.Make (Handler)
 
 let utility = Utility_factory.v
-let () = ()
 
 (* [n] is in rem units; the spacing scale steps by 0.25rem. *)
 let spacing prop n = Sized (prop, Spacing n)
