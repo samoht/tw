@@ -106,24 +106,20 @@ let test_sr_only_declaration_order () =
        (-1) order)
 
 let test_layout_container () =
-  let css = Tw.to_css [ Tw.container ] in
-  let css_string = Tw.Css.to_string ~minify:true css in
-  Alcotest.(check bool)
-    "has .container class" true
-    (String.contains css_string 'c');
-  Alcotest.(check bool) "has width:100%" true (String.contains css_string 'w')
+  Test_helpers.check_declarations "container"
+    [
+      "width:100%";
+      "max-width:40rem";
+      "max-width:48rem";
+      "max-width:64rem";
+      "max-width:80rem";
+      "max-width:96rem";
+    ]
 
+(* [container] is the layout utility and [@container] marks a query container;
+   the two share a word and nothing else. *)
 let test_container_vs_at_container () =
-  let layout = Tw.to_css [ Tw.container ] in
-  let query = Tw.to_css [ Tw.at_container ] in
-  let layout_str = Tw.Css.to_string ~minify:true layout in
-  let query_str = Tw.Css.to_string ~minify:true query in
-  Alcotest.(check bool)
-    "layout container has .container class" true
-    (String.contains layout_str '.');
-  Alcotest.(check bool)
-    "@container has container-type" true
-    (String.contains query_str 't')
+  Test_helpers.check_declarations "@container" [ "container-type:inline-size" ]
 
 let test_layout_container_matches_tailwind () =
   (* This test documents that our implementation matches Tailwind ordering *)

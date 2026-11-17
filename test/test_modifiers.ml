@@ -182,12 +182,10 @@ let test_modifier_css_roundtrip () =
 let test_selector_escaping_in_css () =
   let stylesheet = Tw.Build.to_css [ motion_safe [ animate_pulse ] ] in
   let css_str = Tw.Css.to_string ~minify:true stylesheet in
-  (* the selector is .motion-safe\:animate-pulse, one backslash *)
-  check bool "CSS contains escaped colon" true (String.contains css_str '\\');
-  let backslash_count =
-    String.fold_left (fun n c -> if c = '\\' then n + 1 else n) 0 css_str
-  in
-  check bool "Single backslash escape (not double)" true (backslash_count >= 1);
+  check bool "the colon is escaped with one backslash" true
+    (Astring.String.is_infix ~affix:{|.motion-safe\:animate-pulse{|} css_str);
+  check bool "no doubled backslash" false
+    (Astring.String.is_infix ~affix:{|\\|} css_str);
   match Tw.Css.of_string css_str with
   | Ok _ -> ()
   | Error e ->
