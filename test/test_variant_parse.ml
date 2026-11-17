@@ -452,6 +452,47 @@ let test_arbitrary_selector_variants () =
   check_utilities "peer-[p_~_span]:underline"
     {|.peer-\[p_\~_span\]\:underline:is(:where(.peer):is(p~span)~*){text-decoration-line:underline}|}
 
+(* An [in-] or [not-] bracket is the arbitrary selector its own variant reads:
+   with no [&] it goes through [:is()] where it is not a compound, as Tailwind
+   writes it, and an [&] stands for the element itself. [in-[.a_.b]] read the
+   bracket as one class name, [.a_\.b]. *)
+let test_in_and_not_bracket_selectors () =
+  check_utilities "in-[.a_.b]:flex"
+    {|:where(:is(.a .b)) .in-\[\.a_\.b\]\:flex{display:flex}|};
+  check_utilities "in-[.a,.b]:flex"
+    {|:where(:is(.a,.b)) .in-\[\.a\,\.b\]\:flex{display:flex}|};
+  check_utilities "in-[.a:hover]:flex"
+    {|:where(.a:hover) .in-\[\.a\:hover\]\:flex{display:flex}|};
+  check_utilities "in-[[data-x]]:flex"
+    {|:where([data-x]) .in-\[\[data-x\]\]\:flex{display:flex}|};
+  check_utilities "in-[:hover]:flex"
+    {|:where(:hover) .in-\[\:hover\]\:flex{display:flex}|};
+  check_utilities "in-[p]:flex" {|:where(:is(p)) .in-\[p\]\:flex{display:flex}|};
+  check_utilities "in-[p.a]:flex"
+    {|:where(:is(p.a)) .in-\[p\.a\]\:flex{display:flex}|};
+  check_utilities "in-[&_p]:flex"
+    {|:where(* p) .in-\[\&_p\]\:flex{display:flex}|};
+  check_utilities "in-[.a_&]:flex"
+    {|:where(.a *) .in-\[\.a_\&\]\:flex{display:flex}|};
+  check_utilities "not-in-[.a_.b]:flex"
+    {|.not-in-\[\.a_\.b\]\:flex:not(:where(:is(.a .b)) *){display:flex}|};
+  check_utilities "not-[p_~_span]:flex"
+    {|.not-\[p_\~_span\]\:flex:not(:is(p~span)){display:flex}|};
+  check_utilities "not-[.a,.b]:flex"
+    {|.not-\[\.a\,\.b\]\:flex:not(:is(.a,.b)){display:flex}|};
+  check_utilities "not-[p]:flex" {|.not-\[p\]\:flex:not(:is(p)){display:flex}|};
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "in-[@media_print]:flex";
+  (* Tailwind writes [:where( > p)] and [:where()], selectors browsers drop, so
+     refusing these loses nothing. *)
+  let refused cls =
+    match Tw.of_string cls with
+    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
+    | Error _ -> ()
+  in
+  refused "in-[>p]:flex";
+  refused "not-in-[>p]:flex"
+
 (* The valid spellings the validation must keep accepting. *)
 let test_valid_bracket_modifiers () =
   check_utilities "nth-[2n+1]:flex"
@@ -527,6 +568,8 @@ let tests =
       test_bare_selector_variant_attribute_operators;
     test_case "arbitrary selector variants" `Quick
       test_arbitrary_selector_variants;
+    test_case "in and not bracket selectors" `Quick
+      test_in_and_not_bracket_selectors;
     test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
     test_case "supports condition text" `Quick test_supports_condition_text;
     test_case "not-[selector] unreadable content rejected" `Quick
