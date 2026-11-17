@@ -1,17 +1,3 @@
-(** A type-safe, ergonomic DSL for Tailwind CSS using nominal types.
-
-    This library takes inspiration from Tailwind CSS v3's utility-first approach
-    while leveraging OCaml's type system for compile-time safety. We cherry-pick
-    concepts that work well with OCaml and add our own innovations where
-    appropriate.
-
-    Key design decisions:
-    - Pure OCaml implementation without external CSS dependencies
-    - Type-safe API that prevents invalid CSS at compile time
-    - Simplified spacing functions that accept integers directly
-    - Support for modern CSS features like container queries and 3D transforms
-    - Minimal bundle size for js_of_ocaml by avoiding Format module. *)
-
 type t = Utility.t
 
 include Color

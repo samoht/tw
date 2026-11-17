@@ -1,38 +1,21 @@
-(** Type-safe CSS styling
+(** Tailwind CSS v4 utilities as typed values.
 
-    This module provides a typed interface for generating CSS styles without
-    writing raw CSS. It prevents typos and invalid combinations at compile-time
-    by using OCaml's type system.
+    A value of type {!t} is one Tailwind utility: [p 4] is [p-4] and [bg blue]
+    is [bg-blue-500]. A misspelt utility is a type error, and a variant such as
+    {!hover} or {!md} is a function over a list of utilities.
 
-    {1:concepts Core Concepts}
+    {1:model Model}
 
-    - {b Utility-first}: Instead of writing CSS classes with multiple
-      properties, you compose small, single-purpose utilities (e.g., [bg blue]
-      for background color, [p 4] for padding)
+    + Each utility constructor returns a value of type {!t}.
+    + A set of utilities is a [t list].
+    + {!to_classes} turns the list into the value of an HTML [class] attribute.
+    + {!to_css} generates the stylesheet those classes need.
 
-    - {b Type-safe}: The OCaml compiler catches errors like misspelled utilities
-      or invalid value combinations at compile time
+    Spacing takes the Tailwind scale, so [p 4] is [1rem]. A colour defaults to
+    shade 500. [~shade] picks 50, a multiple of 100 up to 900, or 950 instead,
+    and a higher shade is darker. [~opacity] adds transparency.
 
-    - {b Composable}: Styles are composed by creating lists of utilities that
-      work together
-
-    {1:model How It Works}
-
-    1. Each function returns a value of type {!t} representing a single style 2.
-    Multiple styles are combined by creating a [t list] 3. The list is converted
-    to CSS using {!to_classes} 4. The resulting string is used with HTML
-    elements
-
-    {1:units Units and Scales}
-
-    - {b Spacing}: Integer values create spacing in 0.25rem increments. [4] =
-      1rem = 16px (by default)
-    - {b Sizes}: Predefined sizes like [sm], [md], [lg] provide consistent
-      scaling
-    - {b Colors}: Colors use an optional shade parameter (50-900) where higher
-      numbers are darker
-
-    {1:usage Usage Example}
+    {1:usage Example}
 
     {[
     let button_classes =
@@ -48,13 +31,7 @@
           transition_colors;
           sm [ px 6 ];
         ]
-    ]}
-
-    {1:links Learn More}
-
-    - The API design follows {{:https://tailwindcss.com/}Tailwind CSS}
-      conventions
-    - Colors, spacing, and sizes use consistent scales throughout *)
+    ]} *)
 
 (* Bind tw's own [Cursor] and [Rule] modules before [open Cascade] shadows the
    bare names with [Cascade.Cursor] / [Cascade.Rule]. *)
