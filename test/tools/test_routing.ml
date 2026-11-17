@@ -80,6 +80,47 @@ let test_functional_property_count_order () =
     ".example-\\[12px\\]\\/\\[16px\\]{--resolved-value:12px;--resolved-modifier:16px}.example-\\[12px\\]{--resolved-value:12px}"
     css
 
+(* The utilities layer for the built-in [builtins] and the declared [udefs],
+   every one of them a candidate. *)
+let declared_among_builtins ~udefs builtins =
+  let _, entries, _ =
+    custom_routed_utilities ~theme:Tw.Scheme.default ~defs:[] ~udefs
+      (List.map fst udefs)
+  in
+  Tw.to_css ~theme:Tw.Scheme.default ~base:false ~layers:false ~extra:entries
+    (List.map
+       (fun cls ->
+         match Tw.of_string cls with
+         | Ok u -> u
+         | Error (`Msg e) -> Alcotest.failf "%s: %s" cls e)
+       builtins)
+  |> Cascade.Css.to_string ~minify:true
+
+(* Tailwind places a declared utility by the properties in its order list and
+   skips the rest: [qux] writes the unknown [foo] first and sorts with
+   [z-index], and [foo] sets [--x] first and sorts with [color]. Only a utility
+   with no such property at all, [bar], goes after every other. *)
+let test_declared_order_skips_unordered_properties () =
+  let udefs =
+    [
+      ("qux", " foo: bar; z-index: 3 ");
+      ("foo", " --x: 1; color: red ");
+      ("bar", " --y: 1 ");
+    ]
+  in
+  check string "the pinned Tailwind CLI's order"
+    ".qux{foo:bar;z-index:3}.z-10{z-index:10}.foo{--x:1;color:red}.underline{text-decoration-line:underline}.bar{--y:1}"
+    (declared_among_builtins ~udefs [ "z-10"; "underline" ])
+
+(* Tailwind sorts a declared utility by the earliest of its properties in its
+   order list, not by the one written first: [baz] sets [color] and then
+   [display], and sorts with [display]. *)
+let test_declared_order_takes_the_earliest_property () =
+  let udefs = [ ("baz", " color: blue; display: flex ") ] in
+  check string "the pinned Tailwind CLI's order"
+    ".baz{color:blue;display:flex}.flex{display:flex}.underline{text-decoration-line:underline}"
+    (declared_among_builtins ~udefs [ "flex"; "underline" ])
+
 (* A candidate a project's functional declaration resolves is theirs to
    generate: [Tw.of_string] does not know it. One the declaration resolves
    nothing for is left to the built-in generator, as Tailwind tries every
@@ -134,6 +175,10 @@ let tests =
       test_complex_custom_variant_keeps_candidate;
     test_case "functional property count order" `Quick
       test_functional_property_count_order;
+    test_case "declared order skips unordered properties" `Quick
+      test_declared_order_skips_unordered_properties;
+    test_case "declared order takes the earliest property" `Quick
+      test_declared_order_takes_the_earliest_property;
     test_case "functional routing" `Quick test_functional_routing;
     test_case "malformed utility spares the others" `Quick
       test_malformed_utility_spares_the_others;
