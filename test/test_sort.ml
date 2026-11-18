@@ -2610,6 +2610,27 @@ let test_functional_variant_value_order () =
         classes)
     [ "aria"; "data" ]
 
+let test_named_anchor_name_order () =
+  (* After the state it wraps, Tailwind orders a group- or peer- variant by the
+     name it targets, the unnamed form first, so a child or descendant variant
+     under the earlier name must not push it past the later one. *)
+  List.iter
+    (fun (lower, higher) ->
+      List.iter
+        (fun stacked ->
+          let pair = [ lower ^ ":" ^ stacked ^ ":flex"; higher ^ ":block" ] in
+          check_pair_order ~test_name:(String.concat " " pair) pair)
+        [ "**"; "*" ])
+    [
+      ("group-hover/a", "group-hover/b");
+      ("group-hover", "group-hover/a");
+      ("group-focus/a", "group-focus/b");
+      ("group-focus", "group-focus/a");
+      ("group-aria-checked/a", "group-aria-checked/b");
+      ("peer-checked/a", "peer-checked/b");
+      ("peer-checked", "peer-checked/a");
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -3173,6 +3194,7 @@ let tests =
       test_compound_variant_inner_value_order;
     test_case "functional variant value order" `Slow
       test_functional_variant_value_order;
+    test_case "named anchor name order" `Slow test_named_anchor_name_order;
     test_case "theme custom variant shadows prefix slot" `Quick
       test_theme_custom_variant_shadows_prefix_slot;
     test_case "compound variant highest component" `Slow
