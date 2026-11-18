@@ -55,6 +55,10 @@ type variant_component = {
   container : container_value option;
       (** The bound a container token names, so a stacked [\@sm:\@max-md:] sorts
           under [\@sm] as Tailwind sorts it. [None] for every other token. *)
+  anchor_name : string option;
+      (** The [/name] a [group-] or [peer-] token targets, which orders two
+          tokens wrapping the same state, the unnamed one first. [None] for
+          every other token. *)
 }
 (** One component of a rule's variant sort key: the slot a modifier token sorts
     in, plus what separates two tokens that share that slot. *)

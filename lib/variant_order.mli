@@ -27,6 +27,12 @@ val inner_token : string -> string option
 (** [inner_token token] is the variant immediately wrapped by a [group-],
     [peer-], [not-], [in-], or [has-] compound token. *)
 
+val anchor_name : string -> string option
+(** [anchor_name token] is the [/name] the [group-] or [peer-] variant in
+    [token] targets, read through any [not-], [in-] or [has-] wrapping it: ["a"]
+    for [group-hover/a] and [not-peer-checked/a]. [None] for an unnamed anchor,
+    a bracketed state, and every other token. *)
+
 val inner_order_path : ?theme:Scheme.t -> string -> int list
 (** [inner_order_path ~theme token] is the position of every variant [token]
     wraps, recursively and outermost first: for [group-has-focus], the [has-]
