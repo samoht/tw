@@ -148,6 +148,7 @@ type variant_component = {
   wrapped : int list;
   value_key : string option;
   container : container_value option;
+  anchor_name : string option;
 }
 
 type rule_relationship = Same_utility of string | Different_utilities
@@ -1071,7 +1072,12 @@ let compare_variant_components a b =
       else
         let wrapped_cmp = List.compare Int.compare a.wrapped b.wrapped in
         if wrapped_cmp <> 0 then wrapped_cmp
-        else Option.compare String.compare a.value_key b.value_key
+        else
+          let value_cmp =
+            Option.compare String.compare a.value_key b.value_key
+          in
+          if value_cmp <> 0 then value_cmp
+          else Option.compare String.compare a.anchor_name b.anchor_name
 
 (* Tailwind compares arbitrary variants by the selector they denote, after
    decoding bracket-space underscores. A bare compound is implicitly anchored on
@@ -1139,7 +1145,16 @@ let token_order_key ?theme ~breakpoint token =
   in
   let value_key = variant_value_key token in
   let container = container_value_of_token token in
-  { slot; breakpoint; reverse_breakpoint; wrapped; value_key; container }
+  let anchor_name = Variant_order.anchor_name token in
+  {
+    slot;
+    breakpoint;
+    reverse_breakpoint;
+    wrapped;
+    value_key;
+    container;
+    anchor_name;
+  }
 
 (* The variant order keys of a class's modifier stack, sorted descending.
    Tailwind sorts a candidate by this list compared lexicographically ascending,
@@ -1172,6 +1187,7 @@ let variant_order_list ?theme base_class variant_order breakpoint =
           wrapped = [];
           value_key = None;
           container = None;
+          anchor_name = None;
         };
       ]
   | l -> l

@@ -354,29 +354,41 @@ let slot_of_media_cond (cond : Css.Media.t) : Slot.t option =
       Some Slot.Inverted_colors
   | _ -> None
 
+(* The state a [group-] or [peer-] token wraps and the [/name] it targets. *)
+let anchor token =
+  let split n =
+    let inner = String.sub token n (String.length token - n) in
+    (* A slash inside an arbitrary selector belongs to the selector. Named
+       simple states have no brackets, so their suffix can be removed here. *)
+    if String.contains inner '[' then (inner, None)
+    else Variant_parse.split_name inner
+  in
+  if String.starts_with ~prefix:"group-" token then Some (split 6)
+  else if String.starts_with ~prefix:"peer-" token then Some (split 5)
+  else None
+
 (* The variant wrapped by one compound token, if any. Keeping this extraction in
    one place lets ordering follow group-not-has-peer-not-data-active all the way
    to its data predicate instead of stopping at the first [not] or [has]
    slot. *)
 let inner_token token =
   let after n = String.sub token n (String.length token - n) in
-  let anchor_inner n =
-    let inner = after n in
-    (* A slash inside an arbitrary selector belongs to the selector. Named
-       simple states have no brackets, so their suffix can be removed here. *)
-    if String.contains inner '[' then inner
-    else fst (Variant_parse.split_name inner)
-  in
-  if String.starts_with ~prefix:"group-" token then Some (anchor_inner 6)
-  else if String.starts_with ~prefix:"peer-" token then Some (anchor_inner 5)
-  else if String.starts_with ~prefix:"not-" token then Some (after 4)
-  else if String.starts_with ~prefix:"has-" token then Some (after 4)
-  else
-    (* [in-focus] names a state on an ancestor; [in-range] names one on the
-       element itself, and the table matches that by name. *)
-    match slot_of_prefix token with
-    | Some Slot.Ancestor -> Some (after 3)
-    | Some _ | None -> None
+  match anchor token with
+  | Some (inner, _) -> Some inner
+  | None -> (
+      if String.starts_with ~prefix:"not-" token then Some (after 4)
+      else if String.starts_with ~prefix:"has-" token then Some (after 4)
+      else
+        (* [in-focus] names a state on an ancestor; [in-range] names one on the
+           element itself, and the table matches that by name. *)
+        match slot_of_prefix token with
+        | Some Slot.Ancestor -> Some (after 3)
+        | Some _ | None -> None)
+
+let rec anchor_name token =
+  match anchor token with
+  | Some (_, name) -> name
+  | None -> Option.bind (inner_token token) anchor_name
 
 let of_prefix ?theme prefix =
   match theme with

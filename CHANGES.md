@@ -172,6 +172,8 @@
 - Two values of an `aria-`, `data-` or `nth-*` variant sort by the value, as
   Tailwind sorts them, whatever is stacked under either:
   `aria-checked:**:animate-none` now precedes `aria-disabled:animate-spin` (#973).
+- Two `group-` or `peer-` variants on the same state sort by the name they
+  target, the unnamed one first, as Tailwind sorts them (#974).
 
 ### OCaml API
 

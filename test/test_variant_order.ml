@@ -129,10 +129,27 @@ let test_variant_inner_order () =
   check int "a plain token carries nothing" 0
     (Tw.Variant_order.inner_order "hover")
 
+(* The [/name] a group or peer targets, read through the compounds wrapping it.
+   A bracketed state keeps its slash, which belongs to the selector. *)
+let test_anchor_name () =
+  List.iter
+    (fun (token, name) ->
+      check (option string) token name (Tw.Variant_order.anchor_name token))
+    [
+      ("group-hover/a", Some "a");
+      ("peer-checked/item", Some "item");
+      ("not-peer-checked/a", Some "a");
+      ("has-group-focus/b", Some "b");
+      ("group-hover", None);
+      ("group-[.x]/a", None);
+      ("hover", None);
+    ]
+
 let tests =
   [
     test_case "variant cascade ladder" `Quick test_variant_cascade_ladder;
     test_case "variant inner order" `Quick test_variant_inner_order;
+    test_case "anchor name" `Quick test_anchor_name;
   ]
 
 let suite = ("variant_order", tests)
