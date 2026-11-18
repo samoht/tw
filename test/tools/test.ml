@@ -15,4 +15,5 @@ let () =
       Test_project.suite;
       Test_tailwind_gen.suite;
       Test_parity_compare.suite;
+      Test_cascade_provenance.suite;
     ]
