@@ -49,7 +49,7 @@ let cascade_constraint root =
    such a failure comes from cascade. *)
 let checkout_position dir =
   let branch =
-    match Fmt.kstr run_line "git -C %s rev-parse --abbrev-ref HEAD" dir with
+    match Fmt.kstr run_line "git -C %s symbolic-ref --short -q HEAD" dir with
     | Some b -> "branch " ^ b
     | None -> "detached HEAD"
   in
