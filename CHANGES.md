@@ -1,5 +1,11 @@
 ## Unreleased
 
+### Build
+
+- tw requires cascade 1.3.0. Its selector, `@supports`, `@container` and
+  media readers return a result where they raised, and tw handles a bracket
+  that does not read where it reads it (#918).
+
 ### Utilities
 
 - A spacing scale of 2^53 or more names no utility: `p-100000000000000000000`

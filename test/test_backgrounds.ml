@@ -644,6 +644,23 @@ let test_gradient_interpolation () =
   has_linear "bg-linear-45/foo" "45deg";
   has_linear "bg-linear-to-r/foo" "to right"
 
+(* Tailwind writes a negated linear angle as [calc(45deg * -1) in oklab], whose
+   minified and folded form is [-45deg in oklab]. A typed [calc()] prints with
+   no space before [in] once minified, so folding it afterwards has to separate
+   the angle from [in] with an empty comment and the custom property reads a
+   different token sequence. The literal angle keeps the whitespace token. *)
+let test_negated_linear_angle () =
+  let has cls =
+    Test_helpers.check_declarations ~minify:true cls
+      [
+        "--tw-gradient-position:-45deg";
+        "--tw-gradient-position:-45deg in oklab";
+        "background-image:linear-gradient(var(--tw-gradient-stops))";
+      ]
+  in
+  has "-bg-linear-45";
+  has "-bg-linear-45/oklab"
+
 (* An arbitrary value writes a space as [_] and a literal underscore as [\_], so
    a file name or a gradient position carrying an underscore is written with the
    escape rather than losing the character. *)
@@ -809,6 +826,7 @@ let tests =
       test_arbitrary_underscore_escape;
     test_case "bracket url escape" `Quick test_bracket_url_escape;
     test_case "gradient interpolation" `Quick test_gradient_interpolation;
+    test_case "negated linear angle" `Quick test_negated_linear_angle;
     test_case "gradient stop position units" `Quick
       test_gradient_stop_position_units;
     test_case "gradient stop position token stream" `Quick

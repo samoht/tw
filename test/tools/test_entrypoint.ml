@@ -80,7 +80,7 @@ let test_imports_static_theme () =
 
 let nested ~classes s =
   Cascade.Selector.to_string ~minify:true
-    (nest_on_ampersand ~classes (Cascade.Selector.of_string s))
+    (nest_on_ampersand ~classes (Cascade.Selector.v s))
 
 let test_nest_on_ampersand () =
   check string "class escaped as a hex code point" "&"

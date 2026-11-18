@@ -454,7 +454,7 @@ let test_container_variant_is_theme_local () =
   let declaring : Tw.Scheme.t =
     {
       Tw.Scheme.default with
-      container_variants = [ ("has-a", Css.Container.of_string "style(--a)") ];
+      container_variants = [ ("has-a", Css.Container.v "style(--a)") ];
     }
   in
   check bool "the declaring theme resolves its own variant" true
@@ -915,8 +915,9 @@ let test_compound_negations () =
     {|.has-not-focus\:flex:has(:not(:focus)){display:flex}|};
   check_utilities "in-not-focus:flex"
     {|:where(:not(:focus)) .in-not-focus\:flex{display:flex}|};
+  (* Tailwind keeps the double negation of a selector as written. *)
   check_utilities "not-not-focus:flex"
-    {|.not-not-focus\:flex:focus{display:flex}|};
+    {|.not-not-focus\:flex:not(:not(:focus)){display:flex}|};
   check_utilities "not-not-md:flex"
     {|@media(min-width:48rem){.not-not-md\:flex{display:flex}}|};
   check_utilities "not-not-[@media_print]:flex"
@@ -1558,14 +1559,6 @@ let test_attribute_brackets_still_parse () =
    trailing case-sensitivity flag. This pins the selector each spelling produces
    today so a rewrite of the reader cannot silently change one. *)
 let test_data_bracket_operators () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
   check_utilities "data-[size~=large]:flex"
     {|.data-\[size\~\=large\]\:flex[data-size~=large]{display:flex}|};
   check_utilities "data-[foo=bar]:flex"
@@ -1580,9 +1573,10 @@ let test_data_bracket_operators () =
     {|.data-\[foo\|\=bar\]\:flex[data-foo|=bar]{display:flex}|};
   check_utilities "data-[open]:flex"
     {|.data-\[open\]\:flex[data-open]{display:flex}|};
-  (* A decoded space in the value stays on a substring: tw quotes the attribute
-     value where the pinned CLI escapes the space instead ([data-foo=a\ b]). *)
-  emits {|[data-foo="a b"]|} "data-[foo='a_b']:flex";
+  (* A decoded space in the value: the shorter spelling escapes it, as the
+     pinned CLI does. *)
+  check_utilities "data-[foo='a_b']:flex"
+    {|.data-\[foo\=\'a_b\'\]\:flex[data-foo=a\ b]{display:flex}|};
   check_utilities "data-[foo=bar_i]:flex"
     {|.data-\[foo\=bar_i\]\:flex[data-foo=bar i]{display:flex}|};
   check_utilities "data-[foo=bar_s]:flex"

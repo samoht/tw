@@ -37,9 +37,7 @@ let box_resets () =
   let open Selector in
   [
     rule
-      ~selector:
-        (Selector.list
-           [ Selector.universal; After Double; Before Double; Backdrop ])
+      ~selector:(Selector.list [ Selector.universal; After; Before; Backdrop ])
       [
         box_sizing Border_box;
         border ~width:Zero ~style:Solid ();

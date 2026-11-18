@@ -866,7 +866,9 @@ let rec var_name = function
    [var(--a, var(--b))] the rule reads [--a], and [--b] stands in only when
    nothing declares [--a], which a static utility relies on where its theme
    token is optional; so [--b] is not a read. Walked as component values, so a
-   [var(] inside a string or a [url()] is data. *)
+   [var(] inside a string or a [url()] is data. A value nested past cascade's
+   depth limit is a flat run of tokens with no tree to tell a fallback from the
+   value, so every variable it names counts as read. *)
 let rec var_reads acc (components : Cascade.Component.t list) =
   List.fold_left
     (fun acc (c : Cascade.Component.t) ->
@@ -876,6 +878,8 @@ let rec var_reads acc (components : Cascade.Component.t list) =
           match var_name arguments with Some n -> n :: acc | None -> acc)
       | Func { node = { arguments; _ }; _ } -> var_reads acc arguments
       | Block { node = { value; _ }; _ } -> var_reads acc value
+      | Flat { node; _ } ->
+          List.rev_append (Cascade.Component.flat_var_refs node) acc
       | Preserved _ -> acc)
     acc components
 
@@ -1369,9 +1373,7 @@ let sort_properties_by_order metadata fallback_order first_usage_order
 (* Build property layer content with browser detection *)
 let property_layer_content metadata fallback_order first_usage_order
     initial_values other_statements =
-  let selector =
-    Css.Selector.(list [ universal; Before Single; After Single; Backdrop ])
-  in
+  let selector = Css.Selector.(list [ universal; Before; After; Backdrop ]) in
   let sorted_values =
     sort_properties_by_order metadata fallback_order first_usage_order
       initial_values
@@ -1403,9 +1405,7 @@ let author_property_fallbacks property_rules =
   in
   match
     rule Css.Selector.(list [ Root; host () ]) inheriting
-    @ rule
-        Css.Selector.(list [ universal; Before Single; After Single; Backdrop ])
-        other
+    @ rule Css.Selector.(list [ universal; Before; After; Backdrop ]) other
   with
   | [] -> []
   | rules ->

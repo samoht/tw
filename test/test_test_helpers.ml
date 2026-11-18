@@ -86,21 +86,24 @@ let paired a b =
   let pairs = Test_helpers.interacting_pairs [ a; b ] in
   List.exists (fun p -> p = (a, b) || p = (b, a)) pairs
 
-(* [inset] and [top] are one property after shorthand expansion, so which of the
-   two rules comes last decides where the element sits. They share no property
-   name, so pairing on the name alone never puts them on one element. The [px]
-   step rather than a scale step: [inset-4] and [top-4] each write [--spacing]
-   too, which pairs them for a reason that says nothing about the two
-   properties. *)
+(* [inset] writes [top], and [inset-px] and [top-auto] write it differently, so
+   which of the two rules comes last decides where the element sits. They share
+   no property name, so pairing on the name alone never puts them on one
+   element. The two have to disagree on [top]: [top-px] sets it to the [1px]
+   [inset-px] already does, and either order then computes the same element.
+   [px] and [auto] rather than scale steps: [inset-4] and [top-4] each write
+   [--spacing] too, which pairs them for a reason that says nothing about the
+   two properties. *)
 let test_pairs_shorthand_with_longhand () =
   Alcotest.(check bool)
-    "inset-px and top-px share an element" true
-    (paired "inset-px" "top-px")
+    "inset-px and top-auto share an element" true
+    (paired "inset-px" "top-auto")
 
-(* The same relation one family over: [flex] writes [flex-grow]. *)
+(* The same relation one family over: [flex: 1] sets [flex-grow] to [1], and
+   [grow-0] sets it to [0]. Not [grow], whose [flex-grow: 1] agrees with it. *)
 let test_pairs_shorthand_with_its_own_longhand () =
   Alcotest.(check bool)
-    "flex-1 and grow share an element" true (paired "flex-1" "grow")
+    "flex-1 and grow-0 share an element" true (paired "flex-1" "grow-0")
 
 (* A pair that interacts through a variable rather than a slot: shadow-current
    feeds the colour the size utility's shadow reads, which neither class shows

@@ -375,9 +375,9 @@ let fold_declaration_static_number_math declaration =
           let value =
             Css.Pp.to_string ~minify:true Css.Values.pp_number (Css.Num value)
           in
-          try Css.Declaration.with_value declaration value
-          with Cascade.Cursor.Parse_error _ | Invalid_argument _ ->
-            declaration)
+          match Css.Declaration.with_value declaration value with
+          | Ok declaration -> declaration
+          | Error _ | (exception Invalid_argument _) -> declaration)
       | Some _ | None -> declaration)
   | None -> declaration
 
@@ -660,9 +660,9 @@ let run_test_case test expected () =
               String.sub header (i + 1) (String.length header - i - 1)
             in
             if first <> "not" && not (String.contains first '(') then
-              Css.Container.Named (first, Css.Container.of_string rest)
-            else Css.Container.of_string header
-        | None -> Css.Container.of_string header
+              Css.Container.Named (first, Css.Container.v rest)
+            else Css.Container.v header
+        | None -> Css.Container.v header
       in
       match String.split_on_char ' ' d with
       | "container" :: name :: (_ :: _ as rest) -> (

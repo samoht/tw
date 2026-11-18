@@ -948,8 +948,8 @@ let pseudo_selector_of_modifier = function
   | Style.Checked -> Css.Selector.Checked
   | Style.First -> Css.Selector.First_child
   | Style.Last -> Css.Selector.Last_child
-  | Style.Odd -> Css.Selector.(Nth_child (Odd, None))
-  | Style.Even -> Css.Selector.(Nth_child (Even, None))
+  | Style.Odd -> Css.Selector.(Nth_child (An_plus_b (2, 1), None))
+  | Style.Even -> Css.Selector.(Nth_child (An_plus_b (2, 0), None))
   | Style.Only -> Css.Selector.Only_child
   | Style.First_of_type -> Css.Selector.First_of_type
   | Style.Last_of_type -> Css.Selector.Last_of_type
@@ -982,8 +982,8 @@ let pseudo_selector_of_modifier = function
 (** Parse a bracket pseudo-class string into a CSS selector. *)
 let parse_bracket_pseudo content =
   match Css.Selector.of_string content with
-  | sel -> sel
-  | exception Cascade.Error.Parse_error _ ->
+  | Ok sel -> sel
+  | Error _ ->
       (* A pseudo-class cascade has no constructor for, which is one no browser
          implements either. Tailwind writes it into a [:is()], and Chrome then
          drops the arm it cannot read, leaving [:not(:is())] - every element.
