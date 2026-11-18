@@ -26,18 +26,14 @@ let repo_root () =
   in
   match Sys.getcwd () with exception Sys_error _ -> None | cwd -> climb cwd 4
 
-let cascade_re = Re.compile (Re.str "cascade")
-let and_clause_re = Re.compile (Re.str "(and")
-
-(* The [dune-project] depends line is [(cascade (and (>= X) (< Y)))]; grabbed
+(* The [dune-project] depends line, [(cascade (>= X))] or a range; grabbed
    verbatim rather than sexp-parsed since it is only ever displayed, never
    compared against. *)
 let constraint_of_dune_project contents =
   List.find_map
     (fun line ->
       let trimmed = String.trim line in
-      if Re.execp cascade_re trimmed && Re.execp and_clause_re trimmed then
-        Some trimmed
+      if String.starts_with ~prefix:"(cascade " trimmed then Some trimmed
       else None)
     (String.split_on_char '\n' contents)
 
