@@ -14,6 +14,11 @@ val constraint_of_dune_project : string -> string option
     field in the [dune-project] text [contents], trimmed, such as
     [(cascade (>= 1.3.0))]. [None] when no line names [cascade]. *)
 
+val checkout_position : string -> string
+(** [checkout_position dir] says where the git checkout at [dir] (a shell-quoted
+    path) sits: the branch it is on or [detached HEAD], how many of its commits
+    are not in [origin/main], and whether it has uncommitted changes. *)
+
 val report : unit -> unit
 (** [report ()] prints the local [cascade/] checkout's git revision, the branch
     it sits on, how many of its commits are not in [origin/main] and whether it
