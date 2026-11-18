@@ -98,8 +98,8 @@ let report () =
               Fmt.pr
                 "@.WARNING: cascade checkout %s (%s) is not sitting on a \
                  release tag; dune-project requires %s, and CI resolves that \
-                 constraint through an opam pin to cascade main, not this \
-                 checkout. The cascade/ symlink is a live sibling checkout \
-                 other sessions move, so a test failing here may be failing \
-                 against cascade code that is not on cascade's main.@.@."
+                 constraint through opam, not this checkout. The cascade/ \
+                 symlink is a live sibling checkout other sessions move, so a \
+                 test failing here may be failing against cascade code that is \
+                 not on cascade's main.@.@."
                 sha position constraint_))
