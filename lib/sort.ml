@@ -1092,10 +1092,27 @@ let arbitrary_variant_selector_key token =
       then Some ("&:is(" ^ selector ^ ")")
       else Some selector
 
+(* Tailwind gives each value of a functional variant its own position, ordered
+   by comparing the values as strings. The token with its closing bracket
+   dropped and its underscores decoded orders the same way: a value sorts before
+   one it is a prefix of, and the named values sharing a slot with arbitrary
+   ones are the digits of [nth-*], which sort before ["["] as a named value
+   sorts before an arbitrary one. *)
+let functional_value_key token =
+  let n = String.length token in
+  if n > 0 && token.[n - 1] = ']' then
+    Parse.decode_underscores (String.sub token 0 (n - 1))
+  else token
+
+let is_functional_variant token =
+  List.exists
+    (fun prefix -> String.starts_with ~prefix token)
+    [ "aria-"; "data-"; "nth-" ]
+
 let rec variant_value_key token =
   match arbitrary_variant_selector_key token with
   | Some _ as key -> key
-  | None when String.starts_with ~prefix:"data-" token -> Some token
+  | None when is_functional_variant token -> Some (functional_value_key token)
   | None -> Option.bind (Variant_order.inner_token token) variant_value_key
 
 (* One modifier token's sort key. The slot alone leaves every breakpoint on one

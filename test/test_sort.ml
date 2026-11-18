@@ -2558,6 +2558,58 @@ let test_compound_variant_inner_value_order () =
       "peer-[:nth-of-type(3)_&]:block";
     ]
 
+let check_pair_order ~test_name pair =
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) pair in
+  Test_helpers.check_ordering_matches ~test_name utilities
+
+let test_functional_variant_value_order () =
+  (* Tailwind gives each value of a functional variant its own position, in the
+     order of the value, so aria-checked precedes aria-disabled whatever lower
+     variant is stacked under either. A child or descendant variant under the
+     lower value must not push it past the bare higher one. The values compare
+     as strings once decoded: [nth-10] precedes [nth-3], [a] precedes [a-b], and
+     [a_b], read as [a b], precedes [a-b]. *)
+  check_pair_order ~test_name:"aria value over a descendant variant"
+    [ "aria-checked:**:animate-none"; "aria-disabled:animate-spin" ];
+  List.iter
+    (fun (lower, higher) ->
+      List.iter
+        (fun stacked ->
+          let pair = [ lower ^ ":" ^ stacked ^ ":flex"; higher ^ ":block" ] in
+          check_pair_order ~test_name:(String.concat " " pair) pair)
+        [ "**"; "*"; "first" ])
+    [
+      ("aria-checked", "aria-disabled");
+      ("aria-busy", "aria-checked");
+      ("aria-[sort=a]", "aria-[sort=b]");
+      ("aria-[a]", "aria-[a-b]");
+      ("data-[a]", "data-[a-b]");
+      ("nth-3", "nth-5");
+      ("nth-10", "nth-3");
+      ("nth-3", "nth-[2n]");
+      ("nth-[2n]", "nth-[3n]");
+      ("nth-[2n]", "nth-[2n+1]");
+      ("nth-last-3", "nth-last-5");
+      ("nth-of-type-3", "nth-of-type-5");
+      ("nth-last-of-type-3", "nth-last-of-type-5");
+      ("has-aria-checked", "has-aria-disabled");
+      ("not-aria-checked", "not-aria-disabled");
+      ("group-aria-checked", "group-aria-disabled");
+      ("peer-aria-checked", "peer-aria-disabled");
+    ];
+  (* Tailwind's minifier writes the decoded space as [a\ b] and tw as ["a b"], a
+     spelling the canonical differ does not fold, so these compare positions
+     rather than sheets. *)
+  List.iter
+    (fun variant ->
+      let classes =
+        [ variant ^ "-[x=a_b]:**:flex"; variant ^ "-[x=a-b]:block" ]
+      in
+      Test_helpers.check_class_order
+        ~test_name:(String.concat " " classes)
+        classes)
+    [ "aria"; "data" ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -3119,6 +3171,8 @@ let tests =
       test_recursive_compound_variant_order;
     test_case "compound variant inner value order" `Slow
       test_compound_variant_inner_value_order;
+    test_case "functional variant value order" `Slow
+      test_functional_variant_value_order;
     test_case "theme custom variant shadows prefix slot" `Quick
       test_theme_custom_variant_shadows_prefix_slot;
     test_case "compound variant highest component" `Slow

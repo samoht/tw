@@ -48,9 +48,10 @@ type variant_component = {
           [group-has-indeterminate] and [group-has-focus] keep their inner state
           order. [[]] for a non-compound token. *)
   value_key : string option;
-      (** A data predicate spelling or the decoded selector denoted by an
-          arbitrary variant, including its implicit [&:is(...)] anchor. [None]
-          for slots whose variants compare only by rank. *)
+      (** The decoded value of an [aria-], [data-] or [nth-*] token, or the
+          decoded selector denoted by an arbitrary variant, including its
+          implicit [&:is(...)] anchor. [None] for slots whose variants compare
+          only by rank. *)
   container : container_value option;
       (** The bound a container token names, so a stacked [\@sm:\@max-md:] sorts
           under [\@sm] as Tailwind sorts it. [None] for every other token. *)
