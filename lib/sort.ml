@@ -1156,26 +1156,27 @@ let token_order_key ?theme ~breakpoint token =
     anchor_name;
   }
 
-(* The variant order keys of a class's modifier stack, sorted descending.
-   Tailwind sorts a candidate by this list compared lexicographically ascending,
-   so a stacked variant sorts into the group of its highest-order component and
-   after that group's base rules, and two stacks with the same variant multiset
-   (group:hover vs hover:group) get identical keys. Falls back to the scalar
-   [variant_order] for selector-derived variants (before:/after:) that carry no
-   order-bearing prefix in the base class. *)
+(* The variant order keys of a class's modifier stack, sorted descending with
+   repeats dropped. Tailwind sorts a candidate by the set of variants it
+   carries, which is this list compared lexicographically ascending, so a
+   stacked variant sorts into the group of its highest-order component and after
+   that group's base rules, two stacks with the same variants (group:hover vs
+   hover:group) get identical keys, and a repeated [*] or data value adds
+   nothing. Falls back to the scalar [variant_order] for selector-derived
+   variants (before:/after:) that carry no order-bearing prefix in the base
+   class. *)
 let variant_order_list ?theme base_class variant_order breakpoint =
   let from_bc =
     match base_class with
     | None -> []
     | Some bc ->
         let modifiers, _ = Modifiers.of_string bc in
-        let modifiers, _ = collapse_repeated_variant_slots modifiers in
         List.filter_map
           (fun m ->
             let key = token_order_key ?theme ~breakpoint m in
             if key.slot > 0 then Some key else None)
           modifiers
-        |> List.sort (fun a b -> compare_variant_components b a)
+        |> List.sort_uniq (fun a b -> compare_variant_components b a)
   in
   match from_bc with
   | [] when variant_order > 0 ->

@@ -174,6 +174,8 @@
   `aria-checked:**:animate-none` now precedes `aria-disabled:animate-spin` (#973).
 - Two `group-` or `peer-` variants on the same state sort by the name they
   target, the unnamed one first, as Tailwind sorts them (#974).
+- A stack of two `data-` values sorts by both, as Tailwind sorts it, where tw
+  keyed it by the inner value alone (#975).
 
 ### OCaml API
 
