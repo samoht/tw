@@ -169,6 +169,9 @@
   `has-` or `in-` keeps its class name and its negation:
   `not-group-not-[.foo]` is `:not(:is(:where(.group):not(.foo) *))`, where
   it was named `not-group-not-not-[.foo]` and matched `.foo` (#949).
+- Two values of an `aria-`, `data-` or `nth-*` variant sort by the value, as
+  Tailwind sorts them, whatever is stacked under either:
+  `aria-checked:**:animate-none` now precedes `aria-disabled:animate-spin` (#973).
 
 ### OCaml API
 
