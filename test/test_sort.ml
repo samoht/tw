@@ -2631,6 +2631,24 @@ let test_named_anchor_name_order () =
       ("peer-checked", "peer-checked/a");
     ]
 
+let test_stacked_data_values_order_as_a_set () =
+  (* Tailwind keys a candidate by the set of variants it carries, each value of
+     data- its own member, highest first. data-inactive:data-active holds
+     data-inactive, above the data-active of data-active:first, so a second data
+     value outranks any lower variant stacked beside the first. *)
+  List.iter
+    (fun pair -> check_pair_order ~test_name:(String.concat " " pair) pair)
+    [
+      [
+        "data-active:group-disabled:scrollbar-thumb-gray-400";
+        "data-inactive:data-active:cursor-grab";
+      ];
+      [ "data-active:first:flex"; "data-inactive:data-active:block" ];
+      [ "data-hover:first:flex"; "data-active:data-hover:block" ];
+      [ "data-hover:**:flex"; "data-active:data-hover:block" ];
+      [ "data-[a]:first:flex"; "data-[b]:data-[a]:block" ];
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -3195,6 +3213,8 @@ let tests =
     test_case "functional variant value order" `Slow
       test_functional_variant_value_order;
     test_case "named anchor name order" `Slow test_named_anchor_name_order;
+    test_case "stacked data values order as a set" `Slow
+      test_stacked_data_values_order_as_a_set;
     test_case "theme custom variant shadows prefix slot" `Quick
       test_theme_custom_variant_shadows_prefix_slot;
     test_case "compound variant highest component" `Slow
