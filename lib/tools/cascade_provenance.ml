@@ -32,22 +32,20 @@ let and_clause_re = Re.compile (Re.str "(and")
 (* The [dune-project] depends line is [(cascade (and (>= X) (< Y)))]; grabbed
    verbatim rather than sexp-parsed since it is only ever displayed, never
    compared against. *)
+let constraint_of_dune_project contents =
+  List.find_map
+    (fun line ->
+      let trimmed = String.trim line in
+      if Re.execp cascade_re trimmed && Re.execp and_clause_re trimmed then
+        Some trimmed
+      else None)
+    (String.split_on_char '\n' contents)
+
 let cascade_constraint root =
   let path = Filename.concat root "dune-project" in
-  match open_in path with
+  match In_channel.with_open_bin path In_channel.input_all with
   | exception Sys_error _ -> None
-  | ic ->
-      Fun.protect ~finally:(fun () -> close_in_noerr ic) @@ fun () ->
-      let rec loop () =
-        match input_line ic with
-        | exception End_of_file -> None
-        | line ->
-            let trimmed = String.trim line in
-            if Re.execp cascade_re trimmed && Re.execp and_clause_re trimmed
-            then Some trimmed
-            else loop ()
-      in
-      loop ()
+  | contents -> constraint_of_dune_project contents
 
 (* The sha alone does not say how far a live checkout has moved. A sibling
    checkout parked on someone else's branch fails tw tests that pass against

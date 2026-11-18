@@ -9,6 +9,11 @@
     or when the repo root cannot be located from the process's working
     directory) it prints nothing. It never raises. *)
 
+val constraint_of_dune_project : string -> string option
+(** [constraint_of_dune_project contents] is the [cascade] line of the [depends]
+    field in the [dune-project] text [contents], trimmed, such as
+    [(cascade (>= 1.3.0))]. [None] when no line names [cascade]. *)
+
 val report : unit -> unit
 (** [report ()] prints the local [cascade/] checkout's git revision, the branch
     it sits on, how many of its commits are not in [origin/main] and whether it
