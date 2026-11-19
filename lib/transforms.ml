@@ -297,14 +297,21 @@ module Handler = struct
   let signed sign n = match sign with Pos -> n | Neg -> -n
   let signed_float sign f = match sign with Pos -> f | Neg -> -.f
 
-  (* A negative angle or percentage is written as [calc(<abs> * -1)]. *)
-  let make_angle deg =
-    if deg >= 0 then Deg (float_of_int deg)
-    else Calc (Expr (Val (Deg (float_of_int (abs deg))), Mul, Num (-1.)))
+  (* A negative angle or percentage is written as [calc(<abs> * -1)], a negated
+     zero included. *)
+  let is_negative sign n =
+    let v = signed sign n in
+    v < 0 || (v = 0 && sign = Neg)
 
-  let make_pct n : Css.number_percentage =
-    if n >= 0 then Pct (float_of_int n)
-    else Calc (Expr (Val (Pct (float_of_int (abs n))), Mul, Num (-1.)))
+  let make_angle sign n : Css.angle =
+    let deg = float_of_int (abs n) in
+    if is_negative sign n then Calc (Expr (Val (Deg deg), Mul, Num (-1.)))
+    else Deg deg
+
+  let make_pct sign n : Css.number_percentage =
+    let pct = float_of_int (abs n) in
+    if is_negative sign n then Calc (Expr (Val (Pct pct), Mul, Num (-1.)))
+    else Pct pct
 
   (* [(--name)] as an angle, negated as [calc(var(--name) * -1)]. *)
   let bare_var_angle sign name : Css.angle =
@@ -554,7 +561,7 @@ module Handler = struct
         (List.map (fun var -> Var.set var value) vars @ [ refs ])
     in
     match (axis, sign, amount) with
-    | _, _, Int n -> set (make_pct (signed sign n))
+    | _, _, Int n -> set (make_pct sign n)
     | All, Neg, Bracket s -> (
         match neg_bracket_value number_of_inner s with
         | Some (`Typed f) -> style [ Css.scale (Css.X (neg_number f)) ]
@@ -619,7 +626,7 @@ module Handler = struct
         @ [ rotate_skew_chain ])
     in
     match (sign, amount) with
-    | _, Int n -> set (make_angle (signed sign n))
+    | _, Int n -> set (make_angle sign n)
     | _, Bare_var name -> set (bare_var_angle sign name)
     | Neg, Bracket s ->
         let decl (var, fn, transform) =
@@ -988,14 +995,7 @@ module Handler = struct
       let value = if op = Translate then translate_amount axis v else None in
       match value with
       | Some amount -> Result.bind amount ok
-      | None ->
-          Parse.int_any v >|= fun n ->
-          (* [-rotate-0] and the axis forms fold to the positive zero, class
-             name included; only the bare translate keeps [-translate-0]. *)
-          let sign =
-            if n = 0 && not (op = Translate && axis = All) then Pos else sign
-          in
-          Op (op, axis, sign, Int n)
+      | None -> Parse.int_any v >|= fun n -> Op (op, axis, sign, Int n)
 
   let op_of_parts op sign = function
     | [ v ] -> op_of_value op All sign v
