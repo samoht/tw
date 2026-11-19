@@ -119,6 +119,9 @@
   Tailwind does and routes it through `--tw-text-shadow-color`, so
   `text-shadow-[0_1px_notacolour]` and `text-shadow-[foo:red]` compile where
   tw refused them (#963).
+- A margin, gap, scroll-margin, sizing or `leading` scale of 2^53 or more,
+  such as `m-9007199254740993`, is refused, where it wrapped round to another
+  class (#902).
 
 ### Project stylesheets
 
@@ -134,6 +137,8 @@
 - In inline mode, the default for `-s`, a custom property an `@utility` sets
   is kept, as Tailwind keeps it, where it was resolved away: `--x` went from
   `.foo{--x:1;color:red}` and `.bar{--y:1}` disappeared (#941).
+- An `@source inline` brace range ending near the largest integer stops,
+  where it counted on for ever (#902).
 
 ### Variants
 
@@ -185,16 +190,6 @@
   on a string that is not a hex colour instead of returning it unchanged
   (#926).
 - `Tw.Parse.is_digit` tests for an ASCII digit (#936).
-
-## 1.2.1 (12/11/2026)
-
-### Utilities
-
-- Fix parsing of large margin, gap, scroll-margin, sizing and `leading` utilities (#902).
-
-### Project stylesheets
-
-- Fix parsing of large brace range in `@source inline` (#902).
 
 ## 1.2.0 (27/10/2026)
 
