@@ -122,6 +122,9 @@
 - A margin, gap, scroll-margin, sizing or `leading` scale of 2^53 or more,
   such as `m-9007199254740993`, is refused, where it wrapped round to another
   class (#902).
+- A negated zero transform such as `-translate-x-0`, `-rotate-0`, `-scale-x-0`
+  or `-skew-x-0` keeps its sign in the selector, as Tailwind writes it, where
+  tw wrote `.translate-x-0` and the rule missed the element (#980).
 
 ### Project stylesheets
 

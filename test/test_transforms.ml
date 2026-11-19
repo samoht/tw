@@ -115,6 +115,45 @@ let test_any_translate_fraction () =
   check "translate-1/0";
   check "-translate-x-0/2"
 
+(* A negated zero keeps its sign in the class name, so the rule still matches
+   the element, and in the value, as Tailwind writes both: [-scale-x-0] is
+   [.-scale-x-0] setting [calc(0% * -1)], not [.scale-x-0]. *)
+let test_negative_zero () =
+  List.iter check
+    [
+      "-translate-x-0";
+      "-translate-y-0";
+      "-translate-z-0";
+      "-rotate-0";
+      "-rotate-x-0";
+      "-scale-0";
+      "-scale-x-0";
+      "-skew-0";
+      "-skew-x-0";
+    ];
+  Test_helpers.check_declarations ~minify:false "-scale-x-0"
+    [
+      "--tw-scale-x: calc(0% * -1)";
+      "scale: var(--tw-scale-x) var(--tw-scale-y)";
+    ];
+  Test_helpers.check_declarations ~minify:false "-skew-x-0"
+    [
+      "--tw-skew-x: skewX(calc(0deg * -1))";
+      "transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+       var(--tw-skew-x,) var(--tw-skew-y,)";
+    ];
+  Test_helpers.check_class_order ~test_name:"a negated zero sorts as Tailwind's"
+    [
+      "-translate-x-0";
+      "translate-x-0";
+      "-rotate-0";
+      "rotate-0";
+      "-scale-x-0";
+      "scale-x-0";
+      "-skew-x-0";
+      "skew-x-0";
+    ]
+
 let test_of_string_invalid () =
   let test_invalid =
     Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
@@ -634,6 +673,7 @@ let tests =
     test_case "negative arbitrary translate-z" `Quick
       test_neg_translate_z_arbitrary;
     test_case "any translate fraction" `Quick test_any_translate_fraction;
+    test_case "negative zero keeps its sign" `Quick test_negative_zero;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
