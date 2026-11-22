@@ -341,14 +341,6 @@ module Handler = struct
         Theme.register_default var (Css.Px px : Css.length))
       blur_sizes
 
-  (* Both targets bind the v4 [--blur-<size>] token and reference it: Tailwind
-     v4's default theme has no [--backdrop-blur-*] tokens. *)
-  let blur_sized target size =
-    let _, theme_var, default_px = blur_size size in
-    let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
-    with_chain target
-      [ decl; var_decl (var target `Blur) (Css.Blur (Var ref_)) ]
-
   let is_theme_blur theme target name =
     Option.is_some (theme_blur theme target name)
 
@@ -362,6 +354,21 @@ module Handler = struct
             let decl, ref_ = Var.binding (blur_named_var token) len in
             with_chain target
               [ decl; var_decl (var target `Blur) (Css.Blur (Var ref_)) ])
+
+  (* A size binds the v4 [--blur-<size>] token, which Tailwind's default theme
+     declares for both targets; a project [--backdrop-blur-<size>] comes first
+     for the backdrop, as [theme_blur] reads it. *)
+  let blur_sized theme target size =
+    let name, theme_var, default_px = blur_size size in
+    match target with
+    | Backdrop
+      when Option.is_some
+             (Scheme.theme_value (Some theme) ("backdrop-blur-" ^ name)) ->
+        blur_theme theme target name
+    | Backdrop | Filter ->
+        let decl, ref_ = Var.binding theme_var (Css.Px default_px) in
+        with_chain target
+          [ decl; var_decl (var target `Blur) (Css.Blur (Var ref_)) ]
 
   (* The length a [blur-[...]] bracket denotes, read with cascade's own grammar
      so calc() and every unit come for free. A var bracket keeps the tw-side
@@ -1082,7 +1089,7 @@ module Handler = struct
              (property_names target))
     | Blur target -> set target `Blur (Css.Blur (Px 8.))
     | Blur_none target -> blur_none theme target
-    | Blur_size (target, size) -> blur_sized target size
+    | Blur_size (target, size) -> blur_sized theme target size
     | Blur_theme (target, name) -> blur_theme theme target name
     | Blur_arbitrary (target, _, len) -> set target `Blur (Css.Blur len)
     | Blur_raw (target, _, value) -> set_raw target `Blur value

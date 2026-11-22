@@ -131,6 +131,8 @@
 - `backdrop-blur-<name>` reads a project `--backdrop-blur-<name>` token, then
   `--blur-<name>`, as Tailwind does, so `backdrop-blur-soft` under
   `--blur-soft` compiles where tw refused it (#982).
+- `backdrop-blur-<size>` reads a project `--backdrop-blur-<size>` token for a
+  built-in size too, where tw bound `--blur-<size>` and ignored it (#985).
 - `translate-0` and `translate-z-0` write `0px`, and `translate-1` and
   `translate-z-1` write `var(--spacing)`, as Tailwind and `translate-x-*` do,
   where tw wrote `calc(var(--spacing) * n)` (#983).
