@@ -645,6 +645,24 @@ let test_transform_brackets_peel_a_hint () =
 let test_unknown_hint_is_not_the_value () =
   List.iter Test_helpers.check_class_matches_tailwind [ "scale-z-[foo:2]" ]
 
+(* Every translate axis writes the zero step as [0px] and the unit step as
+   [var(--spacing)], as Tailwind does for each spacing family: the bare form and
+   the z axis are no exception. *)
+let test_translate_unit_steps () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "translate-0";
+      "-translate-0";
+      "translate-z-0";
+      "-translate-z-0";
+      "translate-1";
+      "translate-z-1";
+      "-translate-1";
+      "-translate-z-1";
+      "translate-x-0";
+      "translate-y-1";
+    ]
+
 let tests =
   [
     test_case "rotate underscore escape" `Quick test_rotate_underscore_escape;
@@ -695,6 +713,7 @@ let tests =
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
     test_case "unknown hint is not the value" `Quick
       test_unknown_hint_is_not_the_value;
+    test_case "translate unit steps" `Quick test_translate_unit_steps;
   ]
 
 let suite = ("transforms", tests)
