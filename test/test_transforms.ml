@@ -663,6 +663,12 @@ let test_translate_unit_steps () =
       "translate-y-1";
     ]
 
+(* The bare form takes a fractional step, as each axis does: Tailwind writes
+   [calc(var(--spacing) * 0.5)] on x and y for [translate-0.5]. *)
+let test_translate_bare_fractional_step () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "translate-0.5"; "-translate-1.5"; "translate-2.5" ]
+
 let tests =
   [
     test_case "rotate underscore escape" `Quick test_rotate_underscore_escape;
@@ -714,6 +720,8 @@ let tests =
     test_case "unknown hint is not the value" `Quick
       test_unknown_hint_is_not_the_value;
     test_case "translate unit steps" `Quick test_translate_unit_steps;
+    test_case "translate bare fractional step" `Quick
+      test_translate_bare_fractional_step;
   ]
 
 let suite = ("transforms", tests)
