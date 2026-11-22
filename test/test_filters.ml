@@ -798,6 +798,14 @@ let test_var_prefixed_bracket () =
       "backdrop-opacity-[var(--a),foo]";
     ]
 
+(* With no [--blur-none] token, [blur-none] empties the radius and writes the
+   whole filter chain, so Tailwind registers every channel of that chain with
+   [@property] and initialises it in the properties layer, as it does for
+   [backdrop-blur-none]. *)
+let test_blur_none_registers_chain () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "blur-none"; "backdrop-blur-none" ]
+
 let tests =
   [
     Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
@@ -851,6 +859,8 @@ let tests =
     test_case "unknown hint is not the value" `Quick
       test_unknown_hint_is_not_the_value;
     test_case "unread drop shadow colour" `Quick test_unread_drop_shadow_colour;
+    test_case "blur-none registers the chain" `Quick
+      test_blur_none_registers_chain;
   ]
 
 let suite = ("filters", tests)
