@@ -128,6 +128,9 @@
 - `blur-none` with no `--blur-none` token registers the filter chain's
   `@property` rules and initialises them in the properties layer, as Tailwind
   and `backdrop-blur-none` do. tw wrote neither (#981).
+- `backdrop-blur-<name>` reads a project `--backdrop-blur-<name>` token, then
+  `--blur-<name>`, as Tailwind does, so `backdrop-blur-soft` under
+  `--blur-soft` compiles where tw refused it (#982).
 
 ### Project stylesheets
 

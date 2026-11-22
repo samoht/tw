@@ -37,7 +37,7 @@ module Handler = struct
        class name is spelled exactly as it was written. *)
     | Blur_arbitrary of target * string * Css.length
     | Blur_raw of target * string * string
-    | Blur_theme of string (* filter only: radius from a --blur-* token *)
+    | Blur_theme of target * string (* radius from a project token *)
     | Amount of target * amount * int
     | Amount_arbitrary of target * amount * string * string
     | Backdrop_opacity of float
@@ -262,23 +262,28 @@ module Handler = struct
     | Some value -> [ Css.custom_property ~layer:"theme" ("--" ^ name) value ]
     | None -> []
 
-  (* Tailwind reads [backdrop-blur-none] from [--backdrop-blur-none], then
-     [--blur-none] (themeKeys [--backdrop-blur], [--blur]). Without a token the
-     radius is emptied and the chain still written, with its [@property]
-     rules. *)
-  let blur_none theme target =
+  (* The project token a named radius reads, and its value. Tailwind's themeKeys
+     are [--backdrop-blur], then [--blur], for [backdrop-blur-<name>], and
+     [--blur] alone for [blur-<name>]. *)
+  let theme_blur theme target name =
     let tokens =
       match target with
-      | Filter -> [ "blur-none" ]
-      | Backdrop -> [ "backdrop-blur-none"; "blur-none" ]
+      | Filter -> [ "blur-" ^ name ]
+      | Backdrop -> [ "backdrop-blur-" ^ name; "blur-" ^ name ]
     in
+    List.find_map
+      (fun token ->
+        Option.map
+          (fun raw -> (token, raw))
+          (Scheme.theme_value (Some theme) token))
+      tokens
+
+  (* Without a [none] token the radius is emptied and the chain still written,
+     with its [@property] rules. *)
+  let blur_none theme target =
     let blur = var target `Blur in
-    match
-      List.find_opt
-        (fun token -> Scheme.theme_value (Some theme) token <> None)
-        tokens
-    with
-    | Some token ->
+    match theme_blur theme target "none" with
+    | Some (token, _) ->
         let ref_ : Css.length Css.var = Var.theme_ref token in
         with_chain target
           (theme_decl_if_set ~theme token
@@ -298,9 +303,9 @@ module Handler = struct
      has no slot for; they share the slot after the scale. *)
   let blur_named_cache = Domain_cache.v 8
 
-  let blur_named_var name =
-    Domain_cache.or_add blur_named_cache name (fun () ->
-        Var.theme Css.Length ("blur-" ^ name) ~order:(8, 8))
+  let blur_named_var token =
+    Domain_cache.or_add blur_named_cache token (fun () ->
+        Var.theme Css.Length token ~order:(8, 8))
 
   let blur_md_var = Var.theme Css.Length "blur-md" ~order:(8, 2)
   let blur_lg_var = Var.theme Css.Length "blur-lg" ~order:(8, 3)
@@ -344,19 +349,19 @@ module Handler = struct
     with_chain target
       [ decl; var_decl (var target `Blur) (Css.Blur (Var ref_)) ]
 
-  let is_theme_blur theme n =
-    Scheme.theme_value (Some theme) ("blur-" ^ n) <> None
+  let is_theme_blur theme target name =
+    Option.is_some (theme_blur theme target name)
 
-  let blur_theme theme name =
-    match Scheme.theme_value (Some theme) ("blur-" ^ name) with
+  let blur_theme theme target name =
+    match theme_blur theme target name with
     | None -> style []
-    | Some raw -> (
+    | Some (token, raw) -> (
         match Css.parse_length raw with
         | None -> style []
         | Some len ->
-            let decl, ref_ = Var.binding (blur_named_var name) len in
-            with_chain Filter
-              [ decl; var_decl (var Filter `Blur) (Css.Blur (Var ref_)) ])
+            let decl, ref_ = Var.binding (blur_named_var token) len in
+            with_chain target
+              [ decl; var_decl (var target `Blur) (Css.Blur (Var ref_)) ])
 
   (* The length a [blur-[...]] bracket denotes, read with cascade's own grammar
      so calc() and every unit come for free. A var bracket keeps the tw-side
@@ -1078,7 +1083,7 @@ module Handler = struct
     | Blur target -> set target `Blur (Css.Blur (Px 8.))
     | Blur_none target -> blur_none theme target
     | Blur_size (target, size) -> blur_sized target size
-    | Blur_theme name -> blur_theme theme name
+    | Blur_theme (target, name) -> blur_theme theme target name
     | Blur_arbitrary (target, _, len) -> set target `Blur (Css.Blur len)
     | Blur_raw (target, _, value) -> set_raw target `Blur value
     | Amount (target, f, n) -> amount target (f :> scaled) (float_of_int n)
@@ -1211,7 +1216,7 @@ module Handler = struct
     | Blur_arbitrary (t, _, _)
     | Blur_raw (t, _, _) ->
         slot t `Blur
-    | Blur_theme _ -> slot Filter `Blur
+    | Blur_theme (t, _) -> slot t `Blur
     | Amount (t, f, _) | Amount_arbitrary (t, f, _, _) -> slot t (f :> func)
     | Backdrop_opacity _ | Backdrop_opacity_arbitrary _ ->
         slot Backdrop `Opacity
@@ -1244,8 +1249,8 @@ module Handler = struct
 
   (* The bare [blur] and [backdrop-blur] inline the deprecated [--blur] token,
      so a token the [@theme] block removed is refused here rather than read
-     through a [var()] the theme layer drops. A project [--blur-<name>] token
-     names a [filter] radius only. *)
+     through a [var()] the theme layer drops. A project token names any other
+     radius, as [theme_blur] reads it. *)
   let parse_blur theme target rest =
     let name = String.concat "-" rest in
     match (rest, blur_size_of_name name) with
@@ -1253,8 +1258,8 @@ module Handler = struct
     | [], _ -> Ok (Blur target)
     | [ "none" ], _ -> Ok (Blur_none target)
     | [ _ ], Some size -> Ok (Blur_size (target, size))
-    | _ :: _, None when target = Filter && is_theme_blur theme name ->
-        Ok (Blur_theme name)
+    | _ :: _, None when is_theme_blur theme target name ->
+        Ok (Blur_theme (target, name))
     | [ s ], None when Parse.is_bracket_value s -> (
         match arbitrary_blur s with
         | Option.Some len -> Ok (Blur_arbitrary (target, s, len))
@@ -1439,7 +1444,7 @@ module Handler = struct
     | Blur_none t -> prefix t ^ "blur-none"
     | Blur_size (t, size) -> prefix t ^ "blur-" ^ blur_size_name size
     | Blur_arbitrary (t, s, _) | Blur_raw (t, s, _) -> prefix t ^ "blur-" ^ s
-    | Blur_theme name -> "blur-" ^ name
+    | Blur_theme (t, name) -> prefix t ^ "blur-" ^ name
     | Amount (t, f, 100) when has_bare_form f ->
         prefix t ^ func_name (f :> func)
     | Amount (t, f, n) ->
