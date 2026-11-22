@@ -502,9 +502,8 @@ module Handler = struct
      the way they reach a padding. [calc(var(--spacing) * 0)] is zero whatever
      the spacing is, and Tailwind writes that zero with a unit: the target is a
      [--tw-*] custom property, an opaque token stream where [0] and [0px] are
-     not the same token, which is the [0px] [Theme] writes. One axis takes the
-     unit shortcuts [Theme.spacing_calc] has; the bare form and the z axis write
-     the product. *)
+     not the same token, which is the [0px] [Theme] writes. Every axis takes the
+     unit shortcuts [Theme.spacing_calc] has. *)
   let translate_style theme axis sign amount =
     let vars = translate_vars axis in
     let refs = if axis = Z then translate_xyz_refs else translate_xy_refs in
@@ -514,19 +513,11 @@ module Handler = struct
     in
     match (sign, amount) with
     | _, Int n ->
-        let n = signed sign n in
-        let decl, value =
-          match axis with
-          | X | Y -> Theme.spacing_calc ~theme n
-          | All | Z -> Theme.spacing_product ~theme (float_of_int n)
-        in
+        let decl, value = Theme.spacing_calc ~theme (signed sign n) in
         set ~spacing:[ decl ] value
     | _, Step f ->
-        let f = signed_float sign f in
         let decl, value =
-          match axis with
-          | X | Y -> Theme.spacing_calc_float ~theme f
-          | All | Z -> Theme.spacing_product ~theme f
+          Theme.spacing_calc_float ~theme (signed_float sign f)
         in
         set ~spacing:[ decl ] value
     | _, Full -> set (Pct (signed_float sign 100.))
