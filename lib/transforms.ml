@@ -956,7 +956,7 @@ module Handler = struct
   (* The translate values a scale step does not cover: [full] on X, Y and both,
      [px] on every axis, a fraction (Tailwind writes [calc(n / m * 100%)] out
      rather than folding it, so a zero on either side is one) on X, Y and both,
-     and a fractional spacing step on one axis. *)
+     and a fractional spacing step on every axis. *)
   let translate_amount axis v =
     match (axis, v) with
     | (All | X | Y), "full" -> Some (Ok Full)
@@ -966,8 +966,8 @@ module Handler = struct
           (match Parse.fraction v with
           | Some (n, d) -> Ok (Fraction (n, d))
           | None -> Utility.unclaimed)
-    | (X | Y | Z), _ -> Option.map (fun f -> Ok (Step f)) (parse_spacing_step v)
-    | All, _ -> None
+    | (All | X | Y | Z), _ ->
+        Option.map (fun f -> Ok (Step f)) (parse_spacing_step v)
 
   (* [op] along [axis] with [v] after it, positive or negative. A bracket is
      taken when the operation's reader takes it, or, for a negative, when it

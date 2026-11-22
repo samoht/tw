@@ -133,6 +133,8 @@
   `--blur-soft` compiles where tw refused it (#982).
 - `backdrop-blur-<size>` reads a project `--backdrop-blur-<size>` token for a
   built-in size too, where tw bound `--blur-<size>` and ignored it (#985).
+- `translate-0.5` and the bare form's other fractional steps compile, as
+  `translate-x-0.5` did, where tw refused them as unknown (#986).
 - `translate-0` and `translate-z-0` write `0px`, and `translate-1` and
   `translate-z-1` write `var(--spacing)`, as Tailwind and `translate-x-*` do,
   where tw wrote `calc(var(--spacing) * n)` (#983).
