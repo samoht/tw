@@ -491,6 +491,29 @@ let test_project_blur_token () =
   Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry
     "blur-nope"
 
+(* Tailwind reads a [backdrop-blur-<name>] radius from [--backdrop-blur-<name>],
+   then from [--blur-<name>] (themeKeys [--backdrop-blur], [--blur]); a plain
+   [blur-<name>] reads [--blur-<name>] only. *)
+let test_project_backdrop_blur_token () =
+  let entry =
+    Test_helpers.theme_entry "--blur-soft: 3px; --backdrop-blur-hard: 9px;"
+  in
+  let theme = Tw_tools.Entry_theme.of_css entry in
+  Test_helpers.check_declarations ~theme "backdrop-blur-soft"
+    [
+      "--tw-backdrop-blur:blur(var(--blur-soft))";
+      "-webkit-backdrop-filter:" ^ backdrop_chain_min;
+      "backdrop-filter:" ^ backdrop_chain_min;
+    ];
+  Test_helpers.check_declarations ~theme "backdrop-blur-hard"
+    [
+      "--tw-backdrop-blur:blur(var(--backdrop-blur-hard))";
+      "-webkit-backdrop-filter:" ^ backdrop_chain_min;
+      "backdrop-filter:" ^ backdrop_chain_min;
+    ];
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry
+    "blur-hard"
+
 (* An arbitrary drop shadow takes a [/opacity], as a named size does: the
    modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
    does, folded at build time for a colour with sRGB bytes; a [var()] keeps its
@@ -856,6 +879,8 @@ let tests =
       project_drop_shadow_size_order;
     test_case "drop-shadow candidate order" `Slow drop_shadow_candidate_order;
     test_case "project blur token" `Quick test_project_blur_token;
+    test_case "project backdrop-blur token" `Quick
+      test_project_backdrop_blur_token;
     test_case "unknown hint is not the value" `Quick
       test_unknown_hint_is_not_the_value;
     test_case "unread drop shadow colour" `Quick test_unread_drop_shadow_colour;
