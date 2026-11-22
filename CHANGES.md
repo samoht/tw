@@ -125,6 +125,9 @@
 - A negated zero transform such as `-translate-x-0`, `-rotate-0`, `-scale-x-0`
   or `-skew-x-0` keeps its sign in the selector, as Tailwind writes it, where
   tw wrote `.translate-x-0` and the rule missed the element (#980).
+- `blur-none` with no `--blur-none` token registers the filter chain's
+  `@property` rules and initialises them in the properties layer, as Tailwind
+  and `backdrop-blur-none` do. tw wrote neither (#981).
 
 ### Project stylesheets
 

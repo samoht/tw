@@ -264,8 +264,8 @@ module Handler = struct
 
   (* Tailwind reads [backdrop-blur-none] from [--backdrop-blur-none], then
      [--blur-none] (themeKeys [--backdrop-blur], [--blur]). Without a token the
-     radius is emptied; [blur-none] then writes no [@property] for the chain,
-     unlike [backdrop-blur-none]. *)
+     radius is emptied and the chain still written, with its [@property]
+     rules. *)
   let blur_none theme target =
     let tokens =
       match target with
@@ -283,16 +283,9 @@ module Handler = struct
         with_chain target
           (theme_decl_if_set ~theme token
           @ [ var_decl blur (Css.Blur (Var ref_)) ])
-    | None -> (
-        let decls =
-          Css.custom_property ~layer:"utilities" (Var.css_name blur) " "
-          :: declarations target (chain target)
-        in
-        match target with
-        | Filter -> style decls
-        | Backdrop ->
-            style ~metadata:(metadata target)
-              ~property_rules:(property_rules target) decls)
+    | None ->
+        with_chain target
+          [ Css.custom_property ~layer:"utilities" (Var.css_name blur) " " ]
 
   (* Tailwind v4 default blur theme tokens (in px). Each [.blur-<size>] utility
      binds its theme token and references it in [--tw-blur]; the [.blur] keyword
