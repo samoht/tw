@@ -14,10 +14,9 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-04";
   Test_helpers.check_invalid_input (module Tw.Zoom.Handler) "zoom-1_0"
 
-(* Tailwind emits [zoom-*] between the transforms and the animations. It sorted
-   with the margins instead, at the priority a family gets when nobody has
-   placed it, and no canonical comparison could see that: [zoom] shares a
-   property with none of them. *)
+(* Tailwind emits [zoom-*] between the transforms and the animations. [zoom]
+   shares a property with none of them, so only the sheet positions show the
+   order; no canonical comparison does. *)
 let test_zoom_sorts_after_the_transforms () =
   Test_helpers.check_class_order ~test_name:"zoom band"
     [
@@ -37,9 +36,16 @@ let test_zoom_candidate_boundary () =
   Test_helpers.check_class_order ~test_name:"zoom candidate boundary"
     [ "zoom-125"; "zoom-(--preview-zoom)"; "zoom-[1.1]"; "zoom-75"; "zoom-100" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "zoom-[var(--a)_1px]"; "zoom-[var(--a),foo]" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "sorts after the transforms" `Quick
         test_zoom_sorts_after_the_transforms;
       Alcotest.test_case "candidate boundary" `Quick

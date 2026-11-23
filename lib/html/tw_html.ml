@@ -1,22 +1,17 @@
 module Css = Cascade.Css
-(* HTML component module implementation with integrated Tailwind CSS *)
 
-(* Helper function to concatenate strings *)
 let str = String.concat ""
 
-(* Minimal Htmlit implementation - adapted from Htmlit library Original source:
-   https://github.com/dbuenzli/htmlit Copyright (c) 2016 The htmlit programmers
-   License: ISC
-
-   This is a minimal subset of Htmlit functionality needed for tw. The
-   implementation has been simplified to avoid Format dependency. *)
+(* The subset of Htmlit that tw needs, without its Format dependency. Adapted
+   from https://github.com/dbuenzli/htmlit, Copyright (c) 2016 The htmlit
+   programmers, License: ISC. *)
 module El = struct
   type html =
     | Element of string * (string * string) list * html list
+    (* A void element has no children and no end tag. Only [void_v] builds one,
+       so the elements rendered without an end tag are exactly those built with
+       it. *)
     | Void_element of string * (string * string) list
-        (** An HTML void element: no children, no end tag. Only {!void_v} builds
-            one, so the elements rendered without an end tag are exactly the
-            constructors that call it. *)
     | Text of string
     | Void
     | Raw of string
@@ -110,8 +105,6 @@ module At = struct
   let charset s = ("charset", s)
   let content s = ("content", s)
   let style s = ("style", s)
-
-  (* Additional attributes from the second At module *)
   let onclick s = v "onclick" s
   let onchange s = v "onchange" s
   let oninput s = v "oninput" s
@@ -128,16 +121,12 @@ module At = struct
   let loading_lazy = v "loading" "lazy"
   let true' name = v name ""
   let false' name = v name "false"
-
-  (* Void attribute for conditionals *)
   let void = ("", "")
   let if' cond at = if cond then at else void
   let if_some = function Some at -> at | None -> void
   let is_void (name, _) = name = ""
   let to_pair at = at
   let of_pair p = p
-
-  (* Additional HTML5 attributes *)
   let accesskey s = v "accesskey" s
   let action s = v "action" s
   let autocomplete s = v "autocomplete" s
@@ -158,8 +147,6 @@ module At = struct
   let rowspan i = v "rowspan" (string_of_int i)
   let selected = v "selected" ""
   let wrap s = v "wrap" s
-
-  (* SVG attributes *)
   let fill_rule `evenodd = v "fill-rule" "evenodd"
   let clip_rule `evenodd = v "clip-rule" "evenodd"
   let cx i = v "cx" (string_of_int i)
@@ -192,13 +179,9 @@ type tw_tree = { own : tw list; unknown : string list; kids : tw_tree list }
 
 let no_tw = { own = []; unknown = []; kids = [] }
 
-(* Type that combines HTML element with its Tailwind classes *)
 type t = { el : El.html; tw : tw_tree; forms : bool }
-
-(* Attribute type - abstract to prevent direct usage of class' *)
 type attr = At.t
 
-(* Aria module *)
 module Aria = struct
   let label s = At.v "aria-label" s
   let labelledby s = At.v "aria-labelledby" s
@@ -209,7 +192,6 @@ module Aria = struct
   let role s = At.v "role" s
 end
 
-(* Internal helper to convert to El.html *)
 let to_htmlit t = t.el
 
 (* Document order: a node's own names before its children's, children in the
@@ -229,17 +211,12 @@ let escape s =
   El.add_escaped b s;
   Buffer.contents b
 
-(* Text helpers *)
 let txt s = { el = El.txt s; tw = no_tw; forms = false }
 let txtf segments = txt (str segments)
 let raw s = { el = El.unsafe_raw s; tw = no_tw; forms = false }
 let rawf segments = raw (str segments)
-
-(* Empty element *)
 let empty = { el = El.void; tw = no_tw; forms = false }
 
-(* Build final attribute list from tw styles, raw class strings, and non-class
-   attrs *)
 let class_atts tw_styles raw_classes other_atts =
   let tw_cls = match tw_styles with [] -> "" | _ -> Tw.to_classes tw_styles in
   let all_cls =
@@ -253,9 +230,9 @@ let class_atts tw_styles raw_classes other_atts =
   | "" -> List.rev other_atts
   | cls -> At.class' cls :: List.rev other_atts
 
-(* Extract class attrs from at, parse recognized Tw classes, keep unrecognized
-   as-is - a class attribute legitimately carries names this library knows
-   nothing about. Returns (tw_extras, raw_class_parts, other_atts) *)
+(* A class attribute legitimately carries names this library knows nothing
+   about, so the names [Tw.of_classes] does not recognise are kept as raw
+   classes. *)
 let extract_class_attrs atts =
   List.fold_left
     (fun (tw_extra, raw_cls, rest) ((name, value) as att) ->
@@ -313,15 +290,12 @@ let map_attrs f t =
   let el, tw = go t.el t.tw in
   { t with el; tw }
 
-(* Helper to create elements - applies tw classes immediately *)
 let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
   let atts = Option.value ~default:[] at in
   let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
   let all_tw_styles = tw @ tw_from_at in
   let atts_with_tw = class_atts all_tw_styles raw_classes other_atts in
-  (* Convert children to Htmlit elements *)
   let child_els = List.map to_htmlit children in
-  (* Collect all tw styles from this element and its children *)
   let all_tw =
     {
       own = all_tw_styles;
@@ -329,14 +303,11 @@ let el_with_tw ?(forms = false) name ?at ?(tw = []) children =
       kids = List.map (fun c -> c.tw) children;
     }
   in
-  (* Propagate forms flag from children or this element *)
   let has_forms = forms || List.exists (fun c -> c.forms) children in
   { el = El.v ~at:atts_with_tw name child_els; tw = all_tw; forms = has_forms }
 
-(* Convert to string *)
 let to_string ?(doctype = false) t = El.to_string ~doctype (to_htmlit t)
 
-(* Livereload module *)
 module Livereload = struct
   let enabled =
     try Sys.getenv "SITE_LIVERELOAD" = "true" with Not_found -> false
@@ -367,8 +338,6 @@ module Livereload = struct
 end
 
 let el name ?at ?tw children = el_with_tw name ?at ?tw children
-
-(* HTML Elements with optional Tailwind classes *)
 let div ?at ?tw children = el_with_tw "div" ?at ?tw children
 let span ?at ?tw children = el_with_tw "span" ?at ?tw children
 let p ?at ?tw children = el_with_tw "p" ?at ?tw children
@@ -402,7 +371,6 @@ let picture ?at ?tw children = el_with_tw "picture" ?at ?tw children
 let slot ?at ?tw children = el_with_tw "slot" ?at ?tw children
 let template ?at ?tw children = el_with_tw "template" ?at ?tw children
 
-(* Void elements *)
 let void_el ?(forms = false) name ?at ?(tw = []) () =
   let atts = Option.value ~default:[] at in
   let tw_from_at, raw_classes, other_atts = extract_class_attrs atts in
@@ -432,10 +400,7 @@ let style ?at ?(tw = []) css =
     forms = false;
   }
 
-(* Void is now an alias for empty *)
 let void = empty
-
-(* Forms *)
 let form ?at ?tw children = el_with_tw "form" ?at ?tw children
 let input ?at ?tw () = void_el ~forms:true "input" ?at ?tw ()
 
@@ -446,12 +411,8 @@ let button ?at ?tw children = el_with_tw "button" ?at ?tw children
 let label ?at ?tw children = el_with_tw "label" ?at ?tw children
 let fieldset ?at ?tw children = el_with_tw "fieldset" ?at ?tw children
 let legend ?at ?tw children = el_with_tw "legend" ?at ?tw children
-
-(* Interactive elements *)
 let details ?at ?tw children = el_with_tw "details" ?at ?tw children
 let summary ?at ?tw children = el_with_tw "summary" ?at ?tw children
-
-(* Text content *)
 let pre ?at ?tw children = el_with_tw "pre" ?at ?tw children
 let code ?at ?tw children = el_with_tw "code" ?at ?tw children
 let kbd ?at ?tw children = el_with_tw "kbd" ?at ?tw children
@@ -459,12 +420,8 @@ let em ?at ?tw children = el_with_tw "em" ?at ?tw children
 let strong ?at ?tw children = el_with_tw "strong" ?at ?tw children
 let small ?at ?tw children = el_with_tw "small" ?at ?tw children
 let mark ?at ?tw children = el_with_tw "mark" ?at ?tw children
-
-(* Breaks *)
 let br ?at ?tw () = void_el "br" ?at ?tw ()
 let hr ?at ?tw () = void_el "hr" ?at ?tw ()
-
-(* Tables *)
 let table ?at ?tw children = el_with_tw "table" ?at ?tw children
 let thead ?at ?tw children = el_with_tw "thead" ?at ?tw children
 let tbody ?at ?tw children = el_with_tw "tbody" ?at ?tw children
@@ -473,30 +430,18 @@ let tr ?at ?tw children = el_with_tw "tr" ?at ?tw children
 let th ?at ?tw children = el_with_tw "th" ?at ?tw children
 let td ?at ?tw children = el_with_tw "td" ?at ?tw children
 let caption ?at ?tw children = el_with_tw "caption" ?at ?tw children
-
-(* Lists *)
 let ol ?at ?tw children = el_with_tw "ol" ?at ?tw children
 let dl ?at ?tw children = el_with_tw "dl" ?at ?tw children
 let dt ?at ?tw children = el_with_tw "dt" ?at ?tw children
 let dd ?at ?tw children = el_with_tw "dd" ?at ?tw children
-
-(* Quotations *)
 let blockquote ?at ?tw children = el_with_tw "blockquote" ?at ?tw children
-
-(* Figures *)
 let figure ?at ?tw children = el_with_tw "figure" ?at ?tw children
 let figcaption ?at ?tw children = el_with_tw "figcaption" ?at ?tw children
-
-(* Media *)
 let video ?at ?tw children = el_with_tw "video" ?at ?tw children
 let audio ?at ?tw children = el_with_tw "audio" ?at ?tw children
 let source ?at ?tw () = void_el "source" ?at ?tw ()
-
-(* Embedded content *)
 let canvas ?at ?tw children = el_with_tw "canvas" ?at ?tw children
 let iframe ?at ?tw children = el_with_tw "iframe" ?at ?tw children
-
-(* SVG elements *)
 let svg ?at ?tw children = el_with_tw "svg" ?at ?tw children
 let g ?at ?tw children = el_with_tw "g" ?at ?tw children
 let circle ?at ?tw children = el_with_tw "circle" ?at ?tw children
@@ -514,11 +459,7 @@ let versioned path ~contents =
   let hash = String.sub (Digest.to_hex (Digest.string contents)) 0 8 in
   String.concat "" [ path; "?v="; hash ]
 
-(* CSS delivery strategy: link to an external stylesheet (with cache busting) or
-   inline the stylesheet directly into the document. *)
 type tw_css = Link of string | Inline
-
-(* Type for page generation result *)
 type page = { html : string; css : Tw.Css.t; tw_css : tw_css }
 
 (* A page carries one [Tw.t] per class occurrence, and a page repeats its
@@ -540,7 +481,6 @@ let dedup_by_class utilities =
 
 let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
     ?theme head_content body_content =
-  (* Build HTML tree with placeholder for CSS link *)
   let meta_charset = meta ~at:[ At.charset charset ] () in
   let meta_tags =
     (meta_charset :: prelude)
@@ -550,11 +490,8 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
         meta_list
   in
 
-  (* Create the body and collect all Tw styles *)
   let body_element = body body_content in
   let all_tw = to_tw body_element in
-
-  (* Add styles from the prelude and head content *)
   let all_tw =
     dedup_by_class (all_tw @ List.concat_map to_tw (prelude @ head_content))
   in
@@ -571,8 +508,6 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
   in
   let css_string = Tw.Css.to_string ~minify:true css_stylesheet in
 
-  (* Build the head CSS node: a cache-busted <link> for an external stylesheet,
-     or an inline <style> when the stylesheet is embedded in the document. *)
   let css_head =
     match tw_css with
     | Inline -> style css_string
@@ -595,14 +530,12 @@ let page_impl ~lang ~meta_list ?title_text ~charset ~tw_css ?forms ~prelude
   let html_string = to_string ~doctype:true html_tree in
   { html = html_string; css = css_stylesheet; tw_css }
 
-(* Page generation with CSS - use renamed parameters to avoid shadowing *)
 let page ?(lang = "en") ?(meta = []) ?title ?(charset = "utf-8")
     ?(tw_css = Link "tw.css") ?forms ?(prelude = []) ?theme head_content
     body_content =
   page_impl ~lang ~meta_list:meta ?title_text:title ~charset ~tw_css ?forms
     ~prelude ?theme head_content body_content
 
-(* Page accessor functions *)
 let html page = page.html
 
 let css page =
@@ -610,7 +543,6 @@ let css page =
   | Link file -> (Some file, page.css)
   | Inline -> (None, page.css)
 
-(* Pretty printing *)
 let pp t =
   let tw_classes = Tw.to_classes (to_tw t) in
   let el_str = El.to_string ~doctype:false t.el in

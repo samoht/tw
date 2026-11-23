@@ -1,20 +1,3 @@
-(** Grid template utilities for grid layout configuration
-
-    What's included:
-    - `grid-cols-*` - Grid template columns (1-12, none, subgrid).
-    - `grid-rows-*` - Grid template rows (1-6, none, subgrid).
-    - `grid-flow-*` - Grid auto flow direction and density.
-    - `auto-cols-*`, `auto-rows-*` - Auto sizing for implicit tracks.
-    - Arbitrary track lists accepted by the corresponding CSS property grammar.
-
-    What's not:
-    - Named grid areas.
-
-    Parsing contract (`of_string`):
-    - Accepts ["grid"; "cols" | "rows"; n], ["grid"; "flow"; ...],
-      ["auto"; "cols" | "rows"; ...]. Unknown tokens yield `Error (`Msg "Not a
-      grid template utility")`. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -26,7 +9,6 @@ module Handler = struct
 
   open Css
 
-  let err_not_utility = Error (`Msg "Not a grid template utility")
   let err_invalid_cols = Error (`Msg "Invalid grid-cols value")
   let err_invalid_rows = Error (`Msg "Invalid grid-rows value")
 
@@ -54,14 +36,14 @@ module Handler = struct
     | Auto_cols_min
     | Auto_cols_max
     | Auto_cols_fr
-    | Auto_cols_spacing of float  (** [auto-cols-<n>]: spacing-scaled track. *)
+    | Auto_cols_spacing of float (* [auto-cols-<n>]: spacing-scaled track *)
     | Auto_cols_arbitrary of
         string * [ `Template of Css.grid_template | `Raw of string ]
     | Auto_rows_auto
     | Auto_rows_min
     | Auto_rows_max
     | Auto_rows_fr
-    | Auto_rows_spacing of float  (** [auto-rows-<n>]: spacing-scaled track. *)
+    | Auto_rows_spacing of float (* [auto-rows-<n>]: spacing-scaled track *)
     | Auto_rows_arbitrary of
         string * [ `Template of Css.grid_template | `Raw of string ]
 
@@ -99,9 +81,8 @@ module Handler = struct
 
   let grid_cols_subgrid = style [ Css.grid_template_columns Subgrid ]
 
-  (* Parse the complete property grammar in Cascade. Keeping a second grid
-     parser here made tw reject valid CSS as soon as Grid gained flex-valued
-     math functions, and also made template and auto-track validation drift. *)
+  (* Cascade's property grammar is the one grid parser, so the template and
+     auto-track readings cannot drift from CSS. *)
   let parse_arbitrary_grid_template
       (read : Cascade.Cursor.t -> Css.grid_template) s :
       [ `Template of Css.grid_template | `Raw of string ] option =
@@ -111,12 +92,12 @@ module Handler = struct
     match Cascade.Cursor.try_parse_full_err read cursor with
     | Ok template -> Some (`Template template)
     | Error _ -> (
-        (* Tailwind's upstream fixture includes the invalid CSS value [[123]].
-           Preserve tw's established interpretation as [123px] without weakening
-           Cascade's property grammar for every other value. The reading is a
-           plain decimal: a spelling only OCaml's number reader takes ([0x4],
-           [1_0]) is not that integer under another name, and goes to the
-           declaration as written, which is what Tailwind does with it. *)
+        (* Tailwind's upstream fixture includes the invalid CSS value [[123]],
+           read here as [123px] without weakening cascade's property grammar for
+           every other value. The reading is a plain decimal: a spelling only
+           OCaml's number reader takes ([0x4], [1_0]) is not that integer under
+           another name, and goes to the declaration as written, which is what
+           Tailwind does with it. *)
         match Parse.decimal_int decoded with
         | Some n -> Some (`Template (Css.Px (float_of_int n)))
         | None ->
@@ -201,8 +182,6 @@ module Handler = struct
     let decl, len = Theme.spacing_calc_float ?theme n in
     style [ decl; Css.grid_auto_columns (Css.Length len) ]
 
-  (** {1 Grid Auto Rows} *)
-
   let auto_rows_auto ?theme () =
     let var_name = "grid-auto-rows-auto" in
     match Scheme.theme_value theme var_name with
@@ -221,7 +200,6 @@ module Handler = struct
     let decl, len = Theme.spacing_calc_float ?theme n in
     style [ decl; Css.grid_auto_rows (Css.Length len) ]
 
-  (** Convert grid template utility to style *)
   let to_style theme =
     let auto_cols_spacing n = auto_cols_spacing ~theme n in
     let auto_rows_spacing n = auto_rows_spacing ~theme n in
@@ -258,12 +236,11 @@ module Handler = struct
 
   (* Tailwind emits these five families in the alphabetical order of the CSS
      property each declares: grid-auto-columns, grid-auto-flow, grid-auto-rows,
-     grid-template-columns, grid-template-rows. The bands below follow that, not
-     the template-before-auto reading they used to have, which put
-     [auto-rows-min] after [grid-cols-3] where Tailwind puts it before. *)
+     grid-template-columns, grid-template-rows. The bands below follow that, so
+     [auto-rows-min] sorts before [grid-cols-3]. *)
   let suborder = function
     (* Grid auto columns (10000-10099) *)
-    (* Order: spacing (numeric) → arbitrary → keywords alphabetical *)
+    (* Order: spacing (numeric) -> arbitrary -> keywords alphabetical *)
     | Auto_cols_spacing _ -> 10000
     | Auto_cols_arbitrary _ -> 10001
     | Auto_cols_auto -> 10002
@@ -284,7 +261,7 @@ module Handler = struct
     | Auto_rows_max -> 10204
     | Auto_rows_min -> 10205
     (* Grid template columns (11000-11999) *)
-    (* Order: numeric → arbitrary → keywords alphabetical *)
+    (* Order: numeric -> arbitrary -> keywords alphabetical *)
     | Grid_cols n -> 11000 + n
     | Grid_cols_arbitrary _ -> 11800
     | Grid_cols_none -> 11900
@@ -348,8 +325,8 @@ module Handler = struct
                   Css.Properties.read_grid_auto_tracks inner
               with
               | Some v -> Ok (Auto_cols_arbitrary (inner, v))
-              | None -> err_not_utility
-            else err_not_utility)
+              | None -> Utility.unclaimed
+            else Utility.unclaimed)
     | [ "auto"; "rows"; "auto" ] -> Ok Auto_rows_auto
     | [ "auto"; "rows"; "min" ] -> Ok Auto_rows_min
     | [ "auto"; "rows"; "max" ] -> Ok Auto_rows_max
@@ -365,9 +342,9 @@ module Handler = struct
                   Css.Properties.read_grid_auto_tracks inner
               with
               | Some v -> Ok (Auto_rows_arbitrary (inner, v))
-              | None -> err_not_utility
-            else err_not_utility)
-    | _ -> err_not_utility
+              | None -> Utility.unclaimed
+            else Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Grid_cols n -> "grid-cols-" ^ string_of_int n

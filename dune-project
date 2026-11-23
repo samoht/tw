@@ -39,5 +39,4 @@
   (alcotest-js :with-test)
   (astring :with-test)
   (crunch :with-test)
-  (alcobar :with-test)
   (mdx :with-test)))

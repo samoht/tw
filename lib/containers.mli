@@ -1,7 +1,8 @@
-(** Container query utilities for responsive design based on container size
+(** Container query utilities for responsive design based on container size.
 
-    https://tailwindcss.com/docs/container
-    https://tailwindcss.com/docs/container-queries *)
+    See {{:https://tailwindcss.com/docs/container}container} and
+    {{:https://tailwindcss.com/docs/container-queries}container-queries} in the
+    Tailwind documentation. *)
 
 open Cascade
 open Utility
@@ -9,9 +10,8 @@ open Utility
 (** {1 Layout Container} *)
 
 val container : t
-(** [container] creates a responsive layout container (equivalent to
-    [.container] in Tailwind v4). Sets [width: 100%]. Note: Responsive
-    [max-width] at various breakpoints not yet implemented. *)
+(** [container] is Tailwind's [.container]: [width: 100%], and a [max-width]
+    equal to each breakpoint from that breakpoint up. *)
 
 (** {1 Container Query Utilities} *)
 
@@ -24,7 +24,7 @@ val at_container_normal : t
     [@container-normal] in Tailwind v4). Sets [container-type: normal]. *)
 
 val at_container_named : string -> t
-(** [at_container_named name] creates a named container (equivalent to
+(** [at_container_named name] makes a named container (equivalent to
     [@container/name] in Tailwind v4). Sets [container-type: inline-size] and
     [container-name: name]. *)
 
@@ -65,8 +65,8 @@ val container_query_to_condition :
     (default {!Scheme.default}). *)
 
 val container_query_to_class_prefix : Style.container_query -> string
-(** [container_query_to_class_prefix q] converts [q] to its class name prefix
-    (e.g., "@sm"). *)
+(** [container_query_to_class_prefix q] is the class-name prefix of [q] (e.g.
+    ["@sm"]). *)
 
 (** {1 Internal types} *)
 

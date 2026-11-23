@@ -1,27 +1,3 @@
-(** Reader for the generated upstream fixtures ([utilities.txt],
-    [variants.txt]).
-
-    The fixtures are one block per upstream test, separated by [<<<>>>]:
-
-    {v
-    # <test name>
-    @config <theme config>
-    @variant <matchVariant directive>     (optional, repeatable)
-    @theme-var <name> <value>             (optional, repeatable)
-    @theme-mode <name> <modifiers>        (optional, repeatable)
-    @utility-def <name> <body>            (optional, repeatable)
-    @layer-wrap <layer>                   (optional)
-    @layer-before-theme true              (optional)
-    <space-separated class list>
-    ---
-    <expected CSS>
-    v}
-
-    Both the fixture replay in [test/upstream/test.ml] and the parse-parity gate
-    in [test/test_tw.ml] read the same corpus, so they read it here: two readers
-    drifting apart is two different corpora behind one set of fixtures. See
-    [extract_tests.ml] for how the fixtures are generated. *)
-
 type config =
   | Theme
   | Theme_inline
@@ -44,38 +20,19 @@ let config_of_string = function
   | name -> fail_malformed "unknown @config name %S" name
 
 type case = {
-  source : string;  (** Fixture the case was read from. *)
+  source : string;
   name : string;
   config : config;
   classes : string list;
   expected : string option;
-      (** The [---] section, or [None] for a block the extractor wrote without
-          one: an upstream test that asserts the compile throws has no CSS to
-          replay. *)
-  variants : string list;  (** [matchVariant] directive lines for this test. *)
+  variants : string list;
   theme_vars : (string * string) list;
-      (** [@theme] token overrides (name, value) captured from the test's CSS
-          template by the extractor (e.g. text-shadow sizes Tailwind inlines).
-      *)
   theme_modes : (string * string list) list;
-      (** The modifiers of the [@theme] block each token was declared in, for
-          the tokens whose block had any. [inline] and [reference] change how a
-          token reads, and one test can declare two tokens of a namespace in
-          blocks that differ, so the mode belongs to the token. *)
   utility_defs : (string * string) list;
-      (** [@utility] declarations (name, body) the test's CSS template makes. A
-          case that has any is compiled through the declared-utility path rather
-          than class by class. *)
   layer_wrap : string option;
-      (** The layer the test's CSS template compiles [@tailwind utilities] into,
-          when it names one. Tailwind puts the generated utilities in it and
-          everything else beside it. *)
   layer_before_theme : bool;
-      (** Whether the wrapped utilities precede a later [@theme] block in the
-          source template. *)
 }
 
-(** Split a class line by spaces, but don't split inside brackets. *)
 let split_classes line =
   let len = String.length line in
   let buf = Buffer.create 64 in
@@ -102,10 +59,11 @@ let split_classes line =
 let lines_of filename =
   if not (Sys.file_exists filename) then []
   else
-    let ic = open_in filename in
-    let content = really_input_string ic (in_channel_length ic) in
-    close_in ic;
-    String.split_on_char '\n' content
+    (* Text mode, so a fixture written on Windows reads back with LF line ends;
+       [in_channel_length] counts the CRs text mode drops, so it cannot size the
+       read. *)
+    String.split_on_char '\n'
+      (In_channel.with_open_text filename In_channel.input_all)
 
 (* A line the reader cannot place: the fixtures are machine-written, so a line
    outside the grammar means the extractor and the reader have drifted apart, or

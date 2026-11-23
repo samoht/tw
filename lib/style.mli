@@ -1,4 +1,4 @@
-(** Core types and helpers for Tailwind CSS DSL *)
+(** Styles: the declarations, modifiers and value types of the utility DSL. *)
 
 open Cascade
 
@@ -251,59 +251,62 @@ type modifier =
   | Hocus  (** [:hover, :focus] compound selector (no media query) *)
   | Device_hocus  (** [:hover, :focus] compound + [@media (hover: hover)] *)
   | Not_bracket of string
-      (** [not-[...]] bracket patterns — stores raw bracket content *)
+      (** [not-[...]] bracket patterns: stores raw bracket content *)
   | In_bracket of string
-      (** [in-[...]] ancestor patterns — element must be descendant of selector
+      (** [in-[...]] ancestor patterns: element must be descendant of selector
       *)
   | In_data of string
-      (** [in-data-X] — element must be descendant of [data-X] *)
+      (** [in-data-X]: element must be descendant of [data-X] *)
   | In_state of modifier * string
-      (** [in-focus] — element must be a descendant of one in that state; the
+      (** [in-focus]: element must be a descendant of one in that state; the
           string is the state name, for the class *)
   | Group_not of modifier * string option
-      (** [group-not-X/name] — inner modifier + optional group name *)
+      (** [group-not-X/name]: inner modifier + optional group name *)
   | Peer_not of modifier * string option
-      (** [peer-not-X/name] — inner modifier + optional peer name *)
+      (** [peer-not-X/name]: inner modifier + optional peer name *)
   | Data_bracket of string
-      (** [data-[expr]] — full CSS attribute expression, e.g. "foo$=bar_baz_i"
-      *)
+      (** [data-[expr]]: full CSS attribute expression, e.g. "foo$=bar_baz_i" *)
   | Group_data of string * string option
-      (** [group-data-[expr]/name] — group data variant with optional name *)
+      (** [group-data-[expr]/name]: group data variant with optional name *)
   | Peer_data of string * string option
-      (** [peer-data-[expr]/name] — peer data variant with optional name *)
+      (** [peer-data-[expr]/name]: peer data variant with optional name *)
   | Aria_bracket of string
-      (** [aria-[expr]] — arbitrary aria attribute, e.g. "modal", "valuenow=1"
-      *)
+      (** [aria-[expr]]: arbitrary aria attribute, e.g. "modal", "valuenow=1" *)
+  | Aria of string
+      (** [aria-X]: a named aria attribute, matched as [[aria-X="true"]] *)
   | Group_aria of string * string option
-      (** [group-aria-X/name] — group aria variant with optional name *)
+      (** [group-aria-X/name]: group aria variant with optional name. The
+          spelling as written: [[modal]] for the bracket form, [busy] for a
+          name. *)
   | Peer_aria of string * string option
-      (** [peer-aria-X/name] — peer aria variant with optional name *)
+      (** [peer-aria-X/name]: peer aria variant with optional name, spelled as
+          {!constructor-Group_aria}'s *)
   | Named_group of modifier * string
-      (** [group-X/name] — a state variant on a named group *)
+      (** [group-X/name]: a state variant on a named group *)
   | Named_peer of modifier * string
-      (** [peer-X/name] — a state variant on a named peer *)
+      (** [peer-X/name]: a state variant on a named peer *)
   | Not_named_group of modifier * string
-      (** [not-group-X/name] — negate named group variant *)
+      (** [not-group-X/name]: negate named group variant *)
   | Has_named_group of modifier * string
-      (** [has-group-X/name] — has named group variant *)
+      (** [has-group-X/name]: has named group variant *)
   | In_named_group of modifier * string
-      (** [in-group-X/name] — descendant of named group variant *)
+      (** [in-group-X/name]: descendant of named group variant *)
   | Group_peer_named of modifier * string
-      (** [group-peer-X/name] — peer-X within named group *)
-  | Arbitrary_selector of string  (** [[&_p]] — arbitrary selector variant *)
+      (** [group-peer-X/name]: peer-X within named group *)
+  | Arbitrary_selector of string  (** [[&_p]]: arbitrary selector variant *)
   | At_rule of string
-      (** [[@supports(...)]] / [[@starting-style]] — an at-rule in brackets,
-          kept as written so the class name round-trips *)
+      (** [[@supports(...)]] / [[@starting-style]]: an at-rule in brackets, kept
+          as written so the class name round-trips *)
   | Custom_variant of string * string
-      (** [is-data-foo:] — a [matchVariant]-registered variant: the class-name
+      (** [is-data-foo:]: a [matchVariant]-registered variant: the class-name
           token and the resolved selector template ([&] is the own class). *)
   | Container_style of string * Css.Container.t
-      (** [has-a:] — a [@custom-variant] whose body is a container query: the
+      (** [has-a:]: a [@custom-variant] whose body is a container query: the
           class-name token and the structural container condition (so [not-] can
           negate it soundly). *)
   | Prose_element of string
-      (** [prose-X:] — prose element variant for targeting specific HTML
-          elements within prose content *)
+      (** [prose-X:]: prose element variant for targeting specific HTML elements
+          within prose content *)
 
 val equal_modifier : modifier -> modifier -> bool
 (** [equal_modifier a b] is whether [a] and [b] describe the same modifier. *)
@@ -327,7 +330,7 @@ val compact_length : Css.length -> string
     class -- [min-[0.5ch]] must not become [min-[.5ch]]. *)
 
 val pp : t -> string
-(** [pp t] returns a string representation of a style. *)
+(** [pp t] is a debug representation of [t]. *)
 
 type size =
   [ `None | `Xs | `Sm | `Md | `Lg | `Xl | `Xl_2 | `Xl_3 | `Full | `Rem of float ]
@@ -339,7 +342,7 @@ type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
 val is_numeric : string -> bool
-(** [is_numeric s] returns true if [s] is a non-empty string of digits. *)
+(** [is_numeric s] is [true] iff [s] is a non-empty string of digits. *)
 
 val nth_expr : string -> nth_expr
 (** [nth_expr expr] is [expr] with the bracket flag the DSL constructor implies:
@@ -351,8 +354,8 @@ val pp_nth : string -> nth_expr -> string
 
 val group_state_modifiers : (string * modifier) list
 (** [group_state_modifiers] maps a state name (["focus"], ["first"]) to the
-    modifier it stands for. Variants that take a state name — [group-*],
-    [peer-*], [has-*] — share this table. *)
+    modifier it stands for. Variants that take a state name ([group-*],
+    [peer-*], [has-*]) share this table. *)
 
 val is_data_attr_name : string -> bool
 (** [is_data_attr_name name] is whether [name] is a [data-<attr>] shorthand. *)

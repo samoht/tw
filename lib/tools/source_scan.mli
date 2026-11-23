@@ -1,17 +1,16 @@
-(** Tailwind-like source scanning. *)
+(** Source scanning for class candidates, as Tailwind scans sources. *)
 
 val split_whitespace : string -> string list
 (** [split_whitespace s] is {!Tw.split_whitespace}: a class list on HTML/CSS
     whitespace. *)
 
 val candidates : string -> string list
-(** Extract candidate class tokens from UTF-8 source text.
-
-    This follows Tailwind's broad source-scanning model: scan plain text for
-    plausible class candidates and leave utility validation to the caller. *)
+(** [candidates s] are the plausible class candidates in the UTF-8 text [s].
+    Like Tailwind's scanner, it reads [s] as plain text and leaves deciding
+    which candidates are utilities to the caller. *)
 
 val candidates_from_file : string -> string list
-(** Read a UTF-8 source file and extract candidate class tokens. *)
+(** [candidates_from_file file] is {!candidates} of the contents of [file]. *)
 
 (** {1 Source globs} *)
 

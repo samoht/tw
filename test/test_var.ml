@@ -1,26 +1,16 @@
 module Css = Cascade.Css
 open Alcotest
 
-(* Test that variable naming follows conventions *)
 let var_css_output () =
-  (* Create styles that use theme variables *)
-  let styles = Tw.[ text_xl; p 4 ] in
-  let css = Tw.to_css ~base:false styles in
-  let css_str = Css.to_string css in
+  Test_helpers.check_declarations "text-xl"
+    [
+      "font-size:var(--text-xl)";
+      "line-height:var(--tw-leading,var(--text-xl--line-height))";
+    ]
 
-  (* Should contain CSS variable references *)
-  check bool "contains var(--" (String.contains css_str '-') true;
-  check bool "CSS output non-empty" (String.length css_str > 0) true
-
-(* Test that variables with fallbacks are serialized correctly *)
 let var_fallback_in_css () =
-  (* Use a utility that might have a fallback *)
-  let styles = [ Tw.text Tw.blue ] in
-  let css = Tw.to_css ~base:false styles in
-  let css_str = Css.to_string css in
-
-  (* Should produce valid CSS *)
-  check bool "produces valid CSS" (String.length css_str > 0) true
+  Test_helpers.check_declarations "text-blue-500"
+    [ "color:var(--color-blue-500)" ]
 
 (* Arbitrary var() values keep the outer variable and its fallback. This is
    shared by typed utility families, so cover both a length and a keyword-like
@@ -57,8 +47,7 @@ let arbitrary_var_fallbacks () =
     (Astring.String.is_infix ~affix:"cursor:var(--c,var(--d))"
        (inline_css "cursor-[var(--c,var(--d))]"));
   check (list string) "paren outer reference" [ "--top" ] (refs "top-(--top,0)");
-  (* The affix here stopped at the comma, so it said the reference survived but
-     not what the fallback became. *)
+  (* The whole declaration: the reference survives and so does its fallback. *)
   Test_helpers.check_declarations "top-(--top,0)" [ "top:var(--top,0)" ];
   (* The whole value here too, for the same reason. *)
   check bool "paren shorthand inline keeps its override point" true
@@ -69,7 +58,9 @@ let arbitrary_var_fallbacks () =
    bracket text holding one names no reference and no fallback. Splitting it at
    the comma anyway would take [--a] with [b)c] behind it and write the loose
    [)] into the sheet, where it closes the [var()] early and leaves a stray one
-   after it. The whole text stays the escaped name it is. *)
+   after it. In a bracket the text is no single var() call, so it is a token
+   stream no declaration can hold. The paren shorthand is no candidate Tailwind
+   reads either. *)
 let bracket_reference_with_loose_closer () =
   let css class_name =
     match Tw.of_string class_name with
@@ -86,17 +77,18 @@ let bracket_reference_with_loose_closer () =
         | None -> rest)
     | None -> failf "%s: no top declaration in %s" class_name sheet
   in
-  check string "bracket keeps the loose closer inside the name"
-    {|var(--a\,b\)c)|}
-    (declaration "top-[var(--a,b)c)]");
-  check string "paren shorthand keeps the loose closer inside the name"
-    {|var(--a\,b\)c)|}
-    (declaration "top-(--a,b)c)");
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind drops the loose closer and what follows it and writes top: \
+          var(--a,b); tw refuses a value with an unmatched )")
+    "top-[var(--a,b)c)]";
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "top-(--a,b)c)";
   (* The same text without the loose closer is the reference it looks like. *)
   check string "a closed body is read as name and fallback" "var(--a,b)"
     (declaration "top-[var(--a,b)]")
 
-(* Test theme layer contains variables *)
 let var_in_theme_layer () =
   let styles = Tw.[ text_xl; text red; p 4 ] in
   let css = Tw.to_css ~base:true styles in
@@ -122,11 +114,10 @@ let var_in_theme_layer () =
 
 (* Tailwind spells one custom-property zero two ways: [--tw-ring-offset-width:
    0px] in the properties layer's bulk declaration, but [initial-value: 0] in
-   its own [@property] rule (checked 2026-08-29 against the real CLI). Every
-   other zero-initialised [Length] variable (border-spacing-x/y) gets "0" in
-   both places, and the canonical [--diff] comparison treats "0" and "0px" as
-   the same length, so a regression here would not show up there - only this
-   pinned literal catches it. *)
+   its own [@property] rule. Every other zero-initialised [Length] variable
+   (border-spacing-x/y) gets "0" in both places. The canonical [--diff]
+   comparison treats "0" and "0px" as the same length, so only this pinned
+   literal holds the spelling. *)
 let ring_offset_width_properties_layer_spelling () =
   let css =
     match Tw.of_string "ring-2" with

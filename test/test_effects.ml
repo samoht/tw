@@ -2,12 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 
 let check = Test_helpers.check_handler_roundtrip (module Tw.Effects.Handler)
-
-(* Every box-shadow utility composes the same five channels; only the channel it
-   sets ahead of this differs. Naming it keeps the expectations below readable
-   without weakening them: it is one string, compared whole. *)
-let composes_box_shadow =
-  "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)"
+let composes_box_shadow = Test_helpers.composes_box_shadow
 
 let of_string_valid () =
   (* Box shadow *)
@@ -29,57 +24,13 @@ let of_string_valid () =
   check "opacity-25";
   check "opacity-50";
   check "opacity-75";
-  check "opacity-100";
-
-  (* Mix blend mode *)
-  check "mix-blend-normal";
-  check "mix-blend-multiply";
-  check "mix-blend-screen";
-  check "mix-blend-overlay"
-
-let test_ring_of_string_valid () =
-  check "ring";
-  check "ring-0";
-  check "ring-1";
-  check "ring-2";
-  check "ring-4";
-  check "ring-8";
-  (* v4 accepts any bare integer width, not just the fixed scale *)
-  check "ring-3";
-  check "ring-5";
-  check "ring-12";
-  check "ring-inset";
-  (* shadeless theme colours, with and without /opacity *)
-  check "ring-black";
-  check "ring-white/10";
-  check "inset-ring-black";
-  check "inset-ring-white/10"
-
-(* A colour the project's [@theme] declares names a ring colour the way a
-   shadeless palette colour does, with an optional [/opacity], on the ring, the
-   inset ring and the offset. The three arms read the palette alone, so
-   [ring-brand] was an unknown class where [shadow-brand] was not. *)
-let test_ring_theme_colour () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-brand", "#123456") ]
-  in
-  Test_helpers.check_declarations ~theme "ring-brand"
-    [ "--tw-ring-color:var(--color-brand)" ];
-  Test_helpers.check_declarations ~theme "ring-offset-brand"
-    [ "--tw-ring-offset-color:var(--color-brand)" ];
-  Test_helpers.check_declarations ~theme "inset-ring-brand"
-    [ "--tw-inset-ring-color:var(--color-brand)" ];
-  Test_helpers.check_declarations ~theme "ring-brand/50"
-    [
-      "--tw-ring-color:#12345680";
-      "--tw-ring-color:color-mix(in oklab,var(--color-brand) 50%,transparent)";
-    ]
+  check "opacity-100"
 
 (* A project shadow takes a [/opacity] the way a built-in size does: the
    modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
-   does, and [--tw-shadow-alpha] carries it. [shadow-card/50] was an unknown
-   class. An arbitrary shadow whose colour carries an alpha of its own folds the
-   same way; the colour's alpha was kept or multiplied instead. *)
+   does, and [--tw-shadow-alpha] carries it. An arbitrary shadow whose colour
+   carries an alpha of its own folds the same way: the modifier's alpha replaces
+   the colour's. *)
 let test_project_shadow_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -120,9 +71,9 @@ let test_project_shadow_opacity () =
    utility supplies the keyword, so Tailwind writes the author's on top of it,
    [inset inset 0 1px red]: a value a registered [syntax: "*"] property holds
    and the [box-shadow] composition then cannot compute, so the element draws no
-   shadow at all. That value has no typed form; refusing the class draws nothing
-   for it, where tw used to draw the shadow the author did not get.
-   [check_invalid_input] does not apply: Tailwind compiles the class. *)
+   shadow at all. That value has no typed form, and refusing the class draws
+   nothing for it either. [check_invalid_input] does not apply: Tailwind
+   compiles the class. *)
 let test_inset_shadow_bracket_refuses_inset () =
   List.iter
     (fun cls ->
@@ -138,40 +89,6 @@ let test_inset_shadow_bracket_refuses_inset () =
   Alcotest.(check bool)
     "a bracket without inset is the inset shadow" true
     (Result.is_ok (Tw.of_string "inset-shadow-[0_1px_red]"))
-
-let test_ring_width_order () =
-  Test_helpers.check_class_order ~test_name:"ring width order"
-    [ "ring-8"; "ring-4"; "ring-3"; "ring-2"; "ring-1"; "ring-0"; "ring" ]
-
-(* ring-black / ring-white (shadeless theme colours) parse with an optional
-   /opacity; a shaded colour without a shade (ring-red) stays rejected. *)
-let test_ring_shadeless_color () =
-  Test_helpers.check_declarations "ring-black"
-    [ "--tw-ring-color:var(--color-black)" ];
-  (* The plain declaration carries the folded sRGB colour and the [@supports]
-     copy the [color-mix] enhancement, so both are pinned. *)
-  Test_helpers.check_declarations "ring-white/10"
-    [
-      "--tw-ring-color:#ffffff1a";
-      "--tw-ring-color:color-mix(in oklab,var(--color-white) 10%,transparent)";
-    ];
-  (* Palette colours (blue-500) also apply the /opacity modifier on a var-ref
-     theme; the ring family resolves it via oklab like bg/text do. *)
-  Test_helpers.check_declarations "ring-blue-500/50"
-    [
-      "--tw-ring-color:#3080ff80";
-      "--tw-ring-color:color-mix(in oklab,var(--color-blue-500) \
-       50%,transparent)";
-    ];
-  Test_helpers.check_declarations "inset-ring-gray-950/10"
-    [
-      "--tw-inset-ring-color:#0307121a";
-      "--tw-inset-ring-color:color-mix(in oklab,var(--color-gray-950) \
-       10%,transparent)";
-    ];
-  match Tw.of_string "ring-red" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "ring-red (no shade) should be rejected"
 
 (* A filter utility sets its own channel and recomposes the whole filter list
    from every channel, so the composition is the same string whichever one is
@@ -200,38 +117,51 @@ let test_filters_css_generation () =
   Test_helpers.check_declarations "backdrop-opacity-50"
     (backdrop "--tw-backdrop-opacity" "opacity(50%)")
 
-(* ring-inset registers the ring/shadow @property family, like the other ring
-   utilities; it used to emit only the --tw-ring-inset declaration. *)
-let test_ring_inset_property_rules () =
-  let open Tw in
-  let css =
-    match of_string "ring-inset" with
-    | Ok u -> to_css ~base:false [ u ] |> Css.to_string
-    | Error (`Msg m) -> Alcotest.failf "ring-inset: %s" m
-  in
-  Test_helpers.check_declarations "ring-inset" [ "--tw-ring-inset:inset" ];
-  (* The [@property] rule is not a declaration on the class, so it is read off
-     the sheet. *)
-  Alcotest.check bool "ring-inset registers @property --tw-ring-shadow" true
-    (Astring.String.is_infix ~affix:"@property --tw-ring-shadow" css)
-
 let of_string_invalid () =
-  (* Invalid effects values *)
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Effects.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ class_name)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Effects.Handler)
   in
 
   fail_maybe [ "shadow"; "3xl" ];
-  (* Invalid shadow size *)
-  fail_maybe [ "opacity"; "110" ];
-  (* Invalid opacity value *)
-  fail_maybe [ "mix"; "blend"; "invalid" ];
-  (* Invalid blend mode *)
   fail_maybe [ "unknown" ]
-(* Unknown effects type *)
+
+(* Tailwind reads a bare opacity as any non-negative multiple of 0.25 written
+   the way the number prints, with no upper bound: [opacity-110] is
+   [opacity:1.1], which the browser clamps to 1. A leading dot, a trailing zero
+   or a leading zero is not how the number prints, and 12.3 is not a quarter
+   step, so Tailwind emits nothing for those. *)
+let bare_opacity_scale () =
+  let rejected =
+    Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+      (module Tw.Effects.Handler)
+  in
+  check "opacity-110";
+  check "opacity-150.5";
+  Test_helpers.check_declarations "opacity-110" [ "opacity:1.1" ];
+  Test_helpers.check_declarations "opacity-1000" [ "opacity:10" ];
+  Test_helpers.check_declarations "opacity-150.5" [ "opacity:1.505" ];
+  Test_helpers.check_declarations "opacity-12.25" [ "opacity:.1225" ];
+  rejected "opacity-12.3";
+  rejected "opacity-.5";
+  rejected "opacity-50.0";
+  rejected "opacity-007"
+
+(* Tailwind orders the opacity utilities by the class name, compared digit run
+   by digit run: [opacity-12.5] before [opacity-12.25], every bare value before
+   a bracket, and [opacity-(--y)] first. *)
+let opacity_order_matches_tailwind () =
+  Test_helpers.check_class_order ~test_name:"opacity order"
+    [
+      "opacity-[.5]";
+      "opacity-1000";
+      "opacity-12.25";
+      "opacity-110";
+      "opacity-12.5";
+      "opacity-(--y)";
+      "opacity-2";
+      "opacity-[var(--x)]";
+    ]
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -309,8 +239,8 @@ let test_inset_shadow_roundtrip () =
   check "inset-shadow-sm"
 
 let test_inset_shadow_invalid () =
-  (* Bare inset-shadow has no v4.3.1 default token, and md/lg/xl/2xl were
-     removed from the scale. *)
+  (* Bare inset-shadow has no v4.3.1 default token, and the scale has no
+     md/lg/xl/2xl. *)
   Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow";
   Test_helpers.check_invalid_input (module Tw.Effects.Handler) "inset-shadow-md";
   Test_helpers.check_invalid_input
@@ -340,9 +270,8 @@ let test_inset_shadow_theme_override () =
     Tw.Scheme.with_overrides Tw.Scheme.default
       [ ("inset-shadow-sm", "inset 0 1px 1px rgb(0 0 0 / 0.05)") ]
   in
-  (* The whole list, which is where "drops the default" is said: it used to be a
-     second search for a spelling that must not appear, and a sheet with no rule
-     in it satisfies that too. *)
+  (* The whole list, which is where "drops the default" is said; a search for
+     the default's absence would also pass on a sheet with no rule in it. *)
   Test_helpers.check_declarations ~theme "inset-shadow-sm"
     [
       "--tw-inset-shadow:inset 0 1px 1px var(--tw-inset-shadow-color,rgb(0 0 \
@@ -352,14 +281,10 @@ let test_inset_shadow_theme_override () =
 
 (* The override is read through the CSS shadow grammar, so it carries whatever
    that grammar allows: a length in any unit, a fourth length for the spread,
-   and the colour in the spelling the project wrote. The reader used to take a
-   [px] or [rem] suffix and a three-length body only, and answered nothing for
-   the rest, which put the built-in [inset 0 2px 4px] in the sheet and lost the
-   override without saying so. *)
+   and the colour in the spelling the project wrote. *)
 let test_inset_shadow_theme_override_grammar () =
-  (* The whole list per override. "The default is not substituted" was a search
-     for a spelling that must not appear; the list says it by construction, and
-     also that the colour the project wrote reached the fallback slot. *)
+  (* The whole list per override says the default is not substituted, and that
+     the colour the project wrote reaches the fallback slot. *)
   let holds ~override body =
     let theme =
       Tw.Scheme.with_overrides Tw.Scheme.default
@@ -485,13 +410,8 @@ let test_arbitrary_shadow_lengths () =
   inset_shadow "inset-shadow-[0_bogus_2px]"
     "inset 0 var(--tw-inset-shadow-color,bogus) 2px"
 
-(* An arbitrary inset shadow whose colour is one CSS knows by name. Two readers
-   decide the bracket between them: the one that accepts it as a shadow reads
-   every colour spelling, the one that then builds the value knows only a hex, a
-   var() and a colour function. A named colour passed the first and failed the
-   second, so the whole shadow fell out as [inset-shadow-none] - lengths, spread
-   and colour together. A token that is no colour at all, such as [bogus], never
-   reached the second reader and was right throughout. *)
+(* An arbitrary inset shadow whose colour is one CSS knows by name keeps its
+   lengths, spread and colour, in a single shadow and in a layer list. *)
 let test_arbitrary_inset_shadow_named_colour () =
   let inset_shadow cls value =
     Test_helpers.check_declarations cls
@@ -507,19 +427,17 @@ let test_arbitrary_inset_shadow_named_colour () =
     "inset 0 0 var(--tw-inset-shadow-color,red),inset 0 0 \
      var(--tw-inset-shadow-color,blue)"
 
-(* The same bracket under an opacity modifier. The reader that builds the value
-   there has no fall-back to the reader that accepted the bracket, so a colour
-   keyword, a leading colour, the [inset] keyword and a layer list all lost the
-   whole shadow and the modifier with it.
+(* The same bracket under an opacity modifier: a colour keyword, a leading
+   colour, the [inset] keyword and a layer list each keep the shadow and the
+   modifier.
 
    Tailwind writes the colour as [oklab(from <colour> l a b / <alpha>)] and lets
    its minifier fold it, so a colour whose value is fixed where it is written
    arrives folded and unguarded; the modifier's alpha replaces the colour's own
    rather than multiplying it.
 
-   The two neighbours are pinned alongside because a fix to one reader can break
-   the other: a hex already folded correctly, and a token that is no colour at
-   all never reaches this reader. *)
+   The two neighbours are pinned alongside, as they take other readers: a hex,
+   and a token that is no colour at all. *)
 let test_arbitrary_shadow_named_colour_opacity () =
   let red_50 = "oklab(62.79553606%.22486306 .1258463/.5)" in
   let shadow cls value =
@@ -644,8 +562,7 @@ let test_arbitrary_shadow_colour_opacity () =
 (* A bracket colour with no sRGB hex - [oklch()] and the other wide-gamut
    spellings - has no hex to fold the modifier's alpha into, so the alpha has to
    stay a mix. Tailwind writes the plain fallback in sRGB and the guarded value
-   in oklab; the colour used to fall through untouched, which painted the shadow
-   fully opaque and dropped the modifier. *)
+   in oklab. *)
 let test_bracket_colour_opacity_without_hex () =
   Test_helpers.check_declarations "shadow-[oklch(0.7_0.1_200)]/50"
     [
@@ -662,9 +579,8 @@ let test_bracket_colour_opacity_without_hex () =
     ]
 
 (* A hex bracket colour whose modifier reads a custom property keeps that
-   property inside the guarded [color-mix]. The hex arm folded the modifier into
-   an alpha byte, which a var() has no value for, so the modifier was dropped
-   and the shadow painted fully opaque.
+   property inside the guarded [color-mix] rather than folding it into an alpha
+   byte, which a var() has no value for.
 
    Read unminified: the CLI keeps the [#f00] the class wrote, and minified
    printing folds a colour to its shortest hex, so an expanded [#ff0000] reads
@@ -686,9 +602,7 @@ let test_bracket_hex_opacity_var () =
 
 (* A palette colour, [currentcolor] or a [color:var()] whose modifier reads a
    custom property mixes that property into the guarded value, the way the
-   bracket hex above does. The shared channel builders folded every modifier to
-   a percentage, which a var() has none of, so the guarded mix said [100%] and
-   the modifier was dropped. The plain fallback keeps the colour whole: a var()
+   bracket hex above does. The plain fallback keeps the colour whole: a var()
    gives it no percentage to carry. *)
 let test_palette_colour_opacity_var () =
   let mixed colour alpha =
@@ -717,56 +631,9 @@ let test_palette_colour_opacity_var () =
       "--tw-shadow-color: " ^ mixed "var(--c)" "--tw-shadow-alpha";
     ]
 
-(* The ring, inset ring and ring offset colours take the same modifier the same
-   way: a palette colour, [currentcolor] or a bracket [var()] whose modifier
-   reads a custom property mixes that property into the guarded value. Each
-   family kept its own copies of the opacity arms, and every one folded the
-   modifier to a percentage, so the guarded mix said [100%]. *)
-let test_ring_colour_opacity_var () =
-  let mixed var cls fallback colour =
-    Test_helpers.check_declarations ~minify:false cls
-      [
-        var ^ ": " ^ fallback;
-        var ^ ": color-mix(in oklab, " ^ colour ^ " var(--o), transparent)";
-      ]
-  in
-  let family var prefix =
-    mixed var (prefix ^ "-red-500/(--o)") "#fb2c36" "var(--color-red-500)";
-    mixed var (prefix ^ "-current/[var(--o)]") "currentColor" "currentcolor";
-    mixed var (prefix ^ "-[var(--c)]/(--o)") "var(--c)" "var(--c)";
-    mixed var (prefix ^ "-[color:var(--c)]/[var(--o)]") "var(--c)" "var(--c)"
-  in
-  family "--tw-ring-color" "ring";
-  family "--tw-inset-ring-color" "inset-ring";
-  family "--tw-ring-offset-color" "ring-offset"
-
-(* A named [--opacity-*] token is read off the theme before a bracket is told
-   apart from a colour name, or [ring-[#123456]/half] is a palette colour called
-   [[#123456]] and paints [var(--color-\[\#123456\])]. The fallback carries the
-   percentage the token resolves to, in the sRGB mix Tailwind writes before its
-   minifier folds it to a hex. *)
-let test_ring_bracket_hex_named_opacity () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
-  in
-  Test_helpers.check_declarations ~theme ~minify:false "ring-[#123456]/half"
-    [
-      "--tw-ring-color: color-mix(in srgb, #123456 50%, transparent)";
-      "--tw-ring-color: color-mix(in oklab, #123456 var(--opacity-half), \
-       transparent)";
-    ];
-  Test_helpers.check_declarations ~theme ~minify:false
-    "ring-offset-[#123456]/half"
-    [
-      "--tw-ring-offset-color: color-mix(in srgb, #123456 50%, transparent)";
-      "--tw-ring-offset-color: color-mix(in oklab, #123456 \
-       var(--opacity-half), transparent)";
-    ]
-
 (* An [--alpha()] standing among a bracket shadow's lengths is the colour it
    denotes, as it is anywhere in an arbitrary value: Tailwind writes the
-   [color-mix()] in its place and the shadow reads on. The bracket read the call
-   only as a whole value, so a shadow spelling one was refused. *)
+   [color-mix()] in its place and the shadow reads on. *)
 let test_bracket_shadow_alpha_fn () =
   let composition =
     "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
@@ -792,7 +659,7 @@ let test_bracket_shadow_alpha_fn () =
    property or [currentcolor] is written with the mix's first colour behind the
    family's channel in the open, and as written behind the colour-mix guard,
    with the composition after both. A mix the author spelled out reads the same
-   as one an [--alpha()] expands to. tw wrote the mix alone. *)
+   as one an [--alpha()] expands to. *)
 let test_bracket_shadow_mix_polyfill () =
   let composition =
     "box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), \
@@ -831,12 +698,11 @@ let test_bracket_shadow_mix_polyfill () =
       composition;
     ]
 
-(* A named [--opacity-*] token is read off the theme before the bracket, or the
-   modifier stays glued to it: [shadow-[color:var(--c)]/half] was a shadow
-   spelled [[color:var(--c)]/half], a class no markup carries, where Tailwind
-   mixes [var(--opacity-half)] into the colour. A shadow size under the token is
-   the size alone: Tailwind reads no alpha off a named modifier there and writes
-   the shadow as if none were given. *)
+(* A named [--opacity-*] token is read off the theme before the bracket, so the
+   modifier does not stay glued to it: Tailwind mixes [var(--opacity-half)] into
+   the colour of [shadow-[color:var(--c)]/half]. A shadow size under the token
+   is the size alone: Tailwind reads no alpha off a named modifier there and
+   writes the shadow as if none were given. *)
 let test_bracket_named_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
@@ -871,9 +737,6 @@ let test_bracket_named_opacity () =
    comes from a separate, correctly-scaled computation, so --tw-shadow-alpha
    here is a plain, unconverted echo of what the class wrote. *)
 let test_shadow_bracket_alpha_tracking () =
-  (* The [lacks] checks that used to sit beside each list here - "no
-     --tw-shadow-alpha:2500%" - said nothing the list does not already say, and
-     passed on a sheet with no rule in it. *)
   let shadow_lg alpha painted =
     [
       "--tw-shadow-alpha:" ^ alpha;
@@ -964,16 +827,11 @@ let test_arbitrary_bracket_color_token_stream () =
       composes_box_shadow;
     ]
 
-(* A shade the palette does not define is not a colour. These utilities read the
-   shade without checking it, so the class was accepted and then rendered a
-   fabricated black or a reference to a variable no theme declares. *)
+(* A shade the palette does not define is not a colour, so the class is refused
+   rather than rendering a variable no theme declares. *)
 let test_undefined_shade () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let accepted cls =
     match Tw.of_string cls with
@@ -995,38 +853,6 @@ let test_undefined_shade () =
   accepted "ring-offset-red-50";
   accepted "inset-ring-red-500";
   accepted "shadow-red-500/50"
-
-(* A shadeless palette colour names the ring offset the way it names the ring:
-   Tailwind 4.3.3 writes [--tw-ring-offset-color:var(--color-white)] for
-   [ring-offset-white], and folds an opacity into [#ffffff80] beside a
-   [color-mix()]. Only the ring had a shadeless arm, so [ring-offset-white] and
-   [ring-offset-black] reached the width reader and were unknown classes. A bare
-   number after [ring-offset-] is still a width. *)
-let test_ring_offset_shadeless_color () =
-  Test_helpers.check_declarations "ring-offset-white"
-    [ "--tw-ring-offset-color:var(--color-white)" ];
-  Test_helpers.check_declarations "ring-offset-black"
-    [ "--tw-ring-offset-color:var(--color-black)" ];
-  Test_helpers.check_declarations "ring-offset-white/50"
-    [
-      "--tw-ring-offset-color:#ffffff80";
-      "--tw-ring-offset-color:color-mix(in oklab,var(--color-white) \
-       50%,transparent)";
-    ];
-  (* The class is spelled as the author wrote it: a shadeless colour has no
-     shade to print, so [ring-offset-white] must not come back as
-     [ring-offset-white-500]. *)
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
-      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
-    [
-      "ring-offset-white";
-      "ring-offset-black";
-      "ring-offset-white/50";
-      "ring-offset-2";
-    ]
 
 (* [opacity-[<n>]] names its class after the bracket, so the number has to come
    back out spelled as the author wrote it rather than re-printed. *)
@@ -1062,7 +888,7 @@ let test_arbitrary_opacity_token_stream () =
 (* A [--shadow-*] or [--inset-shadow-*] token the project declared in its
    [@theme] names a shadow the built-in scale has no slot for. Tailwind
    generates the utility from each, routing the colour through the family's
-   shadow-colour channel; tw rejected both outright. *)
+   shadow-colour channel. *)
 let test_project_shadow_tokens () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -1168,7 +994,7 @@ let test_project_shadow_trailing_var_colour () =
    takes the alpha through a [color-mix()] behind its own guard, which nests
    inside the relative one when both are needed. A list of literal colours with
    a literal alpha folds outright, and the scale's own shadows go the same way,
-   [shadow-inner] included, which had no modifier at all. *)
+   [shadow-inner] included. *)
 let test_shadow_list_alpha_guards () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -1215,46 +1041,10 @@ let test_shadow_list_alpha_guards () =
       composes_box_shadow;
     ]
 
-(* A bracket ring width is the ring [ring-2] draws with its width replaced: it
-   reads [--tw-ring-inset] and [--tw-ring-color], and declares them, as the
-   scale does. [ring-[3px]] left both out of the properties layer, so the sheet
-   dropped the reads and the ring lost its inset toggle and its colour. A width
-   takes no opacity: Tailwind compiles nothing for [ring-[3px]/50]. *)
-let test_ring_bracket_width_reads_its_variables () =
-  Test_helpers.check_declarations "ring-[3px]"
-    [
-      "--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(3px + \
-       var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor)";
-      composes_box_shadow;
-    ];
-  let css =
-    match Tw.of_string "ring-[3px]" with
-    | Ok u -> Tw.to_css ~base:false [ u ]
-    | Error (`Msg m) -> Alcotest.failf "ring-[3px]: %s" m
-  in
-  List.iter
-    (fun name ->
-      Alcotest.(check bool)
-        (name ^ " is declared in the properties layer")
-        true
-        (Test_helpers.has_var_in_layer name "properties" css))
-    [ "--tw-ring-inset"; "--tw-ring-color" ];
-  List.iter
-    (fun cls ->
-      Alcotest.(check bool)
-        (cls ^ " is rejected") true
-        (Result.is_error (Tw.of_string cls)))
-    [
-      "ring-[3px]/50";
-      "ring-[length:3px]/50";
-      "ring-offset-[3px]/50";
-      "inset-ring-[3px]/50";
-    ]
-
 (* A shadow read whole from a custom property takes a modifier: there is no
    colour in the value to fold the alpha into, so Tailwind sets the alpha
-   channel and leaves the value as it is. The class was refused, and under the
-   [shadow:] hint the modifier was dropped from the name and the value. *)
+   channel and leaves the value as it is. Under the [shadow:] hint the modifier
+   stays in the name and the value. *)
 let test_var_shadow_takes_a_modifier () =
   Test_helpers.check_declarations "shadow-[var(--s)]/50"
     [ "--tw-shadow-alpha:50%"; "--tw-shadow:var(--s)"; composes_box_shadow ];
@@ -1274,78 +1064,42 @@ let test_var_shadow_takes_a_modifier () =
       composes_box_shadow;
     ]
 
-(* A token-stream ring colour under a modifier read from a custom property is
-   the pair Tailwind's polyfill writes: the bare value in the open and the mix,
-   reading the property the class named, behind the colour-mix guard. A named
-   token reads the theme's percentage into an sRGB mix in the open. The raw arm
-   folded either modifier to [100%] and wrote nothing beside it. *)
-let test_raw_ring_colour_opacity_var () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
-  in
-  let pair cls channel ~open_ ~alpha =
-    Test_helpers.check_declarations ~theme ~minify:false cls
-      [
-        channel ^ ": " ^ open_;
-        channel ^ ": color-mix(in oklab, foo(1) " ^ alpha ^ ", transparent)";
-      ]
-  in
-  pair "ring-[foo(1)]/(--o)" "--tw-ring-color" ~open_:"foo(1)" ~alpha:"var(--o)";
-  pair "ring-[foo(1)]/[var(--o)]" "--tw-ring-color" ~open_:"foo(1)"
-    ~alpha:"var(--o)";
-  pair "ring-offset-[foo(1)]/(--o)" "--tw-ring-offset-color" ~open_:"foo(1)"
-    ~alpha:"var(--o)";
-  pair "inset-ring-[foo(1)]/(--o)" "--tw-inset-ring-color" ~open_:"foo(1)"
-    ~alpha:"var(--o)";
-  pair "ring-[foo(1)]/half" "--tw-ring-color"
-    ~open_:"color-mix(in srgb, foo(1) 50%, transparent)"
-    ~alpha:"var(--opacity-half)";
-  (* A percentage needs no guard. *)
-  Test_helpers.check_declarations ~minify:false "ring-[foo(1)]/50"
-    [ "--tw-ring-color: color-mix(in oklab, foo(1) 50%, transparent)" ]
-
-(* A ring colour sets its channel and registers nothing: Tailwind writes no
-   [@property] for [ring-[foo(1)]], as it writes none for [ring-red-500]. The
-   raw arm registered the whole shadow family, which put an [@layer properties]
-   block under a class that declares one custom property. *)
-let test_raw_ring_colour_registers_nothing () =
-  List.iter
-    (fun cls ->
-      let css =
-        match Tw.of_string cls with
-        | Ok u -> Tw.to_css ~base:false [ u ] |> Css.to_string
-        | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-      in
-      Alcotest.check bool
-        (cls ^ " registers no @property")
-        false
-        (Astring.String.is_infix ~affix:"@property" css))
+(* A shadow no reader takes, which is any value after a hint the family does not
+   know, still has its colour routed through the colour channel, the way
+   Tailwind picks that colour out of the tokens. *)
+let test_unread_shadow_colour () =
+  List.iter Test_helpers.check_class_matches_tailwind
     [
-      "ring-[foo(1)]";
-      "ring-[foo(1)]/50";
-      "ring-offset-[foo(1)]";
-      "inset-ring-[foo(1)]";
+      "shadow-[foo:red]";
+      "shadow-[foo:1px_2px]";
+      "shadow-[red_foo]";
+      "shadow-[1px_2px_3px_4px_5px]";
+      "inset-shadow-[foo:red]";
+      "inset-shadow-[red_foo]";
+      "inset-shadow-[red_foo,1px_2px]";
+      "shadow-[foo:red]/50";
+      "shadow-[foo:1px_2px]/50";
     ]
+
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "opacity-[var(--a)_1px]"; "opacity-[var(--a),foo]" ]
 
 let tests =
   [
-    test_case "token-stream ring colour opacity from a var" `Quick
-      test_raw_ring_colour_opacity_var;
-    test_case "token-stream ring colour registers nothing" `Quick
-      test_raw_ring_colour_registers_nothing;
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "bracket data-type hint reads the value" `Quick
       test_bracket_data_type_hint_reads_the_value;
     test_case "shadow underscore escape" `Quick test_shadow_underscore_escape;
     test_case "arbitrary bracket color token stream" `Quick
       test_arbitrary_bracket_color_token_stream;
     test_case "project shadow tokens" `Quick test_project_shadow_tokens;
-    test_case "ring theme colour" `Quick test_ring_theme_colour;
     test_case "project shadow opacity" `Quick test_project_shadow_opacity;
     test_case "project shadow trailing var colour" `Quick
       test_project_shadow_trailing_var_colour;
     test_case "shadow list alpha guards" `Quick test_shadow_list_alpha_guards;
-    test_case "ring bracket width reads its variables" `Quick
-      test_ring_bracket_width_reads_its_variables;
     test_case "var shadow takes a modifier" `Quick
       test_var_shadow_takes_a_modifier;
     test_case "inset shadow bracket refuses inset" `Quick
@@ -1373,10 +1127,6 @@ let tests =
       test_bracket_hex_opacity_var;
     test_case "palette colour opacity from a var" `Quick
       test_palette_colour_opacity_var;
-    test_case "ring colour opacity from a var" `Quick
-      test_ring_colour_opacity_var;
-    test_case "ring bracket hex named opacity" `Quick
-      test_ring_bracket_hex_named_opacity;
     test_case "bracket shadow --alpha()" `Quick test_bracket_shadow_alpha_fn;
     test_case "bracket shadow colour-mix polyfill" `Quick
       test_bracket_shadow_mix_polyfill;
@@ -1398,13 +1148,9 @@ let tests =
       test_inset_shadow_theme_override_grammar;
     test_case "effects of_string - valid values" `Quick of_string_valid;
     test_case "effects of_string - invalid values" `Quick of_string_invalid;
-    test_case "ring of_string - valid values" `Quick test_ring_of_string_valid;
-    test_case "ring width order" `Slow test_ring_width_order;
-    test_case "ring-inset @property family" `Quick
-      test_ring_inset_property_rules;
-    test_case "ring shadeless color opacity" `Quick test_ring_shadeless_color;
-    test_case "ring offset shadeless color" `Quick
-      test_ring_offset_shadeless_color;
+    test_case "bare opacity scale" `Quick bare_opacity_scale;
+    test_case "opacity order matches Tailwind" `Quick
+      opacity_order_matches_tailwind;
     test_case "filters css generation" `Quick test_filters_css_generation;
     test_case "effects suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
@@ -1415,6 +1161,7 @@ let tests =
     test_case "arbitrary opacity token stream" `Quick
       test_arbitrary_opacity_token_stream;
     test_case "effects render like Tailwind" `Slow rendering_matches_tailwind;
+    test_case "unread shadow colour" `Quick test_unread_shadow_colour;
   ]
 
 let suite = ("effects", tests)

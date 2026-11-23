@@ -3,10 +3,10 @@
     These utilities control flexbox item behavior and come after sizing
     utilities in the cascade order. For flex display utilities (flex,
     inline-flex), see {!Flex} module. For direction/wrap utilities, see
-    {!Flex_layout} module.
-
-    @see <https://tailwindcss.com/docs/flex-grow> Flex Grow
-    @see <https://tailwindcss.com/docs/flex-shrink> Flex Shrink *)
+    {!Flex_layout} module. See
+    {{:https://tailwindcss.com/docs/flex-grow}Flex Grow} and
+    {{:https://tailwindcss.com/docs/flex-shrink}Flex Shrink} in the Tailwind
+    documentation. *)
 
 open Utility
 

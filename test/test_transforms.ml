@@ -115,56 +115,73 @@ let test_any_translate_fraction () =
   check "translate-1/0";
   check "-translate-x-0/2"
 
-let test_of_string_invalid () =
-  (* Invalid transform utilities *)
-  let test_invalid input =
-    let class_name = String.concat "-" input in
-    match Tw.Transforms.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
-  in
+(* A negated zero keeps its sign in the class name, so the rule still matches
+   the element, and in the value, as Tailwind writes both: [-scale-x-0] is
+   [.-scale-x-0] setting [calc(0% * -1)], not [.scale-x-0]. *)
+let test_negative_zero () =
+  List.iter check
+    [
+      "-translate-x-0";
+      "-translate-y-0";
+      "-translate-z-0";
+      "-rotate-0";
+      "-rotate-x-0";
+      "-scale-0";
+      "-scale-x-0";
+      "-skew-0";
+      "-skew-x-0";
+    ];
+  Test_helpers.check_declarations ~minify:false "-scale-x-0"
+    [
+      "--tw-scale-x: calc(0% * -1)";
+      "scale: var(--tw-scale-x) var(--tw-scale-y)";
+    ];
+  Test_helpers.check_declarations ~minify:false "-skew-x-0"
+    [
+      "--tw-skew-x: skewX(calc(0deg * -1))";
+      "transform: var(--tw-rotate-x,) var(--tw-rotate-y,) var(--tw-rotate-z,) \
+       var(--tw-skew-x,) var(--tw-skew-y,)";
+    ];
+  Test_helpers.check_class_order ~test_name:"a negated zero sorts as Tailwind's"
+    [
+      "-translate-x-0";
+      "translate-x-0";
+      "-rotate-0";
+      "rotate-0";
+      "-scale-x-0";
+      "scale-x-0";
+      "-skew-x-0";
+      "skew-x-0";
+    ]
 
-  (* Invalid translate - missing value *)
+let test_of_string_invalid () =
+  let test_invalid =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Transforms.Handler)
+  in
   test_invalid [ "translate"; "x" ];
   test_invalid [ "translate"; "y" ];
   test_invalid [ "translate"; "z" ];
-
-  (* Invalid rotate - missing value *)
   test_invalid [ "rotate" ];
   test_invalid [ "rotate"; "x" ];
   test_invalid [ "rotate"; "y" ];
   test_invalid [ "rotate"; "z" ];
-
-  (* Invalid scale - missing value *)
   test_invalid [ "scale" ];
   test_invalid [ "scale"; "x" ];
   test_invalid [ "scale"; "y" ];
   test_invalid [ "scale"; "z" ];
-
-  (* Invalid skew - missing value *)
   test_invalid [ "skew"; "x" ];
   test_invalid [ "skew"; "y" ];
-
-  (* Invalid perspective *)
   test_invalid [ "perspective" ];
   test_invalid [ "perspective"; "123" ];
   test_invalid [ "perspective"; "potato" ];
-
-  (* Invalid perspective origin *)
   test_invalid [ "perspective"; "origin" ];
   test_invalid [ "perspective"; "origin"; "invalid" ];
-
-  (* Invalid transform style *)
   test_invalid [ "transform"; "style" ];
   test_invalid [ "transform"; "style"; "invalid" ];
-
-  (* Invalid prefixes *)
   test_invalid [ "translate" ];
-  (* Missing axis *)
   test_invalid [ "scale"; "invalid"; "100" ];
-  (* Invalid axis *)
   test_invalid []
-(* Empty *)
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -221,8 +238,7 @@ let test_translate_zero_keeps_unit () =
     ]
 
 (* Bare-integer translate-N / -translate-N set both axes to calc(var(--spacing)
-   * n); they used to be unknown classes (only the per-axis translate-x-N /
-   translate-y-N parsed). *)
+ * n), like the per-axis translate-x-N / translate-y-N. *)
 let test_translate_spacing () =
   check "translate-2";
   check "translate-8";
@@ -243,11 +259,11 @@ let test_translate_spacing () =
     ]
 
 (* A fractional spacing step on translate, in both signs: translate-x-0.5 and
-   -translate-y-0.5 used to be unknown classes since the axis took an int. The
-   unit step folds to the bare variable, as Tailwind writes it. *)
+   -translate-y-0.5. The unit step folds to the bare variable, as Tailwind
+   writes it. *)
 let test_translate_spacing_steps () =
   (* Channel then the [translate] shorthand that reads it. A z step widens the
-     shorthand to three channels, which the affixes could not say. *)
+     shorthand to three channels. *)
   let xy cls channel value =
     Test_helpers.check_declarations cls
       [
@@ -404,8 +420,7 @@ let test_arbitrary_transform_token_streams () =
   emits "scale-[abc]" "scale:abc";
   emits "rotate-[abc]" "rotate:abc";
   emits "rotate-[1.5px]" "rotate:1.5px";
-  (* A bare skew sets both axes and the transform chain that reads them, which
-     the affix on one channel never said. *)
+  (* A bare skew sets both axes and the transform chain that reads them. *)
   Test_helpers.check_declarations "skew-[1.5]"
     [
       "--tw-skew-x:skewX(1.5)";
@@ -429,9 +444,9 @@ let test_project_perspective_token () =
     (Result.is_error (Tw.of_string ~theme "perspective-nope"))
 
 (* The [@property] block for the five rotate/skew channels belongs to
-   [transform]. [transform-cpu] and [transform-gpu] only read them, and asking
-   for the rules there put a whole [@layer properties] and five [@property]
-   rules in a sheet whose one transform utility was either of those two. *)
+   [transform]. [transform-cpu] and [transform-gpu] only read them, so a sheet
+   whose one transform utility is either of those two has no [@layer properties]
+   and no [@property] rule. *)
 let test_property_rules_belong_to_transform () =
   let property_rules cls =
     match Tw.of_string cls with
@@ -608,8 +623,7 @@ let test_arbitrary_transform_reads_the_whole_bracket () =
    about the value. The three families reading a bracket through one typed
    cursor each write one longhand, so every hint lands there and the reader is
    handed what follows it; the hint stays in the class name, which is what the
-   markup carries. All three were given the hint as well, read nothing, and the
-   classes were refused where Tailwind writes the value through. *)
+   markup carries. Tailwind writes the value through. *)
 let test_transform_brackets_peel_a_hint () =
   List.iter
     (fun (cls, decl) ->
@@ -617,9 +631,7 @@ let test_transform_brackets_peel_a_hint () =
       | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
       | Ok u ->
           Alcotest.(check string) "class round-trips" cls (Tw.pp u);
-          (* The whole list, which is where "lands in one longhand" is said: an
-             affix passes just as well beside a second declaration the hint was
-             not supposed to produce. *)
+          (* The whole list: the hint lands in one longhand. *)
           Test_helpers.check_declarations ~minify:false cls [ decl ])
     [
       ("origin-[position:top]", "transform-origin: top");
@@ -627,6 +639,35 @@ let test_transform_brackets_peel_a_hint () =
       ("perspective-origin-[foo:top]", "perspective-origin: top");
       ("transform-[foo:scaleX(2)]", "transform: scaleX(2)");
     ]
+
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind [ "scale-z-[foo:2]" ]
+
+(* Every translate axis writes the zero step as [0px] and the unit step as
+   [var(--spacing)], as Tailwind does for each spacing family: the bare form and
+   the z axis are no exception. *)
+let test_translate_unit_steps () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "translate-0";
+      "-translate-0";
+      "translate-z-0";
+      "-translate-z-0";
+      "translate-1";
+      "translate-z-1";
+      "-translate-1";
+      "-translate-z-1";
+      "translate-x-0";
+      "translate-y-1";
+    ]
+
+(* The bare form takes a fractional step, as each axis does: Tailwind writes
+   [calc(var(--spacing) * 0.5)] on x and y for [translate-0.5]. *)
+let test_translate_bare_fractional_step () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "translate-0.5"; "-translate-1.5"; "translate-2.5" ]
 
 let tests =
   [
@@ -656,6 +697,7 @@ let tests =
     test_case "negative arbitrary translate-z" `Quick
       test_neg_translate_z_arbitrary;
     test_case "any translate fraction" `Quick test_any_translate_fraction;
+    test_case "negative zero keeps its sign" `Quick test_negative_zero;
     test_case "of_string invalid cases" `Quick test_of_string_invalid;
     test_case "typed constructors" `Quick test_typed;
     test_case "transforms suborder matches Tailwind" `Quick
@@ -675,6 +717,11 @@ let tests =
     test_case "transform brackets peel a data-type hint" `Quick
       test_transform_brackets_peel_a_hint;
     test_case "transforms render like Tailwind" `Slow rendering_matches_tailwind;
+    test_case "unknown hint is not the value" `Quick
+      test_unknown_hint_is_not_the_value;
+    test_case "translate unit steps" `Quick test_translate_unit_steps;
+    test_case "translate bare fractional step" `Quick
+      test_translate_bare_fractional_step;
   ]
 
 let suite = ("transforms", tests)

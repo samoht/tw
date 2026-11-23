@@ -72,11 +72,9 @@ let of_string_valid () =
   check "place-self-stretch"
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Alignment.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ class_name)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Alignment.Handler)
   in
 
   fail_maybe [ "justify" ];

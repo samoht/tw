@@ -1,9 +1,11 @@
-(** Parsing helpers for small integers and results.
+(** Readers for the pieces of a class name: numbers, brackets, [var()]
+    references and the splits on ['-'] and [':'].
 
-    This module provides lightweight parsers used across the library for
-    interpreting small integers from strings and a convenient infix map on
-    results. All functions return [result] with [`Msg] error messages instead of
+    A reader that can fail reports it as [Error (`Msg _)] or [None] rather than
     raising. *)
+
+val is_digit : char -> bool
+(** [is_digit c] is [true] when [c] is an ASCII digit. *)
 
 val decimal_int : string -> int option
 (** [decimal_int s] reads the canonical plain-decimal spelling of an integer.
@@ -22,14 +24,11 @@ val fraction : string -> (int * int) option
     redundant leading zero; the denominator is drawn from no fixed list, and
     zero is a value on either side. *)
 
-val fraction_percent : int -> int -> float option
-(** [fraction_percent n m] is the percentage Tailwind's [calc(n / m * 100%)]
-    computes, folded to six significant figures the way Tailwind's printer folds
-    it. A zero denominator is [None]: it has no percentage, and Tailwind writes
-    the division out instead. *)
-
 val fraction_pct : string -> float option
-(** [fraction_pct s] is {!fraction} put through {!fraction_percent}. *)
+(** [fraction_pct s] is the percentage Tailwind's [calc(n / m * 100%)] computes
+    for the fraction {!fraction} reads from [s], folded to six significant
+    figures the way Tailwind's printer folds it. A zero denominator is [None]:
+    it has no percentage, and Tailwind writes the division out instead. *)
 
 val fraction_calc : 'a Cascade.Css.calc -> int -> int -> 'a Cascade.Css.calc
 (** [fraction_calc hundred n m] is [n / m * hundred], the expression Tailwind
@@ -45,9 +44,8 @@ val neg_fraction_length : int -> int -> Cascade.Css.length
     Tailwind negates a fraction with. *)
 
 val int_pos : name:string -> string -> (int, [> `Msg of string ]) result
-(** [int_pos ~name s] parses a non-negative integer from [s]. Returns [Ok n] if
-    [s] is a decimal integer >= 0, otherwise [Error (`Msg msg)]. [name] is used
-    to produce helpful error messages. *)
+(** [int_pos ~name s] is [Ok n] if [s] is a decimal integer [n >= 0], and
+    [Error (`Msg msg)] otherwise, with [name] in [msg]. *)
 
 val int_bounded :
   name:string ->
@@ -55,11 +53,12 @@ val int_bounded :
   max:int ->
   string ->
   (int, [> `Msg of string ]) result
-(** [int_bounded ~name ~min ~max s] parses a bounded integer from [s]. Returns
-    [Ok n] if [n] is within [min..max], otherwise [Error (`Msg msg)]. *)
+(** [int_bounded ~name ~min ~max s] is [Ok n] if [s] is an integer [n] within
+    \[[min];[max]\], and [Error (`Msg msg)] otherwise. *)
 
 val int_any : string -> (int, [> `Msg of string ]) result
-(** [int_any s] parses any signed integer from [s]. *)
+(** [int_any s] is [Ok n] for the signed decimal integer [n] that [s] spells,
+    and an error otherwise. *)
 
 val spacing_value : name:string -> string -> (float, [> `Msg of string ]) result
 (** [spacing_value ~name s] parses spacing values, handling both integers and
@@ -67,18 +66,17 @@ val spacing_value : name:string -> string -> (float, [> `Msg of string ]) result
     {!decimal_float}. *)
 
 val is_valid_theme_name : string -> bool
-(** [is_valid_theme_name s] returns [true] if [s] is a valid theme variable
-    name. Names containing ['/'] are rejected — such values are invalid class
-    suffixes, not theme references. *)
+(** [is_valid_theme_name s] is [true] iff [s] is a non-empty theme variable name
+    without ['/']. A value containing ['/'] is an invalid class suffix, not a
+    theme reference. *)
 
 val ( >|= ) : ('a, 'e) result -> ('a -> 'b) -> ('b, 'e) result
-(** Infix map over [result]: [r >|= f] maps [Ok x] to [Ok (f x)] and leaves
-    [Error e] unchanged. *)
+(** [r >|= f] is [Result.map f r]. *)
 
 val extract_var_name : string -> string
-(** [extract_var_name s] parses one complete [var()] reference and returns its
-    name without the [--] prefix, retaining an optional fallback after a comma.
-    If [s] is not exactly one valid reference, it returns [s] unchanged. *)
+(** [extract_var_name s] is the name of the [var()] reference [s] without the
+    [--] prefix, followed by [", "] and its fallback when it has one. This is
+    [s] itself if [s] is not exactly one valid reference. *)
 
 val bracket_close : string -> int option
 (** [bracket_close s] is the index of the [\]] closing the [\[] that [s] starts
@@ -91,15 +89,15 @@ val bracket_close : string -> int option
     open runs to the end of [s], so nothing after it closes the bracket. *)
 
 val is_bracket_value : string -> bool
-(** [is_bracket_value s] returns [true] if [s] is one bracket-wrapped value. The
+(** [is_bracket_value s] is [true] iff [s] is one bracket-wrapped value. The
     closing bracket has to be the last character, so a suffix carrying a second
     bracket - one bracket with a bracket modifier, or two brackets in a row - is
     not one bracket value. It is {!bracket_close} landing on the last character,
     and reads quotes and escapes the same way. *)
 
 val bracket_inner : string -> string
-(** [bracket_inner s] extracts the inner content from ["[foo]"], returning
-    ["foo"]. If [s] is not bracket-wrapped, returns [s] unchanged. *)
+(** [bracket_inner s] is the inside of the bracket-wrapped [s]: ["foo"] for
+    ["[foo]"]. This is [s] itself if [s] is not bracket-wrapped. *)
 
 val decode_underscores : string -> string
 (** [decode_underscores s] turns the [_] of an arbitrary value into a space, and
@@ -140,8 +138,8 @@ val decode_arbitrary_value : string -> string
     for {!holds_unresolved_call} to refuse. *)
 
 val url_token : string -> string option
-(** [url_token s] reads [s] as one whole CSS [url()] token and returns the URL
-    it names, with quotes and escapes resolved: [url(a\]b)], [url(a\\\]b)] and
+(** [url_token s] is the URL that [s], read as one whole CSS [url()] token,
+    names, with quotes and escapes resolved: [url(a\]b)], [url(a\\\]b)] and
     [url('a\]b')] all name [a\]b]. [None] when [s] is not one whole token.
 
     A utility holding a [url()] as it was written reads it back through this
@@ -157,7 +155,7 @@ val arbitrary_length : string -> Cascade.Css.length option
 (** [arbitrary_length s] reads the inside of an arbitrary value as a CSS length.
     [s] goes through {!decode_arbitrary_value} first, so underscores, [calc()]
     and [--spacing()] all read; the whole CSS length grammar is accepted, not a
-    hand-picked subset of units. Returns [None] when [s] is not a length. *)
+    hand-picked subset of units. This is [None] when [s] is not a length. *)
 
 val arbitrary_length_percentage : string -> Cascade.Css.length_percentage option
 (** [arbitrary_length_percentage s] reads the inside of an arbitrary value as a
@@ -216,11 +214,11 @@ val holds_unresolved_call : string -> bool
     string or a comment is no call. *)
 
 val arbitrary_declaration_value : string -> string option
-(** [arbitrary_declaration_value s] decodes the inside of a Tailwind bracket and
-    returns its CSS declaration value: the text after any {!data_type_hint},
-    which has to hold something other than blank space. Values that can
-    terminate or swallow the declaration are [None], as is a bracket whose hint
-    is empty.
+(** [arbitrary_declaration_value s] is the CSS declaration value that [s], the
+    inside of a Tailwind bracket, decodes to: the text after any
+    {!data_type_hint}, which has to hold something other than blank space.
+    Values that can terminate or swallow the declaration are [None], as is a
+    bracket whose hint is empty.
 
     A value that {!holds_unresolved_call} is also [None]. *)
 
@@ -230,6 +228,12 @@ val wrap_declaration_value :
     value between generated tokens. In particular, it closes a comment that was
     implicitly closed by the end of [value], so that comment cannot swallow
     [after]. *)
+
+val negated_declaration_value : string -> string option
+(** [negated_declaration_value value] is [calc(value * -1)], which is how
+    Tailwind negates a bracket's declaration value whatever it holds. [None]
+    when [value] cannot stand inside the call, as {!wrap_declaration_value}
+    answers. *)
 
 val color_mix_fallback :
   resolve:(string -> string option) -> string -> string option
@@ -259,6 +263,28 @@ val opaque_declaration : string -> string -> Cascade.Css.declaration option
     contract for arbitrary utilities, which deliberately emits some values that
     are invalid for [property]. *)
 
+val is_number : string -> bool
+(** [is_number s] is [true] when [s] is a number as Tailwind spells one: an
+    optional sign, digits with at most one point and a digit after it, and an
+    optional exponent. [1.5], [.5], [-2] and [1e3] are numbers; [1.], [0x10] and
+    [10px] are not. *)
+
+val holds_math_function : string -> bool
+(** [holds_math_function s] is [true] when one of the math function names
+    Tailwind knows ([calc], [min], [clamp], ...) stands right before a [(]
+    anywhere in [s]. Tailwind reads such a bracket as a number or a length
+    whatever the rest of it holds, so this is the test that routes it. *)
+
+val is_length : string -> bool
+(** [is_length s] is [true] when Tailwind infers [s] to be a length: an
+    {!is_number} followed by one of the absolute, font-relative, viewport or
+    container units, a [--spacing()] call, or a value that
+    {!holds_math_function}. [1e3px] is a length; [1E] and [10%] are not. *)
+
+val is_percentage : string -> bool
+(** [is_percentage s] is [true] when Tailwind infers [s] to be a percentage: an
+    {!is_number} followed by [%], or a value that {!holds_math_function}. *)
+
 val starts_with_math_function : string -> bool
 (** [starts_with_math_function s] is [true] when [s] opens with a CSS math
     function ([calc], [min], [max], [clamp], ...). A utility whose bracket takes
@@ -267,12 +293,15 @@ val starts_with_math_function : string -> bool
     the numeric side. *)
 
 val is_var : string -> bool
-(** [is_var s] returns [true] if [s] starts with ["var("]. Works on inner
-    bracket content (without surrounding brackets). *)
+(** [is_var s] is [true] when the whole of [s] is one [var()] call: the paren
+    that opens it closes at the end of [s], with brackets, quoted strings and
+    escapes inside it read as the tokeniser reads them. [var(--a)] and
+    [var(--a,var(--b))] are one call; [var(--a) 1px] and [var(--a),foo] are not.
+    Works on inner bracket content (without surrounding brackets). *)
 
 val is_bracket_var : string -> bool
-(** [is_bracket_var s] returns [true] if [s] is a bracket-wrapped var()
-    reference like ["[var(--value)]"]. *)
+(** [is_bracket_var s] is [true] iff [s] is one bracket-wrapped [var()]
+    reference, such as ["[var(--value)]"]. *)
 
 val call_body : string -> string -> string option
 (** [call_body name s] is the text between [name(] and the [)] that ends [s],
@@ -290,15 +319,16 @@ val alpha_call : string -> (string * string) option
     slash, or leaves either side empty, which Tailwind refuses. *)
 
 val is_css_color_fn : string -> bool
-(** [is_css_color_fn s] returns [true] if [s] looks like a CSS color function
-    call such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]: the part of [s]
+(** [is_css_color_fn s] is [true] iff [s] looks like a CSS color function call
+    such as ["rgba(...)"], ["hsl(...)"], or ["oklch(...)"]: the part of [s]
     before its first ['('] names a function
     {!Cascade.Css.Properties.is_color_function} recognises - a colour syntax
     fixes, case-insensitively. *)
 
 val is_bare_var : string -> bool
-(** [is_bare_var s] returns [true] if [s] is a bare var reference like
-    ["(--name)"]. *)
+(** [is_bare_var s] is [true] iff [s] has the shape of a bare var reference,
+    ["(--name)"]: an opening parenthesis and [--], at least one more character,
+    and a closing parenthesis. *)
 
 val bare_name : string -> string option
 (** [bare_name s] is the name after the [--] a custom property starts with:
@@ -347,7 +377,17 @@ val shadow_layer : string -> (Cascade.Css.length list * shadow_colour) option
     {!decode_underscores} first. *)
 
 val split_top_level : char -> string -> string list
-(** [split_top_level sep s] splits [s] on [sep] where no bracket is open, so a
-    [sep] inside [(...)], [[...]] or [{...}] stays in its piece. Always yields
-    one piece more than the separators it split on; a closing bracket with no
-    opener is passed over. *)
+(** [split_top_level sep s] splits [s] on [sep] where no bracket or string is
+    open, so a [sep] inside [(...)], [[...]], [{...}], a quoted string or
+    escaped by a backslash stays in its piece. Always yields one piece more than
+    the separators it split on; a closing bracket with no opener is passed over.
+*)
+
+val replace_shadow_colours : (string -> string) -> string -> string
+(** [replace_shadow_colours wrap value] is the shadow list [value] with the
+    colour token of each layer replaced by [wrap token]. The colour is the first
+    hex, named colour or colour function in the layer; failing that, in a layer
+    holding two lengths or more, it is the one token that is neither a length
+    nor a keyword, and a layer with no such token gets [wrap "currentcolor"]
+    added at its end. A layer that matches none of these stays as written.
+    Tailwind picks the colour of a shadow it does not parse this way. *)

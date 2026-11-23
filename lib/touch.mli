@@ -1,7 +1,7 @@
-(** Touch-action utilities
+(** Touch-action utilities.
 
-    @see <https://tailwindcss.com/docs/touch-action>
-      Tailwind CSS Touch Action documentation *)
+    These are Tailwind's
+    {{:https://tailwindcss.com/docs/touch-action}touch-action utilities}. *)
 
 open Utility
 

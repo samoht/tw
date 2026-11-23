@@ -1,18 +1,11 @@
-(** Prose typography utilities
+(** Prose typography utilities.
 
-    The Prose module provides beautiful typographic defaults for HTML content.
-    It's designed to make text-heavy content like articles, blog posts, or
-    documentation look great out of the box.
-
-    When you apply prose styles to a container, all the content inside gets
-    carefully crafted typography including:
-    - Proper font sizes and line heights for readability
-    - Beautiful spacing between paragraphs, headings, and other elements
-    - Styled lists, blockquotes, code blocks, and more
-    - Consistent color schemes using CSS variables
-
-    Based on Tailwind CSS Typography plugin:
-    https://tailwindcss.com/docs/typography-plugin *)
+    [prose] styles the HTML inside a container (headings, paragraphs, lists,
+    blockquotes, code and tables) with the font sizes, spacing and colours of
+    the
+    {{:https://tailwindcss.com/docs/typography-plugin}Tailwind Typography
+     plugin}. The colours are CSS variables, so a colour variant such as
+    [prose-slate] changes them all at once. *)
 
 open Cascade
 
@@ -23,7 +16,7 @@ open Cascade
 
 type variant =
   [ `Base | `Sm | `Lg | `Xl | `Xl2 | `Gray | `Slate | `Zinc | `Neutral | `Stone ]
-(** Prose variant types *)
+(** The type for prose size and colour variants. *)
 
 (** {1 Internal Conversion Functions} *)
 
@@ -33,34 +26,7 @@ val pp : variant -> string
 (** [pp variant] pretty-prints a prose variant. *)
 
 val to_class : variant -> string
-(** [to_class variant] converts prose variant to CSS class name. *)
-
-val to_css_rules : variant -> Css.statement list
-(** [to_css_rules variant] generates CSS rules for a prose variant.
-
-    This generates all the CSS rules needed for the prose variant, including
-    styles for headings, paragraphs, lists, quotes, etc.
-
-    The rules use descendant selectors to style child elements:
-    - [.prose h1] - styles all h1 elements inside prose
-    - [.prose p] - styles all paragraphs inside prose
-    - etc. *)
-
-val css_variables : Css.declaration list
-(** [css_variables] returns default prose CSS variables for theming.
-
-    These CSS custom properties control the color scheme:
-    - [--tw-prose-body] - body text color
-    - [--tw-prose-headings] - heading color
-    - [--tw-prose-links] - link color
-    - [--tw-prose-bold] - bold text color
-    - [--tw-prose-code] - inline code color
-    - [--tw-prose-quotes] - blockquote text color
-    - [--tw-prose-borders] - border colors
-    - etc.
-
-    These variables are included with the base prose styles and can be
-    overridden by color theme variants like [Gray] or [Slate]. *)
+(** [to_class variant] is the class name of [variant], such as ["prose-sm"]. *)
 
 (** {2 Prose Utilities} *)
 
@@ -101,7 +67,7 @@ val prose_orange : t
 (** [prose_orange] applies the orange accent (link) color theme. *)
 
 val stylesheet : unit -> Css.statement list
-(** [stylesheet ()] generates complete CSS rules for all prose variants. *)
+(** [stylesheet ()] is the CSS rules of every prose variant. *)
 
 (** {2 Prose markers}
 

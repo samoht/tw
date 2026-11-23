@@ -59,9 +59,9 @@ let named_spacing_requires_theme_token () =
   (match Tw.Margin.Handler.of_class themed "my-form" with
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "my-form with theme rejected: %s" m);
-  match Tw.Margin.Handler.of_class Tw.Scheme.default "my-form" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "my-form without theme token should be rejected"
+  Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+    (module Tw.Margin.Handler)
+    "my-form"
 
 let suborder_matches_tailwind () =
   let open Tw in
@@ -76,9 +76,9 @@ let suborder_matches_tailwind () =
     ~test_name:"margin suborder matches Tailwind" shuffled
 
 (* Tailwind orders margins by side first, then sign (negative before positive
-   within a side), then value: e.g. m-0, -mt-1, mt-2, -ml-1, ml-2. tw used to
-   sort all negatives ahead of all positives, which both diverged from Tailwind
-   and reversed the cascade for conflicting rules (.m-0 vs .-ml-4). *)
+   within a side), then value: e.g. m-0, -mt-1, mt-2, -ml-1, ml-2. Sorting all
+   negatives first would reverse the cascade for conflicting rules (.m-0 vs
+   .-ml-4). *)
 let negative_suborder_matches_tailwind () =
   let mk s =
     match Tw.of_string s with
@@ -154,13 +154,11 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches ~test_name:"margins render like Tailwind"
     (List.map (fun c -> Result.get_ok (Tw.of_string c)) classes)
 
-(** Test that CSS values use the correct spacing multiplier. m-64 should
-    generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
+(* Each step multiplies the spacing scale by its own number: m-64 is
+   calc(var(--spacing)*64). *)
 let test_css_values () =
-  (* The whole declaration. The affixes these replace were the tail of the calc,
-     [*64)], which says nothing about the property it lands on, nor that the
-     multiplicand is the spacing scale rather than some other variable - the
-     very confusion the m-16/m-64 mix-up above was. *)
+  (* The whole declaration, so the property and the spacing multiplicand are
+     both checked, not only the tail of the calc. *)
   let spacing cls prop step =
     Test_helpers.check_declarations cls
       [ prop ^ ":calc(var(--spacing)*" ^ step ^ ")" ]
@@ -194,9 +192,8 @@ let test_arbitrary_value_decoder_stages () =
   check_declarations "mt-[calc(1px_+_1px)]" [ "margin-top:calc(1px + 1px)" ];
   check_declarations "m-[--spacing(4)]" [ "margin:calc(var(--spacing)*4)" ]
 
-(* The [']-suffixed sibling of each int constructor takes a half-step float (and
-   still supports negative values); the int base keeps emitting what it always
-   did. *)
+(* The [']-suffixed sibling of each int constructor takes a half-step float,
+   negative values included. *)
 let typed_prime () =
   let open Tw in
   check_typed_class "m-0.5" (m' 0.5);
@@ -222,11 +219,8 @@ let test_data_type_hint_before_the_length_reader () =
   reject "m-[length:]"
 
 (* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
-   writes for every unit. Folding the sign into the number instead was done from
-   a unit table that listed a few of them, so [4px] came out [-4px] while [2em]
-   and [10vh], which the table missed, already carried the calc. The two compute
-   the same length, so only the raw sheets show it; what makes it worth settling
-   is that the upstream fixtures record the CLI's spelling. *)
+   writes for every unit, never the sign folded into the number. The two compute
+   the same length, but the upstream fixtures record the CLI's spelling. *)
 let test_margin_negated_arbitrary_is_a_calc () =
   List.iter
     (fun (cls, decl) ->
@@ -237,8 +231,26 @@ let test_margin_negated_arbitrary_is_a_calc () =
       ("-mb-[50%]", "margin-bottom: calc(50% * -1)");
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "m-[var(--a)_1px]";
+      "m-[var(--a),foo]";
+      "mx-[var(--a)_1px]";
+      "mx-[var(--a),foo]";
+      "mt-[var(--a)_1px]";
+      "mt-[var(--a),foo]";
+      "-mt-[var(--a)_1px]";
+      "-mt-[var(--a),foo]";
+      "mb-[var(--a)_1px]";
+      "mb-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated arbitrary length is a calc" `Quick
       test_margin_negated_arbitrary_is_a_calc;
     test_case "data-type hint before the length reader" `Quick

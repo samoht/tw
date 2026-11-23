@@ -17,6 +17,13 @@ let ignored_scan_entry name =
 let scan_warning path message =
   Fmt.epr "Warning: cannot scan %s: %s@." path message
 
+(* Scanned paths are joined with [/], which Windows also takes as a separator. A
+   file the walk reaches and a path an [@source] names then compare as strings,
+   which [Filename.concat]'s [\\] on Windows would keep apart: a glob would
+   match nothing under its root, and [@source not] would take nothing out. *)
+let join dir entry =
+  if String.ends_with ~suffix:"/" dir then dir ^ entry else dir ^ "/" ^ entry
+
 (* Recursively get content files without following directory symlinks or
    descending into generated/dependency/metadata trees. A bad subtree is local
    to that path: readable siblings still contribute their candidates. *)
@@ -27,8 +34,7 @@ let rec files path keep =
     | Unix.S_DIR ->
         Sys.readdir path |> Array.to_list
         |> List.filter (fun entry -> not (ignored_scan_entry entry))
-        |> List.concat_map (fun entry ->
-            files (Filename.concat path entry) keep)
+        |> List.concat_map (fun entry -> files (join path entry) keep)
     | Unix.S_LNK -> (
         match (Unix.stat path).st_kind with
         | Unix.S_DIR -> []
@@ -42,13 +48,8 @@ let rec files path keep =
       scan_warning path (Unix.error_message error);
       []
 
-(* Generation backend - determines which tool to use *)
-type backend =
-  | Native (* Use our tw implementation *)
-  | Tailwind (* Use real tailwindcss tool *)
-  | Diff (* Compare tw vs tailwindcss *)
+type backend = Native | Tailwind | Diff
 
-(* Main command implementation *)
 type gen_opts = {
   minify : bool;
   optimize : bool;
@@ -86,7 +87,7 @@ let reference_entrypoint ~(opts : gen_opts) =
         if Filename.is_relative dir then Filename.concat (Sys.getcwd ()) dir
         else dir
       in
-      Some (Entrypoint.rooted ~dir css)
+      Some (Tw_tools.Source_directive.rooted ~dir css)
   | _, css -> css
 
 let eval_flag flag ~default =
@@ -140,12 +141,12 @@ let print_diff_result label diff =
       | Css_compare.Both_errors _ | Expected_error _ | Actual_error _ -> 2
       | Tree_diff _ | String_diff _ | No_diff -> 1)
 
-(* The generator reports a missing or unusable CLI as a [Failure] carrying the
-   whole diagnosis, and [Printexc] would print that as a quoted literal with its
-   newlines escaped. *)
-let tailwind_error = function
-  | Failure reason | Sys_error reason -> reason
-  | e -> Printexc.to_string e
+(* What a run reports as an error: a [Failure] carrying the whole diagnosis, as
+   the generator raises for a missing or unusable CLI, or a filesystem error.
+   [f]'s other exceptions are defects and propagate. *)
+let reporting_errors ~what f =
+  try f ()
+  with Failure reason | Sys_error reason -> `Error (false, what ^ reason)
 
 let calc_re = Re.compile (Re.str "calc(")
 
@@ -159,8 +160,15 @@ let render_css ~(opts : gen_opts) stylesheet =
            resolved with them. Only a declaration holding a [calc()] with no
            variable left is folded, and only exactly: the pass is not a
            minifier, so a colour or a keyword keeps the spelling it was
-           generated with. *)
-        let resolved = Tw.Css.inline_vars ~inline_runtime:true stylesheet in
+           generated with. A custom property a declared utility sets is the
+           project's, read by CSS this sheet does not hold, and stays. *)
+        let keep_vars =
+          Tw_tools.Custom_utility.custom_properties
+            (Entrypoint.entry_utility_defs opts.input_css_path)
+        in
+        let resolved =
+          Tw.Css.inline_vars ~keep_vars ~inline_runtime:true stylesheet
+        in
         let static_calc d =
           Tw.Css.vars_of_declarations [ d ] = []
           && Re.execp calc_re (Tw.Css.declaration_value ~minify:true d)
@@ -263,19 +271,13 @@ let reference_css ~(opts : gen_opts) classes =
     classes
 
 (* [classes ()] runs under the same handler as the CLI, so a source that cannot
-   be scanned reports as a generation error, as it did. *)
+   be scanned reports as a generation error. *)
 let tailwind_backend ~opts classes =
-  try
-    emit ~opts (reference_css ~opts (classes ()));
-    `Ok 0
-  with e ->
-    `Error
-      (false, Fmt.str "Error generating with Tailwind: %s" (tailwind_error e))
+  reporting_errors ~what:"Error generating with Tailwind: " (fun () ->
+      emit ~opts (reference_css ~opts (classes ()));
+      `Ok 0)
 
-let comparison f =
-  try f ()
-  with e ->
-    `Error (false, Fmt.str "Error during comparison: %s" (Printexc.to_string e))
+let comparison f = reporting_errors ~what:"Error during comparison: " f
 
 (* What both diff modes end in: tw's sheet against the reference, [report]
    printing the structural diff and answering its exit status, and the browser
@@ -395,9 +397,7 @@ let relative_to root file =
    command line, a glob keeps the files under its root that match it, and a path
    naming nothing is skipped, as Tailwind skips it. *)
 let source_files ~base path =
-  let path =
-    if Filename.is_relative path then Filename.concat base path else path
-  in
+  let path = if Filename.is_relative path then join base path else path in
   if Tw_tools.Source_scan.is_glob path then
     let root, pattern = Tw_tools.Source_scan.glob_root path in
     if Sys.file_exists root then
@@ -412,7 +412,7 @@ let entrypoint_files ~(opts : gen_opts) =
   match (opts.input_css_path, opts.input_css) with
   | Some path, Some css ->
       let base = Filename.dirname path in
-      let included, excluded = Tw_tools.Entrypoint.source_paths css in
+      let included, excluded = Tw_tools.Source_directive.paths css in
       let dropped = List.concat_map (source_files ~base) excluded in
       List.concat_map (source_files ~base) included
       |> List.filter (fun file -> not (List.exists (String.equal file) dropped))
@@ -453,16 +453,15 @@ let diff_files paths ~(opts : gen_opts) =
 
 let native_files paths flag ~(opts : gen_opts) =
   let include_base = eval_flag flag ~default:true in
-  try
-    let all_classes = scanned_classes ~opts paths in
-    let known_count, stylesheet =
-      native_stylesheet ~opts ~include_base all_classes
-    in
-    emit ~opts (render_css ~opts stylesheet);
-    print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
-      ~known_count;
-    `Ok 0
-  with e -> `Error (false, Fmt.str "Error: %s" (Printexc.to_string e))
+  reporting_errors ~what:"Error: " (fun () ->
+      let all_classes = scanned_classes ~opts paths in
+      let known_count, stylesheet =
+        native_stylesheet ~opts ~include_base all_classes
+      in
+      emit ~opts (render_css ~opts stylesheet);
+      print_stats ~quiet:opts.quiet ~candidate_count:(List.length all_classes)
+        ~known_count;
+      `Ok 0)
 
 let process_files paths flag ~(opts : gen_opts) =
   match opts.backend with
@@ -477,7 +476,7 @@ let process_files paths flag ~(opts : gen_opts) =
 let js_config_refusal ~backend ~input_css css_content =
   match (backend, input_css, css_content) with
   | (Native | Diff), Some path, Some css -> (
-      match Entrypoint.config_directives css with
+      match Tw_tools.Tailwind_import.config_directives css with
       | [] -> None
       | config :: _ ->
           Some
@@ -499,7 +498,7 @@ let js_config_refusal ~backend ~input_css css_content =
 let detected_roots ~input_css css_content =
   match (input_css, css_content) with
   | Some path, Some css -> (
-      match Entrypoint.source_root css with
+      match Tw_tools.Source_directive.root css with
       | `None -> []
       | `Detect -> [ Filename.current_dir_name ]
       | `Dir dir when Filename.is_relative dir ->
@@ -575,32 +574,29 @@ let rec watch ~always ~interval ~inputs ~build previous =
 
 let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
     ~input_css ~output ~watching ~diff_mode ~html paths =
-  (* Resolve default CSS mode based on operation kind when not provided *)
   let resolved_css_mode : Css.mode =
     match (single_class, backend, css_mode) with
-    | _, Diff, _ -> Variables (* Diff always uses variables mode *)
+    | _, Diff, _ -> Variables
     | _, _, `Inline -> Inline
     | _, _, `Variables -> Variables
-    | Some _, _, `Default -> Inline (* single-class defaults to inline mode *)
-    | None, _, `Default -> Variables (* files/scan default to variables *)
+    | Some _, _, `Default -> Inline
+    | None, _, `Default -> Variables
   in
-  (* Diff mode forces minified output; Cascade handles semantic comparison. *)
   let resolved_minify = match backend with Diff -> true | _ -> minify in
-  let resolved_optimize = optimize in
-  (* Build the renderer theme from the project's CSS entrypoint (its @theme), so
-     a --diff over a real repo compares against the same tokens Tailwind uses.
-     It is read again for every build, so a watch sees an edit to it. *)
+  (* The renderer theme comes from the project's entrypoint, so a [--diff] over
+     a real repo compares against the tokens Tailwind uses. It is read again for
+     every build, so a watch sees an edit to it. *)
   let load () =
     let css_content = Option.map Entrypoint.read_file input_css in
     let theme =
       match css_content with
       | None -> Tw.Scheme.default
-      | Some css -> Entrypoint.theme_of_css css
+      | Some css -> Tw_tools.Entry_theme.of_css css
     in
     let opts : gen_opts =
       {
         minify = resolved_minify;
-        optimize = resolved_optimize;
+        optimize;
         quiet;
         css_mode = resolved_css_mode;
         backend;
@@ -645,7 +641,6 @@ let tw_main single_class base_flag ~css_mode ~minify ~optimize ~quiet ~backend
       report_failure (build ());
       watch ~always ~interval ~inputs ~build before
 
-(* Command-line arguments *)
 let single_flag =
   let doc = "Generate CSS for a single Tailwind class" in
   Arg.(
@@ -772,7 +767,6 @@ let diff_mode_arg =
   Arg.(
     value & opt mode_conv `Canonical & info [ "diff-mode" ] ~docv:"MODE" ~doc)
 
-(* Which tool generates, and how a comparison reads the two sheets. *)
 let html_arg =
   let doc =
     "With $(b,--diff), also render Tailwind's sheet and tw's over the HTML \
@@ -786,6 +780,7 @@ let html_arg =
      against that directory would be refused. [run] checks it once there. *)
   Arg.(value & opt (some string) None & info [ "html" ] ~docv:"FILE" ~doc)
 
+(* Which tool generates, and how a comparison reads the two sheets. *)
 let backend_term =
   let backend tailwind diff diff_mode html =
     match (tailwind, diff, html) with

@@ -1,14 +1,14 @@
-(** CSS rule output — the result of extracting a Tailwind utility class.
+(** CSS rule output: the result of extracting a Tailwind utility class.
 
     A single [Output.t] value represents one CSS rule (or at-rule) produced by a
     utility class with zero or more modifiers. The five variants correspond to
     the five CSS constructs Tailwind can emit:
 
-    - [Regular] — a plain selector rule, possibly with nested CSS
-    - [Media_query] — a rule wrapped in a responsive or preference [@ media]
-    - [Container_query] — a rule wrapped in [@container]
-    - [Starting_style] — a rule wrapped in [@starting-style]
-    - [Supports_query] — a rule wrapped in [@supports]
+    - [Regular]: a plain selector rule, possibly with nested CSS
+    - [Media_query]: a rule wrapped in a responsive or preference [@ media]
+    - [Container_query]: a rule wrapped in [@container]
+    - [Starting_style]: a rule wrapped in [@starting-style]
+    - [Supports_query]: a rule wrapped in [@supports]
 
     Values are produced by {!Rule.outputs} and consumed by {!Build}. *)
 
@@ -123,9 +123,9 @@ val base_class : t -> string option
 (** [base_class rule] is the class name [rule] was built for, if it has one. *)
 
 val pp : t -> string
-(** [pp r] returns a short human-readable description of [r], e.g.
-    ["Regular(.p-4)"] or ["Media_query(.sm\\:p-4)"]. Useful for test failure
-    messages and debug output. *)
+(** [pp r] is a short human-readable description of [r], e.g. ["Regular(.p-4)"]
+    or ["Media_query(.sm\\:p-4)"]. Useful for test failure messages and debug
+    output. *)
 
 (** {1 Classification} *)
 

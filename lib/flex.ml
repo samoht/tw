@@ -1,8 +1,3 @@
-(** Flexbox display utilities (flex, inline-flex).
-
-    For flexbox property utilities (direction, wrap, grow, shrink, basis,
-    order), see Flex_props module. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -11,10 +6,7 @@ module Handler = struct
 
   type t = Flex | Inline_flex
 
-  (** Priority for flex display utilities. Display utilities all share priority
-      4 and are ordered alphabetically by suborder. *)
   let name = "flex"
-
   let priority _ = 4
   let flex = style [ display Flex ]
   let inline_flex = style [ display Inline_flex ]
@@ -27,41 +19,31 @@ module Handler = struct
     | Flex -> 3
     | Inline_flex -> 9
 
-  let err_not_utility = Error (`Msg "Not a flex display utility")
-
   let of_class _theme class_name =
     let parts = Parse.split_class class_name in
     match parts with
     | [ "flex" ] -> Ok Flex
     | [ "inline"; "flex" ] -> Ok Inline_flex
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let to_class = function Flex -> "flex" | Inline_flex -> "inline-flex"
   let examples = [ Flex ]
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
 let utility = Utility_factory.v
 let flex = utility Flex
 let inline_flex = utility Inline_flex
-
-(** Re-export Flex_layout utilities for backward compatibility *)
 let flex_row = Flex_layout.flex_row
-
 let flex_row_reverse = Flex_layout.flex_row_reverse
 let flex_col = Flex_layout.flex_col
 let flex_col_reverse = Flex_layout.flex_col_reverse
 let flex_wrap = Flex_layout.flex_wrap
 let flex_wrap_reverse = Flex_layout.flex_wrap_reverse
 let flex_nowrap = Flex_layout.flex_nowrap
-
-(** Re-export Flex_props utilities for backward compatibility *)
 let flex_1 = Flex_props.flex_1
-
 let flex_auto = Flex_props.flex_auto
 let flex_initial = Flex_props.flex_initial
 let flex_none = Flex_props.flex_none

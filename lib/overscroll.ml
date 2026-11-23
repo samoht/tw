@@ -1,15 +1,3 @@
-(** Overscroll behavior utilities for controlling scroll chaining.
-
-    What's included:
-    - `overscroll-auto` - Default scroll chaining behavior.
-    - `overscroll-contain` - Prevent scroll chaining to parent.
-    - `overscroll-none` - Prevent scroll chaining and overscroll effects.
-    - `overscroll-x-*`, `overscroll-y-*` - Axis-specific overscroll behavior.
-
-    Parsing contract ([of_class]):
-    - Accepts ["overscroll"; value] and ["overscroll"; axis; value].
-    - Unknown tokens yield [Error (`Msg "Not an overscroll utility")]. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -47,8 +35,8 @@ module Handler = struct
     | Y_contain -> ("y-contain", style [ overscroll_behavior_y Contain ], 607)
     | Y_none -> ("y-none", style [ overscroll_behavior_y None ], 608)
 
-  (* Every constructor, for the class-name lookup. A missing entry costs a class
-     that no longer parses, which the round-trip test reports. *)
+  (* Every constructor, for the class-name lookup. A missing entry leaves a
+     class that does not parse, which the round-trip test reports. *)
   let all =
     [
       Auto; Contain; None_; X_auto; X_contain; X_none; Y_auto; Y_contain; Y_none;
@@ -71,7 +59,7 @@ module Handler = struct
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
-    | None -> Error (`Msg "Not an overscroll utility")
+    | None -> Utility.unclaimed
 
   let examples = [ Auto; X_auto; Y_auto ]
 end

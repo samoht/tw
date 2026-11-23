@@ -22,13 +22,12 @@
 
 module Tailwind_gen = Tw_tools.Tailwind_gen
 
-(* Measured 2026-09-03 over [classlist.txt], 4825 classes of tailwindcss.com, at
-   the PR #667 + #668 stack against cascade main at 3a007e5b. Both keys and
+(* Counted over [classlist.txt], the classes of tailwindcss.com. Both keys and
    grouping come out of cascade's printer, so the number is only comparable
    against the cascade a run was built with, and every run prints which one that
-   was. CI pins cascade main through opam; a local [cascade/] symlink sitting on
-   someone's branch is the first thing to check when the count moves for no
-   reason in the sort code.
+   is. CI builds against the opam cascade; a local [cascade/] symlink on another
+   branch is the first thing to check when the count moves for no reason in the
+   sort code.
 
    [pairs] is pinned as a floor as well: a sheet that lost most of its rules
    would otherwise have nothing left to be out of order, and the gate would read
@@ -42,12 +41,6 @@ let pinned =
    off-version one fails instead. *)
 let required () = Sys.getenv_opt "TW_TAILWIND_TESTS" = Some "1"
 
-let read_file path =
-  let ic = open_in_bin path in
-  Fun.protect
-    ~finally:(fun () -> close_in_noerr ic)
-    (fun () -> really_input_string ic (in_channel_length ic))
-
 (* tw's half comes from the built binary rather than from the library, so what
    is measured is the sheet the documented command produces, entrypoint
    compilation and all. *)
@@ -56,11 +49,11 @@ let tw_sheet tw_bin =
   let remove () = try Sys.remove out with Sys_error _ -> () in
   Fun.protect ~finally:remove @@ fun () ->
   let cmd =
-    Fmt.str "%s --input-css globals.css --minify classlist.txt > %s"
-      (Filename.quote tw_bin) (Filename.quote out)
+    Filename.quote_command tw_bin ~stdout:out
+      [ "--input-css"; "globals.css"; "--minify"; "classlist.txt" ]
   in
   if Sys.command cmd <> 0 then failwith ("failed to run " ^ tw_bin);
-  read_file out
+  In_channel.with_open_bin out In_channel.input_all
 
 let sample = 25
 

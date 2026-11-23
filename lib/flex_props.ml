@@ -1,10 +1,3 @@
-(** Flexbox property utilities (grow, shrink, basis, order, flex shortcuts).
-
-    These utilities control flexbox item behavior and come after sizing
-    utilities in the cascade order. For flex display utilities (flex,
-    inline-flex), see Flex module. For direction/wrap utilities, see Flex_layout
-    module. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -12,7 +5,6 @@ module Handler = struct
   open Css
 
   type t =
-    (* Flex shortcuts *)
     | Flex_1
     | Flex_auto
     | Flex_initial
@@ -21,7 +13,6 @@ module Handler = struct
     | Flex_fraction of int * int (* flex-N/M where N/M is a fraction *)
     | Flex_arbitrary of string * [ `Flex of Css.flex | `Raw of string ]
     (* flex-[123] *)
-    (* Grow *)
     | Flex_grow
     | Flex_grow_0
     | Flex_grow_n of int (* grow-N where N is any integer *)
@@ -29,14 +20,12 @@ module Handler = struct
       (* grow-[123] *)
     | Flex_grow_legacy (* flex-grow (deprecated alias, keeps its class name) *)
     | Flex_grow_0_legacy (* flex-grow-0 *)
-    (* Shrink *)
     | Flex_shrink
     | Flex_shrink_0
     | Flex_shrink_arbitrary of string * [ `Number of float | `Raw of string ]
       (* shrink-[123] *)
     | Flex_shrink_legacy (* flex-shrink *)
     | Flex_shrink_0_legacy (* flex-shrink-0 *)
-    (* Basis *)
     | Basis_0
     | Basis_1
     | Basis_spacing of int
@@ -49,12 +38,12 @@ module Handler = struct
     (* basis-[foo]: the family writes one longhand, so a bracket no reader took
        still names it and the value is forwarded verbatim - Tailwind's
        token-stream contract. *)
-    (* Order *)
     | Order of int
     | Neg_order of int (* -order-4 = calc(4 * -1) *)
     (* The author's bracket text travels with the order it denotes, so the class
        name is spelled exactly as it was written. *)
     | Neg_order_arbitrary of string * Css.order (* -order-[var(--value)] *)
+    | Neg_order_raw of string * string
     | Order_arbitrary of string * Css.order (* order-[123] *)
     | Order_raw of string * string
     | Order_first
@@ -68,18 +57,15 @@ module Handler = struct
      after z-index), so it returns priority 0 with a suborder above z-index's
      ~20M band and below container (priority 1). *)
   let priority = function
-    | Order _ | Neg_order _ | Neg_order_arbitrary _ | Order_arbitrary _
-    | Order_raw _ | Order_first | Order_last | Order_none ->
+    | Order _ | Neg_order _ | Neg_order_arbitrary _ | Neg_order_raw _
+    | Order_arbitrary _ | Order_raw _ | Order_first | Order_last | Order_none ->
         0
     | _ -> 7
 
-  (* Flex shortcuts *)
   let flex_1 = style [ flex (Grow (Number 1.0)) ]
   let flex_auto = style [ flex Auto ]
   let flex_initial = style [ flex (Full (Number 0., Number 1., Auto)) ]
   let flex_none = style [ flex None ]
-
-  (* flex-N: flex: N *)
   let flex_n_style n = style [ flex (Grow (Number (float_of_int n))) ]
 
   (* The [100%] a fraction's calc multiplies, as a flex-basis leaf. *)
@@ -94,11 +80,8 @@ module Handler = struct
   let opaque property raw =
     style (Option.to_list (Parse.opaque_declaration property raw))
 
-  (* Grow *)
   let flex_grow_utility = style [ flex_grow 1.0 ]
   let flex_grow_0_utility = style [ flex_grow 0.0 ]
-
-  (* Shrink *)
   let flex_shrink_utility = style [ flex_shrink 1.0 ]
   let flex_shrink_0_utility = style [ flex_shrink 0.0 ]
 
@@ -163,7 +146,6 @@ module Handler = struct
             in
             style [ flex_basis (Var ref) ])
 
-  (* Order *)
   let order_style n = style [ order (Int n) ]
 
   let themed_order ?theme name default =
@@ -219,7 +201,7 @@ module Handler = struct
     | Neg_order_arbitrary (_, o) ->
         style [ order (Calc (Css.Calc.mul (Val o) (Css.Calc.float (-1.)))) ]
     | Order_arbitrary (_, o) -> style [ order o ]
-    | Order_raw (_, v) ->
+    | Order_raw (_, v) | Neg_order_raw (_, v) ->
         style (Option.to_list (Parse.opaque_declaration "order" v))
     | Order_first -> order_first ()
     | Order_last -> order_last ()
@@ -230,7 +212,7 @@ module Handler = struct
        container (priority 1). Ordering: negative first, then positive, then
        first/last/none, then arbitrary. *)
     | Neg_order n -> 21_000_000 + n (* negative comes first *)
-    | Neg_order_arbitrary _ -> 21_000_000 + 50
+    | Neg_order_arbitrary _ | Neg_order_raw _ -> 21_000_000 + 50
     | Order n -> 21_000_000 + 100 + n
     | Order_arbitrary _ | Order_raw _ -> 21_000_000 + 150
     | Order_first -> 21_000_000 + 200
@@ -270,7 +252,7 @@ module Handler = struct
        lists grow, grow-0, grow-3, grow-7, grow-[2], grow-[<value>]. *)
     | Flex_grow_arbitrary (_, `Number f) -> 35000 + int_of_float f
     | Flex_grow_arbitrary _ -> 39000
-    (* Basis: fractions → arbitrary → keywords alphabetical → named *)
+    (* Basis: fractions -> arbitrary -> keywords alphabetical -> named *)
     | Basis_fraction (n, m) -> 40000 + (n * 10) + m
     | Basis_arbitrary _ | Basis_raw _ -> 42000
     | Basis_0 -> 43000
@@ -279,8 +261,6 @@ module Handler = struct
     | Basis_auto -> 43002
     | Basis_full -> 43003
     | Basis_named _ -> 44000
-
-  let err_not_utility = Error (`Msg "Not a flex property utility")
 
   (* [basis-1/2] and [flex-1/2] fold the fraction to a percentage, which a zero
      denominator has none of. Every other numerator and denominator reads. *)
@@ -352,11 +332,11 @@ module Handler = struct
         let inner = Parse.bracket_inner n in
         match arbitrary_factor inner with
         | Some v -> Ok (Flex_grow_arbitrary (inner, v))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "grow"; n ] -> (
         match Parse.decimal_int n with
         | Some i when i > 0 -> Ok (Flex_grow_n i)
-        | _ -> err_not_utility)
+        | _ -> Utility.unclaimed)
     | [ "flex"; "shrink" ] -> Ok Flex_shrink_legacy
     | [ "shrink" ] -> Ok Flex_shrink
     | [ "flex"; "shrink"; "0" ] -> Ok Flex_shrink_0_legacy
@@ -365,7 +345,7 @@ module Handler = struct
         let inner = Parse.bracket_inner n in
         match arbitrary_factor inner with
         | Some v -> Ok (Flex_shrink_arbitrary (inner, v))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "basis"; "0" ] -> Ok Basis_0
     | [ "basis"; "1" ] -> Ok Basis_1
     | [ "basis"; "auto" ] -> Ok Basis_auto
@@ -394,7 +374,7 @@ module Handler = struct
              ~none:
                (match Parse.arbitrary_declaration_value inner with
                | Some raw -> Ok (Basis_raw (inner, raw))
-               | None -> err_not_utility)
+               | None -> Utility.unclaimed)
              ~some:(fun value -> Ok (Basis_arbitrary (inner, value)))
     | [ "basis"; value ] -> (
         match Parse.decimal_int value with
@@ -408,7 +388,7 @@ module Handler = struct
                    [var(--container-<name>)] for the whole scale. *)
                 if Spacing.is_named_spacing value || is_container_size value
                 then Ok (Basis_named value)
-                else err_not_utility))
+                else Utility.unclaimed))
     | [ "order"; "first" ] -> Ok Order_first
     | [ "order"; "last" ] -> Ok Order_last
     | [ "order"; "none" ] -> Ok Order_none
@@ -421,42 +401,44 @@ module Handler = struct
           | None -> (
               match Parse.arbitrary_declaration_value inner with
               | Some raw -> Ok (Order_raw (inner, raw))
-              | None -> err_not_utility)
+              | None -> Utility.unclaimed)
         else
           match Parse.decimal_int value with
           | Some n when n >= 0 -> Ok (Order n)
-          | _ -> err_not_utility)
+          | _ -> Utility.unclaimed)
     | "" :: "order" :: rest when rest <> [] -> (
-        (* Negative order: -order-4, -order-[var(--value)] *)
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
           match arbitrary_order inner with
           | Some o -> Ok (Neg_order_arbitrary (inner, o))
-          | None -> err_not_utility
+          | None -> (
+              match
+                Option.bind
+                  (Parse.arbitrary_declaration_value inner)
+                  Parse.negated_declaration_value
+              with
+              | Some raw -> Ok (Neg_order_raw (inner, raw))
+              | None -> Utility.unclaimed)
         else
           match Parse.decimal_int value with
           | Some n when n >= 1 -> Ok (Neg_order n)
-          | _ -> err_not_utility)
+          | _ -> Utility.unclaimed)
     | [ "flex"; value ] when Parse.is_bracket_value value -> (
-        (* Arbitrary flex: flex-[123] *)
         let inner = Parse.bracket_inner value in
         match arbitrary_flex inner with
         | Some v -> Ok (Flex_arbitrary (inner, v))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "flex"; value ] -> (
-        (* Try fraction first (e.g., "1/2") *)
         match parse_fraction value with
         | Some (n, m) -> Ok (Flex_fraction (n, m))
         | None -> (
-            (* Try numeric value (e.g., "99") *)
             match Parse.decimal_int value with
             | Some n when n > 1 -> Ok (Flex_n n)
-            | _ -> err_not_utility))
-    | _ -> err_not_utility
+            | _ -> Utility.unclaimed))
+    | _ -> Utility.unclaimed
 
   let to_class = function
-    (* Flex shortcuts *)
     | Flex_1 -> "flex-1"
     | Flex_auto -> "flex-auto"
     | Flex_initial -> "flex-initial"
@@ -464,21 +446,19 @@ module Handler = struct
     | Flex_n n -> "flex-" ^ string_of_int n
     | Flex_fraction (n, m) -> "flex-" ^ string_of_int n ^ "/" ^ string_of_int m
     | Flex_arbitrary (raw, _) -> "flex-[" ^ raw ^ "]"
-    (* Grow - Tailwind v4 uses shorter names; the flex-* spellings are kept as
-       deprecated aliases that preserve their class name *)
+    (* The [flex-grow] and [flex-shrink] spellings are deprecated aliases that
+       keep their own class name. *)
     | Flex_grow -> "grow"
     | Flex_grow_0 -> "grow-0"
     | Flex_grow_n n -> "grow-" ^ string_of_int n
     | Flex_grow_arbitrary (raw, _) -> "grow-[" ^ raw ^ "]"
     | Flex_grow_legacy -> "flex-grow"
     | Flex_grow_0_legacy -> "flex-grow-0"
-    (* Shrink - Tailwind v4 uses shorter names *)
     | Flex_shrink -> "shrink"
     | Flex_shrink_0 -> "shrink-0"
     | Flex_shrink_arbitrary (raw, _) -> "shrink-[" ^ raw ^ "]"
     | Flex_shrink_legacy -> "flex-shrink"
     | Flex_shrink_0_legacy -> "flex-shrink-0"
-    (* Basis *)
     | Basis_0 -> "basis-0"
     | Basis_1 -> "basis-1"
     | Basis_spacing n -> "basis-" ^ string_of_int n
@@ -488,10 +468,9 @@ module Handler = struct
         "basis-" ^ string_of_int n ^ "/" ^ string_of_int m
     | Basis_named s -> "basis-" ^ s
     | Basis_arbitrary (raw, _) | Basis_raw (raw, _) -> "basis-[" ^ raw ^ "]"
-    (* Order *)
     | Order n -> "order-" ^ string_of_int n
     | Neg_order n -> "-order-" ^ string_of_int n
-    | Neg_order_arbitrary (s, _) -> "-order-[" ^ s ^ "]"
+    | Neg_order_arbitrary (s, _) | Neg_order_raw (s, _) -> "-order-[" ^ s ^ "]"
     | Order_arbitrary (s, _) | Order_raw (s, _) -> "order-[" ^ s ^ "]"
     | Order_first -> "order-first"
     | Order_last -> "order-last"
@@ -501,9 +480,7 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
 let utility = Utility_factory.v
 let flex_1 = utility Flex_1

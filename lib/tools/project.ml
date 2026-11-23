@@ -25,8 +25,7 @@ let raised_rendering = function
    value it cannot serialise. Such a class produces no rule, so it is dropped
    rather than let it abort the whole sheet. The sheet is rendered once for
    every class, and only a render that raises splits the classes, down to those
-   that do: a separate probe render before the real one cost as much as the real
-   one. *)
+   that do, since a separate probe render would cost as much as the real one. *)
 let render_known render known =
   match render known with
   | sheet -> (known, sheet)
@@ -66,24 +65,24 @@ let parse_known_candidates ~theme ?input_css candidates =
 let utilities ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
   let declared = Entrypoint.entry_variant_defs entrypoint in
-  let defs, refused = Entrypoint.with_negated_variants declared in
+  let defs, refused = Negated_variant.add declared in
   let udefs = Entrypoint.entry_utility_defs entrypoint in
   let names_refused cls =
-    List.exists (fun v -> List.mem v refused) (Entrypoint.variant_segments cls)
+    List.exists (fun v -> List.mem v refused) (Custom_variant.segments cls)
   in
   let classes = List.filter (fun cls -> not (names_refused cls)) classes in
   let routed, normal =
-    List.partition (Entrypoint.is_custom_routed ~theme ~defs ~udefs) classes
+    List.partition (Routing.is_custom_routed ~theme ~defs ~udefs) classes
   in
   let known = parse_known_candidates ~theme ?input_css normal in
   let routed_count, routed_extra, routed_stmts =
-    Entrypoint.custom_routed_utilities ~theme ~defs ~udefs routed
+    Routing.custom_routed_utilities ~theme ~defs ~udefs routed
   in
-  (* Routed custom variants no longer pass through the typed modifier parser,
-     but the sorter still needs their exact names so a declaration such as
-     [not-dark] is not mistaken for the built-in [not-] compound slot. Dummy
-     selector values are sufficient here: routed candidates already carry the
-     expanded author CSS in [extra], and only the registered names are read. *)
+  (* Routed custom variants skip the typed modifier parser, but the sorter still
+     needs their exact names so a declaration such as [not-dark] is not mistaken
+     for the built-in [not-] compound slot. Dummy selector values are sufficient
+     here: routed candidates already carry the expanded author CSS in [extra],
+     and only the registered names are read. *)
   let sort_theme =
     let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
     let custom_variants =
@@ -97,7 +96,9 @@ let utilities ~theme ?entrypoint ~base classes =
   in
   (* The forms plugin's reset belongs to the base layer, which [to_css] writes
      only when it is asked for. *)
-  let forms = Option.fold ~none:false ~some:Entrypoint.forms_base input_css in
+  let forms =
+    Option.fold ~none:false ~some:Tailwind_import.forms_base input_css
+  in
   let known, sheet =
     render_known
       (fun known ->
@@ -105,14 +106,15 @@ let utilities ~theme ?entrypoint ~base classes =
           (List.map snd known))
       known
   in
-  (List.length known + routed_count, Entrypoint.place_routed routed_stmts sheet)
+  (List.length known + routed_count, Routing.place_routed routed_stmts sheet)
 
 let stylesheet ~theme ?entrypoint ~base classes =
   let input_css = Option.map Entrypoint.read_file entrypoint in
   (* An entrypoint importing Tailwind in parts asks for the reset only through
      [tailwindcss/preflight.css]. *)
   let base =
-    base && Option.fold ~none:true ~some:Entrypoint.imports_preflight input_css
+    base
+    && Option.fold ~none:true ~some:Tailwind_import.imports_preflight input_css
   in
   (* The entrypoint's safelist joins the markup's classes, and its blocklist
      takes a class out whichever of the two it came from. *)
@@ -120,7 +122,7 @@ let stylesheet ~theme ?entrypoint ~base classes =
     match input_css with
     | None -> classes
     | Some css ->
-        let safelist, blocklist = Entrypoint.source_inline css in
+        let safelist, blocklist = Source_directive.inline css in
         List.sort_uniq String.compare (classes @ safelist)
         |> List.filter (fun cls -> not (List.mem cls blocklist))
   in

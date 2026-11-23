@@ -94,12 +94,11 @@ let test_drop_shadow_color () =
     ]
 
 (* drop-shadow/<n> recolours the default shadow, which is a two-layer stack, so
-   both layers carry the modifier's alpha as their fallback. It used to emit one
-   layer and reference the theme token, losing the first shadow. *)
+   both layers carry the modifier's alpha as their fallback, with no reference
+   to the theme token. *)
 let test_drop_shadow_opacity_keeps_both_layers () =
-  (* The whole list, which is where "not the theme reference" is said: it used
-     to be a search for a spelling that must not appear, and the two layer
-     checks were for [0 1px 2px] anywhere in the sheet. *)
+  (* The whole list, which is where "not the theme reference" is said and which
+     places both layers on the class. *)
   Test_helpers.check_declarations "drop-shadow/50"
     [
       "--tw-drop-shadow-alpha:50%";
@@ -114,8 +113,7 @@ let test_drop_shadow_opacity_keeps_both_layers () =
 (* A fractional opacity modifier keeps its fraction: drop-shadow/12.5 -> alpha
    12.5%, not the truncated 12%. *)
 let test_drop_shadow_fractional_alpha () =
-  (* The fraction has to survive into the size channel too, which the affix on
-     the alpha channel alone never said. *)
+  (* The fraction has to survive into the size channel too. *)
   Test_helpers.check_declarations "drop-shadow/12.5"
     [
       "--tw-drop-shadow-alpha:12.5%";
@@ -279,8 +277,8 @@ let candidate_order_matches_tailwind () =
       "backdrop-blur";
     ]
 
-(* backdrop-blur-N must reference the unified v4 --blur-N token (not the dropped
-   --backdrop-blur-N) and emit the shipped --blur-N decl. *)
+(* backdrop-blur-N references the v4 --blur-N token, which the blur utilities
+   share, and emits its --blur-N declaration. *)
 let test_backdrop_blur_token () =
   let css =
     Tw.to_css [ Tw.backdrop_blur_sm ] |> Tw.Css.to_string ~minify:true
@@ -299,8 +297,8 @@ let test_backdrop_blur_token () =
     (Astring.String.is_infix ~affix:"--blur-sm:8px" css)
 
 (* A drop-shadow colour the theme has no token for, and a named size with an
-   alpha: both were unknown classes. The size form replaces the shadow's own
-   colour with black at that alpha and leaves the theme token out. *)
+   alpha. The size form replaces the shadow's own colour with black at that
+   alpha and leaves the theme token out. *)
 let test_drop_shadow_keyword_and_alpha () =
   let keyword cls colour mixed =
     Test_helpers.check_declarations cls
@@ -313,10 +311,8 @@ let test_drop_shadow_keyword_and_alpha () =
   in
   keyword "drop-shadow-current" "currentColor" "currentcolor";
   keyword "drop-shadow-transparent" "transparent" "transparent";
-  (* The size form replaces the shadow's own colour and leaves the theme token
-     out, which the whole list says: the [--drop-shadow-xl:] search it replaces
-     was for a :root binding the list does not reach anyway, and the size affix
-     stopped before the value that carries the alpha. *)
+  (* The whole list says the size form replaces the shadow's own colour and
+     leaves the theme token out. *)
   Test_helpers.check_declarations "drop-shadow-xl/25"
     [
       "--tw-drop-shadow-alpha:25%";
@@ -349,13 +345,12 @@ let test_arbitrary_amount_unterminated_comment () =
     ]
 
 (* An arbitrary filter spells its spaces with [_], so a multi-function chain
-   like filter-[blur(4px)_saturate(150%)] has to be decoded before it is parsed.
-   Without that the whole class parsed as nothing and emitted an empty rule. *)
+   like filter-[blur(4px)_saturate(150%)] has to be decoded before it is
+   parsed. *)
 let test_arbitrary_filter_chain () =
   (* An arbitrary filter replaces the chain rather than joining it, so the whole
      list is one declaration - two for backdrop, which aliases its property for
-     WebKit. That is what the affixes could not say, and "emitted an empty rule"
-     is the failure they were written against. *)
+     WebKit. *)
   let filters cls value =
     Test_helpers.check_declarations ~minify:false cls [ "filter: " ^ value ]
   in
@@ -366,20 +361,17 @@ let test_arbitrary_filter_chain () =
   filters "filter-[blur(4px)_saturate(150%)]" "blur(4px) saturate(150%)";
   backdrop_filters "backdrop-filter-[blur(4px)_saturate(150%)]"
     "blur(4px) saturate(150%)";
-  (* single-function and var() forms are unchanged *)
+  (* single-function and var() forms *)
   filters "filter-[blur(4px)]" "blur(4px)";
   filters "filter-[var(--my-filter)]" "var(--my-filter)";
   backdrop_filters "backdrop-filter-[blur(4px)]" "blur(4px)";
   backdrop_filters "backdrop-filter-[var(--x)]" "var(--x)"
 
-(* A bracket value the filter grammar cannot take is not a utility. It used to
-   parse, then emit an empty rule: no CSS and no diagnostic. Same for a
-   drop-shadow name the theme has no --drop-shadow-<name> token for. *)
+(* A bracket value the filter grammar cannot take is not a utility, and neither
+   is a drop-shadow name the theme has no --drop-shadow-<name> token for. *)
 let test_unparseable_arbitrary_filter_rejected () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   (* A bracket the filter grammar declines names the family's own longhand, so
      it reaches the sheet as the token stream it is. A drop-shadow *name* the
@@ -462,10 +454,9 @@ let test_arbitrary_angle_token_streams () =
       "backdrop-hue-rotate-[2px]";
     ]
 
-(* [blur-[...]] takes a length. A bracket the length grammar cannot read was
-   accepted and then raised out of [to_css], which is a pure conversion. Reading
-   the bracket with cascade's grammar also earns [calc()] and the units the
-   hand-rolled reader never took. *)
+(* [blur-[...]] takes a length, read with cascade's grammar, so [calc()] and
+   every unit work. A bracket the length grammar cannot read is forwarded as a
+   token stream, and [to_css] never raises on it. *)
 let test_arbitrary_blur_token_streams () =
   let renders cls =
     match Tw.of_string cls with
@@ -490,26 +481,59 @@ let test_arbitrary_blur_token_streams () =
 
 (* A [--blur-*] token the project declared in its [@theme] names a radius the
    built-in scale has no slot for. Tailwind generates the utility from it,
-   filter chain included; tw rejected the class outright. *)
+   filter chain included. *)
 let test_project_blur_token () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("blur-soft", "7px") ]
-  in
-  (* Channel then chain: "filter chain included" is what this test is for, and
-     an affix on the channel alone never said the chain was there. *)
+  let entry = Test_helpers.theme_entry "--blur-soft: 7px;" in
+  let theme = Tw_tools.Entry_theme.of_css entry in
+  (* Channel then chain: "filter chain included" is what this test is for. *)
   Test_helpers.check_declarations ~theme ~minify:false "blur-soft"
     [ "--tw-blur: blur(var(--blur-soft))"; chain ];
-  Alcotest.(check bool)
-    "an undeclared blur name is rejected" true
-    (Result.is_error (Tw.of_string ~theme "blur-nope"))
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry
+    "blur-nope"
+
+(* Tailwind reads a [backdrop-blur-<name>] radius from [--backdrop-blur-<name>],
+   then from [--blur-<name>] (themeKeys [--backdrop-blur], [--blur]); a plain
+   [blur-<name>] reads [--blur-<name>] only. *)
+let test_project_backdrop_blur_token () =
+  let entry =
+    Test_helpers.theme_entry "--blur-soft: 3px; --backdrop-blur-hard: 9px;"
+  in
+  let theme = Tw_tools.Entry_theme.of_css entry in
+  Test_helpers.check_declarations ~theme "backdrop-blur-soft"
+    [
+      "--tw-backdrop-blur:blur(var(--blur-soft))";
+      "-webkit-backdrop-filter:" ^ backdrop_chain_min;
+      "backdrop-filter:" ^ backdrop_chain_min;
+    ];
+  Test_helpers.check_declarations ~theme "backdrop-blur-hard"
+    [
+      "--tw-backdrop-blur:blur(var(--backdrop-blur-hard))";
+      "-webkit-backdrop-filter:" ^ backdrop_chain_min;
+      "backdrop-filter:" ^ backdrop_chain_min;
+    ];
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry
+    "blur-hard"
+
+(* The same themeKeys hold for a built-in size: a project [--backdrop-blur-sm]
+   is the radius [backdrop-blur-sm] reads, and [blur-sm] keeps [--blur-sm]. *)
+let test_project_backdrop_blur_size_token () =
+  let entry = Test_helpers.theme_entry "--backdrop-blur-sm: 5px;" in
+  let theme = Tw_tools.Entry_theme.of_css entry in
+  Test_helpers.check_declarations ~theme "backdrop-blur-sm"
+    [
+      "--tw-backdrop-blur:blur(var(--backdrop-blur-sm))";
+      "-webkit-backdrop-filter:" ^ backdrop_chain_min;
+      "backdrop-filter:" ^ backdrop_chain_min;
+    ];
+  Test_helpers.check_declarations ~theme "blur-sm"
+    [ "--tw-blur:blur(var(--blur-sm))"; chain_min ]
 
 (* An arbitrary drop shadow takes a [/opacity], as a named size does: the
    modifier's alpha replaces every layer's, as Tailwind's relative [oklab()]
    does, folded at build time for a colour with sRGB bytes; a [var()] keeps its
    spelling in the fallback and takes the relative form behind a guard, and
    [currentcolor] a [color-mix()] behind its own. A trailing [var()] is the
-   colour, as Tailwind reads it, where the shadow grammar read it as the next
-   length and dropped it. The bracket arm took no modifier. *)
+   colour, as Tailwind reads it, not another length. *)
 let test_drop_shadow_arbitrary_opacity () =
   Test_helpers.check_declarations "drop-shadow-[0_1px_2px_#0000001a]/50"
     [
@@ -549,8 +573,7 @@ let test_drop_shadow_arbitrary_opacity () =
     ]
 
 (* A project [--drop-shadow-<name>] takes a modifier the way the scale does, and
-   a trailing [var()] in its value is the colour. [drop-shadow-halo/50] was an
-   unknown class, and the [var()] read as a spread. *)
+   a trailing [var()] in its value is the colour, not a spread. *)
 let test_project_drop_shadow_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -575,10 +598,9 @@ let test_project_drop_shadow_opacity () =
     ]
 
 (* A sized drop shadow reads a project override of its token into
-   [--tw-drop-shadow-size] as well: the size wrote the scale's geometry and
-   colour whatever the [@theme] block said, and so did the modifier form. A
-   bracket alpha with no [%] is the author's own number, and an alpha read from
-   a custom property puts the default stack's colours behind the guard. *)
+   [--tw-drop-shadow-size] as well, in the modifier form too. A bracket alpha
+   with no [%] is the author's own number, and an alpha read from a custom
+   property puts the default stack's colours behind the guard. *)
 let test_drop_shadow_size_reads_the_theme () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -623,8 +645,7 @@ let test_drop_shadow_size_reads_the_theme () =
     ]
 
 (* A drop shadow read whole from a custom property takes a modifier: the alpha
-   channel is set and the value kept, as Tailwind writes it. The class was
-   refused. *)
+   channel is set and the value kept, as Tailwind writes it. *)
 let test_var_drop_shadow_takes_a_modifier () =
   Test_helpers.check_declarations "drop-shadow-[var(--s)]/50"
     [
@@ -637,10 +658,9 @@ let test_var_drop_shadow_takes_a_modifier () =
 (* A bracket that reads as a colour, or carries a [color:] hint, is the drop
    shadow's colour, the way [shadow-[...]] reads its bracket: Tailwind sets
    [--tw-drop-shadow-color], mixes the alpha channel into it behind the guard
-   and points [--tw-drop-shadow] at the size. Every such bracket was read as a
-   size, so [drop-shadow-[#123456]] painted a [drop-shadow(#123456)] with no
-   geometry, a modifier on one was refused, and so was an [--alpha()] call. A
-   bare [var()] stays the size: nothing says what the property holds.
+   and points [--tw-drop-shadow] at the size. Such a bracket takes a modifier
+   and an [--alpha()] call. A bare [var()] stays the size: nothing says what the
+   property holds.
 
    A hex under a literal alpha folds the byte into the plain fallback, as the
    box shadow's channel does, where the CLI writes an sRGB mix; the canonical
@@ -709,9 +729,8 @@ let test_drop_shadow_bracket_colour () =
 
 (* A named [--opacity-*] token on a drop-shadow size is refused: Tailwind reads
    no alpha off it there and compiles nothing, where a number, a bracket or a
-   custom property sets the alpha channel. tw set [--tw-drop-shadow-alpha] to
-   the token. The bare [drop-shadow/half] is the one form Tailwind keeps, and it
-   writes it as if no modifier were given. *)
+   custom property sets the alpha channel. The bare [drop-shadow/half] is the
+   one form Tailwind keeps, and it writes it as if no modifier were given. *)
 let test_drop_shadow_named_alpha_on_size () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -746,8 +765,88 @@ let test_drop_shadow_named_alpha_on_size () =
       chain;
     ]
 
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "brightness-[foo:2]";
+      "contrast-[foo:150%]";
+      "grayscale-[foo:50%]";
+      "invert-[foo:0.5]";
+      "saturate-[foo:2]";
+      "sepia-[foo:var(--x)]";
+      "backdrop-brightness-[foo:2]";
+      "backdrop-contrast-[foo:2]";
+      "backdrop-grayscale-[foo:50%]";
+      "backdrop-invert-[foo:0.5]";
+      "backdrop-saturate-[foo:2]";
+      "backdrop-sepia-[foo:50%]";
+      "backdrop-opacity-[foo:0.5]";
+    ]
+
+(* A shadow no reader takes, which is any value after a hint the family does not
+   know, still has its colour routed through the colour channel, the way
+   Tailwind picks that colour out of the tokens. *)
+let test_unread_drop_shadow_colour () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "drop-shadow-[foo:red]";
+      "drop-shadow-[foo:0_0_2px_red]";
+      "drop-shadow-[red_foo]";
+    ]
+
+(* A negated bracket the angle reader cannot read is [calc(<value> * -1)], with
+   the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-hue-rotate-[foo]";
+      "-hue-rotate-[3px]";
+      "-hue-rotate-[foo:45deg]";
+      "-backdrop-hue-rotate-[foo:45deg]";
+      "-backdrop-hue-rotate-[url(x.png)_center]";
+    ]
+
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "blur-[var(--a)_1px]";
+      "blur-[var(--a),foo]";
+      "brightness-[var(--a)_1px]";
+      "brightness-[var(--a),foo]";
+      "contrast-[var(--a)_1px]";
+      "contrast-[var(--a),foo]";
+      "grayscale-[var(--a)_1px]";
+      "grayscale-[var(--a),foo]";
+      "invert-[var(--a)_1px]";
+      "invert-[var(--a),foo]";
+      "saturate-[var(--a)_1px]";
+      "saturate-[var(--a),foo]";
+      "sepia-[var(--a)_1px]";
+      "sepia-[var(--a),foo]";
+      "backdrop-blur-[var(--a)_1px]";
+      "backdrop-blur-[var(--a),foo]";
+      "backdrop-brightness-[var(--a)_1px]";
+      "backdrop-brightness-[var(--a),foo]";
+      "backdrop-opacity-[var(--a)_1px]";
+      "backdrop-opacity-[var(--a),foo]";
+    ]
+
+(* With no [--blur-none] token, [blur-none] empties the radius and writes the
+   whole filter chain, so Tailwind registers every channel of that chain with
+   [@property] and initialises it in the properties layer, as it does for
+   [backdrop-blur-none]. *)
+let test_blur_none_registers_chain () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "blur-none"; "backdrop-blur-none" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
+    test_case "negated token stream" `Quick test_negated_token_stream;
     test_case "drop-shadow arbitrary opacity" `Quick
       test_drop_shadow_arbitrary_opacity;
     test_case "drop-shadow bracket colour" `Quick
@@ -794,6 +893,15 @@ let tests =
       project_drop_shadow_size_order;
     test_case "drop-shadow candidate order" `Slow drop_shadow_candidate_order;
     test_case "project blur token" `Quick test_project_blur_token;
+    test_case "project backdrop-blur token" `Quick
+      test_project_backdrop_blur_token;
+    test_case "project backdrop-blur size token" `Quick
+      test_project_backdrop_blur_size_token;
+    test_case "unknown hint is not the value" `Quick
+      test_unknown_hint_is_not_the_value;
+    test_case "unread drop shadow colour" `Quick test_unread_drop_shadow_colour;
+    test_case "blur-none registers the chain" `Quick
+      test_blur_none_registers_chain;
   ]
 
 let suite = ("filters", tests)

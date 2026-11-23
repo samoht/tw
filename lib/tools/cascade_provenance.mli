@@ -1,4 +1,4 @@
-(** Surface the cascade revision a local run is actually built against.
+(** The cascade revision a local run is built against.
 
     The [cascade/] directory at the repo root is a symlink to a sibling checkout
     that other sessions move independently; CI has no such symlink and instead
@@ -8,6 +8,16 @@
     instead of silently green; when no [cascade/] checkout is found (as on CI,
     or when the repo root cannot be located from the process's working
     directory) it prints nothing. It never raises. *)
+
+val constraint_of_dune_project : string -> string option
+(** [constraint_of_dune_project contents] is the [cascade] line of the [depends]
+    field in the [dune-project] text [contents], trimmed, such as
+    [(cascade (>= 1.3.0))]. [None] when no line names [cascade]. *)
+
+val checkout_position : string -> string
+(** [checkout_position dir] says where the git checkout at [dir] (a shell-quoted
+    path) sits: the branch it is on or [detached HEAD], how many of its commits
+    are not in [origin/main], and whether it has uncommitted changes. *)
 
 val report : unit -> unit
 (** [report ()] prints the local [cascade/] checkout's git revision, the branch

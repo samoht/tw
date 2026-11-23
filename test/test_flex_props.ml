@@ -3,8 +3,6 @@ open Alcotest
 let check = Test_helpers.check_handler_roundtrip (module Tw.Flex_props.Handler)
 
 let of_string_valid () =
-  (* Note: Direction and Wrap utilities are now in Flex_layout module *)
-
   (* Flex shortcuts *)
   check "flex-1";
   check "flex-auto";
@@ -53,18 +51,15 @@ let of_string_valid () =
   check "order-none"
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Flex_props.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Flex_props.Handler)
   in
 
   fail_maybe [ "flex"; "invalid" ];
   fail_maybe [ "basis" ];
   (* not a container-scale name *)
   fail_maybe [ "basis"; "4xs" ];
-  (* Missing value *)
   fail_maybe [ "order" ];
   fail_maybe []
 
@@ -168,9 +163,7 @@ let test_basis_arbitrary_keeps_the_authored_spelling () =
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [basis-] writes one longhand, so every hint lands there and
    the flex-basis reader is handed what follows it; the hint stays in the class
-   name, which is what the markup carries. The reader used to be given the hint
-   as well, so it read nothing and the class was refused where Tailwind emits
-   [flex-basis: 10px]. *)
+   name, which is what the markup carries. Tailwind emits [flex-basis: 10px]. *)
 let test_basis_arbitrary_peels_a_hint () =
   List.iter
     (fun cls ->
@@ -183,31 +176,35 @@ let test_basis_arbitrary_peels_a_hint () =
             [ "flex-basis: 10px" ])
     [ "basis-[length:10px]"; "basis-[foo:10px]" ]
 
-(* [order-[...]] takes an order value. A bracket the order grammar cannot read
-   is accepted and then raises out of [to_css], a pure conversion, so the
-   rejection belongs at parse time. *)
-let test_invalid_arbitrary_order () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+(* [to_css] is a pure conversion, so a bracket [of_class] accepts renders
+   without raising. *)
+let test_arbitrary_order_renders () =
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   (* A bracket the order grammar declines still names [order], which is this
-     family's longhand, so it reaches the sheet as the token stream it is. What
-     is ruled out is the negated form, which has nothing to negate. *)
+     family's longhand, so it reaches the sheet as the token stream it is. *)
   Test_helpers.check_declarations "order-[foo]" [ "order:foo" ];
   Test_helpers.check_declarations "order-[1abc]" [ "order:1abc" ];
   Test_helpers.check_declarations "order-[1.5]" [ "order:1.5" ];
-  rejected "-order-[foo]";
   renders "order-[13]";
   renders "order-[var(--x)]";
   renders "-order-[13]";
   renders "-order-[var(--x)]"
+
+(* A negated bracket the order grammar cannot read is [calc(<value> * -1)], with
+   the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-order-[foo]";
+      "-order-[red]";
+      "-order-[3px]";
+      "-order-[foo:2]";
+      "-order-[url(x.png)_center]";
+    ]
 
 (* [flex-], [grow-] and [shrink-] read their bracket through the arbitrary-value
    pipeline, which puts the spaces CSS math wants around a binary [+] and
@@ -276,7 +273,8 @@ let tests =
     test_case "any fraction numerator" `Quick test_any_fraction_numerator;
     test_case "flex_props suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
-    test_case "invalid arbitrary order" `Quick test_invalid_arbitrary_order;
+    test_case "arbitrary order renders" `Quick test_arbitrary_order_renders;
+    test_case "negated order token stream" `Quick test_negated_token_stream;
     test_case "arbitrary flex reads the whole bracket" `Quick
       test_arbitrary_flex_reads_the_whole_bracket;
     test_case "arbitrary order reads the whole bracket" `Quick

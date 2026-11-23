@@ -1,8 +1,3 @@
-(** Columns utilities for multi-column layout
-
-    @see <https://tailwindcss.com/docs/columns>
-      Tailwind CSS Columns documentation *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -36,8 +31,7 @@ module Handler = struct
   let name = "columns"
   let priority _ = 12
 
-  (* Helper to create a columns style with a container variable. Container theme
-     variables are exported from Sizing module. *)
+  (* The container theme variables come from [Sizing]. *)
   let columns_with_var var default_value =
     let decl, ref_ = Var.binding var default_value in
     style [ decl; columns (Width (Var ref_)) ]
@@ -127,7 +121,7 @@ module Handler = struct
         match Parse.decimal_int n with
         | Some i -> Ok (Columns_count i)
         | None -> Error (`Msg "Invalid columns value"))
-    | _ -> Error (`Msg "Not a columns utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Columns_auto -> "columns-auto"

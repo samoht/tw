@@ -1,8 +1,3 @@
-(** Cursor utilities
-
-    @see <https://tailwindcss.com/docs/cursor> Tailwind CSS Cursor documentation
-*)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -192,7 +187,6 @@ module Handler = struct
       all
 
   let theme_suborder name =
-    (* Find alphabetical position among known cursors *)
     let rec find = function
       | [] -> 999
       | (suffix, order) :: _ when String.compare name suffix < 0 -> order - 5
@@ -216,29 +210,25 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         match Parse.arbitrary_declaration_value inner with
         | Some raw -> Ok (Raw (inner, raw))
-        | None -> Error (`Msg "Not a cursor utility"))
+        | None -> Utility.unclaimed)
     | [ "cursor"; name ] when not (List.mem_assoc cls of_class_map) ->
         (* A theme token name is an identifier: [cursor-[<value>]] is not
            one. *)
         if Parse.is_valid_theme_name name && Parse.is_ident name then
           Ok (Theme name)
-        else Error (`Msg "Not a cursor utility")
+        else Utility.unclaimed
     | _ -> (
         match List.assoc_opt cls of_class_map with
         | Some t -> Ok t
-        | None -> Error (`Msg "Not a cursor utility"))
+        | None -> Utility.unclaimed)
 
   let examples = [ Keyword Auto ]
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register the cursor utility handlers *)
 
-(** Public API returning Utility.t *)
 let utility = Utility_factory.v
-
 let cursor_alias = utility (Keyword Alias)
 let cursor_all_scroll = utility (Keyword All_scroll)
 let cursor_auto = utility (Keyword Auto)

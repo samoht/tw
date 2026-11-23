@@ -1,5 +1,3 @@
-(** tab-size utilities *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -54,8 +52,8 @@ module Handler = struct
         | None -> (
             match parse_arbitrary n with
             | Some v -> Ok (Tab_arbitrary (n, v))
-            | None -> Error (`Msg "Not a tab utility")))
-    | _ -> Error (`Msg "Not a tab utility")
+            | None -> Utility.unclaimed))
+    | _ -> Utility.unclaimed
 
   let examples = [ Tab 4 ]
 end

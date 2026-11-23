@@ -1,10 +1,13 @@
 (** Filter utilities for visual effects like blur, brightness, and backdrop
-    filters
+    filters.
 
-    https://tailwindcss.com/docs/blur https://tailwindcss.com/docs/brightness
-    https://tailwindcss.com/docs/contrast https://tailwindcss.com/docs/grayscale
-    https://tailwindcss.com/docs/saturate
-    https://tailwindcss.com/docs/backdrop-blur *)
+    See {{:https://tailwindcss.com/docs/blur}blur},
+    {{:https://tailwindcss.com/docs/brightness}brightness},
+    {{:https://tailwindcss.com/docs/contrast}contrast},
+    {{:https://tailwindcss.com/docs/grayscale}grayscale},
+    {{:https://tailwindcss.com/docs/saturate}saturate} and
+    {{:https://tailwindcss.com/docs/backdrop-blur}backdrop-blur} in the Tailwind
+    documentation. *)
 
 open Utility
 
@@ -32,10 +35,10 @@ val blur_xl : t
 (** [blur_xl] applies an extra-large blur. *)
 
 val blur_2xl : t
-(** [blur_2xl] applies a 2× extra-large blur. *)
+(** [blur_2xl] applies a 2x extra-large blur. *)
 
 val blur_3xl : t
-(** [blur_3xl] applies a 3× extra-large blur. *)
+(** [blur_3xl] applies a 3x extra-large blur. *)
 
 val brightness : int -> t
 (** [brightness n] sets brightness to n% (0-200, 100 is normal). *)
@@ -82,10 +85,10 @@ val backdrop_blur_xl : t
 (** [backdrop_blur_xl] applies an extra-large backdrop blur. *)
 
 val backdrop_blur_2xl : t
-(** [backdrop_blur_2xl] applies a 2× extra-large backdrop blur. *)
+(** [backdrop_blur_2xl] applies a 2x extra-large backdrop blur. *)
 
 val backdrop_blur_3xl : t
-(** [backdrop_blur_3xl] applies a 3× extra-large backdrop blur. *)
+(** [backdrop_blur_3xl] applies a 3x extra-large backdrop blur. *)
 
 val backdrop_brightness : int -> t
 (** [backdrop_brightness n] sets backdrop brightness to n% (0-200, 100 is

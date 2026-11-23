@@ -1,5 +1,3 @@
-(** See {!Cascade_provenance}. *)
-
 let run_line cmd =
   match Unix.open_process_in (cmd ^ " 2>/dev/null") with
   | exception Unix.Unix_error _ -> None
@@ -28,37 +26,30 @@ let repo_root () =
   in
   match Sys.getcwd () with exception Sys_error _ -> None | cwd -> climb cwd 4
 
-let cascade_re = Re.compile (Re.str "cascade")
-let and_clause_re = Re.compile (Re.str "(and")
-
-(* The [dune-project] depends line is [(cascade (and (>= X) (< Y)))]; grabbed
+(* The [dune-project] depends line, [(cascade (>= X))] or a range; grabbed
    verbatim rather than sexp-parsed since it is only ever displayed, never
    compared against. *)
+let constraint_of_dune_project contents =
+  List.find_map
+    (fun line ->
+      let trimmed = String.trim line in
+      if String.starts_with ~prefix:"(cascade " trimmed then Some trimmed
+      else None)
+    (String.split_on_char '\n' contents)
+
 let cascade_constraint root =
   let path = Filename.concat root "dune-project" in
-  match open_in path with
+  match In_channel.with_open_bin path In_channel.input_all with
   | exception Sys_error _ -> None
-  | ic ->
-      Fun.protect ~finally:(fun () -> close_in_noerr ic) @@ fun () ->
-      let rec loop () =
-        match input_line ic with
-        | exception End_of_file -> None
-        | line ->
-            let trimmed = String.trim line in
-            if Re.execp cascade_re trimmed && Re.execp and_clause_re trimmed
-            then Some trimmed
-            else loop ()
-      in
-      loop ()
+  | contents -> constraint_of_dune_project contents
 
 (* The sha alone does not say how far a live checkout has moved. A sibling
    checkout parked on someone else's branch fails tw tests that pass against
-   cascade's main, and reading that as a tw regression costs an afternoon; the
-   branch name and the distance are what turn the failure into a question about
-   cascade. *)
+   cascade's main, so the branch name and the distance are reported to show that
+   such a failure comes from cascade. *)
 let checkout_position dir =
   let branch =
-    match Fmt.kstr run_line "git -C %s rev-parse --abbrev-ref HEAD" dir with
+    match Fmt.kstr run_line "git -C %s symbolic-ref --short -q HEAD" dir with
     | Some b -> "branch " ^ b
     | None -> "detached HEAD"
   in
@@ -107,8 +98,8 @@ let report () =
               Fmt.pr
                 "@.WARNING: cascade checkout %s (%s) is not sitting on a \
                  release tag; dune-project requires %s, and CI resolves that \
-                 constraint through an opam pin to cascade main, not this \
-                 checkout. The cascade/ symlink is a live sibling checkout \
-                 other sessions move, so a test failing here may be failing \
-                 against cascade code that is not on cascade's main.@.@."
+                 constraint through opam, not this checkout. The cascade/ \
+                 symlink is a live sibling checkout other sessions move, so a \
+                 test failing here may be failing against cascade code that is \
+                 not on cascade's main.@.@."
                 sha position constraint_))

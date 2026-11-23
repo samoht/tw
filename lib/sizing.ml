@@ -1,5 +1,3 @@
-(** Sizing utilities for width and height *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -8,8 +6,7 @@ module Handler = struct
   open Style
   open Css
 
-  (** The property a sizing family sets. [Width_and_height] is [size-*], which
-      sets both. *)
+  (* [Width_and_height] is [size-*], which sets both. *)
   type prop =
     | Width
     | Height
@@ -25,10 +22,10 @@ module Handler = struct
     | Min_block_size
     | Max_block_size
 
-  (** The value a sizing class carries. [Keyword] and [Themed] come from the
-      family's own table, so they carry their class spelling and their suborder
-      with them; a [Themed] value also carries the theme-variable declaration
-      and the [var()] reference the utility emits. *)
+  (* [Keyword] and [Themed] come from the family's own table, so they carry
+     their class spelling and their suborder with them; a [Themed] value also
+     carries the theme-variable declaration and the [var()] reference the
+     utility emits. *)
   type value =
     | Keyword of { spelling : string; length : length; order : int }
     | Themed of {
@@ -41,10 +38,9 @@ module Handler = struct
     | Fraction of string
     | Arbitrary of string * length
     | Arbitrary_raw of string * string
-        (** a bracket no length reader took: the family names its longhands, so
-            the value is forwarded verbatim - Tailwind's token-stream contract
-        *)
-    | Theme_named of string  (** a size the project named in its own [@theme] *)
+      (* a bracket no length reader took: the family names its longhands, so the
+         value is forwarded verbatim - Tailwind's token-stream contract *)
+    | Theme_named of string (* a size the project named in its own [@theme] *)
 
   type t =
     | Sized of prop * value
@@ -208,15 +204,14 @@ module Handler = struct
       container_scale
 
   type family = {
-    prefix : string;  (** class prefix, e.g. ["min-w"] *)
-    css_name : string;  (** property name, as error messages spell it *)
+    prefix : string; (* ["min-w"] *)
+    css_name : string; (* as error messages spell it *)
     decls : (length -> declaration) list;
     properties : string list;
-        (** the longhands [decls] writes, for a value no typed setter can hold
-        *)
-    base : int;  (** suborder base for the family *)
-    spacing_off : int;  (** extra offset in front of the spacing band *)
-    entries : value list;  (** the keywords this family admits *)
+        (* the longhands [decls] writes, for a value no typed setter can hold *)
+    base : int;
+    spacing_off : int; (* extra offset in front of the spacing band *)
+    entries : value list;
   }
 
   let width_family =
@@ -761,8 +756,6 @@ module Handler = struct
         style (Option.to_list (Parse.opaque_declaration "aspect-ratio" value))
     | Aspect_theme name -> aspect_theme' theme name
 
-  let err_not_utility = Error (`Msg "Not a sizing utility")
-
   let err_invalid_value name value =
     Error (`Msg ("Invalid " ^ name ^ " value: " ^ value))
 
@@ -771,10 +764,8 @@ module Handler = struct
   let is_bracket v = String.starts_with ~prefix:"[" v
 
   let parse_arbitrary s : (string * Css.length) option =
-    (* Parse bracket values: [4px], [1rem], [calc(100vh-4rem)], etc. Uses
-       Css.parse_length for full CSS length parsing including calc(). Returns
-       (raw_inner, parsed_length) where raw_inner is used for the CSS class name
-       selector (preserving original formatting). *)
+    (* [(raw_inner, parsed_length)]: the raw text names the class, so the
+       author's formatting survives. *)
     if Parse.is_bracket_value s then
       let inner = Parse.bracket_inner s in
       (* A data-type hint chooses the longhand and says nothing about the value.
@@ -842,8 +833,8 @@ module Handler = struct
         match (Parse.decimal_float w, Parse.decimal_float h) with
         | Some w, Some h when is_quarter_multiple w && is_quarter_multiple h ->
             Ok (Aspect_ratio (w, h))
-        | _ -> err_not_utility)
-    | _ -> err_not_utility
+        | _ -> Utility.unclaimed)
+    | _ -> Utility.unclaimed
 
   let of_class theme class_name =
     let parse_sized prop v = parse_sized ~theme prop v in
@@ -873,11 +864,11 @@ module Handler = struct
         let inner = Parse.bracket_inner value in
         match Parse.arbitrary_declaration_value inner with
         | Some declared -> Ok (Aspect_arbitrary (inner, declared))
-        | None -> err_not_utility)
+        | None -> Utility.unclaimed)
     | [ "aspect"; value ] when is_theme_aspect theme value ->
         Ok (Aspect_theme value)
     | [ "aspect"; value ] -> parse_aspect_ratio value
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let suborder = function
     | Sized (prop, v) ->
@@ -890,9 +881,9 @@ module Handler = struct
     | Aspect_video | Aspect_theme _ ->
         aspect_base
 
-  (** Priority 6: sizing utilities (w-*, h-*, max-w-*, ...) come before
-      flex-1/flex-col in Tailwind's order. The logical ones are registered after
-      every other utility, so they sort last instead of beside w-* and h-*. *)
+  (* Sizing ([w-*], [h-*], [max-w-*]) comes before flex-1 and flex-col in
+     Tailwind's order. The logical ones are registered after every other
+     utility, so they sort last instead of beside w-* and h-*. *)
   let priority u = if suborder u >= logical then logical_priority else 6
 
   let to_class = function
@@ -923,14 +914,9 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register the sizing utility handlers *)
 
-(** Public API returning Utility.t *)
 let utility = Utility_factory.v
-
-let () = () (* Ensure utility is defined before usage below *)
 
 (* [n] is in rem units; the spacing scale steps by 0.25rem. *)
 let spacing prop n = Sized (prop, Spacing n)

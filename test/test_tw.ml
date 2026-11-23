@@ -1,27 +1,17 @@
-(** Tests for the Tw module using canonical CSS comparison with Tailwind v4
-
-    All tests use the `check` function which compares our CSS output with real
-    Tailwind CSS through Cascade's canonical comparison. *)
+(* [check] and [check_list] compare tw's sheet with the pinned Tailwind CLI's
+   through the canonical differ. *)
 
 module Css = Cascade.Css
 open Cascade_diff
 open Alcotest
 open Tw
 
-(* CSS generation *)
 let generate_tw_css ?(minify = false) styles =
   let stylesheet = to_css ~base:true styles in
   stylesheet |> Css.to_string ~minify ~lossless:true
 
 let generate_tailwind_css = Tw_tools.Tailwind_gen.generate
 let canonical_stylesheet_css css = String.trim css
-
-(* File utilities *)
-let write_file path content =
-  let oc = open_out path in
-  Fun.protect
-    ~finally:(fun () -> close_out_noerr oc)
-    (fun () -> output_string oc content)
 
 (* A file name the class list can be read back out of, and that no other class
    list shares. The readable half keeps whatever is already safe in a path and
@@ -42,7 +32,6 @@ let slugify s =
   in
   readable ^ "-" ^ String.sub (Digest.to_hex (Digest.string s)) 0 12
 
-(* Test name generation *)
 let test_name_of = function
   | [] -> "empty"
   | names ->
@@ -68,11 +57,10 @@ let debug_files test_name tw_css tailwind_css =
   let tailwind_file =
     Filename.concat out_dir ("test_css_tailwind_" ^ test_name_slug ^ ".css")
   in
-  write_file tw_file tw_css;
-  write_file tailwind_file tailwind_css;
+  Tw_tools.Tailwind_gen.write_file tw_file tw_css;
+  Tw_tools.Tailwind_gen.write_file tailwind_file tailwind_css;
   (tw_file, tailwind_file)
 
-(* Failure reporting *)
 let report_failure test_name tw_file tailwind_file =
   Fmt.epr "@[<v>@,";
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,";
@@ -82,8 +70,6 @@ let report_failure test_name tw_file tailwind_file =
   Fmt.epr "  diff -u %s %s@," tw_file tailwind_file;
   Fmt.epr "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━@,@,"
 
-(* Simple CSS testable that just shows diff on failure *)
-
 let css_testable =
   Alcotest.testable
     (fun fmt css -> Fmt.pf fmt "<css: %d chars>" (String.length css))
@@ -91,14 +77,11 @@ let css_testable =
 
 let check_exact_match tw_styles =
   Test_helpers.require_tailwind_cli ();
-  (* Prepare classnames and raw CSS strings outside the try to use in
-     handlers *)
   let tw_styles = match tw_styles with [] -> [] | styles -> styles in
   let classnames = List.map pp tw_styles in
   let tw_css_raw = ref "" in
   let tailwind_css_raw = ref "" in
   try
-    (* Generate CSS without stripping for original comparison *)
     tw_css_raw := generate_tw_css ~minify:true tw_styles;
     tailwind_css_raw :=
       generate_tailwind_css ~minify:true ~optimize:true classnames;
@@ -122,7 +105,6 @@ let check_exact_match tw_styles =
       let tw_file, tailwind_file = debug_files test_name tw_css tailwind_css in
       report_failure test_name tw_file tailwind_file;
 
-      (* Show diff statistics *)
       let stats =
         Css_compare.stats ~expected_str:tailwind_css ~actual_str:tw_css
           diff_result
@@ -131,7 +113,6 @@ let check_exact_match tw_styles =
       Css_compare.pp_stats stats_buf stats;
       Fmt.epr "%s@,@," (Buffer.contents stats_buf);
 
-      (* Show the actual diff *)
       let diff_buf = Buffer.create 256 in
       Css_compare.pp ~expected:"Tailwind (expected)" ~actual:"Our TW (actual)"
         diff_buf diff_result;
@@ -165,12 +146,6 @@ let check_exact_match tw_styles =
       show_window "Our TW" !tw_css_raw err.position;
       show_window "Tailwind" !tailwind_css_raw err.position;
       fail ("CSS parse error: " ^ details)
-  | exn ->
-      (* Fallback: print full exception type/name if it's not a CSS parse
-         error. *)
-      let exn_str = Printexc.to_string exn in
-      Fmt.epr "Unexpected exception: %s@." exn_str;
-      fail ("Unexpected error: " ^ exn_str)
 
 let check tw_style = check_exact_match [ tw_style ]
 let check_list tw_styles = check_exact_match tw_styles
@@ -196,8 +171,6 @@ let check_module utility =
   | _ ->
       Alcotest.failf "%s differs from Tailwind:\n%s" class_name
         (Test_helpers.describe_diff diff)
-
-(* ===== UPSTREAM PARSE PARITY ============================================= *)
 
 (* The case's own [@custom-variant]s, as the two scheme fields that carry them.
    Directive form: "name <template> KEY=value ...", DEFAULT mapped to the
@@ -332,10 +305,10 @@ let check_upstream_positive_fixture_parse filename () =
         (* A class the case's own [@utility] declares is CSS the case brought
            with it, not a utility [of_string] is meant to know: the fixture
            carries the declaration and the upstream runner compiles it through
-           [Entrypoint]. *)
+           [Routing]. *)
         |> List.filter (fun cls ->
             not
-              (Tw_tools.Entrypoint.is_custom_routed ~theme ~defs:[]
+              (Tw_tools.Routing.is_custom_routed ~theme ~defs:[]
                  ~udefs:c.utility_defs cls))
         |> List.filter_map (fun cls ->
             match Tw.of_string ~theme cls with
@@ -378,8 +351,6 @@ let upstream_gate_reads_emitted_classes () =
     "an expected CSS with no rule exercises nothing" false
     (class_is_emitted (emitted_selectors "") "flex")
 
-(* ===== CORE TESTS (renamed to shorter names) ===== *)
-
 (* Debug artefacts are named after the classes under test and belong inside the
    checkout: a shared system temp directory is written by every user and every
    concurrent run at once. The name has to separate the runs too - a slug that
@@ -406,18 +377,14 @@ let debug_artefacts () =
       Alcotest.(check bool) (path ^ " was written") true (Sys.file_exists path))
     [ tw_file; tailwind_file ]
 
-let empty_test () =
-  (* Test with no styles to see base output *)
-  check_list []
+let empty_test () = check_list []
 
 let multiple_classes () =
-  (* Test with multiple classes together *)
   check_list [ p 4; m 2; bg blue; text white ];
   check_list [ flex; items_center; justify_center; gap 4 ];
   check_list [ rounded_lg; shadow_md; p 6 ]
 
 let responsive_classes () =
-  (* Test responsive modifiers with multiple classes *)
   check_list [ p 4; md [ p 8 ]; lg [ p 12 ] ];
   check_list [ text_sm; sm [ text_base ]; md [ text_lg ]; lg [ text_xl ] ];
   check_list [ hidden; sm [ block ]; md [ flex ] ]
@@ -465,15 +432,13 @@ let responsive_breakpoints () =
 
 (* [theme(colors.<name>.<shade>)] resolves against the threaded theme, not the
    default palette: a project that overrides [--color-red-500] gets its own
-   colour back, the way [bg-red-500] already does. tw used to answer with the
-   built-in oklch, so one class read the override and the other did not. *)
+   colour back, the way [bg-red-500] does. *)
 let theme_function_reads_the_project_palette () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#123456") ]
   in
-  (* The whole declaration. The affixes these replace searched the sheet for a
-     hex and for the text "oklch", which the theme bindings the class drags in
-     supply on their own. *)
+  (* The whole declaration: the theme bindings the class drags in carry a hex
+     and an oklch of their own. *)
   Test_helpers.check_declarations ~theme ~minify:false
     "[color:theme(colors.red.500)]" [ "color: #123456" ];
   Test_helpers.check_declarations ~theme ~minify:false
@@ -481,9 +446,7 @@ let theme_function_reads_the_project_palette () =
     [ "color: oklch(62.3% .214 259.815)" ]
 
 (* [theme(colors.<name>.<shade>/<alpha>)] mixes the alpha into whatever value
-   the theme bound the colour to, the way Tailwind does. The alpha was spliced
-   in by chopping the value's closing paren, so a project that bound its palette
-   entry to a hex kept the colour and silently lost the alpha. *)
+   the theme bound the colour to, a hex included, the way Tailwind does. *)
 let theme_function_alpha_reads_any_palette_value () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "#ef4444") ]
@@ -505,12 +468,10 @@ let theme_function_alpha_reads_any_palette_value () =
     (Result.is_error (Tw.of_string ~theme "[color:theme(colors.red.500/abc)]"))
 
 (* [theme()] resolves against the project's own binding and the resolved value
-   is written back into the class string, which reads a bare [_] as a space. A
-   project that binds a palette entry to a variable whose name carries an
-   underscore lost it: [var(--brand_red)] came back as [var(--brand red)], which
-   names a different variable, and an arbitrary property carrying it was dropped
-   outright. Tailwind v4.3.3 emits [var(--brand_red)] for the same theme, under
-   the class the source spells. *)
+   is written back into the class string, which reads a bare [_] as a space. The
+   underscore of a variable name survives that: Tailwind v4.3.3 emits
+   [var(--brand_red)], not [var(--brand red)], under the class the source
+   spells. *)
 let theme_function_keeps_an_underscore () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -590,9 +551,12 @@ let test_paren_var_colour_opacity () =
   has "fill-(--c)/50" "fill:color-mix(in oklab,var(--c) 50%,transparent)";
   has "bg-(--c)/(--o)"
     "background-color:color-mix(in oklab,var(--c) var(--o),transparent)";
-  match Tw.of_string "bg-[--c]/50" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "bg-[--c]/50 should stay refused"
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind writes --c into a color-mix() as if it were a colour, which \
+          the browser drops; tw refuses the class")
+    "bg-[--c]/50"
 
 (* The token a [theme(--x)] names is bound once however many classes read it,
    the variants a class carries do not move the binding out of [@layer theme],
@@ -639,10 +603,8 @@ let theme_function_custom_property_binding () =
    in for it and binds nothing. The call composes inside a longer value, where
    only the call itself is replaced. *)
 let theme_function_custom_property_fallback () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "p-[theme(--nope)]";
   rejected "p-[theme(--Spacing)]";
@@ -706,13 +668,10 @@ let theme_function_default_namespaces () =
 
 (* Tailwind spells the same lookup [--theme(--x)] as well, and that spelling
    references the token instead of inlining it: the CLI writes [padding:
-   var(--spacing)] and the binding beside it. It admits neither a v3 dot path
-   nor an alpha, both of which Tailwind reads some other way. *)
+   var(--spacing)] and the binding beside it. It admits no v3 dot path. *)
 let theme_function_custom_property_reference () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   Test_helpers.check_declarations "p-[--theme(--spacing)]"
     [ "padding:var(--spacing)" ];
@@ -720,8 +679,83 @@ let theme_function_custom_property_reference () =
     [ "color:var(--color-red-500)" ];
   Test_helpers.check_declarations "p-[--theme(--nope,1rem)]" [ "padding:1rem" ];
   rejected "p-[--theme(spacing.4)]";
-  rejected "p-[--theme(--nope)]";
-  rejected "bg-[--theme(--color-red-500/25%)]"
+  rejected "p-[--theme(--nope)]"
+
+(* An alpha on the reference spelling mixes the reference with transparent:
+   4.3.3 writes [color-mix(in oklab, var(--color-red-500) 25%, transparent)] for
+   [bg-[--theme(--color-red-500/25%)]], with a resolved fallback ahead of it. A
+   bare number is the fraction, a [var()] is mixed at as written, the slash may
+   carry spaces, and an alpha of 100% leaves the reference alone. The alpha
+   reads the same in every colour family. *)
+let theme_function_custom_property_alpha () =
+  let red_at percent =
+    [
+      "background-color:color-mix(in srgb,oklch(63.7%.237 25.331) " ^ percent
+      ^ ",transparent)";
+      "background-color:color-mix(in oklab,var(--color-red-500) " ^ percent
+      ^ ",transparent)";
+    ]
+  in
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/25%)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/0.25)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/.25)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500_/_25%)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/25%,red)]"
+    (red_at "25%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/0)]"
+    (red_at "0%");
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/100%)]"
+    [ "background-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "bg-[--theme(--color-red-500/1)]"
+    [ "background-color:var(--color-red-500)" ];
+  Test_helpers.check_declarations "text-[--theme(--color-black/12.5%)]"
+    [
+      "color:color-mix(in srgb,#000 12.5%,transparent)";
+      "color:color-mix(in oklab,var(--color-black) 12.5%,transparent)";
+    ];
+  Test_helpers.check_declarations "border-[--theme(--color-red-500/var(--a))]"
+    [
+      "border-color:oklch(63.7%.237 25.331)";
+      "border-color:color-mix(in oklab,var(--color-red-500) \
+       var(--a),transparent)";
+    ];
+  Test_helpers.check_declarations "[color:--theme(--color-red-500/25%)]"
+    [
+      "color:color-mix(in srgb,oklch(63.7%.237 25.331) 25%,transparent)";
+      "color:color-mix(in oklab,var(--color-red-500) 25%,transparent)";
+    ];
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "bg-[--theme(--color-nope/25%)]";
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind mixes a non-colour token too and writes padding: \
+          color-mix(in oklab, var(--spacing) 25%, transparent), which no \
+          browser accepts; tw takes an alpha on a colour token only")
+    "p-[--theme(--spacing/25%)]"
+
+(* The inlining spelling reads the same alphas: a [var()] alpha mixes the
+   resolved colour at that percentage, and a space may follow the slash. A space
+   before it ends the key in a space, which no theme carries, so 4.3.3 emits
+   nothing for that one. *)
+let theme_function_alpha_spellings () =
+  Test_helpers.check_declarations "bg-[theme(--color-red-500/_25%)]"
+    [
+      "background-color:color-mix(in oklab,oklch(63.7%.237 25.331) \
+       25%,transparent)";
+    ];
+  Test_helpers.check_declarations "bg-[theme(--color-red-500/var(--a))]"
+    [
+      "background-color:oklch(63.7%.237 25.331)";
+      "background-color:color-mix(in oklab,oklch(63.7%.237 25.331) \
+       var(--a),transparent)";
+    ];
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "bg-[theme(--color-red-500_/_25%)]"
 
 (* Tailwind emits no rule at all for a [theme()] naming a key its resolved theme
    does not carry, so a class carrying one is not a utility. A bare segment
@@ -729,10 +763,8 @@ let theme_function_custom_property_reference () =
    provably missing. A key the theme does carry still resolves, alone or inside
    a longer value, and a fallback argument stands in for a missing key. *)
 let theme_function_rejects_an_unknown_key () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "shadow-[0_0_0_1px_theme(a_b)]";
   rejected {|shadow-[0_0_0_1px_theme(a\_b)]|};
@@ -830,14 +862,11 @@ let transforms_3d () =
   check snap_end
 
 let content_variants () =
-  (* before/after + content-none *)
   check_list [ before [ content_none ] ];
   check_list [ after [ content_none ] ];
-  (* before + content with auto quotes and arbitrary value class name *)
-  (* NOTE: Using ASCII character instead of Unicode (→) because Tailwind v4
+  (* NOTE: Using ASCII character instead of Unicode (->) because Tailwind v4
      doesn't support Unicode in class names *)
   check_list [ before [ content ">" ] ];
-  (* another simple ASCII content *)
   check_list [ after [ content "*" ] ]
 
 let prose_basic () =
@@ -855,11 +884,8 @@ let prose_ordering () =
   check_list [ mb 0; prose ];
   check_list [ mb 4; mb 8; mb 12; prose ]
 
-(* ===== CROSS-HANDLER ORDERING TESTS ===== *)
-(* Test CSS output ordering when mixing utilities from different handlers.
-   These catch bugs where sort priority/suborder comparisons produce wrong
-   interleaving across handler boundaries. *)
-
+(* Utilities from different handlers interleave across handler boundaries in
+   Tailwind's order. *)
 let ordering_padding_margin () =
   check_list [ p 1; px 3; py 3 ];
   check_list [ m 4; p 4 ];
@@ -896,11 +922,6 @@ let ordering_complex_card () =
       border_color ~shade:200 gray;
       hover [ shadow_md ];
     ]
-
-(* ===== MISSING FEATURE TESTS ===== *)
-(* These tests exercise features that may have incomplete typed API or known
-   diffs against real Tailwind. They serve as regression targets: once the
-   underlying implementation is fixed, the test should pass. *)
 
 let typed_utility_surface () =
   check_module Layout.clear_left;
@@ -947,9 +968,9 @@ let typed_utility_surface () =
       outline_current;
       outline_inherit;
     ];
-  check_module (Effects.ring_offset_width 0);
+  check_module (Ring.ring_offset_width 0);
   check_list [ ring_offset_width 0; ring_offset_width 2 ];
-  check_module (Effects.ring_offset_color blue);
+  check_module (Ring.ring_offset_color blue);
   check_list
     [
       ring_offset_color blue;
@@ -958,7 +979,7 @@ let typed_utility_surface () =
       ring_offset_current;
       ring_offset_inherit;
     ];
-  check_module Effects.bg_blend_normal;
+  check_module Blend.bg_blend_normal;
   check_list
     [
       bg_blend_normal;
@@ -979,39 +1000,23 @@ let typed_utility_surface () =
       bg_blend_luminosity;
     ]
 
-(* Helper: parse a Tailwind class string via of_string; fail the test if the
-   class is not recognised by our parser (i.e. the feature is completely
-   missing). *)
 let require_parse class_name =
   match of_string class_name with
   | Ok v -> v
   | Error (`Msg m) ->
       Alcotest.failf "of_string %S failed — API gap: %s" class_name m
 
-(* -- 1. Fractional spacing ------------------------------------------------ *)
-(* Tailwind v4 supports half-step spacing values like space-x-2.5, p-0.5, etc.
-   Our typed API only accepts int, so these must go through of_string.
-   NOTE: space-x-2.5 is currently rejected by of_string (API gap: fractional
-   spacing values are not yet implemented). These tests document the gap. *)
-
 let fractional_spacing () =
-  (* space-x / space-y with fractional values *)
   check (require_parse "space-x-2.5");
   check (require_parse "space-y-3.5");
-  (* padding with fractional values *)
   check (require_parse "p-0.5");
   check (require_parse "p-1.5");
-  (* margin with fractional values *)
   check (require_parse "m-0.5");
   check (require_parse "m-2.5");
-  (* gap with fractional values *)
   check (require_parse "gap-0.5");
   check (require_parse "gap-1.5")
 
 let fractional_translate () =
-  (* translate-x/y with fractional values (e.g. 1/2, 1/3, 1/4) *)
-  (* NOTE: translate-x-1/2 is currently rejected by of_string (API gap:
-     fractional translate values are not yet implemented). *)
   check (require_parse "translate-x-1/2");
   check (require_parse "translate-y-1/2");
   check (require_parse "translate-x-1/3");
@@ -1022,7 +1027,6 @@ let fractional_translate () =
   check (require_parse "translate-y-full")
 
 let fractional_width_height () =
-  (* Width/height with fractional values *)
   check (require_parse "w-1/2");
   check (require_parse "w-1/3");
   check (require_parse "w-2/3");
@@ -1101,41 +1105,23 @@ let arbitrary_misc () =
   check (require_parse "rotate-[17deg]");
   check (require_parse "scale-[1.1]")
 
-(* -- 2. Prose element variant tests --------------------------------------- *)
-(* Tailwind typography plugin provides modifier variants like
-   prose-headings:text-white, prose-pre:bg-gray-900 etc. that target specific
-   element types within prose. Our typed API currently only has prose_lead,
-   prose_gray, prose_slate — no element-targeting variants.
-   NOTE: These are currently rejected by of_string (API gap). *)
-
+(* The typography plugin's element variants ([prose-headings:], [prose-pre:],
+   ...) target one element type inside a prose block. *)
 let prose_element_variants () =
-  (* prose-headings targets h1-h4 within prose *)
   check (require_parse "prose-headings:text-white");
-  (* prose-p targets paragraphs *)
   check (require_parse "prose-p:text-gray-700");
-  (* prose-a targets links *)
   check (require_parse "prose-a:text-blue-500");
-  (* prose-strong targets <strong> *)
   check (require_parse "prose-strong:font-black");
-  (* prose-code targets inline <code> *)
   check (require_parse "prose-code:bg-gray-100");
-  (* prose-pre targets <pre> blocks *)
   check (require_parse "prose-pre:bg-gray-900");
-  (* prose-ol targets ordered lists *)
   check (require_parse "prose-ol:list-decimal");
-  (* prose-ul targets unordered lists *)
   check (require_parse "prose-ul:list-disc");
-  (* prose-li targets list items *)
   check (require_parse "prose-li:my-1");
-  (* prose-blockquote targets blockquotes *)
   check (require_parse "prose-blockquote:italic");
-  (* prose-img targets images *)
   check (require_parse "prose-img:rounded-lg");
-  (* prose-hr targets horizontal rules *)
   check (require_parse "prose-hr:border-gray-300")
 
 let prose_element_variants_combined () =
-  (* Multiple prose element variants together with base prose *)
   check_list
     [
       prose;
@@ -1144,14 +1130,10 @@ let prose_element_variants_combined () =
       require_parse "prose-code:bg-gray-100";
     ]
 
-(* -- 3. Divide utilities -------------------------------------------------- *)
 (* divide-x/divide-y also exist without an explicit width, defaulting to 1px. *)
-
 let divide_width () =
-  (* Basic divide-x and divide-y (1px default) *)
   check (require_parse "divide-x");
   check (require_parse "divide-y");
-  (* Divide with explicit widths *)
   check (require_parse "divide-x-2");
   check (require_parse "divide-x-4");
   check (require_parse "divide-x-8");
@@ -1159,50 +1141,31 @@ let divide_width () =
   check (require_parse "divide-y-4")
 
 let divide_with_reverse () =
-  (* divide-x combined with divide-x-reverse for RTL layouts *)
   check_list [ require_parse "divide-x"; divide_x_reverse ];
   check_list [ require_parse "divide-y"; divide_y_reverse ];
-  (* divide with width + reverse *)
   check_list [ require_parse "divide-x-2"; divide_x_reverse ]
 
 let divide_combined () =
-  (* divide-x and divide-y used together *)
   check_list [ require_parse "divide-x"; require_parse "divide-y" ];
-  (* divide with widths together *)
   check_list [ require_parse "divide-x-2"; require_parse "divide-y-4" ]
 
 let divide_color () =
-  (* divide-color utilities *)
   check (require_parse "divide-blue-500");
   check (require_parse "divide-gray-300");
   check (require_parse "divide-red-600")
 
-(* -- 4. Decoration skip ink ----------------------------------------------- *)
-(* text-decoration-skip-ink is a CSS property controlling ink skipping around
-   descenders. Tailwind v4 has decoration-skip-ink-auto and
-   decoration-skip-ink-none.
-   NOTE: Currently rejected by of_string (API gap). *)
-
-(* decoration-skip-ink was dropped in Tailwind v4. Verify we reject it. *)
+(* Tailwind v4 has no [decoration-skip-ink-*] utility. *)
 let decoration_skip_ink () =
-  (match of_string "decoration-skip-ink-auto" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "decoration-skip-ink-auto should not be a v4 utility");
-  match of_string "decoration-skip-ink-none" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "decoration-skip-ink-none should not be a v4 utility"
-
-(* -- 5. Word break utilities ---------------------------------------------- *)
-(* These have typed API and should already work. Test them for completeness
-   and parity. *)
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "decoration-skip-ink-auto";
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "decoration-skip-ink-none"
 
 let word_break_utilities () =
   check break_normal;
   check break_words;
   check break_all;
   check break_keep
-
-(* -- 6. Scroll margin and scroll padding ---------------------------------- *)
 
 let scroll_margin () =
   check_module (Scroll.scroll_mt 4);
@@ -1226,8 +1189,6 @@ let scroll_padding () =
 
 let scroll_margin_padding_combined () = check_list [ scroll_mt 4; scroll_px 2 ]
 
-(* -- 7. Border spacing axis variants -------------------------------------- *)
-
 let border_spacing_axis () =
   check_module (Tables.border_spacing_x 4.);
   check_module (Tables.border_spacing_y 2.)
@@ -1236,59 +1197,41 @@ let border_spacing_combined () =
   check (border_spacing 4);
   check_module (Tables.border_spacing_x 8.)
 
-(* -- 8. Opacity modifiers (Tailwind v3 compat / v4 approach) -------------- *)
-(* In Tailwind v4, bg-opacity-* and text-opacity-* are removed in favor of
-   color opacity syntax like bg-blue-500/50. Test that color-with-opacity
-   works if the API supports it, and document what's missing.
-   NOTE: bg-opacity-* and text-opacity-* are Tailwind v3 utilities and are
-   NOT expected to exist in v4. Instead, slash-opacity syntax should be used. *)
-
+(* Tailwind v4 has no bg-opacity-* or text-opacity-*: the opacity is a slash
+   modifier on the colour, as in bg-blue-500/50. *)
 let color_opacity_slash () =
-  (* Tailwind v4 uses slash syntax: bg-blue-500/50 for 50% opacity *)
   check (require_parse "bg-blue-500/50");
   check (require_parse "bg-blue-500/75");
   check (require_parse "text-white/80");
   check (require_parse "text-gray-900/50");
   check (require_parse "border-red-500/25")
 
-(* -- 9. Nesting variant --------------------------------------------------- *)
-(* The * variant (nesting) targets direct children. Test if it's supported. *)
-
+(* The [*] variant targets direct children. *)
 let nesting_variant () =
   check (require_parse "*:p-4");
   check (require_parse "*:text-blue-500");
   check_list [ require_parse "*:p-4"; require_parse "*:m-2" ]
 
-(* ===== PRECEDENCE TESTS ===== *)
-
 let precedence_base_overrides () =
-  (* Later base utility should win over earlier base of same kind *)
   check_list [ p 4; p 2 ];
   check_list [ text ~shade:600 blue; text blue ]
 
 let precedence_breakpoints () =
-  (* Responsive variants should scope correctly and not affect base *)
   check_list [ p 2; md [ p 8 ] ];
   check_list
     [ text ~shade:400 green; sm [ text green ]; lg [ text ~shade:700 green ] ]
 
 let precedence_states () =
-  (* State modifiers combine without interfering with base *)
   check_list [ bg blue; hover [ bg ~shade:600 blue ] ];
   check_list [ text gray; focus [ text ~shade:700 gray ] ]
 
-(* ===== UTILITY/PROPERTY TESTS (keep essential ones) ===== *)
-
-(* Helpers for comprehensive color coverage *)
 let shades = [ 50; 100; 200; 300; 400; 500; 600; 700; 800; 900; 950 ]
 
 let bg_shades color shade_list =
   List.map (fun shade -> bg ~shade color) shade_list
 
 (* An inline style is not a rule, so [declarations_of_class] cannot read it; the
-   string itself is the assertion. It used to be three searches for a property
-   name, which said nothing about any value and passed on a sheet where every
-   one of them was empty. *)
+   string itself is the assertion. *)
 let inline_styles () =
   Alcotest.(check string)
     "the whole inline style"
@@ -1296,9 +1239,7 @@ let inline_styles () =
      color: #fff"
     (to_inline_style [ p 4; bg blue; text white ])
 
-(* Four utilities together write four rules and no more. The searches this
-   replaces were for [.p-4] and friends anywhere in the text, which the selector
-   [.p-40] satisfies just as well. *)
+(* Four utilities together write four rules and no more. *)
 let style_combination () =
   let css = to_css [ p 4; bg blue; text white; rounded_lg ] in
   Alcotest.(check (list string))
@@ -1313,9 +1254,7 @@ let style_combination () =
 let paren_var_shorthand () =
   let writes cls decl selector =
     Test_helpers.check_declarations ~minify:false cls [ decl ];
-    (* The whole selector, which is where "keeps the paren spelling, not the
-       bracket form" is actually said: the bracket form was ruled out by a
-       second search for a string that must not appear. *)
+    (* The whole selector keeps the paren spelling, not the bracket form. *)
     match Tw.of_string cls with
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
     | Ok u ->
@@ -1341,10 +1280,8 @@ let paren_var_shorthand () =
    attribute in real markup - must come back as an error, not run the scanner
    past the end of the string. *)
 let unterminated_theme_call () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "bg-[theme(colors.red";
   rejected "theme(colors.red";
@@ -1363,7 +1300,8 @@ let unterminated_theme_call () =
    selector. Under a prefix a bare candidate names nothing, which is what the
    pinned CLI does: it compiles [p-4] to nothing once the import asks for one. *)
 let prefixed_candidates () =
-  let theme = { Tw.Scheme.default with prefix = Some "tw" } in
+  let entry = "@import \"tailwindcss\" prefix(tw) source(none);\n" in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   (* The written spelling is what lands in the selector. It is put there on the
      finished rule, not carried on the utility, so [Tw.to_classes] still reports
      the utility's own name. *)
@@ -1392,15 +1330,10 @@ let prefixed_candidates () =
       ("tw:peer-checked/y:flex", ":where(.tw\\:peer\\/y):checked");
     ];
   List.iter
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Ok u -> Alcotest.failf "expected %s to be refused, got %s" cls (Tw.pp u)
-      | Error _ -> ())
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
     [ "flex"; "hover:underline"; "tw:nope"; "tw"; "twx:flex" ];
   (* With no prefix asked for, a candidate spelled with one names nothing. *)
-  match Tw.of_string "tw:flex" with
-  | Ok u -> Alcotest.failf "expected tw:flex to be refused, got %s" (Tw.pp u)
-  | Error _ -> ()
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility "tw:flex"
 
 let v3_opacity_rejection_message () =
   let message cls =
@@ -1496,10 +1429,8 @@ let all_colors_pinks () =
     (bg_shades fuchsia shades @ bg_shades pink shades @ bg_shades rose shades)
 
 let all_colors_same_shade () =
-  (* Test all colors with shade 500 to verify proper color ordering *)
   check_list
     [
-      (* All color families at shade 500 in Tailwind's canonical order *)
       bg slate;
       bg gray;
       bg zinc;
@@ -1525,38 +1456,15 @@ let all_colors_same_shade () =
     ]
 
 let color_shade_ordering () =
-  (* Test ordering of base colors vs shaded colors to verify formula: base *
-     1000 + shade. This ensures proper ordering in theme layer. Tests that
-     variables appear in the correct order. *)
+  (* The theme layer declares --color-black, then the blue shades in order, then
+     --color-white. *)
   check_list
-    [
-      (* Base colors: get order base*1000 + 0 *)
-      text black;
-      (* --color-black: 1*1000 + 0 = 1000 *)
-      bg white;
-      (* --color-white: 24*1000 + 0 = 24000 *)
-
-      (* Regular colors with shades: get order base*1000 + shade *)
-      bg ~shade:400 blue;
-      (* --color-blue-400: 12*1000 + 400 = 12400 *)
-      bg blue;
-      (* --color-blue-500: 12*1000 + 500 = 12500 *)
-      bg ~shade:600 blue;
-      (* --color-blue-600: 12*1000 + 600 = 12600 *)
-
-      (* Verify order: black < blue-* < white *)
-      (* This tests that the variables appear in the theme layer in order:
-         --color-black, --color-blue-400, --color-blue-500, --color-blue-600, --color-white *)
-    ]
+    [ text black; bg white; bg ~shade:400 blue; bg blue; bg ~shade:600 blue ]
 
 let grid_cols_reordering () =
-  (* Test case showing responsive grid columns that trigger reordering
-     detection. When both md:grid-cols-2 and md:grid-cols-10 are used, they
-     should appear in a specific order within the @media query. This test
-     ensures our diff tool can detect and clearly report such reorderings. *)
+  (* md:grid-cols-2 and md:grid-cols-10 sit in Tailwind's order inside the
+     @media query, whatever order they are given in. *)
   check_list [ md [ grid_cols 10 ]; md [ grid_cols 2 ] ]
-
-(* ===== STABLE ORDERING TESTS ===== *)
 
 let gen_minified_css styles =
   to_css ~base:true styles |> Css.to_string ~minify:true
@@ -1572,19 +1480,14 @@ let assert_stable_ordering ~label styles_a styles_b =
   else Alcotest.(check bool) (label ^ " is stable") true true
 
 let stable_order_basic () =
-  (* Order of independent base utilities must not affect CSS output *)
   assert_stable_ordering ~label:"base utils" Tw.[ p 4; m 2 ] Tw.[ m 2; p 4 ]
 
 let stable_order_with_modifiers () =
-  (* Regular vs responsive media ordering should be independent of input
-     order *)
   assert_stable_ordering ~label:"responsive vs regular"
     Tw.[ bg blue; md [ bg red ] ]
     Tw.[ md [ bg red ]; bg blue ]
 
 let stable_order_complex_modifiers () =
-  (* Complex selectors like group-has/focus-within must also sort
-     deterministically *)
   assert_stable_ordering ~label:"group-has vs responsive"
     Tw.[ group_has "a" [ text black ]; md [ text white ] ]
     Tw.[ md [ text white ]; group_has "a" [ text black ] ];
@@ -1592,18 +1495,13 @@ let stable_order_complex_modifiers () =
     Tw.[ focus_within [ bg red ]; md [ bg blue ] ]
     Tw.[ md [ bg blue ]; focus_within [ bg red ] ]
 
-(* ===== PROPERTY ORDERING TESTS ===== *)
-(* These tests verify that the @layer properties @supports block ordering
-   matches Tailwind. The order depends on which utility groups are used:
-   - Direct scale (scale-105) puts scale vars before duration
-   - Hover scale (hover:scale-105) puts duration before scale *)
-
+(* The order of the [@layer properties] block depends on which utilities a sheet
+   uses: a direct [scale-105] puts the scale variables before the duration, a
+   [hover:scale-105] puts the duration first. *)
 let property_order_scale_first () =
-  (* When scale is used directly, scale vars should come before duration *)
   check_list Tw.[ transform; duration 300; scale 105 ]
 
 let property_order_duration_first () =
-  (* When scale is only via hover, duration should come before scale *)
   check_list Tw.[ transform; duration 300; hover [ scale 105 ] ]
 
 let property_order_cross_family () =
@@ -1729,29 +1627,19 @@ let unknown_class_keeps_source_order () =
     [ "my-app-header"; "js-toggle"; "bg-blu-500" ]
     unknown
 
-(* ===== TEST SUITE ===== *)
-
 (* A [@theme] block that removes a token takes every utility reading it: a
    namespace reset such as [--text-*: initial] leaves [text-lg] no size to
-   write, and Tailwind compiles nothing for the candidate. The palette and the
-   breakpoints refused theirs already; every other family let the utility
-   through, reading a variable the theme layer no longer declares, or, where the
-   family inlines the token's value, writing the default as if the block had
-   said nothing. A utility of another family, and a static utility whose theme
-   token stands only in a [var()] fallback, is untouched. *)
+   write, and Tailwind compiles nothing for the candidate. Every family refuses
+   it, whether it reads the token through a variable or inlines its value. A
+   utility of another family, and a static utility whose theme token stands only
+   in a [var()] fallback, is untouched. *)
 let test_removed_token_refuses_its_readers () =
   let refused namespace classes =
-    let theme =
-      Tw.Scheme.with_overrides Tw.Scheme.default [ (namespace, "initial") ]
-    in
+    let entry = Test_helpers.theme_entry ("--" ^ namespace ^ ": initial;") in
     List.iter
-      (fun cls ->
-        Alcotest.(check bool)
-          (cls ^ " reads a token --" ^ namespace ^ " removed")
-          true
-          (Result.is_error (Tw.of_string ~theme cls)))
+      (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
       classes;
-    theme
+    Tw_tools.Entry_theme.of_css entry
   in
   ignore (refused "font-*" [ "font-sans"; "font-mono" ]);
   ignore (refused "text-*" [ "text-lg"; "text-sm/6" ]);
@@ -1817,6 +1705,9 @@ let core_tests =
       theme_function_default_namespaces;
     test_case "--theme(--x) references the token" `Quick
       theme_function_custom_property_reference;
+    test_case "--theme(--x/alpha) mixes the reference" `Quick
+      theme_function_custom_property_alpha;
+    test_case "theme() alpha spellings" `Quick theme_function_alpha_spellings;
     test_case "layout" `Slow layout;
     test_case "opacity" `Slow opacity_effects;
     test_case "extended colors" `Slow extended_colors;
@@ -1827,11 +1718,9 @@ let core_tests =
     test_case "grid columns reordering" `Slow grid_cols_reordering;
     test_case "grid flex math tracks" `Slow grid_flex_math_tracks;
     test_case "pre-color-mix fallbacks" `Slow pre_color_mix_fallbacks;
-    (* Stable ordering tests *)
     test_case "stable: base utils order" `Quick stable_order_basic;
     test_case "stable: responsive vs regular" `Quick stable_order_with_modifiers;
     test_case "stable: complex modifiers" `Quick stable_order_complex_modifiers;
-    (* Property ordering tests *)
     test_case "property order: scale first" `Slow property_order_scale_first;
     test_case "property order: duration first" `Slow
       property_order_duration_first;
@@ -1842,7 +1731,6 @@ let core_tests =
     test_case "prose with modifiers" `Slow prose_with_modifiers;
     test_case "prose ordering" `Quick prose_ordering;
     test_case "typed utility surface" `Slow typed_utility_surface;
-    (* Cross-handler ordering *)
     test_case "order: padding/margin" `Quick ordering_padding_margin;
     test_case "order: layout/sizing" `Quick ordering_layout_sizing;
     test_case "order: text/bg/border" `Quick ordering_text_bg_border;
@@ -1850,8 +1738,6 @@ let core_tests =
     test_case "order: transitions" `Quick ordering_transitions;
     test_case "order: with variants" `Quick ordering_with_variants;
     test_case "order: complex card" `Quick ordering_complex_card;
-    (* Missing feature tests — expected to fail until features are
-       implemented *)
     test_case "fractional spacing" `Slow fractional_spacing;
     test_case "fractional translate" `Slow fractional_translate;
     test_case "fractional width/height" `Slow fractional_width_height;

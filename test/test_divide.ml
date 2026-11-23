@@ -20,9 +20,8 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide";
   Test_helpers.check_invalid_input (module Tw.Divide.Handler) "divide-foo"
 
-(* divide-x-[2em] and divide-y-[3vw] used to be refused: the width reader only
-   knew px and rem, so an em or a vw stop fell through to "not a divide utility"
-   instead of reading as the length it is. *)
+(* The width reader takes any length unit, so divide-x-[2em] and divide-y-[3vw]
+   read as widths. *)
 let test_arbitrary_width_units () =
   check "divide-x-[2em]";
   check "divide-y-[3vw]";
@@ -123,7 +122,7 @@ let test_typed_width_units () =
     ]
 
 (* Every divide utility the parser accepts also has a typed constructor, and the
-   two agree on the class name (issue #5). *)
+   two agree on the class name. *)
 let test_typed () =
   let open Tw in
   Test_helpers.check_typed_class "divide-x-2" (divide_x 2);
@@ -139,8 +138,7 @@ let test_typed () =
   Test_helpers.check_typed_class "divide-dashed" (divide_style Dashed)
 
 (* The widths lead the family and divide-x-reverse trails it, which is
-   Tailwind's own order; the styles used to sort first, putting divide-dashed
-   ahead of divide-y-4. *)
+   Tailwind's own order, with the styles after the widths. *)
 let divide_classes =
   [
     "divide-x";
@@ -178,10 +176,9 @@ let class_order_matches_tailwind () =
 
 (* [divide-x-reverse] sorts last in Tailwind's sheet, after every border and
    even after unrelated utilities, while [divide-y-reverse] stays with the
-   divide family. tw gave the whole family one priority, so both came first. The
-   rule only sets [--tw-divide-x-reverse], so the reorder is cascade-neutral and
-   the canonical differ passes it; reading the emitted positions is what sees
-   it. *)
+   divide family. The rule only sets [--tw-divide-x-reverse], so the reorder is
+   cascade-neutral and the canonical differ passes it; reading the emitted
+   positions is what sees it. *)
 let reverse_class_order_matches_tailwind () =
   Test_helpers.check_class_order
     ~test_name:"divide-x-reverse sorts after the border family"
@@ -201,10 +198,8 @@ let rendering_matches_tailwind () =
   Test_helpers.check_rendering_matches ~test_name:"divide renders like Tailwind"
     (divide_utilities ())
 
-(* A [#] bracket is only a divide colour when what follows is a hex spelling.
-   The divide reader handed everything after the [#] to the raising constructor
-   from inside [of_class], so a malformed hex escaped the parser as an exception
-   instead of failing the match. *)
+(* A [#] bracket is only a divide colour when what follows is a hex spelling; a
+   malformed hex fails the match rather than raising out of the parser. *)
 let test_arbitrary_bracket_color_token_stream () =
   let css cls =
     match Tw.of_string cls with
@@ -217,9 +212,8 @@ let test_arbitrary_bracket_color_token_stream () =
   Test_helpers.check_declarations "divide-[#ff0000]" [ "border-color:#f00" ]
 
 (* A bracket colour CSS names without spelling it as a function - a named
-   colour, a keyword - is a divide colour too. The reader admitted only a [#]
-   hex and a colour function, so [divide-[rebeccapurple]] was an unknown class,
-   with or without an opacity modifier. *)
+   colour, a keyword - is a divide colour too, with or without an opacity
+   modifier. *)
 let test_bracket_named_color () =
   let emits decl cls = Test_helpers.check_declarations cls [ decl ] in
   emits "border-color:rebeccapurple" "divide-[rebeccapurple]";
@@ -233,10 +227,7 @@ let test_bracket_named_color () =
 
 (* A modifier reading a custom property mixes that property into the guarded
    value, on [currentcolor] and on a bracket [var()] however the bracket spells
-   it. The [color:] hint sent the var to the raw arm, which folded the modifier
-   to a percentage, which a var() has none of, so the mix said [100%] with no
-   fallback beside it; the bare [var()] beside it took the typed arm and was
-   right. *)
+   it, with or without the [color:] hint. *)
 let test_colour_opacity_var () =
   let mixed cls fallback colour =
     Test_helpers.check_declarations ~minify:false cls
@@ -257,14 +248,11 @@ let test_colour_opacity_var () =
       "border-color: color-mix(in oklab, var(--c) 50%, transparent)";
     ]
 
-(* The divide width suffix is a plain decimal integer. [divide-x-0x10] was read
-   as 16 and emitted a rule selecting [.divide-x-16], a class the author never
-   wrote; Tailwind emits nothing for it. *)
+(* The divide width suffix is a plain decimal integer: Tailwind emits nothing
+   for [divide-x-0x10]. *)
 let test_non_decimal_widths () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "divide-x-0x10";
   rejected "divide-y-0x10";

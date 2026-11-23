@@ -3,10 +3,11 @@
     The CSS {i contain} property allows an author to indicate that an element
     and its contents are, as much as possible, independent of the rest of the
     document tree. This allows the browser to recalculate layout, style, paint,
-    size, or any combination of them for a limited area of the DOM.
-
-    @see <https://developer.mozilla.org/en-US/docs/Web/CSS/contain> MDN: contain
-    @see <https://tailwindcss.com/docs/contain> Tailwind: contain *)
+    size, or any combination of them for a limited area of the DOM. See
+    {{:https://developer.mozilla.org/en-US/docs/Web/CSS/contain}[contain] on
+     MDN} and
+    {{:https://tailwindcss.com/docs/contain}Tailwind's [contain-*] utilities}.
+*)
 
 open Utility
 module Handler : Handler

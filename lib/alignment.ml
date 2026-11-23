@@ -1,21 +1,5 @@
-(** Alignment utilities for flexbox and grid layouts
-
-    What's included:
-    - `justify-*` - Justify content, items, and self alignment.
-    - `items-*` - Align items in flex/grid containers.
-    - `content-*` - Align content in flex/grid containers.
-    - `self-*` - Align self in flex/grid items.
-    - `place-*` - Shorthand for align and justify.
-
-    What's not:
-    - Advanced grid alignment features not covered by basic flex/grid alignment.
-    - `-safe` on any position but `center` and `end`: Tailwind offers the
-      overflow-position suffix on those two alone, in every family.
-
-    Parsing contract (`of_string`):
-    - Accepts ["justify"; ...], ["items"; ...], ["content"; ...], ["self"; ...],
-      ["place"; ...]. Unknown tokens yield `Error (`Msg "Not an alignment
-      utility")`. *)
+(* Tailwind offers the [-safe] overflow-position suffix on [center] and [end]
+   alone, in every family. *)
 
 module Css = Cascade.Css
 
@@ -24,8 +8,7 @@ module Handler = struct
   open Css
 
   type t =
-    | (* Justify content *)
-      Justify_start
+    | Justify_start
     | Justify_end
     | Justify_center
     | Justify_between
@@ -35,8 +18,7 @@ module Handler = struct
     | Justify_stretch
     | Justify_center_safe
     | Justify_end_safe
-    | (* Align items *)
-      Items_start
+    | Items_start
     | Items_end
     | Items_center
     | Items_baseline
@@ -44,8 +26,7 @@ module Handler = struct
     | Items_baseline_last
     | Items_center_safe
     | Items_end_safe
-    | (* Align content *)
-      Content_start
+    | Content_start
     | Content_end
     | Content_center
     | Content_between
@@ -56,8 +37,7 @@ module Handler = struct
     | Content_normal
     | Content_center_safe
     | Content_end_safe
-    | (* Align self *)
-      Self_auto
+    | Self_auto
     | Self_start
     | Self_end
     | Self_center
@@ -66,24 +46,21 @@ module Handler = struct
     | Self_stretch
     | Self_center_safe
     | Self_end_safe
-    | (* Justify items *)
-      Justify_items_start
+    | Justify_items_start
     | Justify_items_end
     | Justify_items_center
     | Justify_items_normal
     | Justify_items_stretch
     | Justify_items_center_safe
     | Justify_items_end_safe
-    | (* Justify self *)
-      Justify_self_auto
+    | Justify_self_auto
     | Justify_self_start
     | Justify_self_end
     | Justify_self_center
     | Justify_self_stretch
     | Justify_self_center_safe
     | Justify_self_end_safe
-    | (* Place content *)
-      Place_content_start
+    | Place_content_start
     | Place_content_end
     | Place_content_center
     | Place_content_between
@@ -93,16 +70,14 @@ module Handler = struct
     | Place_content_baseline
     | Place_content_center_safe
     | Place_content_end_safe
-    | (* Place items *)
-      Place_items_start
+    | Place_items_start
     | Place_items_end
     | Place_items_center
     | Place_items_stretch
     | Place_items_baseline
     | Place_items_center_safe
     | Place_items_end_safe
-    | (* Place self *)
-      Place_self_auto
+    | Place_self_auto
     | Place_self_start
     | Place_self_end
     | Place_self_center
@@ -112,10 +87,8 @@ module Handler = struct
 
   let name = "alignment"
 
-  (* Same priority as gap (15), differentiated by suborder: - Container
-     alignment: suborder 0-999 (before gap's 25000+) - Self alignment: suborder
-     50000+ (after gap) *)
-  (* Same priority as gap; comes after flex_props *)
+  (* Gap's priority. Container alignment sorts before gap by suborder, self
+     alignment after it. *)
   let priority _ = 17
   let justify_start = style [ justify_content Flex_start ]
   let justify_end = style [ justify_content Flex_end ]
@@ -202,7 +175,6 @@ module Handler = struct
      here is a compile error, not a [Not_found] raised out of [to_class] partway
      through rendering a sheet. *)
   let data : t -> string * Style.t * int = function
-    (* Justify content *)
     | Justify_start -> ("justify-start", justify_start, 58)
     | Justify_end -> ("justify-end", justify_end, 54)
     | Justify_center -> ("justify-center", justify_center, 52)
@@ -213,7 +185,6 @@ module Handler = struct
     | Justify_stretch -> ("justify-stretch", justify_stretch, 59)
     | Justify_center_safe -> ("justify-center-safe", justify_center_safe, 53)
     | Justify_end_safe -> ("justify-end-safe", justify_end_safe, 55)
-    (* Align items *)
     | Items_start -> ("items-start", items_start, 36)
     | Items_end -> ("items-end", items_end, 34)
     | Items_center -> ("items-center", items_center, 32)
@@ -222,7 +193,6 @@ module Handler = struct
     | Items_baseline_last -> ("items-baseline-last", items_baseline_last, 31)
     | Items_center_safe -> ("items-center-safe", items_center_safe, 33)
     | Items_end_safe -> ("items-end-safe", items_end_safe, 35)
-    (* Align content *)
     | Content_start -> ("content-start", content_start, 29)
     | Content_end -> ("content-end", content_end, 25)
     | Content_center -> ("content-center", content_center, 23)
@@ -234,7 +204,6 @@ module Handler = struct
     | Content_normal -> ("content-normal", content_normal, 28)
     | Content_center_safe -> ("content-center-safe", content_center_safe, 24)
     | Content_end_safe -> ("content-end-safe", content_end_safe, 26)
-    (* Align self *)
     | Self_auto -> ("self-auto", self_auto, 76010)
     | Self_start -> ("self-start", self_start, 76017)
     | Self_end -> ("self-end", self_end, 76015)
@@ -244,7 +213,6 @@ module Handler = struct
     | Self_stretch -> ("self-stretch", self_stretch, 76019)
     | Self_center_safe -> ("self-center-safe", self_center_safe, 76014)
     | Self_end_safe -> ("self-end-safe", self_end_safe, 76016)
-    (* Justify items *)
     | Justify_items_start -> ("justify-items-start", justify_items_start, 74)
     | Justify_items_end -> ("justify-items-end", justify_items_end, 72)
     | Justify_items_center -> ("justify-items-center", justify_items_center, 70)
@@ -255,7 +223,6 @@ module Handler = struct
         ("justify-items-center-safe", justify_items_center_safe, 71)
     | Justify_items_end_safe ->
         ("justify-items-end-safe", justify_items_end_safe, 73)
-    (* Justify self *)
     | Justify_self_auto -> ("justify-self-auto", justify_self_auto, 76030)
     | Justify_self_start -> ("justify-self-start", justify_self_start, 76035)
     | Justify_self_end -> ("justify-self-end", justify_self_end, 76033)
@@ -266,7 +233,6 @@ module Handler = struct
         ("justify-self-center-safe", justify_self_center_safe, 76032)
     | Justify_self_end_safe ->
         ("justify-self-end-safe", justify_self_end_safe, 76034)
-    (* Place content *)
     | Place_content_start -> ("place-content-start", place_content_start, 8)
     | Place_content_end -> ("place-content-end", place_content_end, 5)
     | Place_content_center -> ("place-content-center", place_content_center, 3)
@@ -282,7 +248,6 @@ module Handler = struct
         ("place-content-center-safe", place_content_center_safe, 4)
     | Place_content_end_safe ->
         ("place-content-end-safe", place_content_end_safe, 6)
-    (* Place items *)
     | Place_items_start -> ("place-items-start", place_items_start, 15)
     | Place_items_end -> ("place-items-end", place_items_end, 13)
     | Place_items_center -> ("place-items-center", place_items_center, 11)
@@ -291,7 +256,6 @@ module Handler = struct
     | Place_items_center_safe ->
         ("place-items-center-safe", place_items_center_safe, 12)
     | Place_items_end_safe -> ("place-items-end-safe", place_items_end_safe, 14)
-    (* Place self *)
     | Place_self_auto -> ("place-self-auto", place_self_auto, 76000)
     | Place_self_start -> ("place-self-start", place_self_start, 76005)
     | Place_self_end -> ("place-self-end", place_self_end, 76003)
@@ -301,11 +265,10 @@ module Handler = struct
         ("place-self-center-safe", place_self_center_safe, 76002)
     | Place_self_end_safe -> ("place-self-end-safe", place_self_end_safe, 76004)
 
-  (* Every constructor, for the class-name lookup. A missing entry costs a class
-     that no longer parses, which the round-trip test reports. *)
+  (* Every constructor, for the class-name lookup. A constructor missing here
+     has no class that parses to it, which the round-trip test reports. *)
   let all =
     [
-      (* Justify content *)
       Justify_start;
       Justify_end;
       Justify_center;
@@ -316,7 +279,6 @@ module Handler = struct
       Justify_stretch;
       Justify_center_safe;
       Justify_end_safe;
-      (* Align items *)
       Items_start;
       Items_end;
       Items_center;
@@ -325,7 +287,6 @@ module Handler = struct
       Items_baseline_last;
       Items_center_safe;
       Items_end_safe;
-      (* Align content *)
       Content_start;
       Content_end;
       Content_center;
@@ -337,7 +298,6 @@ module Handler = struct
       Content_normal;
       Content_center_safe;
       Content_end_safe;
-      (* Align self *)
       Self_auto;
       Self_start;
       Self_end;
@@ -347,7 +307,6 @@ module Handler = struct
       Self_stretch;
       Self_center_safe;
       Self_end_safe;
-      (* Justify items *)
       Justify_items_start;
       Justify_items_end;
       Justify_items_center;
@@ -355,7 +314,6 @@ module Handler = struct
       Justify_items_normal;
       Justify_items_center_safe;
       Justify_items_end_safe;
-      (* Justify self *)
       Justify_self_auto;
       Justify_self_start;
       Justify_self_end;
@@ -363,7 +321,6 @@ module Handler = struct
       Justify_self_stretch;
       Justify_self_center_safe;
       Justify_self_end_safe;
-      (* Place content *)
       Place_content_start;
       Place_content_end;
       Place_content_center;
@@ -374,7 +331,6 @@ module Handler = struct
       Place_content_baseline;
       Place_content_center_safe;
       Place_content_end_safe;
-      (* Place items *)
       Place_items_start;
       Place_items_end;
       Place_items_center;
@@ -382,7 +338,6 @@ module Handler = struct
       Place_items_baseline;
       Place_items_center_safe;
       Place_items_end_safe;
-      (* Place self *)
       Place_self_auto;
       Place_self_start;
       Place_self_end;
@@ -409,7 +364,7 @@ module Handler = struct
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
-    | None -> Error (`Msg "Not an alignment utility")
+    | None -> Utility.unclaimed
 
   let examples =
     [
@@ -426,33 +381,21 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register alignment handler with Utility system *)
 
-(** Public API *)
 let utility = Utility_factory.v
-
-(** {1 Justify Content Utilities} *)
 let justify_start = utility Justify_start
-
 let justify_end = utility Justify_end
 let justify_center = utility Justify_center
 let justify_between = utility Justify_between
 let justify_around = utility Justify_around
 let justify_evenly = utility Justify_evenly
-
-(** {1 Align Items Utilities} *)
 let items_start = utility Items_start
-
 let items_end = utility Items_end
 let items_center = utility Items_center
 let items_baseline = utility Items_baseline
 let items_stretch = utility Items_stretch
-
-(** {1 Align Content Utilities} *)
 let content_start = utility Content_start
-
 let content_end = utility Content_end
 let content_center = utility Content_center
 let content_between = utility Content_between
@@ -463,57 +406,39 @@ let content_baseline = utility Content_baseline
 let content_normal = utility Content_normal
 let content_center_safe = utility Content_center_safe
 let content_end_safe = utility Content_end_safe
-
-(** {1 Align Self Utilities} *)
 let self_auto = utility Self_auto
-
 let self_start = utility Self_start
 let self_end = utility Self_end
 let self_center = utility Self_center
 let self_baseline = utility Self_baseline
 let self_stretch = utility Self_stretch
-
-(** {1 Justify Items Utilities} *)
 let justify_items_start = utility Justify_items_start
-
 let justify_items_end = utility Justify_items_end
 let justify_items_center = utility Justify_items_center
 let justify_items_stretch = utility Justify_items_stretch
 let justify_items_normal = utility Justify_items_normal
 let justify_items_center_safe = utility Justify_items_center_safe
 let justify_items_end_safe = utility Justify_items_end_safe
-
-(** {1 Justify Self Utilities} *)
 let justify_self_auto = utility Justify_self_auto
-
 let justify_self_start = utility Justify_self_start
 let justify_self_end = utility Justify_self_end
 let justify_self_center = utility Justify_self_center
 let justify_self_stretch = utility Justify_self_stretch
-
-(** {1 Place Content Utilities} *)
 let place_content_start = utility Place_content_start
-
 let place_content_end = utility Place_content_end
 let place_content_center = utility Place_content_center
 let place_content_between = utility Place_content_between
 let place_content_around = utility Place_content_around
 let place_content_evenly = utility Place_content_evenly
 let place_content_stretch = utility Place_content_stretch
-
-(** {1 Place Items Utilities} *)
 let place_items_start = utility Place_items_start
-
 let place_items_end = utility Place_items_end
 let place_items_center = utility Place_items_center
 let place_items_stretch = utility Place_items_stretch
 let place_items_baseline = utility Place_items_baseline
 let place_items_center_safe = utility Place_items_center_safe
 let place_items_end_safe = utility Place_items_end_safe
-
-(** {1 Place Self Utilities} *)
 let place_self_auto = utility Place_self_auto
-
 let place_self_start = utility Place_self_start
 let place_self_end = utility Place_self_end
 let place_self_center = utility Place_self_center

@@ -60,9 +60,7 @@ let test_arbitrary_token_streams_agree () =
       [ "--tw-duration: " ^ value; "transition-duration: " ^ value ]
   in
   let delay cls value =
-    (* The whole list, which is how the claim that [delay-] sets no duration
-       channel is made: it is absent from the declarations, not merely absent
-       from a substring search over the sheet. *)
+    (* The whole list: [delay-] sets no duration channel. *)
     Test_helpers.check_declarations ~minify:false cls
       [ "transition-delay: " ^ value ]
   in
@@ -91,10 +89,8 @@ let test_arbitrary_property_token_stream () =
 (* Safe arbitrary easing token streams are forwarded; an empty bracket still
    names no declaration value. *)
 let test_arbitrary_ease_token_stream () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let renders cls =
     match Tw.of_string cls with
@@ -115,8 +111,8 @@ let test_arbitrary_ease_token_stream () =
    position must render the same explicit keyword tw's sheet would otherwise
    silently disagree over. *)
 let test_arbitrary_ease_steps_default_position () =
-  (* Both declarations: the channel carries the same explicit keyword, which an
-     affix on the timing function alone never said. *)
+  (* Both declarations: the channel carries the same explicit keyword as the
+     timing function. *)
   Test_helpers.check_declarations ~minify:false "ease-[steps(4)]"
     [ "--tw-ease: steps(4, end)"; "transition-timing-function: steps(4, end)" ]
 
@@ -139,10 +135,9 @@ let test_project_ease_token () =
 
 (* Every transition rule reads [--default-transition-duration] and
    [--default-transition-timing-function] through a fallback, so the theme has
-   to declare them whenever one is emitted. Which classes need them was read off
-   the name of the emitted class, and a variant renames that class, so
-   [hover:transition] left both undeclared: the rule then fell back to a
-   variable nothing set and the element did not animate at all. *)
+   to declare them whenever one is emitted, under a variant too:
+   [hover:transition] with both undeclared falls back to a variable nothing
+   sets, and the element does not animate. *)
 let test_default_transition_theme_survives_a_variant () =
   let declares cls =
     match Tw.of_string cls with
@@ -170,9 +165,8 @@ let test_default_transition_theme_survives_a_variant () =
     [ "transition-none"; "hover:transition-none"; "p-4" ]
 
 (* The behaviour utilities set [transition-behavior] and read neither default,
-   so, as the pinned CLI emits them, they declare neither. Whether a class needs
-   the defaults was read off the [transition] at the head of its name, and both
-   of these have one. *)
+   so, as the pinned CLI emits them, they declare neither, although their names
+   start with [transition]. *)
 let test_transition_behavior_needs_no_defaults () =
   let declares cls =
     match Tw.of_string cls with
@@ -188,8 +182,8 @@ let test_transition_behavior_needs_no_defaults () =
       Alcotest.(check bool) (cls ^ " declares no defaults") false (declares cls))
     [ "transition-discrete"; "transition-normal"; "hover:transition-discrete" ]
 
-(* Values of one candidate are one registration slot in Tailwind. A numeric
-   suborder per delay value used to let duration rules leak between them. *)
+(* Values of one candidate are one registration slot in Tailwind, so no duration
+   rule sorts between two delay values. *)
 let test_delay_candidate_band () =
   Test_helpers.check_class_order ~test_name:"delay candidate band"
     [
@@ -219,9 +213,27 @@ let test_initial_reset_boundary () =
       "ease-initial";
     ]
 
+(* A data-type hint chooses the longhand and is no part of the value, so a hint
+   the family does not know still leaves only what follows it in the sheet. *)
+let test_unknown_hint_is_not_the_value () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "transition-[foo:color]"; "transition-[foo:var(--x)]" ]
+
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "ease-[var(--a)_1px]";
+      "ease-[var(--a),foo]";
+      "transition-[var(--a)_1px]";
+      "transition-[var(--a),foo]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "initial resets" `Quick test_initial_resets;
       Alcotest.test_case "arbitrary token streams agree" `Quick
         test_arbitrary_token_streams_agree;
@@ -241,6 +253,8 @@ let tests =
       Alcotest.test_case "delay candidate band" `Quick test_delay_candidate_band;
       Alcotest.test_case "initial reset boundary" `Quick
         test_initial_reset_boundary;
+      Alcotest.test_case "unknown hint is not the value" `Quick
+        test_unknown_hint_is_not_the_value;
     ]
 
 let suite = ("transitions", tests)

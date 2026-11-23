@@ -1,6 +1,7 @@
-(** Animation utilities
+(** Animation utilities.
 
-    https://tailwindcss.com/docs/animation *)
+    See {{:https://tailwindcss.com/docs/animation}animation} in the Tailwind
+    documentation. *)
 
 open Utility
 

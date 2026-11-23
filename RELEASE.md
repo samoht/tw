@@ -1,6 +1,6 @@
 # tw release criteria
 
-The bar a tagged release must clear. tw's contract is rendering parity with
+A tagged release meets the criteria below. tw's contract is rendering parity with
 the Tailwind CSS v4 compiler for the utilities and plugins it claims: a browser
 computes the same styles under tw's sheet and Tailwind's, as `docs/parity.md`
 defines it. Most gates therefore compare against the real tool rather than
@@ -17,8 +17,7 @@ do not exist.
    by default; there is no tolerance switch to forget.
 2. **Rendering.** `TW_BROWSER_TESTS=1` set, so a missing Chromium fails rather
    than skips. Without it the nine suites calling `check_rendering_matches`
-   report no difference because they never looked - which is what CI did until
-   #513.
+   report no difference because they never render.
 3. **Tailwind oracle.** `TW_TAILWIND_TESTS=1` set, so a missing CLI, or one
    whose version differs from `Tailwind_gen.required_version`, fails rather
    than skips. Without it 159 parity tests skip and the run still says
@@ -36,8 +35,8 @@ do not exist.
 
 7. **Upstream corpus.** `test/upstream/` replays Tailwind's own fixtures and
    must pass without an allowlist. The suite may not take an expected value
-   from Tailwind's output and hand it back to tw - breaking a built-in default
-   has to fail it (see #512).
+   from Tailwind's output and hand it back to tw, so breaking a built-in default
+   fails it.
 8. **Whole-site measurement.** `sh test/parity/measure.sh` runs tw against
    Tailwind over the class list of tailwindcss.com. Quote the differ's summary
    line together with the top-level entries under it; the summary counts

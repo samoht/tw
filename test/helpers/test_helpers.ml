@@ -1,14 +1,10 @@
-(** Test helper functions for CSS comparison and minimization *)
-
 module Css = Cascade.Css
 module Css_compare = Cascade_diff.Css_compare
 module Tree_diff = Cascade_diff.Tree_diff
 
-(** Check that a utility value produces the expected class name *)
 let check_class expected t =
   Alcotest.check Alcotest.string "class" expected (Tw.Utility.to_class t)
 
-(** Extract utilities layer from CSS *)
 let extract_utilities_layer_rules css =
   let stmts = Css.statements css in
   List.find_map
@@ -19,7 +15,6 @@ let extract_utilities_layer_rules css =
     stmts
   |> Option.value ~default:[]
 
-(** Extract selectors from rules *)
 let extract_rule_selectors stmts =
   List.filter_map
     (fun stmt ->
@@ -146,19 +141,25 @@ let check_declarations ?theme ?minify cls expected =
     cls expected
     (declarations_of_class ?theme ?minify cls)
 
-(* For a value a test cannot spell exactly, a generated hash or a number the
-   suite deliberately leaves open. Anchor the pattern: an unanchored one
-   reintroduces the defect above. *)
-let check_declarations_match cls patterns =
-  let actual = declarations_of_class cls in
-  List.iter
-    (fun pattern ->
-      let re = Re.Pcre.re pattern |> Re.compile in
-      if not (List.exists (fun d -> Re.execp re d) actual) then
-        Alcotest.failf "%s: no declaration matches %s@.declarations: %s" cls
-          pattern
-          (String.concat "; " actual))
-    patterns
+(* A variant decides the selector and the at-rules wrapped around it, and
+   neither is a declaration, so a variant test has to compare the sheet itself.
+   Comparing it whole is what a substring cannot do: [:has(:focus)] is an infix
+   of [:has(:focus-visible)], and a [check bool] failure prints neither the
+   class nor the CSS. *)
+let sheet cls =
+  match Tw.of_string cls with
+  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+
+let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
+
+(* Most variant classes draw on no theme token, so the layers ahead of
+   [utilities] are empty and only the utilities layer is worth spelling out. The
+   comparison is still against the whole sheet. *)
+let check_utilities cls expected =
+  check_sheet cls
+    ("@layer theme,components,utilities;@layer theme;@layer components;@layer \
+      utilities{" ^ expected ^ "}")
 
 (* What a class writes on an element carrying it, as one rule. The theme
    bindings it drags in are left out - every class reading the spacing scale
@@ -271,27 +272,16 @@ let ordering_diff ?forms utilities = canonical_diff (sheets ?forms utilities)
 
 (* [Css_compare] drops a declaration its reader rejects from that side's AST
    before the comparison runs, so a real difference can surface as a phantom
-   addition on the side that parsed, or as no difference at all when both sides
-   collapse to the same AST. Which drops are findings follows from what the
-   comparison is for: the canonical diff asks whether a browser could tell the
-   two sheets apart, and cascade's reader drops what a browser drops.
+   addition, or vanish when both sides collapse to the same AST.
 
    A drop is a finding on either side unless it is a value the property's
-   grammar refused ([Bad_value] on a declaration). That is CSS no browser reads:
-   [outline-width: 50%] under [outline-[50%]], the [-webkit-mask-clip: fill-box]
-   twin WebKit's grammar lacks, a [color-mix] mixing amount written as a bare
-   number. The browser keeps the rest of the rule, the comparison compares that
-   rest, and tw is held to what the browser keeps. A dropped rule, a selector
-   the reader refuses, or a construct that failed for any other reason is still
-   a finding on either side: those hide CSS the browser would have read.
-
-   This used to be allowed on Tailwind's side only, on the premise that tw
-   writes through typed values, so a declaration its own reader refused was a
-   defect in tw rather than a spelling. The token-stream contract overtakes that
-   premise: a bracket no reader took reaches the sheet verbatim because Tailwind
-   puts it there, so [width: [4px]/foo] under [size-[[4px]/foo]] is tw doing
-   what it is held to, and both sides drop the same declaration. See
-   docs/token-stream-contract.md. *)
+   grammar refused ([Bad_value] on a declaration), such as [outline-width: 50%]
+   under [outline-[50%]]. No browser reads that value either, and it keeps the
+   rest of the rule, which is what the comparison compares. A dropped rule or
+   selector, or any other failure, hides CSS a browser would read and stays a
+   finding. The allowance holds for tw too: under the token-stream contract
+   (docs/token-stream-contract.md) a bracket no reader took reaches the sheet
+   verbatim because Tailwind puts it there. *)
 let browser_drops_too (error : Cascade.Error.t) =
   match (error.kind, error.recovery) with
   | ( Cascade.Error.Bad_value _,
@@ -315,13 +305,7 @@ let check_no_dropped_declarations ~test_name diff =
       test_name (List.length dropped)
       (String.concat "\n" (List.map Cascade.Error.to_string dropped))
 
-let check_ordering_fails ?forms utilities =
-  match (ordering_diff ?forms utilities).Css_compare.result with
-  | Css_compare.No_diff -> false
-  | _ -> true
-
-(** Delta Debugging (ddmin algorithm by Zeller) Minimizes a failing test case by
-    binary search *)
+(* Delta debugging: Zeller's ddmin. *)
 let rec take k l =
   match (k, l) with
   | 0, _ | _, [] -> ([], l)
@@ -344,7 +328,6 @@ let delta_debug check_fails lst =
     if len = 1 then lst
     else
       let subsets = split_into_subsets (max 1 (len / n)) lst in
-      (* Test 1: Try each subset alone (reduce to subset) *)
       let rec try_subsets = function
         | [] -> None
         | subset :: rest ->
@@ -355,7 +338,6 @@ let delta_debug check_fails lst =
           Fmt.epr "Reduced to %d items@." (List.length subset);
           ddmin subset 2
       | None -> (
-          (* Test 2: Try removing each subset (reduce to complement) *)
           let rec try_complements idx = function
             | [] -> None
             | _ :: rest ->
@@ -370,13 +352,10 @@ let delta_debug check_fails lst =
           | Some complement ->
               Fmt.epr "Reduced to %d items@." (List.length complement);
               ddmin complement (max (n - 1) 2)
-          | None ->
-              (* Increase granularity *)
-              if n < len then ddmin lst (min (n * 2) len) else lst)
+          | None -> if n < len then ddmin lst (min (n * 2) len) else lst)
   in
   ddmin lst 2
 
-(** Find minimal failing pair from a list *)
 let minimal_pair check_fails lst =
   let rec find_pair lst =
     match lst with
@@ -391,14 +370,11 @@ let minimal_pair check_fails lst =
   in
   find_pair lst
 
-(** Minimize a failing test case to smallest possible set Uses delta debugging
-    followed by pair finding if needed *)
+(* Delta debugging first, then a search for a failing pair in what is left. *)
 let minimize_failing_case check_fails initial =
   if not (check_fails initial) then None
   else
     let minimal = delta_debug check_fails initial in
-
-    (* If we have more than 2 items, try to find a minimal pair *)
     let final =
       if List.length minimal > 2 then
         match minimal_pair check_fails minimal with
@@ -415,15 +391,10 @@ let minimize_failing_case check_fails initial =
    headless Chromium, which a plain opam build has neither of, so the check
    skips when they are missing rather than being gated in dune. Set
    TW_BROWSER_TESTS=0 to opt out where they are present. *)
-let rec dir_containing name dir =
-  if Sys.file_exists (Filename.concat dir name) then Some dir
-  else
-    let parent = Filename.dirname dir in
-    if String.equal parent dir then None else dir_containing name parent
-
 (* Tests run from the build directory, which is itself inside the project, so
    the walk up finds the root whether or not dune sandboxed us. *)
-let project_root = lazy (dir_containing "node_modules" (Sys.getcwd ()))
+let project_root =
+  lazy (Tw_tools.Tailwind_gen.dir_containing "node_modules" (Sys.getcwd ()))
 
 (* Skipping is right on a developer machine with no browser, and wrong on CI,
    where it reports eight suites as finding no rendering difference because they
@@ -439,11 +410,6 @@ let unavailable test_name reason =
     Fmt.epr "browser rendering unavailable: %s@." reason;
     Alcotest.skip ()
   end
-
-let write_file path content =
-  let oc = open_out path in
-  output_string oc content;
-  close_out oc
 
 (* One directory per test, kept after the run: the two sheets and the page are
    what you need to reproduce a failure by hand, with [cascade diff --browser
@@ -532,8 +498,6 @@ let render_page ?(inner = box_marker) elements =
         elements
     @ [ "</body></html>" ])
 
-(* ===== A page for a class list ===== *)
-
 (* The [/name] a [group-*] or [peer-*] variant scopes to, from any segment of a
    class that starts with [prefix]. *)
 let scope_names prefix classes =
@@ -551,7 +515,7 @@ let scope_names prefix classes =
                 if not (String.contains name ']') then
                   Hashtbl.replace names name ()
             | _ -> ())
-        (Tw_tools.Entrypoint.variant_segments cls))
+        (Tw_tools.Custom_variant.segments cls))
     classes;
   Hashtbl.fold (fun name () acc -> name :: acc) names [] |> List.sort compare
 
@@ -565,7 +529,7 @@ let reads_descendants cls =
       || String.starts_with ~prefix:"group-has-" segment
       || String.starts_with ~prefix:"peer-has-" segment
       || String.equal segment "*" || String.equal segment "**")
-    (Tw_tools.Entrypoint.variant_segments cls)
+    (Tw_tools.Custom_variant.segments cls)
 
 (* The children a descendant-reading variant needs, each holding the marker
    every element gets, so their boxes paint too. *)
@@ -617,6 +581,7 @@ let rendering_report ?inner ~test_name ~elements ~tailwind ~tw () =
   | Some root ->
       let dir = render_dir root test_name in
       let path name = Filename.concat dir name in
+      let write_file = Tw_tools.Tailwind_gen.write_file in
       write_file (path "page.html") html;
       write_file (path "tailwind.css") tailwind;
       write_file (path "tw.css") tw
@@ -649,6 +614,11 @@ let check_ordering_matches ?forms ~test_name utilities =
       let buf = Buffer.create 1024 in
       Css_compare.pp ~expected:"Tailwind" ~actual:"Our TW" buf diff;
       Alcotest.failf "%s\n%s" test_name (Buffer.contents buf)
+
+let check_class_matches_tailwind cls =
+  match Tw.of_string cls with
+  | Ok u -> check_ordering_matches ~test_name:cls [ u ]
+  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
 
 let tree_diff_css ~expected ~actual =
   Css_compare.diff ~mode:`Tree (respelled expected) (respelled actual)
@@ -1037,15 +1007,8 @@ let class_slots sheet ~layer classes =
 
 (* The order oracle the fuzzer minimises and asserts on. [ordering_diff] runs
    canonically, which folds away a reorder among utilities writing disjoint
-   properties, so a family emitted in the wrong band is invisible to it: the
-   fuzzer could not fail on the one bug class a sort fuzzer exists to find.
-   Reading the order off the bytes is what sees it.
-
-   A pair rather than a count, because a pair is a property of the two classes
-   and nothing else: both sheets order their utilities by a key of their own, so
-   two classes that disagree here disagree in every sheet holding both, whatever
-   else is drawn. That is what a recorded set of known disagreements can be
-   written against; the count {!sheet_order_gap} reports moves with the draw. *)
+   properties, so a family emitted in the wrong band is invisible to it; the
+   order read off the bytes is not. *)
 let inverted_pairs ~tailwind ~tw classes =
   let first_slot sheet layer =
     let tbl = Hashtbl.create 64 in
@@ -1107,9 +1070,6 @@ let describe_dropped dropped =
     (List.length dropped)
     (String.concat "\n" (List.map Cascade.Error.to_string dropped))
 
-(** CSS Test Helpers *)
-
-(** Check if a layer exists in the stylesheet *)
 let has_layer name css =
   List.exists
     (fun stmt ->
@@ -1120,15 +1080,12 @@ let has_layer name css =
       | _ -> false)
     (Css.statements css)
 
-(** Get all custom property names from a layer *)
 let vars_in_layer layer_name css = Css.custom_props ~layer:[ layer_name ] css
 
-(** Check if a variable name exists in a layer *)
 let has_var_in_layer var_name layer_name css =
   let vars = vars_in_layer layer_name css in
   List.exists (fun v -> v = var_name) vars
 
-(** Get all selectors from a layer *)
 let selectors_in_layer layer_name css =
   match Css.layer_block [ layer_name ] css with
   | None -> []
@@ -1140,12 +1097,10 @@ let selectors_in_layer layer_name css =
           | None -> None)
         stmts
 
-(** Check if a selector exists in a layer *)
 let has_selector_in_layer selector layer_name css =
   let sels = selectors_in_layer layer_name css in
   List.mem selector sels
 
-(** Get all media query conditions from stylesheet, recursively *)
 let media_conditions css =
   Css.fold
     (fun acc stmt ->
@@ -1155,11 +1110,9 @@ let media_conditions css =
     [] css
   |> List.rev
 
-(** Check if a specific media condition exists *)
 let has_media_condition condition css =
   List.mem condition (media_conditions css)
 
-(** Return statements for a given media condition, if present *)
 let media_block condition css =
   Css.fold
     (fun acc stmt ->
@@ -1171,27 +1124,6 @@ let media_block condition css =
       | None, _ -> None)
     None css
 
-let selectors_in_media ~condition css =
-  match media_block condition css with
-  | None -> []
-  | Some stmts ->
-      List.filter_map
-        (fun s ->
-          match Css.as_rule s with
-          | Some (sel, _, _) -> Some (Css.Selector.to_string sel)
-          | None -> None)
-        stmts
-
-let has_selector_in_media ~condition ~selector css =
-  List.mem selector (selectors_in_media ~condition css)
-
-let count_selector_in_media ~condition ~selector css =
-  selectors_in_media ~condition css
-  |> List.fold_left
-       (fun acc s -> if String.equal s selector then acc + 1 else acc)
-       0
-
-(* Selector testable and utilities *)
 let pp_selector fmt sel = Fmt.string fmt (Css.Selector.to_string sel)
 let selector_testable = Alcotest.testable pp_selector ( = )
 
@@ -1213,17 +1145,12 @@ let selectors_in_media_sel ~condition css =
 let selector_eq a b =
   String.equal (Css.Selector.to_string a) (Css.Selector.to_string b)
 
-let has_selector_in_media_sel ~condition ~selector css =
-  selectors_in_media_sel ~condition css
-  |> List.exists (fun sel -> selector_eq sel selector)
-
 let count_selector_in_media_sel ~condition ~selector css =
   selectors_in_media_sel ~condition css
   |> List.fold_left
        (fun acc sel -> if selector_eq sel selector then acc + 1 else acc)
        0
 
-(** Check if inline style contains a specific property *)
 let inline_has_property prop_name inline_style =
   String.split_on_char ';' inline_style
   |> List.exists (fun prop ->
@@ -1231,7 +1158,6 @@ let inline_has_property prop_name inline_style =
       | prop :: _ -> String.trim prop = prop_name
       | [] -> false)
 
-(** Check if declarations contain any var() references *)
 let has_var_in_declarations ?(inline = false) decls =
   (* Anywhere in the value, not only at its head: [calc(var(--spacing)*4)] and
      [color-mix(in oklab, var(--c) 50%, #0000)] reference a variable as much as
@@ -1242,15 +1168,9 @@ let has_var_in_declarations ?(inline = false) decls =
       Astring.String.is_infix ~affix:"var(" (Css.declaration_value ~inline decl))
     decls
 
-(** {1 Utility Generators} *)
-
-(** Common spacing values used in Tailwind *)
 let spacing_values =
   [ 0; 1; 2; 3; 4; 5; 6; 8; 10; 12; 16; 20; 24; 32; 40; 48; 64 ]
 
-(** Global RNG for randomized tests. Initialized with a random seed that is
-    printed to stderr for reproducibility. Set [TEST_SEED] env var to replay a
-    specific seed. *)
 let test_seed =
   let seed =
     match Sys.getenv_opt "TEST_SEED" with
@@ -1272,13 +1192,11 @@ let test_rng = Random.State.make [| test_seed |]
 
 (* The seed a run prints has to replay on its own, and a shared state does not:
    what a test draws then depends on how much randomness ran before it, so a
-   seed that fails the whole suite passes when that one test is run alone. That
-   is how a real ordering defect read as a flake for a whole session. Each
+   seed that fails the whole suite passes when that one test is run alone. Each
    randomised test takes its own state, seeded from the run's seed and its own
    name, so the seed reproduces whatever else runs. *)
 let rng_named name = Random.State.make [| test_seed; Hashtbl.hash name |]
 
-(** Shuffle a list using Fisher-Yates algorithm with the global test RNG. *)
 let shuffle lst =
   let arr = Array.of_list lst in
   let n = Array.length arr in
@@ -1290,8 +1208,6 @@ let shuffle lst =
   done;
   Array.to_list arr
 
-(** {1 Generic Test Patterns} *)
-
 module type Handler = sig
   type t
 
@@ -1299,11 +1215,7 @@ module type Handler = sig
   val to_class : t -> string
 end
 
-(** Generic handler test - checks that parsing and pretty-printing round-trip
-    correctly. Takes a class name string, parses it with of_class, converts back
-    with to_class, and verifies they match. *)
 let check_handler_roundtrip (module H : Handler) class_name =
-  (* Test of_class -> to_class roundtrip *)
   match H.of_class Tw.Scheme.default class_name with
   | Ok result ->
       let class_name2 = H.to_class result in
@@ -1324,23 +1236,44 @@ let rejection_claim = function
   | Diverges why -> "Tailwind emits for it and tw does not: " ^ why
 
 (* The corpus [check_negative_premises] asks the CLI about, filled as the
-   negative tests run. One entry per class however many handlers refuse it. *)
-let negatives : (string, rejection) Hashtbl.t = Hashtbl.create 128
+   negative tests run: one entry per entrypoint and class, however many handlers
+   refuse the class. [None] is Tailwind's default theme. *)
+let negatives : (string option * string, rejection) Hashtbl.t =
+  Hashtbl.create 128
 
+(* The corpus grouped by entrypoint, so the CLI compiles each one once. *)
 let negative_corpus () =
-  Hashtbl.fold (fun cls why acc -> (cls, why) :: acc) negatives []
-  |> List.sort (fun (a, _) (b, _) -> String.compare a b)
+  let groups = Hashtbl.create 8 in
+  Hashtbl.iter
+    (fun (entry, cls) why ->
+      let classes = Option.value ~default:[] (Hashtbl.find_opt groups entry) in
+      Hashtbl.replace groups entry ((cls, why) :: classes))
+    negatives;
+  Hashtbl.fold
+    (fun entry classes acc ->
+      (entry, List.sort (fun (a, _) (b, _) -> String.compare a b) classes)
+      :: acc)
+    groups []
+  |> List.sort (fun (a, _) (b, _) -> Option.compare String.compare a b)
 
-(** Generic test for invalid inputs - expects parsing to fail. [why] says what
-    the rejection means, and is checked rather than taken on trust: the half
-    that needs no CLI here, the Tailwind half in [check_negative_premises]. *)
-let check_invalid_input ?(why = Not_a_utility) (module H : Handler) input =
-  (match H.of_class Tw.Scheme.default input with
+let theme_entry decls =
+  Tw_tools.Tailwind_gen.entrypoint [] ^ "@theme { " ^ decls ^ " }\n"
+
+(* [why] is checked rather than taken on trust: the half that needs no CLI here,
+   the Tailwind half in [check_negative_premises]. *)
+let check_invalid_input ?(why = Not_a_utility) ?entry (module H : Handler) input
+    =
+  let theme =
+    match entry with
+    | None -> Tw.Scheme.default
+    | Some css -> Tw_tools.Entry_theme.of_css css
+  in
+  (match H.of_class theme input with
   | Ok _ -> Alcotest.fail ("Expected error for: " ^ input)
   | Error _ -> ());
   (* Whether tw as a whole knows the class. Only [Another_handler] says it does,
      and it is the one reason that does not make the class a tw gap. *)
-  let parses = Result.is_ok (Tw.of_string input) in
+  let parses = Result.is_ok (Tw.of_string ~theme input) in
   (match (why, parses) with
   | Another_handler, false ->
       Alcotest.failf
@@ -1350,7 +1283,17 @@ let check_invalid_input ?(why = Not_a_utility) (module H : Handler) input =
       Alcotest.failf "%s: Tw.of_string parses it, so \"%s\" is the wrong reason"
         input (rejection_claim why)
   | _ -> ());
-  Hashtbl.replace negatives input why
+  Hashtbl.replace negatives (entry, input) why
+
+module Any_utility = struct
+  type t = Tw.t
+
+  let of_class theme s = Tw.of_string ~theme s
+  let to_class = Tw.pp
+end
+
+let check_invalid_class ?why ?entry cls =
+  check_invalid_input ?why ?entry (module Any_utility) cls
 
 (* The class names a sheet's rules select on. Read off the parsed selectors
    rather than scanned for in the text: a non-ASCII or bracketed class is
@@ -1369,11 +1312,38 @@ let sheet_selectors css =
           | None -> acc)
         [] stylesheet
 
-(** Ask the pinned CLI whether Tailwind agrees with every negative test that has
-    run. Nothing in [check_invalid_input] itself says Tailwind refuses the class
-    too, so a premise that is simply wrong passes on every run. One generation
-    covers the whole corpus: Tailwind's output for a set of classes is the union
-    of what it emits for each. *)
+(* The premises of one entrypoint's negative tests that Tailwind contradicts.
+   One generation covers them all: Tailwind's output for a set of classes is the
+   union of what it emits for each. *)
+let wrong_premises (entry, classes) =
+  let selectors =
+    sheet_selectors
+      (Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true
+         ?input_css:entry (List.map fst classes))
+  in
+  let emits cls =
+    List.exists (Css.Selector.exists_class (String.equal cls)) selectors
+  in
+  let name cls =
+    match entry with
+    | None -> cls
+    | Some entry -> Fmt.str "%s (under %S)" cls entry
+  in
+  List.filter_map
+    (fun (cls, why) ->
+      match (why, emits cls) with
+      | Not_a_utility, true ->
+          Fmt.kstr Option.some
+            "%s: filed as not a utility, but Tailwind emits a rule for it"
+            (name cls)
+      | (Another_handler | Diverges _), false ->
+          Fmt.kstr Option.some "%s: filed as \"%s\", but Tailwind emits nothing"
+            (name cls) (rejection_claim why)
+      | _ -> None)
+    classes
+
+(* Nothing in [check_invalid_input] itself says Tailwind refuses the class too,
+   so without this a wrong premise passes on every run. *)
 let check_negative_premises () =
   require_tailwind_cli ();
   match negative_corpus () with
@@ -1384,35 +1354,17 @@ let check_negative_premises () =
       (* Alcotest files a test's own stderr under [_build/_tests/], so the count
          is reported at exit, where the summary line can be read beside it: a
          corpus this test says nothing about is a corpus nobody sizes. *)
-      let size = List.length corpus in
+      let size = List.length (List.concat_map snd corpus) in
+      let themes = List.length corpus in
       at_exit (fun () ->
-          Fmt.epr "@.%d negative test classes held to Tailwind's answer.@." size);
-      let selectors =
-        sheet_selectors
-          (Tw_tools.Tailwind_gen.generate ~minify:true ~optimize:true
-             (List.map fst corpus))
-      in
-      let emits cls =
-        List.exists (Css.Selector.exists_class (String.equal cls)) selectors
-      in
-      let wrong =
-        List.filter_map
-          (fun (cls, why) ->
-            match (why, emits cls) with
-            | Not_a_utility, true ->
-                Fmt.kstr Option.some
-                  "%s: filed as not a utility, but Tailwind emits a rule for it"
-                  cls
-            | (Another_handler | Diverges _), false ->
-                Fmt.kstr Option.some
-                  "%s: filed as \"%s\", but Tailwind emits nothing" cls
-                  (rejection_claim why)
-            | _ -> None)
-          corpus
-      in
+          Fmt.epr
+            "@.%d negative test classes under %d themes held to Tailwind's \
+             answer.@."
+            size themes);
+      let wrong = List.concat_map wrong_premises corpus in
       if wrong <> [] then
         Alcotest.failf "%d of %d negative tests disagree with Tailwind:\n%s"
-          (List.length wrong) (List.length corpus) (String.concat "\n" wrong)
+          (List.length wrong) size (String.concat "\n" wrong)
 
 let standard ~roundtrip ~invalid =
   Alcotest.
@@ -1420,32 +1372,16 @@ let standard ~roundtrip ~invalid =
       test_case "roundtrip" `Quick roundtrip; test_case "invalid" `Quick invalid;
     ]
 
-(** Helper that takes a list of parts, concatenates with "-", and checks
-    roundtrip *)
-let check_parts (module H : Handler) parts =
-  let class_name = String.concat "-" parts in
-  check_handler_roundtrip (module H) class_name
-
-(** Helper that takes a list of parts, concatenates with "-", and checks that
-    parsing fails *)
 let check_invalid_parts ?why (module H : Handler) parts =
   let class_name = String.concat "-" parts in
   check_invalid_input ?why (module H) class_name
 
-(** [check_typed_class cls value] checks that the typed constructor [value]
-    pretty-prints to class name [cls] and that [cls] round-trips back through
-    [Tw.of_string] to the same name. Used to pin newly exposed typed
-    constructors against the string parser. *)
 let check_typed_class cls value =
   Alcotest.(check string) cls cls (Tw.pp value);
   match Tw.of_string cls with
   | Ok u -> Alcotest.(check string) (cls ^ " round-trips") cls (Tw.pp u)
   | Error (`Msg m) ->
       Alcotest.failf "%s: parser rejected its own class: %s" cls m
-
-(* ------------------------------------------------------------------ *)
-(* Adversarial sweep over arbitrary values                             *)
-(* ------------------------------------------------------------------ *)
 
 let rec all_selectors stmts =
   List.concat_map
@@ -1475,7 +1411,8 @@ let selectors_of_utility u =
    to six hex digits naming a code point, with an optional single whitespace
    closing the run, or the next character literally. Comparing this way rather
    than re-escaping the class keeps the check independent of which spelling
-   cascade picks: [caf\\e9 ] and [café] are the same selector. *)
+   cascade picks: [caf\\e9 ] and [caf] followed by a literal U+00E9 are the same
+   selector. *)
 let unescape_selector s =
   let n = String.length s in
   let buf = Buffer.create n in
@@ -1558,21 +1495,27 @@ let adversarial_payloads =
   ]
 
 type sweep_verdict =
-  | Rejected  (** [of_string] refused the class: a legitimate outcome *)
-  | Emitted_nothing  (** parsed, but contributed no rule *)
-  | Matched  (** parsed, and every rule it emits is selected by the class *)
+  | Rejected
+  | Emitted_nothing
+  | Matched
   | Mismatched of string
-      (** parsed, and emitted a rule the class cannot match *)
+
+(* [f ()], naming [cls] and [stage] before an exception it raises propagates: a
+   sweep runs thousands of classes and the backtrace alone does not say
+   which. *)
+let naming cls stage f =
+  match f () with
+  | v -> v
+  | exception e ->
+      let bt = Printexc.get_raw_backtrace () in
+      Fmt.epr "%s: %s raised@." cls stage;
+      Printexc.raise_with_backtrace e bt
 
 let sweep_one cls =
-  match Tw.of_string cls with
-  | exception e ->
-      Alcotest.failf "%s: of_string raised %s" cls (Printexc.to_string e)
+  match naming cls "of_string" (fun () -> Tw.of_string cls) with
   | Error (`Msg _) -> Rejected
   | Ok u -> (
-      match selectors_of_utility u with
-      | exception e ->
-          Alcotest.failf "%s: to_css raised %s" cls (Printexc.to_string e)
+      match naming cls "to_css" (fun () -> selectors_of_utility u) with
       | [] -> Emitted_nothing
       | selectors ->
           let printed = Tw.pp u in
@@ -1832,3 +1775,21 @@ let arbitrary_families =
     "z";
     "zoom";
   ]
+
+(* Every box-shadow utility composes the same five channels; only the channel it
+   sets ahead of this differs. *)
+let composes_box_shadow =
+  "box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)"
+
+let theme_src =
+  "@import \"tailwindcss\" theme(static);\n\
+   @theme {\n\
+  \  --color-*: initial;\n\
+  \  --color-brand: red;\n\
+  \  --animate-flash: flash 2s;\n\
+  \  @keyframes flash { to { opacity: 0 } }\n\
+  \  --spacing: 0.3rem;\n\
+   }\n\
+   @theme inline {\n\
+  \  --font-x: var(--font-ext), system-ui;\n\
+   }\n"

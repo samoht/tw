@@ -1,6 +1,3 @@
-(** Scrollbar utilities: scrollbar-width, scrollbar-gutter, scrollbar-thumb,
-    scrollbar-track. *)
-
 module Css = Cascade.Css
 
 let thumb_var =
@@ -68,8 +65,8 @@ module Handler = struct
     | Thumb s -> "scrollbar-thumb-" ^ spec_class s
     | Track s -> "scrollbar-track-" ^ spec_class s
 
-  (* Return (declarations placed on the rule, optional @supports rules) that set
-     [set_var] to the resolved colour. *)
+  (* [(declarations on the rule, @supports rules)] that set [set_var] to the
+     resolved colour. *)
   let value_decls ?theme ~set_var spec :
       Css.declaration list * Css.statement list =
     let keyword k =
@@ -88,8 +85,8 @@ module Handler = struct
        the same keyword inside a [color-mix()] takes [currentcolor], which is
        what the upstream fixtures hold.)
 
-       [transparent] typed: a token stream is exactly what folds to [#0000], so
-       spelling it as text produced the divergence the text was meant to avoid.
+       [transparent] typed: as text in a token stream it folds to [#0000], the
+       same divergence, while the typed keyword prints as [transparent].
 
        Neither shows up under [--diff] on one class - nothing reads the property
        in a one-class sheet and canonical mode prunes it - so the check is
@@ -187,8 +184,6 @@ module Handler = struct
     | Thumb s -> compose ~set_var:thumb_var s
     | Track s -> compose ~set_var:track_var s
 
-  let has_opacity s = String.contains s '/'
-
   let parse_color ?theme mk rest =
     match rest with
     | [ "inherit" ] -> Ok (mk Inherit)
@@ -197,7 +192,7 @@ module Handler = struct
         match Color.parse_opacity_modifier ?theme current_str with
         | "current", Color.No_opacity -> Ok (mk Current)
         | "current", op -> Ok (mk (Current_opacity op))
-        | _ -> Error (`Msg "Not a scrollbar utility"))
+        | _ -> Utility.unclaimed)
     | [ v ]
       when Parse.is_bracket_value (fst (Color.parse_opacity_modifier ?theme v))
       -> (
@@ -208,8 +203,8 @@ module Handler = struct
         | None -> (
             match (op, Parse.arbitrary_declaration_value inner) with
             | Color.No_opacity, Some value -> Ok (mk (Raw (base, value)))
-            | _ -> Error (`Msg "Not a scrollbar utility")))
-    | parts when List.exists has_opacity parts -> (
+            | _ -> Utility.unclaimed))
+    | parts when List.exists Color.has_opacity parts -> (
         match Color.shade_and_opacity_of_strings ?theme parts with
         | Ok (c, shade, op) -> Ok (mk (Theme (c, shade, op)))
         | Error e -> Error e)
@@ -230,7 +225,7 @@ module Handler = struct
         parse_color ~theme (fun s -> Thumb s) rest
     | "scrollbar" :: "track" :: rest ->
         parse_color ~theme (fun s -> Track s) rest
-    | _ -> Error (`Msg "Not a scrollbar utility")
+    | _ -> Utility.unclaimed
 
   let examples = [ Width_auto; Gutter_auto; Thumb Current; Track Current ]
 end

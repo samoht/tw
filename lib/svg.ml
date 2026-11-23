@@ -1,9 +1,4 @@
-(** SVG utilities for fill, stroke, and stroke-width. *)
-
 module Css = Cascade.Css
-
-(** Error helper *)
-let err_not_utility = Error (`Msg "Not an SVG utility")
 
 (* How wide one of the three suborder groups below is. A suborder is a plain
    [int], 32 bits under js_of_ocaml, so a name packs seven bits per character
@@ -63,7 +58,6 @@ module Handler = struct
   let name = "svg"
   let priority _ = 22
 
-  (* Fill color style with scheme support *)
   let fill_color_style ?theme color shade =
     if Color.is_custom_color color then
       let css_color = Color.to_css color shade in
@@ -78,7 +72,6 @@ module Handler = struct
       let decls, color = Color.bound ?theme color_var color_value in
       style (decls @ [ Css.fill (Css.Color color) ])
 
-  (* Stroke color style with scheme support *)
   let stroke_color_style ?theme color shade =
     if Color.is_custom_color color then
       let css_color = Color.to_css color shade in
@@ -93,28 +86,24 @@ module Handler = struct
       let decls, color = Color.bound ?theme color_var color_value in
       style (decls @ [ Css.stroke (Css.Color color) ])
 
-  (* Bracket color: fill/stroke with a typed Css.color, converting to hex when
-     possible for minified output *)
   let bracket_color_style ~theme ~property css_color =
     Color.bracket_color_style ~theme
       ~property:(fun color -> property (Css.Color color : Css.svg_paint))
       css_color
 
-  (* Bracket var: fill/stroke "var(--my-color)" *)
   let bracket_var_style ~property ~merge_key v =
     let bare_name = Parse.extract_var_name v in
     style ~merge_key
       [ property (Css.Color (Css.Var (Var.bracket bare_name)) : Css.svg_paint) ]
 
-  (* Bracket colour with opacity. The paint the modifier applies to is the
-     colour the bracket was parsed into: reading the bracket text back as a hex
-     answered black for every colour with no hex spelling. *)
+  (* The opacity modifier applies to the colour the bracket parsed into, not to
+     the bracket text read back as a hex: most colours have no hex spelling. *)
   let bracket_color_opacity_style ~theme ~property css_color opacity =
     Color.bracket_color_opacity_style ~theme
       ~property:(fun c -> property (Css.Color c : Css.svg_paint))
       css_color opacity
 
-  (* Bracket var with opacity: var fallback + @supports color-mix *)
+  (* A var() fallback, then the color-mix() under @supports. *)
   let bracket_var_opacity_style ~property ~merge_key v opacity =
     let bare_name = Parse.extract_var_name v in
     let var_color : Css.color = Css.Var (Var.bracket bare_name) in
@@ -206,9 +195,8 @@ module Handler = struct
     if Color.is_shadeless color then Color.color_to_string color
     else Color.color_to_string color ^ "-" ^ string_of_int shade
 
-  (* Suborder: determines ordering within the svg priority group. Three groups:
-     fill (0), stroke-color (1), stroke-width (2). Within each group, bracket
-     values sort first, then alphabetically. *)
+  (* Three groups, fill (0), stroke-color (1) and stroke-width (2); inside each,
+     bracket values sort first, then alphabetically. *)
   let suborder t =
     let group, detail =
       match t with
@@ -305,11 +293,8 @@ module Handler = struct
     | Stroke_width_typed_var v -> "stroke-[" ^ v ^ "]"
     | Stroke_width_raw (v, _) -> "stroke-[" ^ v ^ "]"
 
-  let has_opacity s = String.contains s '/'
   let starts prefix s = String.starts_with ~prefix s
 
-  (* Parse bracket value for fill/stroke: determine if it's a color or typed
-     var. Returns the variant constructor for the appropriate type. *)
   let parse_bracket_fill ~theme v =
     let base_str, opacity = Color.parse_opacity_modifier ~theme v in
     let base_inner = Parse.bracket_inner base_str in
@@ -331,7 +316,7 @@ module Handler = struct
            still reaches [fill]. An opacity modifier has nothing to mix. *)
         match (opacity, Parse.arbitrary_declaration_value base_inner) with
         | Color.No_opacity, Some raw -> Ok (Fill_bracket_raw (base_inner, raw))
-        | _ -> err_not_utility)
+        | _ -> Utility.unclaimed)
 
   let parse_bracket_stroke_color ~theme v =
     let base_str, opacity = Color.parse_opacity_modifier ~theme v in
@@ -355,12 +340,12 @@ module Handler = struct
            the width reader above, so declining them here keeps one class from
            being claimed twice. *)
         match Parse.data_type_hint base_inner with
-        | Some (("length" | "number" | "percentage"), _) -> err_not_utility
+        | Some (("length" | "number" | "percentage"), _) -> Utility.unclaimed
         | _ -> (
             match (opacity, Parse.arbitrary_declaration_value base_inner) with
             | Color.No_opacity, Some raw ->
                 Ok (Stroke_bracket_raw (base_inner, raw))
-            | _ -> err_not_utility))
+            | _ -> Utility.unclaimed))
 
   (* Parse bracket value for stroke width: [1.5], [12px], [50%], [2em],
      [calc(1rem_+_2px)], [length:var(...)], [number:var(...)],
@@ -388,7 +373,7 @@ module Handler = struct
                    width, forwarded verbatim. *)
                 match Parse.arbitrary_declaration_value inner with
                 | Some raw -> Ok (Stroke_width_raw (inner, raw))
-                | None -> err_not_utility)))
+                | None -> Utility.unclaimed)))
     | None -> (
         match Parse.arbitrary_length inner with
         | Some length -> Ok (Stroke_width_bracket (inner, length))
@@ -399,7 +384,7 @@ module Handler = struct
                compares. *)
             match float_of_string_opt inner with
             | Some f -> Ok (Stroke_width_bracket (inner, Px f))
-            | None -> err_not_utility))
+            | None -> Utility.unclaimed))
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -419,7 +404,7 @@ module Handler = struct
            && Parse.is_bracket_value
                 (fst (Color.parse_opacity_modifier ~theme v)) ->
         parse_bracket_fill ~theme v
-    | "fill" :: color_parts when List.exists has_opacity color_parts -> (
+    | "fill" :: color_parts when List.exists Color.has_opacity color_parts -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Fill_color_opacity (color, shade, opacity))
@@ -442,7 +427,6 @@ module Handler = struct
            && v.[0] = '['
            && Parse.is_bracket_value
                 (fst (Color.parse_opacity_modifier ~theme v)) -> (
-        (* Bracket value: could be color or width *)
         let base_str, _ = Color.parse_opacity_modifier ~theme v in
         let base_inner = Parse.bracket_inner base_str in
         (* Every colour spelling CSS knows, not only a [#] hex and a colour
@@ -465,7 +449,8 @@ module Handler = struct
     | [ "stroke"; "2" ] -> Ok Stroke_2
     | [ "stroke"; n ] when Parse.decimal_int n <> None ->
         Ok (Stroke_width (int_of_string n))
-    | "stroke" :: color_parts when List.exists has_opacity color_parts -> (
+    | "stroke" :: color_parts when List.exists Color.has_opacity color_parts
+      -> (
         match Color.shade_and_opacity_of_strings ~theme color_parts with
         | Ok (color, shade, opacity) ->
             Ok (Stroke_color_opacity (color, shade, opacity))
@@ -474,7 +459,7 @@ module Handler = struct
         match Color.shade_of_strings ~theme color_parts with
         | Ok (color, shade) -> Ok (Stroke_color (color, shade))
         | Error e -> Error e)
-    | _ -> err_not_utility
+    | _ -> Utility.unclaimed
 
   let examples = [ Fill_none; Stroke_none; Stroke_0 ]
 end

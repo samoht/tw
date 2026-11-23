@@ -1,5 +1,3 @@
-(** Clipping utilities *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -15,8 +13,6 @@ module Handler = struct
   let name = "clipping"
   let priority _ = 28
 
-  (** Convert float percentage pairs to typed length pairs for clip-path polygon
-  *)
   let points_to_lengths points : (Css.length * Css.length) list =
     List.map
       (fun (x, y) ->
@@ -49,7 +45,7 @@ module Handler = struct
 
   let to_style _theme = function Clip_polygon points -> clip_polygon' points
   let suborder = function Clip_polygon _ -> 0
-  let of_class _theme _class_name = Error (`Msg "Not a clipping utility")
+  let of_class _theme _class_name = Utility.unclaimed
   let examples = [ Clip_polygon [] ]
 end
 

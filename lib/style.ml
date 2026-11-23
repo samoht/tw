@@ -1,9 +1,5 @@
-(** Core types and helpers for Tailwind CSS DSL *)
-
 module Css = Cascade.Css
 
-(** Render a CSS length in compact form (no spaces in calc operators) for class
-    names. *)
 let format_float f =
   if Float.is_integer f then Int.to_string (Float.to_int f)
   else Float.to_string f
@@ -58,7 +54,6 @@ type container_query =
   | Container_6xl
   | Container_7xl
   | Container_theme of string
-      (** A size the project's [@theme] declared as [--container-<name>]. *)
   | Container_named of string * int
   | Container_size of container_cmp * container_query
   | Container_len of string * Css.length
@@ -257,68 +252,32 @@ type modifier =
   | Max_custom of string
   | Group_arbitrary of string
   | Peer_arbitrary of string
-  | Hocus  (** [:hover, :focus] compound selector (no media query) *)
-  | Device_hocus  (** [:hover, :focus] compound + [@media (hover: hover)] *)
+  | Hocus
+  | Device_hocus
   | Not_bracket of string
-      (** [not-[...]] bracket patterns — stores raw bracket content *)
   | In_bracket of string
-      (** [in-[...]] ancestor patterns — element must be descendant of selector
-      *)
   | In_data of string
-      (** [in-data-X] — element must be descendant of [data-X] *)
   | In_state of modifier * string
-      (** [in-focus] — element must be a descendant of one in that state; the
-          string is the state name, for the class *)
   | Group_not of modifier * string option
-      (** [group-not-X/name] — inner modifier + optional group name *)
   | Peer_not of modifier * string option
-      (** [peer-not-X/name] — inner modifier + optional peer name *)
   | Data_bracket of string
-      (** [data-[expr]] — full CSS attribute expression, e.g. "foo$=bar_baz_i"
-      *)
   | Group_data of string * string option
-      (** [group-data-[expr]/name] — group data variant with optional name *)
   | Peer_data of string * string option
-      (** [peer-data-[expr]/name] — peer data variant with optional name *)
   | Aria_bracket of string
-      (** [aria-[expr]] — arbitrary aria attribute, e.g. "modal", "valuenow=1"
-      *)
+  | Aria of string
   | Group_aria of string * string option
-      (** [group-aria-X/name] — group aria variant with optional name *)
   | Peer_aria of string * string option
-      (** [peer-aria-X/name] — peer aria variant with optional name *)
   | Named_group of modifier * string
-      (** [group-X/name] — a state variant on a named group *)
   | Named_peer of modifier * string
-      (** [peer-X/name] — a state variant on a named peer *)
   | Not_named_group of modifier * string
-      (** [not-group-X/name] — negate named group variant *)
   | Has_named_group of modifier * string
-      (** [has-group-X/name] — has named group variant *)
   | In_named_group of modifier * string
-      (** [in-group-X/name] — descendant of named group variant *)
   | Group_peer_named of modifier * string
-      (** [group-peer-X/name] — peer-X within named group *)
   | Arbitrary_selector of string
-      (** [[&_p]] — arbitrary selector variant, [&] is replaced by the element's
-          own class selector *)
   | At_rule of string
-      (** [[@supports(...)]] / [[@starting-style]] — an at-rule in brackets,
-          kept as written so the class name round-trips *)
   | Custom_variant of string * string
-      (** [is-data-foo:] — a [matchVariant]-registered variant. First field is
-          the class-name token (e.g. [is-data-foo]); second is the resolved
-          selector template with the value substituted (e.g.
-          [&:is([data-foo])]), where [&] is the element's own class. *)
   | Container_style of string * Css.Container.t
-      (** [has-a:] — a [@custom-variant]-registered variant whose body is a
-          container query (e.g. [@container style(--a)]). First field is the
-          class-name token; second is the structural container condition (so the
-          [not-] prefix can negate it soundly, including double-negation). *)
   | Prose_element of string
-      (** [prose-X:] — prose element variant, wraps utility in a descendant
-          selector targeting specific HTML elements within prose content. E.g.
-          [prose-headings:text-white] targets h1-h6,th inside prose. *)
 
 let equal_modifier (a : modifier) b = a = b
 
@@ -343,7 +302,6 @@ type scale = [ spacing | size | `Screen | `Min | `Max | `Fit ]
 type max_scale = [ scale | `Xl_4 | `Xl_5 | `Xl_6 | `Xl_7 ]
 type shadow = [ size | `Inner ]
 
-(* Helper to create a style *)
 let style ?(rules = None) ?(property_rules = Css.empty) ?(metadata = [])
     ?merge_key ?pseudo_suffix props =
   let declaration_metadata =
@@ -471,8 +429,6 @@ let rec container_size_name = function
       container_cmp_prefix cmp ^ "[" ^ raw ^ "]"
   | Container_scoped (name, inner) -> container_size_name inner ^ "/" ^ name
 
-(* Convert modifier to string prefix *)
-(* Map of simple state names to base modifiers for compound variant parsing *)
 let group_state_modifiers =
   [
     ("hover", Hover);
@@ -512,8 +468,6 @@ let group_state_modifiers =
     ("only-of-type", Only_of_type);
   ]
 
-(* Valid has-shorthand names. These are stored as-is (without : prefix) so they
-   remain distinct from bracket forms like has-[:checked]. *)
 (* [has-data-lg] matches an attribute rather than a state, but spells itself the
    same way, so it is a shorthand too. *)
 let is_data_attr_name name =
@@ -527,6 +481,8 @@ let is_data_attr_name name =
          || c = '-' || c = '_')
        (String.sub name 5 (String.length name - 5))
 
+(* A has-shorthand name is stored bare (no [:]), apart from the bracket forms
+   such as has-[:checked]. *)
 let is_has_shorthand name =
   name = "hocus"
   || List.mem_assoc name group_state_modifiers
@@ -743,12 +699,8 @@ let rec pp_modifier = function
   | In_bracket content -> "in-[" ^ content ^ "]"
   | In_data attr -> "in-data-" ^ attr
   | In_state (_, name) -> "in-" ^ name
-  | Group_not (inner, None) -> "group-not-" ^ pp_modifier inner
-  | Group_not (inner, Some name) ->
-      String.concat "" [ "group-not-"; pp_modifier inner; "/"; name ]
-  | Peer_not (inner, None) -> "peer-not-" ^ pp_modifier inner
-  | Peer_not (inner, Some name) ->
-      String.concat "" [ "peer-not-"; pp_modifier inner; "/"; name ]
+  | Group_not (inner, name) -> pp_scoped_not "group" inner name
+  | Peer_not (inner, name) -> pp_scoped_not "peer" inner name
   | Data_bracket expr -> "data-[" ^ expr ^ "]"
   (* The spelling as written: [[dragging]] for the bracket form, [dragging] for
      the bare shorthand. Both mean the same attribute, but the class names
@@ -760,6 +712,7 @@ let rec pp_modifier = function
   | Peer_data (spelling, Some name) ->
       String.concat "" [ "peer-data-"; spelling; "/"; name ]
   | Aria_bracket expr -> "aria-[" ^ expr ^ "]"
+  | Aria name -> "aria-" ^ name
   | Group_aria (expr, None) -> "group-aria-" ^ expr
   | Group_aria (expr, Some name) ->
       String.concat "" [ "group-aria-"; expr; "/"; name ]
@@ -782,6 +735,17 @@ let rec pp_modifier = function
   | Custom_variant (token, _) -> token
   | Container_style (token, _) -> token
   | Prose_element name -> "prose-" ^ name
+
+(* A scoped negation holds a bracket as the selector it negates, so the bracket
+   is spelled [[...]]: [group-not-[.foo]], not [group-not-not-[.foo]]. *)
+and pp_scoped_not marker inner name =
+  let inner =
+    match inner with
+    | Not_bracket content -> "[" ^ content ^ "]"
+    | m -> pp_modifier m
+  in
+  let name = match name with None -> "" | Some n -> "/" ^ n in
+  String.concat "" [ marker; "-not-"; inner; name ]
 
 let rec pp = function
   | Style { props; _ } ->

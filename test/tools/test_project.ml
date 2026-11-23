@@ -18,7 +18,7 @@ let compiled_with ?(base = false) ?(classes = []) ~import name body =
       (* The theme is the one the entrypoint asks for, as the CLI builds it: an
          option on the import is part of what is being compiled. *)
       let theme =
-        Tw_tools.Entrypoint.theme_of_css (Tw_tools.Entrypoint.read_file path)
+        Tw_tools.Entry_theme.of_css (Tw_tools.Entrypoint.read_file path)
       in
       let _, sheet =
         Tw_tools.Project.stylesheet ~theme ~entrypoint:path ~base classes
@@ -49,6 +49,16 @@ let test_source_inline () =
     ~present:[ ".underline{"; ".hover\\:bg-red-500:hover{" ]
     ~absent:[]
 
+(* An entrypoint saved with CR LF line ends compiles as the LF one does: CSS
+   Syntax 3 section 3.3 turns CR LF, a lone CR and FF into LF before the stream
+   is read, so no directive reader ever sees the CR. *)
+let test_crlf_entrypoint () =
+  check_rules
+    (compiled "crlf"
+       "@source inline(\"underline\");\r\n.card {\r\n  @apply p-4;\r\n}\r\n")
+    ~present:[ ".underline{"; ".card{padding:calc(var(--spacing)*4)}" ]
+    ~absent:[]
+
 (* A pattern expands the way the bundle's brace expansion does: a comma list,
    the empty alternative included, and a numeric range, stepped or descending.
    Each candidate is expanded on its own. *)
@@ -71,26 +81,28 @@ let test_source_inline_braces () =
       ]
     ~absent:[ ".p-1{"; ".p-3{" ]
 
-(* A range whose next step would pass [max_int] or [min_int] ends there rather
-   than wrapping round and counting on for ever; the alarm turns a range that
-   never ends into a failure instead of a hung suite. *)
-let test_source_inline_braces_at_int_limits () =
+(* [f ()], failed rather than left to hang when it runs past two seconds.
+   SIGALRM is POSIX: where the platform has none, [f] runs unguarded. *)
+let within_two_seconds ~why f =
   let exception Timeout in
-  let previous =
-    Sys.signal Sys.sigalrm (Sys.Signal_handle (fun _ -> raise Timeout))
-  in
-  ignore (Unix.alarm 2);
+  match Sys.signal Sys.sigalrm (Sys.Signal_handle (fun _ -> raise Timeout)) with
+  | exception Invalid_argument _ -> f ()
+  | previous ->
+      ignore (Unix.alarm 2);
+      Fun.protect
+        ~finally:(fun () ->
+          ignore (Unix.alarm 0);
+          Sys.set_signal Sys.sigalrm previous)
+        (fun () -> try f () with Timeout -> fail why)
+
+(* A range whose next step would pass [max_int] or [min_int] ends there rather
+   than wrapping round and counting on for ever. *)
+let test_source_inline_braces_at_int_limits () =
   let css =
-    Fun.protect
-      ~finally:(fun () ->
-        ignore (Unix.alarm 0);
-        Sys.set_signal Sys.sigalrm previous)
-      (fun () ->
-        try
-          compiled "brace-limits"
-            "@source inline(\"z-{4611686018427387902..4611686018427387903} \
-             -z{-4611686018427387903..-4611686018427387904}\");\n"
-        with Timeout -> fail "the range never ends")
+    within_two_seconds ~why:"the range never ends" (fun () ->
+        compiled "brace-limits"
+          "@source inline(\"z-{4611686018427387902..4611686018427387903} \
+           -z{-4611686018427387903..-4611686018427387904}\");\n")
   in
   check_rules css
     ~present:
@@ -513,9 +525,7 @@ let test_forms_plugin_base () =
 
 (* The forms reset is the plugin's, not preflight's: an entrypoint importing
    Tailwind in parts without [tailwindcss/preflight.css] still gets it from
-   4.3.3, in [@layer base] and with no preflight beside it. tw built the reset
-   into the base layer it writes only with preflight, and placed base content
-   only for a preflight import, so the sheet had neither. *)
+   4.3.3, in [@layer base] and with no preflight beside it. *)
 let test_forms_plugin_base_without_preflight () =
   let css =
     compiled_with ~base:true ~classes:[ "p-2" ] "forms-no-preflight"
@@ -536,6 +546,7 @@ let suite =
   ( "project",
     [
       test_case "@source inline" `Quick test_source_inline;
+      test_case "CR LF entrypoint" `Quick test_crlf_entrypoint;
       test_case "@source inline braces" `Quick test_source_inline_braces;
       test_case "@source inline braces at the int limits" `Quick
         test_source_inline_braces_at_int_limits;

@@ -1,6 +1,7 @@
-(** Accessibility utilities
+(** Accessibility utilities.
 
-    https://tailwindcss.com/docs/forced-color-adjust *)
+    See {{:https://tailwindcss.com/docs/forced-color-adjust}forced-color-adjust}
+    in the Tailwind documentation. *)
 
 open Utility
 

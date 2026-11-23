@@ -1,14 +1,16 @@
-(** SVG utilities for fill, stroke, and stroke-width
+(** SVG utilities: fill, stroke and stroke width.
 
-    https://tailwindcss.com/docs/fill https://tailwindcss.com/docs/stroke
-    https://tailwindcss.com/docs/stroke-width *)
+    Tailwind documents them under {{:https://tailwindcss.com/docs/fill}fill},
+    {{:https://tailwindcss.com/docs/stroke}stroke} and
+    {{:https://tailwindcss.com/docs/stroke-width}stroke width}. *)
 
 open Utility
 
 val suborder_ceiling : int
-(** One past every suborder this handler assigns. [object-fit] and
-    [object-position] share its priority and Tailwind emits them after every
-    fill and stroke, so {!Layout} starts their suborders here. *)
+(** [suborder_ceiling] is one past every suborder this handler assigns.
+    [object-fit] and [object-position] share its priority and Tailwind emits
+    them after every fill and stroke, so {!Layout} starts their suborders here.
+*)
 
 module Handler : Utility.Handler
 

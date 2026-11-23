@@ -27,18 +27,16 @@
     upstream does not have is a tw regression test: it goes in the
     [test_<module>.ml] for the behaviour it pins, where it runs by name and the
     next reader of that module finds it. Put one here and the next regeneration
-    drops it with the run still green -- which is how a [supports] block and a
-    container-query block sat here duplicating coverage [test_modifiers.ml] and
-    [test_sort.ml] already had. {!check_generated} counts each fixture's blocks
-    against the banner the extractor wrote, so an addition is reported while it
-    is still there.
+    drops it with the run still green. {!check_generated} counts each fixture's
+    blocks against the banner the extractor wrote, so an addition is reported
+    while it is still there.
 
     CSS whitespace normalisation (parse + re-emit) is already a stretch but
     necessary because the expected CSS comes from JS template literals with
     extra indentation. *)
 
 module Css = Cascade.Css
-module Entrypoint = Tw_tools.Entrypoint
+module Routing = Tw_tools.Routing
 open Cascade_diff
 open Alcotest
 open Upstream_fixture
@@ -47,14 +45,8 @@ open Upstream_fixture
    compatibility minifier on both sides before the diff: colour precision,
    concrete colour-mix folds, redundant vendor prefixes, and a static math
    function that reduces to one number. None of those is a generator choice.
-   Nothing else is tolerated: the diff a case reports is the diff it fails on.
-   (A [--font-sans] / [--tw-prose-*] custom-property allowance, a
-   [--text-*--line-height] allowance, a mask-angle calc allowance, an [@property
-   --spacing] hint, a prose selector-permutation allowance and the hard-coded
-   stale-colour allowlist were all dropped, once tw honoured theme line-height
-   overrides, emitted Tailwind's exact mask degrees, cascade gained typed calc +
-   the custom-property prune, and the colour normalisation above replaced the
-   allowlist.) *)
+   Nothing else is tolerated: the diff a case reports is the diff it fails
+   on. *)
 
 (** The scheme fields a fixture's own [@theme] declarations set.
 
@@ -529,10 +521,8 @@ let test_scheme_from_declared_tokens_only () =
 
 (* Guards [theme_resolution]: what gets inlined before the diff is decided by
    the case's [@config] and its own declarations, not by the names the expected
-   CSS happens to spell. The keep-set used to be every [--name] in the expected
-   bytes, so a reference tw emitted where Tailwind emitted a literal was inlined
-   off tw's side first and the case could not fail -- the one behaviour the
-   [Var] system exists to get right, never compared. *)
+   CSS happens to spell, so a reference tw emits where Tailwind emits a literal
+   is not inlined off tw's side and the case can fail. *)
 let test_reference_survives_theme_resolution () =
   let stylesheet =
     match
@@ -542,8 +532,7 @@ let test_reference_survives_theme_resolution () =
     | Ok { stylesheet; _ } -> stylesheet
     | Error _ -> Alcotest.fail "the fixture stylesheet does not parse"
   in
-  (* An expected CSS that spells no variable at all: under the old keep-set
-     every reference was inlined away. *)
+  (* An expected CSS that spells no variable at all. *)
   let rendered ~declared =
     Css.to_string ~minify:true (theme_resolution ~declared Theme "" stylesheet)
   in
@@ -563,8 +552,7 @@ let test_reference_survives_theme_resolution () =
    property's grammar refuses is what a browser drops too and is let through on
    either side; a rule lost on either side is reported.
 
-   The same drop on tw's side used to be a defect, on the premise that tw only
-   ever writes typed values. The token-stream contract overtakes that premise: a
+   Under the token-stream contract the same drop on tw's side is no defect: a
    bracket no reader took reaches the sheet verbatim because Tailwind puts it
    there, so tw writes such a value deliberately. *)
 let test_dropped_declarations_are_reported () =
@@ -611,13 +599,12 @@ let theme_overrides_of ~declared config expected =
   | No_theme -> []
 
 (* Parity accounting, accumulated across every upstream case and printed as a
-   report after the run. The old runner dropped classes [Tw.of_string] rejected
-   with [filter_map ... -> None], so a class tw cannot parse left no trace.
-   These counters make rejection explicit. A rejection is harmless when the
-   case's CSS still matches (Tailwind also emits nothing for that class -- many
-   upstream cases bundle negative tests, e.g. [animate-not-found], with valid
-   classes); a rejection that breaks parity already fails the CSS diff below,
-   and that failure now names the rejected classes. *)
+   report after the run, so a class tw cannot parse leaves a trace. A rejection
+   is harmless when the case's CSS still matches (Tailwind also emits nothing
+   for that class -- many upstream cases bundle negative tests, e.g.
+   [animate-not-found], with valid classes); a rejection that breaks parity
+   already fails the CSS diff below, and that failure names the rejected
+   classes. *)
 let stat_total_classes = ref 0
 let stat_parsed = ref 0
 let stat_rejected = ref 0
@@ -684,7 +671,7 @@ let run_test_case test expected () =
       }
     in
     (* Thread the @theme token overrides into the scheme so utilities read them
-       from ~theme (parse and render); the Var global is no longer consulted. *)
+       from ~theme (parse and render). *)
     let declared = List.map fst test.theme_vars in
     let scheme =
       (* [theme_overrides_of] reads the values of the test's own [@theme] tokens
@@ -715,14 +702,14 @@ let run_test_case test expected () =
     let resolve_theme = theme_resolution ~declared test.config expected in
     (* A class the case's own [@utility] declares means nothing to
        [Tw.of_string]: the declaration is CSS, and it reaches the sheet the way
-       a project entrypoint's does, through [Entrypoint]. The rest of the case
+       a project entrypoint's does, through [Routing]. The rest of the case
        still compiles class by class, so the two sets are generated separately
        and sorted together by [~extra]. With no declarations the partition is
        empty and this is the plain per-class path. *)
     let udefs = test.utility_defs in
     let routed, direct =
       List.partition
-        (Entrypoint.is_custom_routed ~theme:scheme ~defs:[] ~udefs)
+        (Routing.is_custom_routed ~theme:scheme ~defs:[] ~udefs)
         test.classes
     in
     let parsed, rejected =
@@ -737,8 +724,7 @@ let run_test_case test expected () =
     let rejected = List.rev rejected in
     let routed_count, routed_extra, routed_stmts =
       if routed = [] then (0, [], [])
-      else
-        Entrypoint.custom_routed_utilities ~theme:scheme ~defs:[] ~udefs routed
+      else Routing.custom_routed_utilities ~theme:scheme ~defs:[] ~udefs routed
     in
     stat_total_classes := !stat_total_classes + List.length test.classes;
     stat_parsed := !stat_parsed + List.length utilities;
@@ -750,7 +736,7 @@ let run_test_case test expected () =
       else
         let layers = Option.is_some test.layer_wrap in
         let sheet =
-          Entrypoint.place_routed routed_stmts
+          Routing.place_routed routed_stmts
             (Tw.to_css ~theme:scheme ~base:false ~layers ~extra:routed_extra
                utilities)
         in
@@ -949,7 +935,7 @@ let test_reader_rejects_a_stray_line () =
         <<<>>>\n")
   in
   match read path with
-  | exception _ -> ()
+  | exception Malformed _ -> ()
   | cases ->
       Alcotest.failf "read %d cases instead of rejecting the stray line"
         (List.length cases)
@@ -1044,7 +1030,7 @@ let print_parity_report () =
   Fmt.epr "cases with empty expected CSS: %d@." !stat_expected_empty_cases;
   Fmt.epr
     "(a routed class is one the case's own @utility declares, compiled through \
-     Entrypoint rather than of_string)@.";
+     Routing rather than of_string)@.";
   Fmt.epr
     "(a rejection is harmless when the case's CSS still matches; one that \
      breaks parity fails the CSS diff and names the rejected classes)@.";
@@ -1055,10 +1041,9 @@ let print_parity_report () =
    cases catches the other way this gate can go quiet: a fixture whose format
    drifts still parses, just into far fewer cases than it holds.
 
-   Set near the real counts rather than at half. Half (300 and 80) let a fixture
-   lose most of itself and still pass, which is the drift the floor is for; a
-   regenerated corpus that legitimately shrinks past these wants a human to look
-   and move the number. Counts on 2026-08-29: 696 utilities, 166 variants. *)
+   Set near the real counts (696 utilities, 166 variants), so a fixture cannot
+   lose most of itself and still pass; a regenerated corpus that legitimately
+   shrinks past these wants a human to look and move the number. *)
 let utilities_floor = 620
 let variants_floor = 150
 

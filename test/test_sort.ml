@@ -2,20 +2,7 @@ module Css = Cascade.Css
 open Alcotest
 open Tw.Color
 open Tw.Backgrounds
-open Tw.Padding
 
-(* OCaml 4.14 compat *)
-let index f lst =
-  let rec go i = function
-    | [] -> None
-    | x :: _ when f x -> Some i
-    | _ :: rest -> go (i + 1) rest
-  in
-  go 0 lst
-
-(* ===== Tests ===== *)
-
-(* Short, reusable helper *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
   let sheet =
     Tw.Build.to_css
@@ -70,8 +57,6 @@ let extract_utility_selectors sheet =
           extract_bg_color_name (Css.Selector.to_string sel)))
   |> Option.value ~default:[]
 
-(* New tests for exposed functions *)
-
 let test_color_order () =
   check int "amber utilities order" 2
     (let _, order = Tw.Color.utilities_order "amber" in
@@ -125,177 +110,12 @@ let test_deterministic_ordering () =
   | first :: rest ->
       List.iter (fun css -> check string "deterministic output" first css) rest
 
-let test_cascade_order_violation () =
-  (* CSS cascade rule: when selectors have equal specificity, the last one in
-     source order wins. Sorting breaks this! *)
-
-  (* Example 1: User intentionally puts p-2 after p-4 to override *)
-  let user_intent = [ p 4; p 2 ] in
-  (* User wants p-2 to win *)
-
-  (* Extract the rules and convert to pairs *)
-  let rules = user_intent |> List.concat_map Tw.Rule.outputs in
-
-  (* Get selector strings from the rules *)
-  let selectors =
-    List.map
-      (fun rule ->
-        match rule with
-        | Tw.Output.Regular { selector; _ } -> Css.Selector.to_string selector
-        | _ -> "")
-      rules
-  in
-
-  Fmt.pr "@.=== CSS Cascade Order Violation Test ===@.";
-  Fmt.pr "User wrote: [ p 4; p 2 ] (expecting p-2 to override p-4)@.";
-  Fmt.pr "Extracted selectors: %a@."
-    (Fmt.list ~sep:(Fmt.any ", ") Fmt.string)
-    selectors;
-
-  (* Find the p-4 and p-2 selectors *)
-  let is_p4 sel = sel = ".p-4" in
-  let is_p2 sel = sel = ".p-2" in
-
-  let index f lst =
-    let rec go i = function
-      | [] -> None
-      | x :: _ when f x -> Some i
-      | _ :: rest -> go (i + 1) rest
-    in
-    go 0 lst
-  in
-  let p4_idx = index is_p4 selectors in
-  let p2_idx = index is_p2 selectors in
-
-  match (p4_idx, p2_idx) with
-  | Some i, Some j when i > j ->
-      Alcotest.fail
-        "CASCADE VIOLATION: p-4 comes after p-2, but user specified p-2 AFTER \
-         p-4!"
-  | Some i, Some j ->
-      Fmt.pr "Correct order preserved: p-4 at index %d, p-2 at index %d@." i j
-  | _ -> Alcotest.fail "Could not find both p-4 and p-2 selectors in output"
-
-let test_cascade_prose_separation () =
-  (* Test showing how sorting breaks intentional separation of .prose rules *)
-
-  (* Extract prose rules to see their structure *)
-  let rules = Tw.Rule.outputs Tw.Prose.prose in
-  let pairs = Tw.Build.selector_props_pairs rules in
-
-  Fmt.pr "@.=== Prose Rule Separation Test ===@.";
-  Fmt.pr "Prose generates %d rules total@." (List.length pairs);
-
-  (* Count how many .prose rules there are *)
-  let prose_rules =
-    List.filter (fun (sel, _, _) -> Css.Selector.to_string sel = ".prose") pairs
-  in
-
-  Fmt.pr "Found %d rules with selector .prose@." (List.length prose_rules);
-
-  (* Apply of_grouped to see what happens *)
-  let sorted_output = Tw.Build.of_grouped pairs in
-
-  (* Find .prose rules in sorted output *)
-  let sorted_prose_indices =
-    List.mapi
-      (fun i stmt ->
-        match Css.statement_selector stmt with
-        | Some sel when Css.Selector.to_string sel = ".prose" -> Some i
-        | _ -> None)
-      sorted_output
-    |> List.filter_map Fun.id
-  in
-
-  Fmt.pr "After of_grouped: .prose rules at indices %a@."
-    (Fmt.list ~sep:(Fmt.any ", ") Fmt.int)
-    sorted_prose_indices;
-
-  (* Check if prose rules became adjacent *)
-  match sorted_prose_indices with
-  | i :: j :: _ when j = i + 1 ->
-      Fmt.pr "WARNING: .prose rules are now ADJACENT (indices %d and %d)!@." i j;
-      Fmt.pr
-        "This means the optimizer will merge them, breaking the intended \
-         separation.@."
-  | _ -> Fmt.pr "Prose rules remain separated in output@."
-
+(* Tailwind orders two classes setting the same property by name, so bg-blue-500
+   precedes bg-red-500 whatever order they were written in. *)
 let test_cascade_color_override () =
-  (* Real-world example: user wants to override a color *)
-  let styles =
-    [
-      bg blue;
-      (* Initial color *)
-      text white;
-      (* Some other styles *)
-      bg red;
-      (* Override the background to red *)
-    ]
-  in
+  Test_helpers.check_ordering_matches ~test_name:"background colour override"
+    Tw.[ bg blue; text white; bg red ]
 
-  (* Extract rules *)
-  let rules = styles |> List.concat_map Tw.Rule.outputs in
-  let pairs = Tw.Build.selector_props_pairs rules in
-
-  Fmt.pr "@.=== Color Override Cascade Test ===@.";
-  Fmt.pr "User intent: bg-blue-500, text-white, bg-red-500 (red should win)@.";
-  Fmt.pr "Original pairs: %d rules@." (List.length pairs);
-
-  (* Check original order *)
-  let original_selectors = List.map (fun (sel, _, _) -> sel) pairs in
-  let orig_blue_idx =
-    let rec go i = function
-      | [] -> None
-      | sel :: _ when Css.Selector.to_string sel = ".bg-blue-500" -> Some i
-      | _ :: rest -> go (i + 1) rest
-    in
-    go 0 original_selectors
-  in
-  let orig_red_idx =
-    let rec go i = function
-      | [] -> None
-      | sel :: _ when Css.Selector.to_string sel = ".bg-red-500" -> Some i
-      | _ :: rest -> go (i + 1) rest
-    in
-    go 0 original_selectors
-  in
-
-  (match (orig_blue_idx, orig_red_idx) with
-  | Some bi, Some ri ->
-      Fmt.pr "Original order: blue at %d, red at %d (correct)@." bi ri
-  | _ -> Fmt.pr "Could not find both colors in original@.");
-
-  (* Apply of_grouped to see if order changes *)
-  let sorted_output = Tw.Build.of_grouped pairs in
-  let sorted_selectors =
-    List.map
-      (fun stmt ->
-        match Css.statement_selector stmt with
-        | Some sel -> Css.Selector.to_string sel
-        | None -> "")
-      sorted_output
-  in
-
-  let sorted_blue_idx =
-    index (fun sel -> sel = ".bg-blue-500") sorted_selectors
-  in
-  let sorted_red_idx =
-    index (fun sel -> sel = ".bg-red-500") sorted_selectors
-  in
-
-  match (sorted_blue_idx, sorted_red_idx) with
-  | Some bi, Some ri when bi > ri ->
-      Fmt.pr
-        "CASCADE VIOLATION: After sorting, bg-blue-500 (%d) comes AFTER \
-         bg-red-500 (%d)!@."
-        bi ri;
-      Fmt.pr "This breaks the user's intention - red should override blue!@.";
-      Alcotest.fail "Sorting reversed cascade order"
-  | Some bi, Some ri ->
-      Fmt.pr "After sorting: blue at %d, red at %d (order preserved)@." bi ri
-  | _ -> Fmt.pr "Could not find both colors in sorted output@."
-
-(* Test typography utilities come before color utilities *)
 let test_typography_before_color () =
   let open Tw in
   (* Text alignment, size, and weight should come before text color *)
@@ -327,11 +147,10 @@ let test_variant_container_breakpoints_stay_with_container () =
     ~test_name:"lg:container's breakpoints before lg:max-w-md"
     [ lg [ max_w_md ]; lg [ container ] ]
 
-(* Test gap utilities come before self-alignment utilities *)
 let test_gap_before_self_alignment () =
   let open Tw in
-  (* gap-y-4 should come before self-start because gap-y suborders (65000+) are
-     lower than self-* suborders (76000+). Both share priority 17. *)
+  (* gap-y-4 sorts before self-start: they share a priority and the gap-y
+     suborders are the lower. *)
   let utilities =
     [ gap_y 4; self_start; gap_x 2; self_end; gap 8; self_center ]
   in
@@ -341,13 +160,13 @@ let test_gap_before_self_alignment () =
 (* Tailwind's property table sorts letter-spacing, text-wrap, overflow-wrap,
    hyphens and white-space in that order (289, 290, 291, 294, 295): tracking
    opens the late-typography band, text-wrap and the word-wrapping families come
-   next, and white-space is last of the five. [wrap-break-word] lives in
-   [Overflow_wrap]'s own handler, a separate priority band from
-   [Typography_late]'s default 26 - both have to land between tracking and
-   whitespace for this to hold. None of these utilities write on a shared
-   property, so [check_ordering_matches]'s canonical diff would call any reorder
-   among them cascade-neutral and miss it; [check_class_order] reads sheet
-   positions directly instead. *)
+   next, and white-space is last of the five. Tracking, text-wrap, hyphens and
+   white-space live in [Letter_spacing] and [Line_breaking], [wrap-break-word]
+   in [Overflow_wrap]: three handlers sharing priority 26, and all of them have
+   to land between tracking and whitespace for this to hold. None of these
+   utilities write on a shared property, so [check_ordering_matches]'s canonical
+   diff would call any reorder among them cascade-neutral and miss it;
+   [check_class_order] reads sheet positions directly instead. *)
 let test_late_typography_before_whitespace () =
   Test_helpers.check_class_order
     ~test_name:"text-wrap, wrap-break-word, hyphens before white-space"
@@ -362,19 +181,16 @@ let test_late_typography_before_whitespace () =
 
 (* Tailwind orders container variants as it orders breakpoints: every [@max-*]
    block first, widest first, then the [@min-*] blocks narrowest first, so
-   [@max-lg] sits before [@sm] and [@lg]. tw wrote the [@lg] block before
-   [@max-lg], and the canonical differ reads the two as moved once it equates
-   [not (width >= X)] with [(width < X)], which it does since cascade #1250.
-   [@max-lg] and [@lg] are disjoint, and [@max-lg] and [@sm] are not, so the
-   order is what an element carrying both computes under. *)
+   [@max-lg] sits before [@sm] and [@lg]. [@max-lg] and [@lg] are disjoint, and
+   [@max-lg] and [@sm] are not, so the order is what an element carrying both
+   computes under. *)
 let test_container_max_before_min () =
   Test_helpers.check_class_order
     ~test_name:"@max-* container variants before @min-*"
     [ "@lg:flex"; "@sm:block"; "@max-sm:inline"; "@max-lg:hidden" ];
-  (* The pair alone sorted the other way round: the comparator projected a
-     container width onto the breakpoint order through the range feature only,
-     and the compact [Min_width_rem] the parser builds for a bare width had no
-     key, so the two fell through to a tier that put [@lg] first. *)
+  (* The pair alone too: the compact [Min_width_rem] the parser builds for a
+     bare width takes its place in the breakpoint order like the range
+     feature. *)
   Test_helpers.check_class_order ~test_name:"@max-lg before @lg on their own"
     [ "@lg:flex"; "@max-lg:hidden" ];
   Test_helpers.check_class_order ~test_name:"@max-lg before @sm on their own"
@@ -813,10 +629,9 @@ let test_declared_breakpoint_sorts_with_the_scale () =
     "the declared breakpoint sits between the upper bounds and sm" classes
     actual
 
-(* Test 1: Verify priority order - one utility per group *)
+(* One utility drawn from each priority group. *)
 let test_priority_order_per_group () =
   let open Tw in
-  (* Define pools of utilities for each priority group *)
   let position_utils = [ static; fixed; absolute; relative; sticky ] in
   let transform_utils = [ scale 105; rotate 45; scale 110 ] in
   let margin_utils = List.init 10 (fun i -> m i) in
@@ -844,52 +659,33 @@ let test_priority_order_per_group () =
   let utilities =
     [
       pick_random position_utils;
-      (* position: priority 0 *)
       pick_random margin_utils;
-      (* margin: priority 2 *)
       pick_random prose_utils;
-      (* prose: priority 3 *)
       pick_random layout_utils;
-      (* layout: priority 4 *)
       pick_random flex_utils;
-      (* flex: priority 4 *)
       pick_random grid_utils;
-      (* grid: priority 4 *)
       pick_random sizing_utils;
-      (* sizing: priority 6 *)
       pick_random cursor_utils;
-      (* cursor: priority 7 *)
       pick_random grid_template_utils;
-      (* grid_template: priority 8 *)
       pick_random alignment_utils;
-      (* alignment: priority 9 *)
       pick_random gap_utils;
-      (* gap: priority 10 *)
       pick_random border_utils;
-      (* borders: priority 11 *)
       pick_random transform_utils;
-      (* transforms: priority 6 *)
       pick_random animation_utils;
-      (* animations: priority 7 *)
       pick_random bg_utils;
-      (* backgrounds: priority 12 *)
       pick_random padding_utils;
-      (* padding: priority 13 *)
       pick_random typography_utils;
-      (* typography: priority 14 *)
       pick_random effect_utils;
-      (* effects: priority 15 *)
       pick_random filter_utils;
-      (* filters: priority 60 *)
     ]
   in
   Test_helpers.check_ordering_matches
     ~test_name:"priority order matches Tailwind" utilities
 
-(* Verify utility families emit in Tailwind's canonical order. Priority is now
-   per-variant (visibility, z-index and order live in modules whose other
-   variants sort elsewhere), so this asserts the emitted rule order directly
-   rather than poking module-level priority constants. *)
+(* Utility families emit in Tailwind's canonical order. Priority is per-variant
+   (visibility, z-index and order live in modules whose other variants sort
+   elsewhere), so this asserts the emitted rule order directly rather than
+   module-level priority constants. *)
 let test_handler_priority_ordering () =
   let classes =
     [
@@ -930,7 +726,6 @@ let test_handler_priority_ordering () =
   in
   check_chain classes
 
-(* Test 2: Verify suborder within same group *)
 let test_suborder_within_group () =
   let open Tw in
   let test_groups =
@@ -1121,14 +916,11 @@ let test_suborder_within_group () =
       Test_helpers.check_ordering_matches ~forms ~test_name shuffled)
     test_groups
 
-(* Test 3: Random utilities with minimization.
+(* Random utilities with minimization.
 
    The pool is keyed by the lib/ module that exports its entries, and
    [test_pool_covers_every_family] reads tw.ml's include list back and fails on
-   a module with nothing under it. A hand-written list nothing checks drifts:
-   the one this replaces reached 103 constructors of tw.mli's 1030, and no seed
-   could compile a [hover:] or an [md:] rule at all, modifiers exporting 210
-   constructors the pool never touched. *)
+   a module with nothing under it, so the pool cannot drift from the API. *)
 
 (* An entry is written as the class a user types, which is what the reader takes
    back, so a typo fails inside a test rather than at module initialisation. The
@@ -1173,11 +965,8 @@ let pool_families () =
           "bg-fixed";
           "bg-clip-text";
           "bg-origin-content";
-          "bg-linear-to-r";
-          "from-blue-500";
-          "via-purple-500";
-          "to-pink-500";
         ] );
+    ("blend", c [ "mix-blend-multiply"; "bg-blend-multiply" ]);
     ( "borders",
       c
         [
@@ -1204,6 +993,7 @@ let pool_families () =
           "placeholder-gray-400";
         ] );
     ("columns", c [ "columns-3"; "columns-md"; "columns-auto" ]);
+    ("content", c [ "content-none" ]);
     ("contain", c [ "contain-layout"; "contain-strict"; "contain-content" ]);
     ("containers", c [ "container"; "@container" ]);
     ("cursor", c [ "cursor-pointer"; "cursor-not-allowed"; "cursor-grab" ]);
@@ -1217,18 +1007,7 @@ let pool_families () =
           "divide-x-reverse";
         ] );
     ( "effects",
-      c
-        [
-          "shadow-md";
-          "shadow-none";
-          "opacity-50";
-          "mix-blend-multiply";
-          "bg-blend-multiply";
-          "inset-shadow-sm";
-          "ring-2";
-          "ring-offset-4";
-          "inset-ring-2";
-        ] );
+      c [ "shadow-md"; "shadow-none"; "opacity-50"; "inset-shadow-sm" ] );
     ("field_sizing", c [ "field-sizing-content"; "field-sizing-fixed" ]);
     ( "filters",
       c
@@ -1243,6 +1022,9 @@ let pool_families () =
           "backdrop-saturate-150";
           "drop-shadow-lg";
         ] );
+    ("font_smoothing", c [ "antialiased" ]);
+    ("font_stretch", c [ "font-stretch-condensed" ]);
+    ("font_variant_numeric", c [ "tabular-nums" ]);
     ("flex", c [ "flex"; "inline-flex" ]);
     ( "flex_layout",
       c
@@ -1266,6 +1048,9 @@ let pool_families () =
           "order-first";
         ] );
     ("gap", c [ "gap-4"; "gap-x-2"; "gap-y-8" ]);
+    ( "gradients",
+      c [ "bg-linear-to-r"; "from-blue-500"; "via-purple-500"; "to-pink-500" ]
+    );
     ("grid", c [ "grid"; "inline-grid" ]);
     ( "grid_item",
       c [ "col-span-2"; "row-span-3"; "col-start-2"; "row-end-4"; "col-auto" ]
@@ -1315,6 +1100,10 @@ let pool_families () =
           "sr-only";
           "not-sr-only";
         ] );
+    ("letter_spacing", c [ "tracking-wide" ]);
+    ("line_breaking", c [ "whitespace-nowrap"; "hyphens-auto" ]);
+    ("line_clamp", c [ "line-clamp-3" ]);
+    ("list_style", c [ "list-disc" ]);
     ( "margin",
       c [ "m-4"; "mx-2"; "my-8"; "mt-1"; "mb-6"; "ml-auto"; "-mt-4"; "ms-2" ] );
     ( "mask_gradient",
@@ -1359,6 +1148,7 @@ let pool_families () =
           "start-0";
           "inset-0";
         ] );
+    ("ring", c [ "ring-2"; "ring-offset-4"; "inset-ring-2" ]);
     ("scroll", c [ "scroll-m-4"; "scroll-px-2"; "scroll-mt-8"; "scroll-pb-6" ]);
     ( "scrollbar",
       c
@@ -1391,7 +1181,19 @@ let pool_families () =
         [
           "border-collapse"; "border-spacing-2"; "table-fixed"; "caption-bottom";
         ] );
+    ( "text_decoration",
+      c
+        [
+          "underline";
+          "line-through";
+          "decoration-2";
+          "decoration-sky-400";
+          "underline-offset-4";
+        ] );
+    ("text_indent", c [ "indent-4" ]);
+    ("text_overflow", c [ "text-ellipsis" ]);
     ("text_shadow", c [ "text-shadow-sm"; "text-shadow-lg"; "text-shadow-none" ]);
+    ("text_transform", c [ "uppercase" ]);
     ("touch", c [ "touch-pan-x"; "touch-manipulation"; "touch-none" ]);
     ( "transforms",
       c
@@ -1426,24 +1228,9 @@ let pool_families () =
           "font-bold";
           "font-sans";
           "leading-relaxed";
-          "tracking-wide";
           "italic";
-          "uppercase";
-          "underline";
-          "line-through";
-          "text-ellipsis";
-          "indent-4";
-          "align-middle";
-          "whitespace-nowrap";
-          "list-disc";
-          "line-clamp-3";
-          "antialiased";
-          "tabular-nums";
-          "hyphens-auto";
-          "decoration-2";
-          "decoration-sky-400";
-          "underline-offset-4";
         ] );
+    ("vertical_align", c [ "align-middle" ]);
     ("zoom", c [ "zoom-50"; "zoom-100" ]);
   ]
 
@@ -1600,19 +1387,19 @@ let prefix name u =
    is for, and each is named with why. *)
 type dressing =
   | Any
+  (* Its rules reach past the element they are named for - a descendant, a
+     child, or a pseudo-element of its own - so a pseudo-element variant cannot
+     dress it. [before:divide-x] would have to mean [::before >
+     :not(:last-child)] and tw writes [::before] alone, dropping the child part;
+     [details-content:placeholder-gray-400] puts two pseudo-elements in one
+     compound, which no reader accepts. *)
   | No_pseudo_element
-      (** Its rules reach past the element they are named for - a descendant, a
-          child, or a pseudo-element of its own - so a pseudo-element variant
-          cannot dress it. [before:divide-x] would have to mean
-          [::before > :not(:last-child)] and tw writes [::before] alone,
-          dropping the child part; [details-content:placeholder-gray-400] puts
-          two pseudo-elements in one compound, which no reader accepts. *)
+  (* It emits a companion block - an [@supports] beside the rule, or a nested
+     [@media] - and a variant puts each in a [@media] of its own. Tailwind
+     merges consecutive blocks and cascade does not (CLAUDE.md section 8), so
+     the split reads as a missing declaration rather than as the merge gap it
+     is. *)
   | Bare
-      (** It emits a companion block - an [@supports] beside the rule, or a
-          nested [@media] - and a variant puts each in a [@media] of its own.
-          Tailwind merges consecutive blocks and cascade does not (CLAUDE.md
-          section 8), so the split reads as a missing declaration rather than as
-          the merge gap it is. *)
 
 let dressing_of cls =
   let has prefixes =
@@ -1624,8 +1411,8 @@ let dressing_of cls =
   else Any
 
 (* How much of a draw wears a variant. All of it would compare one media block
-   against another and never a plain rule against one, and none of it is where
-   the pool was. *)
+   against another and never a plain rule against one, and none of it would
+   compare plain rules alone. *)
 let dress rng ~dressing u =
   let alone =
     match dressing with
@@ -1674,19 +1461,17 @@ let sample_size = 30
 let samples = 6
 
 (* An entry the fuzzer draws. [handler] is the registered handler that claims
-   the undressed class, which is the key {!known_inversions} is written in;
-   dressing the utility in a variant does not change it. *)
+   the undressed class; dressing the utility in a variant does not change it. *)
 type entry = {
   utility : Tw.t;
   handler : string;
   forms : bool;
   dressing : dressing;
-  variant : string;  (** the prefixes it was dressed in, [""] undressed *)
+  variant : string; (* the prefixes it was dressed in, [""] undressed *)
 }
 
 (* Which handler a class resolves to. Finer than the lib/ module a family is
-   keyed by: typography answers early or late, borders answers outline_style for
-   its outline utilities. *)
+   keyed by: borders answers outline_style for its outline utilities. *)
 let handler_of cls =
   match Tw.Utility.base_of_class Tw.Scheme.default cls with
   | Ok base -> Some (Tw.Utility.name_of_base base)
@@ -1708,35 +1493,6 @@ let pool_entries () =
         us)
     (pool_families ())
 
-(* Handler pairs tw orders the other way round from Tailwind. [(a, b)] reads:
-   Tailwind emits some a-utility before some b-utility, and tw emits it after.
-   Both directions can hold between one pair of handlers, since a family may
-   straddle two of Tailwind's bands, so each is its own entry.
-
-   This is the ordering debt the whole-sheet gate counts - 299 of 3885
-   statements in test/parity/sheet_order.ml - named rather than counted. Without
-   it the fuzzer fails on nearly every seed for misorderings that predate it;
-   with it a pair outside the list fails a draw.
-   [test_known_inversions_are_exact] measures the set over the whole pool and
-   fails when it grows and when one of these is fixed, so the list can only
-   shrink, and closing a bug is what forces an entry out of it. Both oracles
-   consult it: the byte positions {!Test_helpers.inverted_pairs} reads, and the
-   canonical differ, which reports a reorder of its own whenever the two rules
-   are cascade-significant.
-
-   A pair rather than a family: 18 families explain all 188 entries, and naming
-   the families instead would tolerate every disagreement either of them has,
-   including one against a family that is itself correctly placed. A pair is
-   also a property of the two classes and nothing else - both sheets order their
-   utilities by a key of their own - so it is measurable once and means the same
-   in every draw.
-
-   What a listed pair does not catch is a further inversion between those same
-   two handlers. The handler is as fine as the key gets, and a family spanning
-   two of Tailwind's bands answers one name for both. That is still far finer
-   than a count of statements, which tolerates any 299 of them. *)
-let known_inversions = []
-
 (* Which handler each class in a case belongs to, and which variant it wears.
    The variant matters because two classes wearing different ones are not
    comparable here: a variant changes the sort key by design, and where Tailwind
@@ -1754,11 +1510,11 @@ let case_index cases =
 
 (* Is every change in the differ's tree a reorder of whole rules? The differ
    answers what kind of difference there is; which pairs disagree is
-   {!Test_helpers.inverted_pairs}'s question, and it is the one that can be
-   recorded. Splitting them that way is deliberate: the differ picks which of
-   several rotated rules to call moved from the context it is given, so a pair
-   it names in a three-class draw is not the pair it names over the pool, while
-   two byte positions read the same wherever they are read.
+   {!Test_helpers.inverted_pairs}'s question. Splitting them that way is
+   deliberate: the differ picks which of several rotated rules to call moved
+   from the context it is given, so a pair it names in a three-class draw is not
+   the pair it names over the pool, while two byte positions read the same
+   wherever they are read.
 
    A [Reordered] node with no [swapped_with] is a reorder inside one rule rather
    than of the rules, and is not this. *)
@@ -1783,8 +1539,7 @@ let only_reorders (d : Cascade_diff.Tree_diff.t) =
    predicates that disagree let a fuzzer print a failing case and pass anyway.
    The canonical differ answers what the two sheets declare differently, and the
    pairwise order answers what they emit in a different order, which the differ
-   folds away whenever the two utilities write disjoint properties. Both consult
-   [known_inversions]. *)
+   folds away whenever the two utilities write disjoint properties. *)
 let case_faults cases =
   let utilities = List.map (fun e -> e.utility) cases in
   let forms = List.exists (fun e -> e.forms) cases in
@@ -1796,30 +1551,26 @@ let case_faults cases =
   let unread =
     if dropped = [] then [] else [ Test_helpers.describe_dropped dropped ]
   in
-  let unrecorded =
+  let inverted =
     Test_helpers.inverted_pairs ~tailwind ~tw (List.map Tw.pp utilities)
     |> List.filter_map (fun (a, b) ->
         match (entry a, entry b) with
-        | Some (ha, va), Some (hb, vb)
-          when String.equal va vb && not (List.mem (ha, hb) known_inversions) ->
+        | Some (_, va), Some (_, vb) when String.equal va vb ->
             Fmt.kstr
               (fun m -> Some m)
-              "%s comes before %s in Tailwind and after it in tw. Fix the \
-               order, or record (%S, %S) in [known_inversions] if it is debt \
-               this branch does not close."
-              a b ha hb
+              "%s comes before %s in Tailwind and after it in tw." a b
         | _ -> None)
   in
   let structural =
     match diff.Cascade_diff.Css_compare.result with
     | Cascade_diff.Css_compare.No_diff -> []
-    (* Only order differs, and every pair that disagrees is recorded. *)
-    | Cascade_diff.Css_compare.Tree_diff d
-      when only_reorders d && unrecorded = [] ->
+    (* Only order differs, between classes wearing different variants. *)
+    | Cascade_diff.Css_compare.Tree_diff d when only_reorders d && inverted = []
+      ->
         []
     | _ -> [ Test_helpers.describe_diff diff ]
   in
-  unread @ structural @ unrecorded
+  unread @ structural @ inverted
 
 let test_random_utilities_with_minimization () =
   let entries = pool_entries () in
@@ -1857,10 +1608,9 @@ let test_random_utilities_with_minimization () =
     sample i
   done
 
-(* The set {!known_inversions} records, measured over the whole pool at once.
-   Measured rather than collected from failing seeds: every pair the fuzzer can
-   draw is in this one comparison, so the list describes the debt instead of
-   whichever part of it a seed happened to hit. *)
+(* The handler pairs out of Tailwind's order, measured over the whole pool at
+   once: every pair the fuzzer can draw is in this one comparison, where a seed
+   reaches only the part of it that it draws. *)
 let measured_inversions () =
   let entries = pool_entries () in
   let utilities = List.map (fun e -> e.utility) entries in
@@ -1890,13 +1640,10 @@ let test_mask_type_arbitrary_order () =
    Tailwind's, read off the CLI once and frozen here, so this is tw against a
    recorded answer rather than against itself.
 
-   {b It does not cover suborder}, which was the reason it was written. Measured
-   2026-09-13: disabling the suborder tier of [compare_order] in [lib/sort.ml]
-   leaves this test green, because the order below is settled by priority. The
-   suborder tier is load-bearing — without it the whole-sheet gate reports 418
-   of 3961 statements out of place — but its effect is emergent across the whole
-   sheet and does not reproduce on any small set of classes tried. See the
-   backlog entry on suborder coverage before adding to this. *)
+   {b It does not cover suborder}: the order below is settled by priority, so
+   disabling the suborder tier of [compare_order] in [lib/sort.ml] leaves it
+   green. The suborder tier shows only across the whole sheet, which the
+   whole-sheet gate checks. *)
 let test_family_order_without_the_cli () =
   let classes =
     [
@@ -1931,42 +1678,26 @@ let test_family_order_without_the_cli () =
     (List.map (fun c -> "." ^ c) classes)
     (Test_helpers.layer_statement_keys sheet ~layer:"utilities")
 
-let test_known_inversions_are_exact () =
-  let measured = measured_inversions () in
-  let recorded = List.sort_uniq compare known_inversions in
-  let show pairs =
-    String.concat "\n"
-      (List.map (fun (a, b) -> Fmt.str "    (%S, %S);" a b) pairs)
-  in
-  let unrecorded = List.filter (fun p -> not (List.mem p recorded)) measured in
-  if unrecorded <> [] then
-    Alcotest.failf
-      "%d handler pair(s) are out of Tailwind's order and not recorded:\n\
-       %s\n\
-       Fix the order, or add them to [known_inversions] in test/test_sort.ml."
-      (List.length unrecorded) (show unrecorded);
-  let closed = List.filter (fun p -> not (List.mem p measured)) recorded in
-  if closed <> [] then
-    Alcotest.failf
-      "%d recorded pair(s) are in Tailwind's order now:\n\
-       %s\n\
-       Delete them from [known_inversions] in test/test_sort.ml. The list is a \
-       ratchet: it only shrinks."
-      (List.length closed) (show closed)
+let test_pool_has_no_inversions () =
+  match measured_inversions () with
+  | [] -> ()
+  | pairs ->
+      Alcotest.failf
+        "%d handler pair(s) are out of Tailwind's order over the pool:\n%s"
+        (List.length pairs)
+        (String.concat "\n"
+           (List.map
+              (fun (a, b) ->
+                Fmt.str "    %s before %s in Tailwind, after it in tw" a b)
+              pairs))
 
 (* Every module tw.ml includes exports utilities, and one with no pool entry is
    a family no seed can reach. Reading the include list back is what makes a new
    family a failure rather than a hole nobody thinks to look for. *)
-let rec dir_containing name dir =
-  if Sys.file_exists (Filename.concat dir name) then Some dir
-  else
-    let parent = Filename.dirname dir in
-    if String.equal parent dir then None else dir_containing name parent
-
 let included_modules () =
   let path = "lib/tw.ml" in
   let root =
-    match dir_containing path (Sys.getcwd ()) with
+    match Tw_tools.Tailwind_gen.dir_containing path (Sys.getcwd ()) with
     | Some r -> r
     | None -> Alcotest.failf "cannot find %s from %s" path (Sys.getcwd ())
   in
@@ -2073,14 +1804,8 @@ let test_variants_all_compile () =
     pool_variants
 
 let test_border_width_color_ordering () =
-  (* Test that border width utilities (borders.ml, priority 16) come before
-   * border color utilities (borders.ml, priority 16) and background utilities
-   * (backgrounds.ml, priority 18 for gradients, color.ml priority 21 for colors).
-   *
-   * This test verifies the fix for the ordering issue where border-b was
-   * being separated from border-gray-200 by bg-* utilities.
-   *
-   * We use of_string to test the actual parsing behavior. *)
+  (* Border width utilities sort before border colour and background utilities,
+     so no bg-* utility separates border-b from border-gray-200. *)
   let classes = [ "border-b"; "bg-blue-600"; "bg-white"; "border-gray-200" ] in
   let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) classes in
   Test_helpers.check_ordering_matches
@@ -2119,16 +1844,12 @@ let test_container_query_call_order () =
    across the families that carry them. *)
 (* A [peer-] variant sorts inside the peer group by the variant it wraps, the
    way a [group-] one does: Tailwind writes peer-checked, then peer-hover, then
-   peer-focus. [peer-hover] used to be special-cased into [group-hover]'s slot,
-   which pulled it out of the group entirely and put it in front of every other
-   [peer-] spelling. The fuzzer found it as
-   [peer-checked:contain-layout **:peer-hover:contain-strict] and it read as a
-   flake for a session, because the seed that failed the whole suite passed
-   when the sort tests were run alone. *)
+   peer-focus. [peer-hover] has no slot of its own ahead of the other [peer-]
+   spellings. *)
 let test_peer_variant_group_order () =
   Test_helpers.check_class_order ~test_name:"peer variants sort as Tailwind"
     [ "peer-checked:grid"; "peer-hover:block"; "peer-focus:flex" ];
-  (* The group- family is the shape peer- now follows. *)
+  (* The group- family has the same shape. *)
   Test_helpers.check_class_order ~test_name:"group variants sort as Tailwind"
     [ "group-checked:grid"; "group-hover:block"; "group-focus:flex" ]
 
@@ -2497,10 +2218,8 @@ let emitted_classes css classes =
 let test_color_mix_supports_companion_order () =
   (* A colour with an opacity modifier emits a hex fallback plus an @supports
      block carrying the color-mix version, and the fallback has to come first or
-     it wins in the browsers that support color-mix. Under a variant the
-     @supports rules were ordered by the supports-* variant key, which a colour
-     utility does not have, so they all tied and drifted away from their base
-     rule. *)
+     it wins in the browsers that support color-mix. Under a variant each
+     @supports rule stays beside its base rule. *)
   let classes =
     [
       "data-checked:ring-gray-950/10";
@@ -2543,7 +2262,7 @@ let test_custom_variant_supports_companion_order () =
   in
   let classes = [ "dark:border-black/10"; "dark:border-fuchsia-500" ] in
   let _, extra, _ =
-    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+    Tw_tools.Routing.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
       ~udefs:[] classes
   in
   let css =
@@ -2568,7 +2287,7 @@ let test_custom_dark_keeps_builtin_slot () =
   let defs = [ ("dark", "&:where(.dark,.dark *){@slot;}") ] in
   let classes = [ "dark:hidden"; "starting:hidden"; "print:hidden" ] in
   let _, extra, _ =
-    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+    Tw_tools.Routing.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
       ~udefs:[] [ "dark:hidden" ]
   in
   let utilities =
@@ -2589,13 +2308,11 @@ let test_custom_dark_keeps_builtin_slot () =
 
 (* A custom variant with two branches, the site's [dark] with a class branch and
    a [prefers-color-scheme] one, routes its utilities through the custom variant
-   path, and there an opacity colour, which carries a [@supports] twin, sorted
-   after every plain utility of a later family instead of in its family's place:
-   [dark:hover:text-white] came out before [dark:hover:bg-white/50] where
-   Tailwind writes the background first, and on the site the [dark:hover:bg-*]
-   pair in the other order is a cascade difference for an element carrying both.
-   Expected order measured with Tailwind 4.3.3 through the same entrypoint on
-   2026-09-15. *)
+   path, and there an opacity colour, which carries a [@supports] twin, keeps
+   its family's place: Tailwind writes [dark:hover:bg-white/50] before
+   [dark:hover:text-white], and the other order is a cascade difference for an
+   element carrying both. The expected order is Tailwind 4.3.3's through the
+   same entrypoint. *)
 let test_custom_variant_supports_twin_keeps_family_order () =
   let defs =
     [
@@ -2613,7 +2330,7 @@ let test_custom_variant_supports_twin_keeps_family_order () =
     ]
   in
   let _, extra, _ =
-    Tw_tools.Entrypoint.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
+    Tw_tools.Routing.custom_routed_utilities ~theme:Tw.Scheme.default ~defs
       ~udefs:[] classes
   in
   let custom = Tw.Scheme.{ values = [ ("", "&") ]; template = "{}" } in
@@ -2841,6 +2558,97 @@ let test_compound_variant_inner_value_order () =
       "peer-[:nth-of-type(3)_&]:block";
     ]
 
+let check_pair_order ~test_name pair =
+  let utilities = List.map (fun c -> Result.get_ok (Tw.of_string c)) pair in
+  Test_helpers.check_ordering_matches ~test_name utilities
+
+let test_functional_variant_value_order () =
+  (* Tailwind gives each value of a functional variant its own position, in the
+     order of the value, so aria-checked precedes aria-disabled whatever lower
+     variant is stacked under either. A child or descendant variant under the
+     lower value must not push it past the bare higher one. The values compare
+     as strings once decoded: [nth-10] precedes [nth-3], [a] precedes [a-b], and
+     [a_b], read as [a b], precedes [a-b]. *)
+  check_pair_order ~test_name:"aria value over a descendant variant"
+    [ "aria-checked:**:animate-none"; "aria-disabled:animate-spin" ];
+  List.iter
+    (fun (lower, higher) ->
+      List.iter
+        (fun stacked ->
+          let pair = [ lower ^ ":" ^ stacked ^ ":flex"; higher ^ ":block" ] in
+          check_pair_order ~test_name:(String.concat " " pair) pair)
+        [ "**"; "*"; "first" ])
+    [
+      ("aria-checked", "aria-disabled");
+      ("aria-busy", "aria-checked");
+      ("aria-[sort=a]", "aria-[sort=b]");
+      ("aria-[a]", "aria-[a-b]");
+      ("data-[a]", "data-[a-b]");
+      ("nth-3", "nth-5");
+      ("nth-10", "nth-3");
+      ("nth-3", "nth-[2n]");
+      ("nth-[2n]", "nth-[3n]");
+      ("nth-[2n]", "nth-[2n+1]");
+      ("nth-last-3", "nth-last-5");
+      ("nth-of-type-3", "nth-of-type-5");
+      ("nth-last-of-type-3", "nth-last-of-type-5");
+      ("has-aria-checked", "has-aria-disabled");
+      ("not-aria-checked", "not-aria-disabled");
+      ("group-aria-checked", "group-aria-disabled");
+      ("peer-aria-checked", "peer-aria-disabled");
+    ];
+  (* Tailwind's minifier writes the decoded space as [a\ b] and tw as ["a b"], a
+     spelling the canonical differ does not fold, so these compare positions
+     rather than sheets. *)
+  List.iter
+    (fun variant ->
+      let classes =
+        [ variant ^ "-[x=a_b]:**:flex"; variant ^ "-[x=a-b]:block" ]
+      in
+      Test_helpers.check_class_order
+        ~test_name:(String.concat " " classes)
+        classes)
+    [ "aria"; "data" ]
+
+let test_named_anchor_name_order () =
+  (* After the state it wraps, Tailwind orders a group- or peer- variant by the
+     name it targets, the unnamed form first, so a child or descendant variant
+     under the earlier name must not push it past the later one. *)
+  List.iter
+    (fun (lower, higher) ->
+      List.iter
+        (fun stacked ->
+          let pair = [ lower ^ ":" ^ stacked ^ ":flex"; higher ^ ":block" ] in
+          check_pair_order ~test_name:(String.concat " " pair) pair)
+        [ "**"; "*" ])
+    [
+      ("group-hover/a", "group-hover/b");
+      ("group-hover", "group-hover/a");
+      ("group-focus/a", "group-focus/b");
+      ("group-focus", "group-focus/a");
+      ("group-aria-checked/a", "group-aria-checked/b");
+      ("peer-checked/a", "peer-checked/b");
+      ("peer-checked", "peer-checked/a");
+    ]
+
+let test_stacked_data_values_order_as_a_set () =
+  (* Tailwind keys a candidate by the set of variants it carries, each value of
+     data- its own member, highest first. data-inactive:data-active holds
+     data-inactive, above the data-active of data-active:first, so a second data
+     value outranks any lower variant stacked beside the first. *)
+  List.iter
+    (fun pair -> check_pair_order ~test_name:(String.concat " " pair) pair)
+    [
+      [
+        "data-active:group-disabled:scrollbar-thumb-gray-400";
+        "data-inactive:data-active:cursor-grab";
+      ];
+      [ "data-active:first:flex"; "data-inactive:data-active:block" ];
+      [ "data-hover:first:flex"; "data-active:data-hover:block" ];
+      [ "data-hover:**:flex"; "data-active:data-hover:block" ];
+      [ "data-[a]:first:flex"; "data-[b]:data-[a]:block" ];
+    ]
+
 let test_compound_variant_highest_component () =
   (* A stacked variant sorts into the group of its highest-order component,
      after that group's base rules, matching Tailwind. dark:md:block (dark > md)
@@ -2907,7 +2715,7 @@ let utility_selectors sheet =
 let check_before what sheet first second =
   let selectors = utility_selectors sheet in
   let position sel =
-    match index (String.equal sel) selectors with
+    match List.find_index (String.equal sel) selectors with
     | Some i -> i
     | None -> Alcotest.failf "%s missing from the utilities layer" sel
   in
@@ -3041,10 +2849,8 @@ let test_declared_position_before_screen_reader_prelude () =
     (utility_selectors sheet)
 
 let test_regular_before_media () =
-  (* Test that regular rules ALWAYS come before media queries, regardless of their priorities.
-   * Example: max-w-4xl (regular, priority 8) and md:grid-cols-2 (media, priority 12).
-   * Even though md:grid-cols-2 has higher priority, max-w-4xl (regular) should come first
-   * because Tailwind emits all regular utilities before any media query utilities. *)
+  (* Tailwind emits every regular utility before any media-query one, whatever
+     their priorities. *)
   let utilities = Tw.[ md [ grid_cols 2 ]; max_w_4xl ] in
   Test_helpers.check_ordering_matches ~test_name:"regular always before media"
     utilities
@@ -3053,9 +2859,8 @@ let test_regular_before_media () =
 
    [List.sort] is defined only for a total order. When the comparator is not
    antisymmetric or not transitive, the same set of rules can sort into
-   different sequences depending on the order it happens to arrive in, which is
-   how every ordering bug recorded in this file has presented: a diff that
-   appears and disappears as utilities are added around it.
+   different sequences depending on the order it arrives in, so a diff appears
+   and disappears as utilities are added around it.
 
    Checked over the rules real utilities produce rather than hand-built records,
    so a field or a branch is covered as soon as some class reaches it. The
@@ -3306,10 +3111,6 @@ let rules_of_grouped_prose_bug () =
   let output_rules = Tw.Build.of_grouped grouped_pairs in
   let prose_rules = count_prose_rules output_rules in
 
-  Fmt.pr "@.=== test_rules_of_grouped_prose_bug ===@.";
-  Fmt.pr "Input: 3 grouped pairs (2 .prose + 1 descendant)@.";
-  Fmt.pr "Expected: 2 .prose rules in output@.";
-  Fmt.pr "Actual: %d .prose rules in output@." (List.length prose_rules);
   check int "number of .prose rules" 2 (List.length prose_rules);
   check int "total output rules" 3 (List.length output_rules)
 
@@ -3317,18 +3118,12 @@ let tests =
   [
     test_case "declared breakpoint sorts with the scale" `Quick
       test_declared_breakpoint_sorts_with_the_scale;
-    (* New tests for exposed functions *)
     test_case "color_order" `Quick test_color_order;
-    (* Layer ordering tests *)
     test_case "theme layer color order" `Quick test_theme_layer_color_order;
     test_case "utilities layer color order" `Quick
       test_utilities_layer_color_order;
     test_case "deterministic ordering" `Quick test_deterministic_ordering;
-    (* CSS Cascade order tests - ensures source order is preserved *)
-    test_case "source order preservation" `Quick test_cascade_order_violation;
-    test_case "prose rule separation" `Quick test_cascade_prose_separation;
     test_case "color override cascading" `Quick test_cascade_color_override;
-    (* Utility group ordering *)
     test_case "typography before color" `Quick test_typography_before_color;
     test_case "gap before self-alignment" `Quick test_gap_before_self_alignment;
     test_case "late typography before white-space" `Quick
@@ -3415,6 +3210,11 @@ let tests =
       test_recursive_compound_variant_order;
     test_case "compound variant inner value order" `Slow
       test_compound_variant_inner_value_order;
+    test_case "functional variant value order" `Slow
+      test_functional_variant_value_order;
+    test_case "named anchor name order" `Slow test_named_anchor_name_order;
+    test_case "stacked data values order as a set" `Slow
+      test_stacked_data_values_order_as_a_set;
     test_case "theme custom variant shadows prefix slot" `Quick
       test_theme_custom_variant_shadows_prefix_slot;
     test_case "compound variant highest component" `Slow
@@ -3435,7 +3235,7 @@ let tests =
     test_case "pool covers every family" `Quick test_pool_covers_every_family;
     test_case "family order without the CLI" `Quick
       test_family_order_without_the_cli;
-    test_case "known inversions are exact" `Slow test_known_inversions_are_exact;
+    test_case "the pool has no inversions" `Slow test_pool_has_no_inversions;
     test_case "mask type arbitrary order" `Slow test_mask_type_arbitrary_order;
     test_case "pool covers every handler" `Quick test_pool_covers_every_handler;
     test_case "pool variants all compile" `Quick test_variants_all_compile;

@@ -1,8 +1,6 @@
-(** Tests for {!Tw_dom} — runs in both Node.js and browser.
-
-    In Node.js only the utilities that do not touch the DOM run. In a browser
-    all tests run, including {!Tw_dom} with real DOM injection. Open
-    [_build/default/test/dom/index.html] to run in a browser. *)
+(* In Node.js only the tests that do not touch the DOM run. In a browser all of
+   them run, {!Tw_dom}'s DOM injection included. Open
+   [_build/default/test/dom/index.html] to run them in a browser. *)
 
 module Css = Cascade.Css
 open Alcotest
@@ -70,10 +68,12 @@ let dom_dedup () =
 
 (* A newly discovered batch injects as its own small element rather than by
    rewriting one growing element, so [data-tw="runtime"] can match several
-   elements at once; concatenate them all in document order. *)
+   elements at once; concatenate them all in document order. [textContent] is
+   read through [Jv] because [Brr.El.text_content] needs brr 0.0.8. *)
 let style_el_text () =
   Brr.El.fold_find_by_selector
-    (fun el acc -> acc ^ Jstr.to_string (Brr.El.text_content el))
+    (fun el acc ->
+      acc ^ Jstr.to_string (Jv.Jstr.get (Brr.El.to_jv el) "textContent"))
     (Jstr.v "style[data-tw=\"runtime\"]")
     ""
 
@@ -100,11 +100,11 @@ let style_el_count () =
     0
 
 (* A class registered on its own tick lands in its own small element rather than
-   a full recompile over everything seen so far - the fix for the quadratic
-   rebuild. Drip-feeding distinct classes one flush at a time must therefore see
-   more than one element at some point; a batch large enough to dwarf whatever
-   is already consolidated then folds everything - deltas and all - back into
-   exactly one element, and the aggregated content must match a plain
+   a full recompile over everything seen so far, so the rebuild is not
+   quadratic. Drip-feeding distinct classes one flush at a time must therefore
+   see more than one element at some point; a batch large enough to dwarf
+   whatever is already consolidated then folds everything - deltas and all -
+   back into exactly one element, and the aggregated content must match a plain
    [Tw_dom.css ()] compile regardless of how many elements it came from. *)
 let dom_incremental_consolidation () =
   Tw_dom.init ~base:false ();
@@ -157,7 +157,7 @@ let dom_use_str_unknown_class () =
     (Tw_dom.unknown_classes ())
 
 let has_dom =
-  (* Check if document.createElement exists — absent in Node.js *)
+  (* Node.js has no document. *)
   try
     ignore (Brr.Document.head Brr.G.document : Brr.El.t);
     true

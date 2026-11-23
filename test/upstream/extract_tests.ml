@@ -52,9 +52,8 @@
 
     Usage: dune exec test/upstream/extract_tests.exe -- <utilities.test.ts> *)
 
-(** Check if a string looks like a class name (vs a directive or invalid
-    syntax). We only filter out things that aren't class names at all - bare
-    utility names and invalid suffixes are kept as negative tests. *)
+(* Only what is no class name at all is filtered out: bare utility names and
+   invalid suffixes are kept as negative tests. *)
 let is_valid_class s =
   String.length s > 0
   (* Filter out @layer, @apply, etc. - these are directives, not classes *)
@@ -78,7 +77,7 @@ let extract_quoted_strings line =
       if Re.Group.test m 1 then Re.Group.get m 1 else Re.Group.get m 2)
 
 (* Strip quoted strings from a line so we can detect unquoted brackets. E.g.
-   ['z-\[123\]', 'foo'] becomes [, ] — the ] inside quotes is removed. *)
+   ['z-\[123\]', 'foo'] becomes [, ]: the ] inside quotes is removed. *)
 let strip_quoted s =
   let buf = Buffer.create (String.length s) in
   let len = String.length s in
@@ -109,13 +108,12 @@ let strip_quoted s =
     classes (e.g., [Theme_inline] inlines variable values instead of using
     [var()] references). *)
 type theme_config =
-  | Theme  (** [@theme { ... }] — standard theme with variable references *)
-  | Theme_inline
-      (** [@theme inline { ... }] — values inlined at compile time *)
+  | Theme  (** [@theme { ... }]: standard theme with variable references *)
+  | Theme_inline  (** [@theme inline { ... }]: values inlined at compile time *)
   | Theme_reference
-      (** [@theme reference { ... }] — reference-only, no [@property] rules *)
+      (** [@theme reference { ... }]: reference-only, no [@property] rules *)
   | Theme_inline_reference
-      (** [@theme inline reference { ... }] — inlined + reference *)
+      (** [@theme inline reference { ... }]: inlined + reference *)
   | No_theme  (** No [@theme] block, just [@tailwind utilities;] *)
   | Run  (** Uses [run()] helper instead of [compileCss()] *)
 
@@ -533,7 +531,7 @@ let variant_prefixes cls =
 let unreplayable ~defs ~config ~theme_vars ~classes expected =
   let routed =
     List.filter
-      (Tw_tools.Entrypoint.is_custom_routed ~theme:Tw.Scheme.default ~defs:[]
+      (Tw_tools.Routing.is_custom_routed ~theme:Tw.Scheme.default ~defs:[]
          ~udefs:defs)
       classes
   in
@@ -675,9 +673,7 @@ type parse_state =
   | In_snapshot of string * string list * Buffer.t
 
 let parse_file filename =
-  let ic = open_in filename in
-  let content = really_input_string ic (in_channel_length ic) in
-  close_in ic;
+  let content = In_channel.with_open_text filename In_channel.input_all in
 
   let tests = ref [] in
   let lines = String.split_on_char '\n' content in
@@ -695,7 +691,7 @@ let parse_file filename =
      the [)] that closes the call. *)
   let expect_open = Re.Pcre.regexp {|\.toEqual\s*\(|} in
 
-  (* Config detection patterns — order matters: most specific first *)
+  (* Config detection patterns: order matters: most specific first *)
   let compile_css_re = Re.Pcre.regexp {|compileCss\s*\(|} in
   let run_call_re = Re.Pcre.regexp {|\brun\s*\(|} in
   let theme_inline_ref_re =
@@ -970,7 +966,6 @@ let parse_file filename =
                 if Re.execp tailwind_utilities_re (Buffer.contents s.text) then
                   current_layer_wrap := Some name));
 
-          (* Check for run([...]) *)
           (match Re.exec_opt run_pattern line with
           | Some groups ->
               let content = Re.Group.get groups 1 in
@@ -989,8 +984,7 @@ let parse_file filename =
                       (extract_quoted_strings content)
                       !current_classes
               | None -> ()));
-          (* Check for .toEqual('') which means classes should produce empty
-             output. Flush test with empty expected, then clear classes. *)
+          (* [.toEqual('')] says the classes produce no output. *)
           let saw_empty_expect =
             let scan =
               match !in_expect with
@@ -1014,15 +1008,14 @@ let parse_file filename =
           in
           if saw_empty_expect then (
             flush_test name (Some "");
-            current_classes := [] (* Check for array continuation *))
+            current_classes := [])
           else if
             let stripped = strip_quoted line in
             Astring.String.is_infix ~affix:"[" stripped
             && not (Astring.String.is_infix ~affix:"]" stripped)
-          then state := In_array name (* Check for snapshot start *)
+          then state := In_array name
           else if Re.execp snapshot_start line then
             state := In_snapshot (name, !current_classes, Buffer.create 256)
-            (* Check for new test *)
           else
             match test_open line with
             | Some (indent, next) ->
@@ -1032,7 +1025,6 @@ let parse_file filename =
                 current_config := No_theme;
                 test_indent := indent;
                 state := In_test next
-            (* Check for test end without snapshot *)
             | None ->
                 if test_close ~indent:!test_indent line then (
                   flush_test name None;
@@ -1043,7 +1035,7 @@ let parse_file filename =
       | In_array name ->
           current_classes :=
             List.rev_append (extract_quoted_strings line) !current_classes;
-          (* Check for unquoted ] to detect array end — don't be fooled by ]
+          (* Check for unquoted ] to detect array end: don't be fooled by ]
              inside quoted class names like 'z-[123]' *)
           let stripped = strip_quoted line in
           if Astring.String.is_infix ~affix:"]" stripped then

@@ -1,5 +1,3 @@
-(** Contain utilities for CSS containment. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -15,7 +13,8 @@ module Handler = struct
     | Paint
     | Contain_style
     | Inline_size
-    | Arbitrary of string
+    | Arbitrary of string * string
+  (* the bracket as written, and the value after its hint *)
 
   let name = "contain"
   let priority _ = 34
@@ -46,7 +45,7 @@ module Handler = struct
         | None -> 100)
 
   let to_class = function
-    | Arbitrary s -> "contain-[" ^ s ^ "]"
+    | Arbitrary (s, _) -> "contain-[" ^ s ^ "]"
     | t -> (
         match
           List.assoc_opt t (List.map (fun (t, s, _) -> (t, s)) contain_data)
@@ -54,9 +53,9 @@ module Handler = struct
         | Some suffix -> "contain-" ^ suffix
         | None -> "contain-none")
 
-  (* Channel variables for composable contain — these generate @property rules
-     and initial-value declarations in the properties layer. property_order
-     groups them together; they use syntax: "*" with no initial-value. *)
+  (* Channel variables for composable contain. They generate @property rules and
+     initial-value declarations in the properties layer. property_order groups
+     them together; they use syntax: "*" with no initial-value. *)
   let tw_contain_size_var =
     Var.channel ~needs_property:true ~property_order:50 Css.Value
       "tw-contain-size"
@@ -99,7 +98,6 @@ module Handler = struct
         v tw_contain_style_var;
       ]
 
-  (* Create a composable contain style that sets one variable *)
   let composable_contain var set_value =
     let decl = Var.set var (Css.Variables.custom_value_ident set_value) in
     style ~property_rules:contain_property_rules
@@ -114,9 +112,8 @@ module Handler = struct
     | Layout -> composable_contain tw_contain_layout_var "layout"
     | Paint -> composable_contain tw_contain_paint_var "paint"
     | Contain_style -> composable_contain tw_contain_style_var "style"
-    | Arbitrary s -> (
-        (* Parse the arbitrary value *)
-        match String.lowercase_ascii s with
+    | Arbitrary (_, value) -> (
+        match String.lowercase_ascii value with
         | "none" -> style [ contain Css.None ]
         | "strict" -> style [ contain Css.Strict ]
         | "content" -> style [ contain Css.Content ]
@@ -130,9 +127,8 @@ module Handler = struct
         | "unset" -> style [ contain Css.Unset ]
         | "revert" -> style [ contain Css.Revert ]
         | "revert-layer" -> style [ contain Css.Revert_layer ]
-        | _ ->
-            (* Unknown arbitrary value — wrap as bare var ref *)
-            style [ contain (Css.Var (Var.bracket s)) ])
+        | _ -> style (Option.to_list (Parse.opaque_declaration "contain" value))
+        )
 
   let of_class_map =
     List.map (fun (t, s, _) -> ("contain-" ^ s, t)) contain_data
@@ -140,14 +136,14 @@ module Handler = struct
   let of_class _theme class_name =
     match List.assoc_opt class_name of_class_map with
     | Some t -> Ok t
-    | None ->
-        (* Check for arbitrary value: contain-[value] *)
-        if String.starts_with ~prefix:"contain-[" class_name then
-          let len = String.length class_name in
-          if class_name.[len - 1] = ']' then
-            Ok (Arbitrary (String.sub class_name 9 (len - 10)))
-          else Error (`Msg "Invalid contain arbitrary value")
-        else Error (`Msg "Not a contain utility")
+    | None -> (
+        match Parse.split_class class_name with
+        | [ "contain"; v ] when Parse.is_bracket_value v -> (
+            let inner = Parse.bracket_inner v in
+            match Parse.arbitrary_declaration_value inner with
+            | Some value -> Ok (Arbitrary (inner, value))
+            | None -> Utility.unclaimed)
+        | _ -> Utility.unclaimed)
 
   let examples = [ Strict ]
 end
@@ -155,8 +151,6 @@ end
 module Utility_factory = Utility.Make (Handler)
 
 let utility = Utility_factory.v
-
-(* Convenience functions *)
 let contain_none = utility Handler.None
 let contain_strict = utility Handler.Strict
 let contain_content = utility Handler.Content
@@ -165,4 +159,6 @@ let contain_layout = utility Handler.Layout
 let contain_paint = utility Handler.Paint
 let contain_style = utility Handler.Contain_style
 let contain_inline_size = utility Handler.Inline_size
-let contain_arbitrary s = utility (Handler.Arbitrary s)
+
+let contain_arbitrary value =
+  utility (Handler.Arbitrary (Parse.encode_underscores value, value))

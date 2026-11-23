@@ -1,5 +1,3 @@
-(** Gap and space-between utilities. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -18,7 +16,12 @@ module Handler = struct
   type t =
     | Gap of { axis : [ `All | `X | `Y ]; value : gap_value }
     | Space of { negative : bool; axis : [ `X | `Y ]; value : spacing }
-    | Space_arb of { axis : [ `X | `Y ]; value : Css.length; raw : string }
+    | Space_arb of {
+        negative : bool;
+        axis : [ `X | `Y ];
+        value : Css.length;
+        raw : string;
+      }
       (* [raw] is the original bracketed token (e.g. "[-0]"), kept verbatim for
          the class name since [value] normalises away signed zero. *)
     | Space_x_reverse
@@ -39,8 +42,6 @@ module Handler = struct
   let space_y_reverse_var =
     Var.property_default Css.Number_percentage ~initial:(Css.Num 0.0)
       ~property_order:3 ~family:`Border "tw-space-y-reverse"
-
-  (** {2 Typed Gap Utilities} *)
 
   let gap_standard ?theme (s : spacing) =
     let decl, len = Spacing.to_decl_len ?theme s in
@@ -101,11 +102,8 @@ module Handler = struct
         | `X -> gap_x_arb len
         | `Y -> gap_y_arb len)
 
-  (** {2 Space Between Utilities} *)
-
-  (* Build margin calc expressions for space utilities. The negative sign is
-     already folded into [spacing_len] (calc(var(--spacing) * -n)), so the
-     reverse mechanism just wraps it once, matching Tailwind. *)
+  (* [spacing_len] already carries the negative sign, as [calc(var(--spacing) *
+     -n)], so the reverse mechanism wraps it once, matching Tailwind. *)
   let space_margin_calcs ~spacing_len ~reverse_var_name =
     let base = Css.Calc.length spacing_len in
     (* Wrap sub-expression as an explicit calc() call, matching Tailwind's
@@ -155,7 +153,7 @@ module Handler = struct
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
   (* space-x-px / space-y-px: the gap is a literal 1px (not a spacing multiple),
-     so there is no --spacing declaration; the reverse mechanism wraps ±1px
+     so there is no --spacing declaration; the reverse mechanism wraps +/-1px
      directly, matching Tailwind. *)
   let space_px ~axis ~negative
       (reverse_var : Css.number_percentage Var.property_default)
@@ -219,7 +217,6 @@ module Handler = struct
     in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
-  (* Bracket arbitrary space: space-x-[4px], space-y-[10rem] *)
   let space_arb_x (len : Css.length) class_name =
     let selector =
       Css.Selector.(where [ class_ class_name >> not [ Last_child ] ])
@@ -311,6 +308,10 @@ module Handler = struct
     let rule = Css.rule ~selector [ decl ] in
     style ~rules:(Some [ rule ]) ~property_rules:(Css.concat property_rules) []
 
+  let space_arb_class ~negative axis raw =
+    (if negative then "-" else "")
+    ^ match axis with `X -> "space-x-" ^ raw | `Y -> "space-y-" ^ raw
+
   let to_style theme t =
     let gap_value axis value = gap_value ~theme axis value in
     let space_x n = space_x ~theme n in
@@ -337,9 +338,12 @@ module Handler = struct
         in
         let n = if negative then -.n else n in
         match axis with `X -> space_x n | `Y -> space_y n)
-    | Space_arb { axis; value; raw } -> (
-        let class_name =
-          match axis with `X -> "space-x-" ^ raw | `Y -> "space-y-" ^ raw
+    | Space_arb { negative; axis; value; raw } -> (
+        let class_name = space_arb_class ~negative axis raw in
+        let value : Css.length =
+          if negative then
+            Calc (Calc.mul (Calc.length value) (Calc.float (-1.)))
+          else value
         in
         match axis with
         | `X -> space_arb_x value class_name
@@ -398,8 +402,7 @@ module Handler = struct
         match axis with
         | `X -> prefix ^ "space-x-" ^ suffix
         | `Y -> prefix ^ "space-y-" ^ suffix)
-    | Space_arb { axis; raw; _ } -> (
-        match axis with `X -> "space-x-" ^ raw | `Y -> "space-y-" ^ raw)
+    | Space_arb { negative; axis; raw; _ } -> space_arb_class ~negative axis raw
     | Space_x_reverse -> "space-x-reverse"
     | Space_y_reverse -> "space-y-reverse"
 
@@ -425,6 +428,13 @@ module Handler = struct
                   (Parse.arbitrary_declaration_value inner))
     else None
 
+  (* The length a [space-*-[...]] bracket writes, a [var()] included. *)
+  let space_bracket value : Css.length option =
+    match parse_gap_arbitrary value with
+    | Some (Arbitrary (_, len)) -> Some len
+    | Some (Arbitrary_var (_, var_str)) -> Some (gap_var_ref var_str)
+    | Some (Standard _ | Bare_var _ | Arbitrary_raw _) | None -> None
+
   (* Shared with padding and margin, so a named spacing reaches gap too:
      [gap-form] is a class Tailwind emits whenever the theme defines
      [--spacing-form]. *)
@@ -439,29 +449,30 @@ module Handler = struct
   let of_class theme class_name =
     let parse_gap_value value = parse_gap_value ~theme value in
     let parts = Parse.split_class class_name in
-    let err_not_utility = Error (`Msg "Not a gap utility") in
     let parse_class = function
       | [ "gap"; value ] -> (
           match parse_gap_value value with
           | Some v -> Ok (Gap { axis = `All; value = v })
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | [ "gap"; "x"; value ] -> (
           match parse_gap_value value with
           | Some v -> Ok (Gap { axis = `X; value = v })
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | [ "gap"; "y"; value ] -> (
           match parse_gap_value value with
           | Some v -> Ok (Gap { axis = `Y; value = v })
-          | None -> err_not_utility)
+          | None -> Utility.unclaimed)
       | [ "space"; "x"; value ] -> (
           if value = "reverse" then Ok Space_x_reverse
           else if value = "px" then
             Ok (Space { negative = false; axis = `X; value = `Px })
           else
-            match parse_gap_arbitrary value with
-            | Some (Arbitrary (_, len)) ->
-                Ok (Space_arb { axis = `X; value = len; raw = value })
-            | _ -> (
+            match space_bracket value with
+            | Some len ->
+                Ok
+                  (Space_arb
+                     { negative = false; axis = `X; value = len; raw = value })
+            | None -> (
                 match Parse.spacing_value ~name:"space-x" value with
                 | Ok n when Theme.has_spacing_step ~theme n ->
                     Ok
@@ -471,16 +482,18 @@ module Handler = struct
                            axis = `X;
                            value = `Rem (n *. 0.25);
                          })
-                | Ok _ | Error _ -> err_not_utility))
+                | Ok _ | Error _ -> Utility.unclaimed))
       | [ "space"; "y"; value ] -> (
           if value = "reverse" then Ok Space_y_reverse
           else if value = "px" then
             Ok (Space { negative = false; axis = `Y; value = `Px })
           else
-            match parse_gap_arbitrary value with
-            | Some (Arbitrary (_, len)) ->
-                Ok (Space_arb { axis = `Y; value = len; raw = value })
-            | _ -> (
+            match space_bracket value with
+            | Some len ->
+                Ok
+                  (Space_arb
+                     { negative = false; axis = `Y; value = len; raw = value })
+            | None -> (
                 match Parse.spacing_value ~name:"space-y" value with
                 | Ok n when Theme.has_spacing_step ~theme n ->
                     Ok
@@ -490,28 +503,42 @@ module Handler = struct
                            axis = `Y;
                            value = `Rem (n *. 0.25);
                          })
-                | Ok _ | Error _ -> err_not_utility))
+                | Ok _ | Error _ -> Utility.unclaimed))
       | [ ""; "space"; "x"; value ] -> (
           if value = "px" then
             Ok (Space { negative = true; axis = `X; value = `Px })
+          else if Parse.is_bracket_value value then
+            match space_bracket value with
+            | Some len ->
+                Ok
+                  (Space_arb
+                     { negative = true; axis = `X; value = len; raw = value })
+            | None -> Utility.unclaimed
           else
             match Parse.spacing_value ~name:"space-x" value with
             | Ok n when Theme.has_spacing_step ~theme n ->
                 Ok
                   (Space
                      { negative = true; axis = `X; value = `Rem (n *. 0.25) })
-            | Ok _ | Error _ -> err_not_utility)
+            | Ok _ | Error _ -> Utility.unclaimed)
       | [ ""; "space"; "y"; value ] -> (
           if value = "px" then
             Ok (Space { negative = true; axis = `Y; value = `Px })
+          else if Parse.is_bracket_value value then
+            match space_bracket value with
+            | Some len ->
+                Ok
+                  (Space_arb
+                     { negative = true; axis = `Y; value = len; raw = value })
+            | None -> Utility.unclaimed
           else
             match Parse.spacing_value ~name:"space-y" value with
             | Ok n when Theme.has_spacing_step ~theme n ->
                 Ok
                   (Space
                      { negative = true; axis = `Y; value = `Rem (n *. 0.25) })
-            | Ok _ | Error _ -> err_not_utility)
-      | _ -> err_not_utility
+            | Ok _ | Error _ -> Utility.unclaimed)
+      | _ -> Utility.unclaimed
     in
     parse_class parts
 
@@ -526,19 +553,11 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
-(** Public API *)
 let utility = Utility_factory.v
-
-(** Helpers to create Utility.t from Gap/Space *)
 let gap_util axis value = utility (Gap { axis; value })
-
 let space_util negative axis value = utility (Space { negative; axis; value })
-
-(** {2 Int-based Gap Utilities} *)
 
 (* Gap has no negative form in Tailwind, and the class printer writes a size's
    absolute value, so a negative one is refused rather than printed as a
@@ -560,17 +579,12 @@ let gap_y n = gap_util `Y (Handler.Standard (checked_size "gap_y" n))
 let gap' n = gap_util `All (Handler.Standard (checked_size' "gap'" n))
 let gap_x' n = gap_util `X (Handler.Standard (checked_size' "gap_x'" n))
 let gap_y' n = gap_util `Y (Handler.Standard (checked_size' "gap_y'" n))
-
-(** {2 Special Gap Values} *)
-
 let gap_px = gap_util `All (Handler.Standard `Px)
 let gap_full = gap_util `All (Handler.Standard `Full)
 let gap_x_px = gap_util `X (Handler.Standard `Px)
 let gap_x_full = gap_util `X (Handler.Standard `Full)
 let gap_y_px = gap_util `Y (Handler.Standard `Px)
 let gap_y_full = gap_util `Y (Handler.Standard `Full)
-
-(** {2 Space Between Utilities} *)
 
 let space_x' n =
   let s = `Rem (Float.abs n *. 0.25) in

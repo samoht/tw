@@ -1,8 +1,9 @@
-(** Table-related utilities
+(** Table utilities.
 
-    https://tailwindcss.com/docs/border-collapse
-    https://tailwindcss.com/docs/border-spacing
-    https://tailwindcss.com/docs/table-layout *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/border-collapse}border collapse},
+    {{:https://tailwindcss.com/docs/border-spacing}border spacing} and
+    {{:https://tailwindcss.com/docs/table-layout}table layout}. *)
 
 open Utility
 

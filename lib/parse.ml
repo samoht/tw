@@ -1,5 +1,5 @@
-let is_digits s =
-  s <> "" && String.for_all (function '0' .. '9' -> true | _ -> false) s
+let is_digit = function '0' .. '9' -> true | _ -> false
+let is_digits s = s <> "" && String.for_all is_digit s
 
 let without_sign s =
   if s <> "" && s.[0] = '-' then String.sub s 1 (String.length s - 1) else s
@@ -9,7 +9,7 @@ let is_canonical_digits s = is_digits s && (String.length s = 1 || s.[0] <> '0')
 (* A class suffix is written in plain decimal, but OCaml's literal grammar also
    admits [0x]/[0o]/[0b] bases, [_] digit separators, hex-float exponents and a
    leading [+]. Handing a suffix straight to [int_of_string_opt] therefore reads
-   [p-0x4] as 4 and emits [.p-4] — a rule nobody wrote, and not a class Tailwind
+   [p-0x4] as 4 and emits [.p-4]: a rule nobody wrote, and not a class Tailwind
    accepts. Both readers below check the spelling first. *)
 let decimal_int s =
   if is_canonical_digits (without_sign s) then int_of_string_opt s else None
@@ -40,7 +40,7 @@ let decimal_float s =
 
 (* A fraction suffix is two plain decimals around one [/]: [w-1/2], [top-3/8],
    [basis-13/17]. Neither side carries a sign, neither takes a redundant leading
-   zero, and the denominator is drawn from no fixed list — Tailwind divides
+   zero, and the denominator is drawn from no fixed list: Tailwind divides
    whatever it is given. *)
 let fraction s =
   match String.split_on_char '/' s with
@@ -98,8 +98,7 @@ let int_pos ~name s =
   Option.value (nonnegative_int ~name s)
     ~default:(Error (`Msg ("Invalid " ^ name ^ " value: " ^ s)))
 
-(* Parse decimal values like "0.5", "1.5" for spacing utilities. Valid decimals
-   must be multiples of 0.25 (i.e., value * 4 is integer). *)
+(* A decimal spacing step is a multiple of 0.25. *)
 let decimal_pos ~name s =
   match decimal_float s with
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
@@ -108,7 +107,6 @@ let decimal_pos ~name s =
       else if Float.is_integer (f *. 4.0) then Ok f
       else Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
-(* Parse spacing values - handles both integers and decimals *)
 let spacing_value ~name s =
   match nonnegative_int ~name s with
   | Some (Ok n) when exact (float_of_int n) -> Ok (float_of_int n)
@@ -126,9 +124,8 @@ let int_bounded ~name ~min ~max s =
           ^ string_of_int max ^ ": " ^ s))
   | None -> Error (`Msg ("Invalid " ^ name ^ " value: " ^ s))
 
-(* Check if a value is a valid theme variable name. Theme variable names must
-   not contain '/' — values with '/' that aren't handled as explicit fractions
-   (like 3/4) are invalid class suffixes, not theme references. *)
+(* A suffix with a '/' that is not a fraction (like 3/4) is an invalid class
+   suffix, not a theme reference. *)
 let is_valid_theme_name s = s <> "" && not (String.contains s '/')
 let ( >|= ) r f = Result.map f r
 
@@ -180,7 +177,6 @@ let bracket_close s =
    has a stray bracket in it, which no declaration value takes. *)
 let is_bracket_value s = bracket_close s = Some (String.length s - 1)
 
-(** Extract the inner content from a bracket value "[foo]" → "foo" *)
 let bracket_inner s =
   if is_bracket_value s then String.sub s 1 (String.length s - 2) else s
 
@@ -190,9 +186,9 @@ let bracket_inner s =
 type exempt_span = Verbatim | Literal_underscore
 
 (* In an arbitrary value [_] stands for a space, and [\_] for a literal
-   underscore — otherwise a value that needs one could not be written. The two
-   readings differ only in what a bare [_] stands for, which [plain] carries,
-   and in [exempt], the spans read under one of the rules above. *)
+   underscore, so that a value that needs one can be written. The two readings
+   differ only in what a bare [_] stands for, which [plain] carries, and in
+   [exempt], the spans read under one of the rules above. *)
 let read_underscores ~plain ~exempt s =
   let len = String.length s in
   let buf = Buffer.create len in
@@ -371,6 +367,110 @@ let is_css_non_math_function = function
   | "attr" | "env" | "url" | "var" -> true
   | _ -> false
 
+let is_number s =
+  let n = String.length s in
+  let digit i = i < n && s.[i] >= '0' && s.[i] <= '9' in
+  let rec digits i = if digit i then digits (i + 1) else i in
+  let signed i = if i < n && (s.[i] = '+' || s.[i] = '-') then i + 1 else i in
+  let i = signed 0 in
+  let j = digits i in
+  let j = if j < n && s.[j] = '.' then digits (j + 1) else j in
+  if not (j > i && digit (j - 1)) then false
+  else if j = n then true
+  else if s.[j] = 'e' || s.[j] = 'E' then
+    let k = signed (j + 1) in
+    let l = digits k in
+    l > k && l = n
+  else false
+
+let tailwind_math_functions =
+  [
+    "calc";
+    "min";
+    "max";
+    "clamp";
+    "mod";
+    "rem";
+    "sin";
+    "cos";
+    "tan";
+    "asin";
+    "acos";
+    "atan";
+    "atan2";
+    "pow";
+    "sqrt";
+    "hypot";
+    "log";
+    "exp";
+    "round";
+  ]
+
+let contains ~sub s =
+  let n = String.length s and m = String.length sub in
+  let rec from i = i + m <= n && (String.sub s i m = sub || from (i + 1)) in
+  from 0
+
+let holds_math_function s =
+  String.contains s '('
+  && List.exists (fun f -> contains ~sub:(f ^ "(") s) tailwind_math_functions
+
+let tailwind_length_units =
+  [
+    "cm";
+    "mm";
+    "Q";
+    "in";
+    "pc";
+    "pt";
+    "px";
+    "em";
+    "ex";
+    "ch";
+    "rem";
+    "lh";
+    "rlh";
+    "vw";
+    "vh";
+    "vmin";
+    "vmax";
+    "vb";
+    "vi";
+    "svw";
+    "svh";
+    "lvw";
+    "lvh";
+    "dvw";
+    "dvh";
+    "cqw";
+    "cqh";
+    "cqi";
+    "cqb";
+    "cqmin";
+    "cqmax";
+  ]
+
+let is_length s =
+  let n = String.length s in
+  let rec unit_start i =
+    if
+      i > 0
+      && match s.[i - 1] with 'a' .. 'z' | 'A' .. 'Z' -> true | _ -> false
+    then unit_start (i - 1)
+    else i
+  in
+  let i = unit_start n in
+  i < n
+  && is_number (String.sub s 0 i)
+  && List.mem (String.sub s i (n - i)) tailwind_length_units
+  || String.starts_with ~prefix:"--spacing(" (String.lowercase_ascii s)
+  || holds_math_function s
+
+let is_percentage s =
+  String.ends_with ~suffix:"%" s
+  && is_number (String.sub s 0 (String.length s - 1))
+  || holds_math_function s
+
 (* A math function stands for the value it computes, so a bracket opening with
    one denotes whatever the utility's numeric side takes. Utilities that tell a
    width from a colour by the bracket's first character need to know. *)
@@ -517,13 +617,86 @@ let split_top_level sep s =
     if i >= len then List.rev (String.sub s start (len - start) :: acc)
     else
       match s.[i] with
-      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
-      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
       | c when c = sep && depth = 0 ->
           go depth (i + 1) (i + 1) (String.sub s start (i - start) :: acc)
+      | '\\' -> go depth start (i + 2) acc
+      | ('"' | '\'') as q -> go depth start (string_end s (i + 1) q) acc
+      | '(' | '[' | '{' -> go (depth + 1) start (i + 1) acc
+      | ')' | ']' | '}' -> go (max 0 (depth - 1)) start (i + 1) acc
       | _ -> go depth start (i + 1) acc
   in
   go 0 0 0 []
+
+(* How a top-level token of one shadow layer reads when its colour is looked
+   for: a keyword the colour search passes over, a length (a number with any
+   unit, or a math function), a colour, or anything else. *)
+type shadow_token = Keyword | Length | Colour | Other
+
+let is_colour_keyword word =
+  match
+    Cascade.Cursor.try_parse_full_err Cascade.Css.Values.read_color
+      (Cascade.Cursor.of_string word)
+  with
+  | Ok (Named _ | Current | Transparent) -> true
+  | Ok (System s) -> s <> (Webkit_focus_ring_color : Cascade.Css.system_color)
+  | Ok _ | Error _ -> false
+
+let starts_with_number word =
+  let digit i = i < String.length word && word.[i] >= '0' && word.[i] <= '9' in
+  let i = if word <> "" && word.[0] = '-' then 1 else 0 in
+  digit i || (i < String.length word && word.[i] = '.' && digit (i + 1))
+
+let shadow_token token =
+  match String.index_opt token '(' with
+  | Some i -> (
+      match String.lowercase_ascii (String.sub token 0 i) with
+      | "color" | "color-mix" | "contrast-color" | "device-cmyk" | "hsl"
+      | "hsla" | "hwb" | "lab" | "lch" | "light-dark" | "oklab" | "oklch"
+      | "rgb" | "rgba" | "--alpha" ->
+          Colour
+      | "calc" | "clamp" | "max" | "min" | "--spacing" -> Length
+      | _ -> Other)
+  | None -> (
+      match String.lowercase_ascii token with
+      | "inset" | "inherit" | "initial" | "revert" | "unset" -> Keyword
+      | _ when starts_with_number token -> Length
+      | _ when token.[0] = '#' || is_colour_keyword token -> Colour
+      | _ -> Other)
+
+(* Tailwind's colour search in one layer: the first colour token is the colour;
+   failing that, with two lengths or more, the one other token is, and with no
+   other token the colour is [currentcolor], added at the end. *)
+let replace_layer_colour wrap layer =
+  let layer = String.trim layer in
+  let tokens =
+    Array.of_list (List.filter (( <> ) "") (split_top_level ' ' layer))
+  in
+  let replace_at i =
+    String.concat " "
+      (List.mapi
+         (fun j t -> if i = j then wrap t else t)
+         (Array.to_list tokens))
+  in
+  let rec scan i lengths others =
+    if i >= Array.length tokens then
+      match others with
+      | _ when lengths < 2 -> layer
+      | [] -> layer ^ " " ^ wrap "currentcolor"
+      | [ j ] -> replace_at j
+      | _ -> layer
+    else
+      match shadow_token tokens.(i) with
+      | Colour -> replace_at i
+      | Keyword -> scan (i + 1) lengths others
+      | Length -> scan (i + 1) (lengths + 1) others
+      | Other -> scan (i + 1) lengths (i :: others)
+  in
+  scan 0 0 []
+
+let replace_shadow_colours wrap value =
+  split_top_level ',' value
+  |> List.map (replace_layer_colour wrap)
+  |> String.concat ", "
 
 (* A bare number's alpha as the percentage Tailwind scales it to, done on the
    text so that [0.2] is [20] rather than a float's idea of it: the decimal
@@ -534,7 +707,7 @@ let alpha_percent_of_number s =
       (String.sub s 0 1, String.sub s 1 (String.length s - 1))
     else ("", s)
   in
-  let all_digits = String.for_all (fun c -> c >= '0' && c <= '9') in
+  let all_digits = String.for_all is_digit in
   let int_part, frac =
     match String.split_on_char '.' digits with
     | [ i ] -> (i, "")
@@ -749,27 +922,38 @@ let wrap_declaration_value ~before ~after value =
       let closed_comment = before ^ value ^ "*/" ^ after in
       if is_declaration_value closed_comment then Some closed_comment else None
 
+let negated_declaration_value value =
+  wrap_declaration_value ~before:"calc(" ~after:" * -1)" value
+
 let opaque_declaration property value =
   if value <> "" && is_declaration_value value then
     Cascade.Css.Declaration.parse_opaque_declaration property value
   else None
 
-(** Check if a string starts with "var(" — works on inner bracket content *)
-let is_var s = String.starts_with ~prefix:"var(" s && String.length s > 4
+let is_var s =
+  let len = String.length s in
+  (* the index of the bracket closing the one opened before [i] *)
+  let rec close depth i =
+    if i >= len then None
+    else
+      match s.[i] with
+      | '\\' -> close depth (i + 2)
+      | ('"' | '\'') as q -> close depth (string_end s (i + 1) q)
+      | '(' | '[' | '{' -> close (depth + 1) (i + 1)
+      | (')' | ']' | '}') when depth = 1 -> Some i
+      | ')' | ']' | '}' -> close (depth - 1) (i + 1)
+      | _ -> close depth (i + 1)
+  in
+  len > 4 && String.starts_with ~prefix:"var(" s && close 1 4 = Some (len - 1)
 
-(** Check if a bracket value contains a var() reference *)
 let is_bracket_var s =
   if is_bracket_value s then is_var (bracket_inner s) else false
 
-(** Check if a string looks like a CSS color function call (e.g., "rgba(...)",
-    "hsl(...)", "oklch(...)"). Returns true for known CSS color function names
-    followed by '('. *)
 let is_css_color_fn s =
   match String.index_opt s '(' with
   | Some i -> Cascade.Css.Properties.is_color_function (String.sub s 0 i)
   | None -> false
 
-(** Check if a string is a bare var reference like "(--name)" *)
 let is_bare_var s =
   String.length s > 4
   && s.[0] = '('
@@ -783,7 +967,6 @@ let bare_name s =
     Some (String.sub s 2 (String.length s - 2))
   else None
 
-(** Extract the var name from a bare var "(--name)" → "--name" *)
 let bare_var_inner s =
   if is_bare_var s then String.sub s 1 (String.length s - 2) else s
 
@@ -1059,16 +1242,12 @@ let split_atomic sep s =
   parts := Buffer.contents buf :: !parts;
   List.rev !parts
 
-(** Split a class name on '-' but treat '[...]' as atomic. E.g.
-    "m-[var(--value)]" → ["m"; "[var(--value)]"] E.g. "-m-[var(--value)]" →
-    [""; "m"; "[var(--value)]"] *)
+(* "-m-[var(--value)]" -> [""; "m"; "[var(--value)]"]. *)
 let split_class_uncached = split_atomic '-'
 
-(** Split a variant chain on ':', treating '[...]' and '(...)' as atomic so a
-    colon inside an arbitrary value or a shorthand var reference (e.g.
-    "hover:bg-[color:var(--x)]") is not read as a variant separator. Always
-    yields (colon count + 1) tokens: joining the result back with ':'
-    reconstructs the input. *)
+(* A colon inside an arbitrary value or a shorthand var reference
+   ("hover:bg-[color:var(--x)]") is not a variant separator. Joining the result
+   back with ':' gives the input. *)
 let split_on_colon = split_atomic ':'
 
 (* Utility.base_of_class offers one class name to every handler in turn until

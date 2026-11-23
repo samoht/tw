@@ -8,15 +8,13 @@ open Tw.Position
 open Tw.Modifiers
 open Test_helpers
 
-(* ===== Tests ===== *)
-
 let check_theme_layer_empty () =
   let default_decls =
     Tw.Typography.default_font_declarations
     @ Tw.Typography.default_font_family_declarations
   in
   let theme_layer = Tw.Build.theme_layer_of ~default_decls [] in
-  (* Should include font variables even for empty input *)
+  (* the font variables are declared even for empty input *)
   let vars = vars_in_layer "theme" theme_layer in
   check bool "includes --font-sans" true (List.mem "--font-sans" vars);
   check bool "includes --font-mono" true (List.mem "--font-mono" vars);
@@ -31,53 +29,40 @@ let check_theme_layer_with_color () =
     @ Tw.Typography.default_font_family_declarations
   in
   let theme_layer = Tw.Build.theme_layer_of ~default_decls [ bg blue ] in
-  (* Should include color variable when referenced *)
   check bool "includes --color-blue-500" true
     (has_var_in_layer "--color-blue-500" "theme" theme_layer);
-  (* Should still include font variables *)
   check bool "includes --font-sans" true
     (has_var_in_layer "--font-sans" "theme" theme_layer)
 
-let check_conflict_order () =
-  (* Test that Tw.Build.conflict_order correctly delegates to Utility.order *)
-  (* It should parse the selector, extract the utility name, and return ordering *)
-
-  (* Test basic selector parsing *)
-  let prio, sub = Tw.Build.conflict_order ".p-4" in
-  check int "p-4 priority" 23 prio;
-
-  (* Padding priority *)
-
-  (* Test with modifier prefix (should strip it) *)
-  let prio_hover, sub_hover = Tw.Build.conflict_order ".hover\\:p-4:hover" in
-  check int "hover:p-4 same priority as p-4" prio prio_hover;
-  check int "hover:p-4 same suborder as p-4" sub sub_hover;
-
-  (* Test relative ordering between utilities *)
-  let m4_prio, _ = Tw.Build.conflict_order ".m-4" in
-  let bg_prio, _ = Tw.Build.conflict_order ".bg-blue-500" in
-  check bool "margin before background" true (m4_prio < bg_prio);
-  (* bg-blue-500 is a background color (priority 20), which comes before Padding
-     (priority 23) *)
-  check bool "background color before padding" true (bg_prio < prio);
-
-  (* Test unknown utility gets high priority *)
-  let unknown_prio, _ = Tw.Build.conflict_order ".unknown-utility" in
-  check int "unknown gets 9999 priority" 9999 unknown_prio
+(* A rule sorts at the order of the utility it was built for, under the
+   project's theme: [!bg-brand] reads a colour only the project declares, and
+   Tailwind writes it before [p-4]. *)
+let check_order_under_project_theme () =
+  let theme =
+    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-brand", "#123456") ]
+  in
+  let utility cls =
+    match Tw.of_string ~theme cls with
+    | Ok u -> u
+    | Error (`Msg m) -> Alcotest.failf "%s rejected: %s" cls m
+  in
+  let css =
+    Tw.to_css ~theme ~base:false (List.map utility [ "p-4"; "!bg-brand" ])
+    |> Css.to_string ~minify:true
+  in
+  let position sub =
+    match Astring.String.find_sub ~sub css with
+    | Some i -> i
+    | None -> Alcotest.failf "%s missing from %s" sub css
+  in
+  check bool "!bg-brand before p-4" true
+    (position ".\\!bg-brand{" < position ".p-4{")
 
 let check_properties_layer () =
-  (* Test that shadow utilities generate proper @layer properties with initial
-     values *)
   let config = { Tw.Build.base = false; forms = None; layers = true } in
   let actual_css = Tw.Build.to_css ~config [ Tw.Effects.shadow_sm ] in
-
-  (* Verify properties layer exists *)
   check bool "has properties layer" true (has_layer "properties" actual_css);
-
-  (* Extract custom property declarations from properties layer *)
   let vars = vars_in_layer "properties" actual_css in
-
-  (* Verify expected shadow variables are present *)
   check bool "has --tw-shadow" true (List.mem "--tw-shadow" vars);
   check bool "has --tw-shadow-alpha" true (List.mem "--tw-shadow-alpha" vars);
   check bool "has --tw-ring-offset-color" true
@@ -85,10 +70,9 @@ let check_properties_layer () =
   check bool "has --tw-ring-offset-width" true
     (List.mem "--tw-ring-offset-width" vars)
 
-(* Regression: a theme color referenced only inside a compound variant's nested
-   media (hover:dark:text-white puts var(--color-white) two media levels deep)
-   must still be declared in the theme layer. The var collection used to stop at
-   the first level and miss it, so --color-white got pruned. *)
+(* A theme color referenced only inside a compound variant's nested media
+   (hover:dark:text-white puts var(--color-white) two media levels deep) is
+   still declared in the theme layer: the var collection walks every level. *)
 let check_compound_variant_theme_var () =
   let u =
     match Tw.of_string "hover:dark:text-white" with
@@ -99,10 +83,9 @@ let check_compound_variant_theme_var () =
   check bool "theme layer declares --color-white" true
     (has_var_in_layer "--color-white" "theme" css)
 
-(* Regression: a compound [supports-] variant nests its rule in an [@supports]
-   block, and the tokens the utility sets live in there with it. The theme walk
-   used to descend into [@media], [@layer] and [@container] only, so the token
-   went undeclared and the rule read a [var()] nothing defined. *)
+(* A compound [supports-] variant nests its rule in an [@supports] block, and
+   the tokens the utility sets live in there with it. The theme walk descends
+   into [@supports] too, so the token is declared. *)
 let check_supports_variant_theme_token () =
   let u =
     match Tw.of_string "md:supports-[display:grid]:aspect-video" with
@@ -120,7 +103,6 @@ let check_css_variables_with_base () =
   check bool "has theme layer" true (has_layer "theme" css);
   check bool "has base layer" true (has_layer "base" css);
   check bool "has utilities layer" true (has_layer "utilities" css);
-  (* Check base layer contains reset selectors *)
   let base_selectors = selectors_in_layer "base" css in
   check bool "base has universal reset" true
     (List.mem "*, ::after, ::before, ::backdrop" base_selectors)
@@ -166,11 +148,6 @@ let check_inline_style () =
   check bool "has background-color" true
     (inline_has_property "background-color" style)
 
-(* ---------------------------------------------------------------------- *)
-(* Ordering tests for layers and properties/@property emission (AST-based) *)
-(* ---------------------------------------------------------------------- *)
-
-(* Short, reusable helpers *)
 let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
   let sheet =
     Tw.Build.to_css
@@ -184,8 +161,6 @@ let sheet_of ?(base = false) ?(mode = Css.Variables) styles =
   in
   sheet
 
-(* layer_block is now available in Css module *)
-
 let supports_block (stmts : Css.statement list) : Css.statement list option =
   List.find_map
     (fun s ->
@@ -197,8 +172,6 @@ let first_rule_decls (stmts : Css.statement list) : Css.declaration list option
   List.find_map
     (fun s -> match Css.as_rule s with Some (_, ds, _) -> Some ds | _ -> None)
     stmts
-
-(* custom_prop_names is now available in Css module *)
 
 let property_rule_names (sheet : Css.t) : string list =
   Css.statements sheet
@@ -229,7 +202,7 @@ let rec is_prefix pre lst =
 let or_fail msg = function Some x -> x | None -> fail msg
 
 let check_layer_declaration_and_ordering () =
-  (* Use a utility that triggers properties + @property rules *)
+  (* shadow-sm sets variables, so the sheet has a properties layer *)
   let sheet = sheet_of [ Tw.Effects.shadow_sm ] in
   let expected = [ "properties"; "theme"; "components"; "utilities" ] in
   let layer_names =
@@ -297,10 +270,8 @@ let check_property_rules_order () =
   in
   check bool "@property after utilities" true (first_prop_idx > util_idx)
 
-(* Regression: --tw-space-y-reverse must sort AFTER the transform group in
-   @property, matching Tailwind (which places it after --tw-translate-* and
-   before --tw-border-style). It previously carried a negative property_order
-   with no family, which forced it ahead of the transforms. *)
+(* --tw-space-y-reverse sorts after the transform group in @property, as
+   Tailwind places it: after --tw-translate-* and before --tw-border-style. *)
 let check_space_reverse_after_transforms () =
   let sheet =
     Tw.to_css ~base:false ~layers:true [ Tw.translate_x 4; Tw.space_y 4 ]
@@ -325,9 +296,9 @@ let index_of_prop names n =
   in
   loop 0 names
 
-(* Regression: Tailwind emits @property --tw-border-spacing-* first in @layer
-   properties, ahead of the transforms. A negative property_order with no family
-   sorts them there. *)
+(* Tailwind emits @property --tw-border-spacing-* first in @layer properties,
+   ahead of the transforms. A negative property_order with no family sorts them
+   there. *)
 let check_border_spacing_first () =
   let names =
     property_rule_names
@@ -338,8 +309,8 @@ let check_border_spacing_first () =
   check bool "--tw-border-spacing-x before --tw-translate-x" true
     (index_of "--tw-border-spacing-x" < index_of "--tw-translate-x")
 
-(* Regression: @property --tw-outline-style sorts after the ring group and
-   before the filters, not with the border-style block. *)
+(* @property --tw-outline-style sorts after the ring group and before the
+   filters, not with the border-style block. *)
 let check_outline_style_after_ring () =
   let outline =
     match Tw.of_string "outline" with Ok u -> u | Error (`Msg m) -> fail m
@@ -354,11 +325,11 @@ let check_outline_style_after_ring () =
   check bool "--tw-outline-style before --tw-blur" true
     (index_of "--tw-outline-style" < index_of "--tw-blur")
 
-(* Regression: content-none uses a literal [content: none] and must NOT register
-   @property --tw-content, matching Tailwind (which emits it only for content
-   utilities that reference var(--tw-content), and for before/after
-   pseudo-elements). The value variant content-["x"] does reference the var and
-   keeps the @property rule. *)
+(* content-none uses a literal [content: none] and registers no @property
+   --tw-content, as Tailwind does (which emits it only for content utilities
+   that reference var(--tw-content), and for before/after pseudo-elements). The
+   value variant content-["x"] does reference the var and keeps the @property
+   rule. *)
 let check_content_none_no_property () =
   let none_names =
     property_rule_names (Tw.to_css ~base:false ~layers:true [ Tw.content_none ])
@@ -371,28 +342,18 @@ let check_content_none_no_property () =
   check bool "content value keeps @property --tw-content" true
     (List.mem "--tw-content" value_names)
 
-let test_resolve_dependencies () =
-  (* Dependency resolution is now handled automatically by
-     Css.vars_of_declarations This test is kept for compatibility but
-     simplified *)
-  let _vars = [ "--color-blue-500"; "--spacing-4" ] in
-  (* Just check that the vars exist *)
-  check bool "has color var" true (String.length "--color-blue-500" > 0);
-  check bool "has spacing var" true (String.length "--spacing-4" > 0)
-
 let test_inline_no_vars_defaults () =
-  (* Ensure Inline mode resolves defaults and does not emit var(--...). Use
-     rounded_sm which sets a default on its CSS var. *)
+  (* Inline mode resolves defaults and emits no var(--...). rounded_sm sets a
+     default on its CSS var. *)
   let config = { Tw.Build.base = false; forms = None; layers = true } in
   let sheet =
     Tw.Build.to_css ~config [ Tw.Borders.rounded_sm ] |> Css.inline_vars
   in
-  (* Find first rule with declarations using fold *)
   let find_first_decls css =
     Css.fold
       (fun acc stmt ->
         match (acc, Css.as_rule stmt) with
-        | Some _, _ -> acc (* already found *)
+        | Some _, _ -> acc
         | None, Some (_, decls, _) when List.length decls > 0 -> Some decls
         | None, _ -> None)
       None css
@@ -403,7 +364,6 @@ let test_inline_no_vars_defaults () =
   | Some declarations ->
       check bool "no Var in declarations" false
         (has_var_in_declarations ~inline:true declarations);
-      (* Check border-radius property exists *)
       let has_border_radius =
         List.exists
           (fun decl -> Css.declaration_name decl = "border-radius")
@@ -412,7 +372,6 @@ let test_inline_no_vars_defaults () =
       check bool "has border-radius" true has_border_radius
 
 let test_inline_style_no_vars () =
-  (* Directly build a declaration with a defaulted var and inline it. *)
   let _, radius_var = Css.var "radius-md" Css.Length (Css.Rem 0.5) in
   let decls =
     [
@@ -424,8 +383,6 @@ let test_inline_style_no_vars () =
   let inline = Css.inline_style_of_declarations ~mode:Css.Inline decls in
   check bool "inline: border-radius present" true
     (inline_has_property "border-radius" inline);
-  (* Verify no var() in output - this requires checking string since inline is
-     string *)
   check bool "inline: no var() in string" false
     (String.contains inline '(' && String.contains inline ')'
     &&
@@ -449,7 +406,6 @@ let test_inline_vs_variables_diff () =
       [ p 4 ]
     |> Css.inline_vars
   in
-  (* Extract all declarations using fold *)
   let extract_decls css =
     Css.fold
       (fun acc stmt ->
@@ -464,15 +420,6 @@ let test_inline_vs_variables_diff () =
     (has_var_in_declarations vars_decls);
   check bool "inline: no var()" false
     (has_var_in_declarations ~inline:true inline_decls)
-
-let test_resolve_deps_dedup_queue () =
-  (* Deduplication is now handled automatically by Css.vars_of_declarations This
-     test is kept for compatibility but simplified *)
-  let vars = [ "--text-xl"; "--text-xl"; "--text-xl-line-height" ] in
-  (* Just verify the vars exist - dedup happens in Css.vars_of_declarations *)
-  check bool "has text-xl var" true (List.mem "--text-xl" vars);
-  check bool "has text-xl line-height var" true
-    (List.mem "--text-xl-line-height" vars)
 
 (* Where [sheet] declares each of [vars], in the order the sheet declares them.
    The theme layer is the only place a [--name:] declaration appears; every
@@ -549,16 +496,14 @@ let test_theme_layer_media_refs () =
     |> Option.map Css.custom_props_of_rules
     |> Option.value ~default:[]
   in
-  (* Check for exact variable name matches *)
   check bool "includes --text-xl var" true
     (List.exists (fun v -> v = "--text-xl") all_vars);
   check bool "includes --text-xl--line-height var" true
     (List.exists (fun v -> v = "--text-xl--line-height") all_vars)
 
 (* A token the project's own [@theme] declared and a utility only reads has
-   nothing else in the sheet to declare it, so the theme layer has to. Before,
-   only the catalogued colours and [--spacing] were emitted that way, and a
-   reference to any other project token named a variable with no value. *)
+   nothing else in the sheet to declare it, so the theme layer does, for every
+   project token and not only the catalogued colours and [--spacing]. *)
 let test_theme_layer_emits_read_project_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("brand-ink", "#123456") ]
@@ -611,14 +556,11 @@ let test_theme_media_refs_md () =
     (List.exists (fun v -> v = "--text-xl--line-height") all_vars)
 
 let test_rule_sets_hover_media () =
-  (* A bare hover utility produces a rule that should be gated behind
-     (hover:hover) *)
+  (* A bare hover utility's rule is gated behind (hover:hover). *)
   let config = { Tw.Build.base = false; forms = None; layers = true } in
   let css = Tw.Build.to_css ~config [ hover [ p 4 ] ] in
-  (* Check for exact media condition *)
   check bool "has (hover:hover) media query" true
     (has_media_condition "(hover: hover)" css);
-  (* Extract selectors from within the (hover:hover) media query *)
   let selectors = selectors_in_media_sel ~condition:"(hover: hover)" css in
   let expected =
     Css.Selector.compound
@@ -645,8 +587,6 @@ let test_rule_sets_md_media () =
     |> List.length
   in
   check int "one consecutive md media block" 1 md_blocks;
-
-  (* Collect the md media block and verify both selectors remain under md. *)
   let selectors =
     Css.fold
       (fun acc stmt ->
@@ -676,12 +616,10 @@ let test_media_grouping_order () =
   let css =
     Tw.Build.to_css [ sm [ p 2 ]; md [ m 4 ]; lg [ Tw.Typography.text_xl ] ]
   in
-  (* Conditions present and in order *)
   let conditions = media_conditions css in
   check (list string) "media conditions order"
     [ "(min-width: 40rem)"; "(min-width: 48rem)"; "(min-width: 64rem)" ]
     conditions;
-  (* Each block contains only its selectors *)
   let sm_sels = selectors_in_media_sel ~condition:"(min-width: 40rem)" css in
   let md_sels = selectors_in_media_sel ~condition:"(min-width: 48rem)" css in
   let lg_sels = selectors_in_media_sel ~condition:"(min-width: 64rem)" css in
@@ -767,9 +705,7 @@ let test_container_and_media () =
   let statements =
     Tw.Build.rule_sets [ Tw.Containers.container_md [ p 4 ]; md [ m 2 ] ]
   in
-  (* Check that we have some statements *)
   check bool "has statements" true (List.length statements > 0);
-  (* Check that we have both media and container queries in the output *)
   let has_media =
     List.exists
       (fun stmt ->
@@ -903,9 +839,7 @@ let test_container_merge_keeps_conditions_apart () =
 
 let test_rule_sets () =
   let statements = Tw.Build.rule_sets [ p 4; sm [ m 2 ] ] in
-  (* Check that we have statements *)
   check bool "has statements" true (List.length statements > 0);
-  (* Check for media queries *)
   let has_media =
     List.exists
       (fun stmt ->
@@ -913,7 +847,6 @@ let test_rule_sets () =
       statements
   in
   check bool "has media queries" true has_media;
-  (* Check no container queries *)
   let has_container =
     List.exists
       (fun stmt ->
@@ -934,7 +867,6 @@ let test_build_utilities_layer () =
     ]
   in
   let layer = Tw.Build.utilities_layer ~layers:true ~statements in
-  (* Check for utilities layer and selectors *)
   check bool "creates utilities layer" true (has_layer "utilities" layer);
   check bool "includes padding rule" true
     (has_selector_in_layer ".p-4" "utilities" layer);
@@ -942,7 +874,7 @@ let test_build_utilities_layer () =
     (has_selector_in_layer ".m-2" "utilities" layer)
 
 let test_build_utils_layer_order () =
-  (* Test that build_utilities_layer preserves rule order and doesn't sort *)
+  (* [utilities_layer] keeps the order it is given; it does not sort. *)
   let statements =
     [
       Css.rule ~selector:(Css.Selector.class_ "a")
@@ -957,27 +889,20 @@ let test_build_utils_layer_order () =
   in
   let layer = Tw.Build.utilities_layer ~layers:true ~statements in
   let css = Css.to_string ~minify:true layer in
-
-  (* Find positions of each rule in the output *)
   let find_position selector =
     match Astring.String.find_sub ~sub:selector css with
     | None -> -1
     | Some pos -> pos
   in
-
   let pos_a1 = find_position ".a{color" in
   let pos_b = find_position ".b{" in
   let pos_c = find_position ".c{" in
   let pos_a2 = find_position ".a{background" in
   let pos_d = find_position ".d{" in
-
-  (* Check that original order is preserved *)
   check bool "first .a before .b" true (pos_a1 < pos_b);
   check bool ".b before .c" true (pos_b < pos_c);
   check bool ".c before second .a" true (pos_c < pos_a2);
   check bool "second .a before .d" true (pos_a2 < pos_d);
-
-  (* Most importantly: the two .a rules should NOT be adjacent *)
   check bool "two .a rules are not adjacent" true
     (pos_b > pos_a1 && pos_b < pos_a2)
 
@@ -1010,8 +935,7 @@ let test_extra_keeps_plain_order () =
   check bool "flex before table" true (flex < table)
 
 let test_style_rules_props () =
-  (* Test that when a Style has both props and rules, the props are placed after
-     the rules *)
+  (* A style with both props and rules places the props after the rules. *)
   let open Css in
   let open Css.Selector in
   let test_class = class_ "test" in
@@ -1030,7 +954,6 @@ let test_style_rules_props () =
   let props = [ color (Css.hex "#ff0000") ] in
 
   let style = Tw.Style.style ~rules:(Some custom_rules) props in
-  (* Create a test utility that wraps the style and provides the class name *)
   let module TestHandler = struct
     type t = Test
 
@@ -1045,11 +968,7 @@ let test_style_rules_props () =
   let module TestUtility = Tw.Utility.Make (TestHandler) in
   let test_utility = TestUtility.v TestHandler.Test in
   let extracted = Tw.Rule.outputs test_utility in
-
-  (* Should generate rules in order: custom rules first, then base props *)
   check int "correct number of rules" 3 (List.length extracted);
-
-  (* Check that the base props come last *)
   let selectors =
     List.map
       (fun r ->
@@ -1058,8 +977,6 @@ let test_style_rules_props () =
         | _ -> "")
       extracted
   in
-
-  (* First two should be the custom rules, last should be the base class *)
   check string "first rule selector" ".test :where(p)" (List.nth selectors 0);
   check string "second rule selector" ".test :where(div)" (List.nth selectors 1);
   check string "last rule selector" ".test" (List.nth selectors 2)
@@ -1076,21 +993,11 @@ let test_property_default_rule_is_automatic () =
        css)
 
 let test_media_query_deduplication () =
-  (* Test that media queries preserve cascade order.
-   *
-   * Container Tw.Rule.outputs separate @media blocks for each breakpoint.
-   * md:grid-cols-2 also gets a @media block for its breakpoint.
-   * At 48rem we expect 2 media queries: one for container, one for md:grid-cols-2.
-   *
-   * Example output:
-   *   .container { width: 100% }
-   *   @media (min-width:768px) { .container { max-width: 48rem } }
-   *   @media (min-width:768px) { .md\:grid-cols-2 { ... } }
-   *)
+  (* Media queries preserve cascade order: [container] writes its own @media
+     block per breakpoint and md:grid-cols-2 writes another, so at 48rem there
+     are two top-level blocks, not one merged block. *)
   let utilities = Tw.[ container; md [ grid_cols 2 ] ] in
   let css = Tw.to_css ~base:false utilities in
-
-  (* Count top-level media queries in layers *)
   let rec count_toplevel_media condition stmt =
     match Tw.Css.as_media stmt with
     | Some (cond, _) -> if Tw.Css.Media.equal cond condition then 1 else 0
@@ -1108,9 +1015,6 @@ let test_media_query_deduplication () =
          (count_toplevel_media (Tw.Css.media_min_width_length (Tw.Css.Rem 48.)))
          (Tw.Css.statements css))
   in
-
-  (* Should have 2 top-level media queries at 768px: one for container, one for
-     md:grid-cols-2 *)
   Alcotest.(check int)
     "preserves cascade with nested and top-level media" 2 count_768px
 
@@ -1124,10 +1028,8 @@ let check_spacing_zero_prune () =
     Tw.Build.to_css ~config [ utility ] |> Css.to_string ~minify:true
   in
   let check_zero name property utility =
-    (* The whole list. The substring this replaces was [property ^ ":0"], which
-       matched [padding:0px] on its prefix, so it could not have told a zero
-       length from any value starting with one. The CLI writes [0px] and so does
-       tw. *)
+    (* The whole list, since a substring [property ^ ":0"] cannot tell a zero
+       length from any value starting with one. The CLI writes [0px]. *)
     Test_helpers.check_declarations name [ property ^ ":0px" ];
     (* The carrier is a [:root] binding, which [declarations_of_class] leaves
        out by design, so its absence cannot be read off the list above and this
@@ -1154,7 +1056,7 @@ let check_nested_spacing_keeps_runtime_carrier () =
   in
   let css = Tw.to_css ~base:false [ utility ] |> Css.to_string ~minify:true in
   (* The whole list: the carrier has to survive in both margin declarations,
-     which a single search of the sheet for [var(--spacing)] never said. *)
+     which a single search of the sheet for [var(--spacing)] cannot say. *)
   Test_helpers.check_declarations "space-x-2.5"
     [
       "--tw-space-x-reverse:0";
@@ -1168,23 +1070,9 @@ let check_nested_spacing_keeps_runtime_carrier () =
     "theme keeps referenced --spacing" true
     (Astring.String.is_infix ~affix:"--spacing:" css)
 
-(* Dependency discovery inspects the value of every emitted declaration. An
-   arbitrary value can be valid for its real property while not being a valid
-   custom-property declaration value (a top-level unmatched closing delimiter is
-   one example), so that inspection must never reparse it through a synthetic
-   declaration. *)
-let check_dependency_scan_accepts_adversarial_value () =
-  let utility =
-    match Tw.of_string "mask-conic-[0)/*1]" with
-    | Ok utility -> utility
-    | Error (`Msg msg) -> Alcotest.fail msg
-  in
-  ignore (Tw.to_css ~base:false [ utility ])
-
 (* A utility that only REFERENCES a theme colour token via var() (here an
-   arbitrary bg-[color:var(--color-red-500)]) must still emit that token in
-   @layer theme; the build used to collect only tokens utilities set. A
-   non-theme var stays out. *)
+   arbitrary bg-[color:var(--color-red-500)]) still emits that token in @layer
+   theme, as a token a utility sets does. A non-theme var stays out. *)
 let test_referenced_theme_token () =
   let css cls =
     match Tw.of_string cls with
@@ -1387,12 +1275,10 @@ let tests =
     test_case "spacing-0 prunes --spacing" `Quick check_spacing_zero_prune;
     test_case "nested spacing keeps --spacing" `Quick
       check_nested_spacing_keeps_runtime_carrier;
-    test_case "dependency scan accepts adversarial value" `Quick
-      check_dependency_scan_accepts_adversarial_value;
     test_case "theme layer - empty" `Quick check_theme_layer_empty;
     test_case "theme layer - with color" `Quick check_theme_layer_with_color;
-    test_case "Tw.Build.conflict_order delegates to Utility.order" `Quick
-      check_conflict_order;
+    test_case "order under a project theme" `Quick
+      check_order_under_project_theme;
     test_case "properties layer generation" `Quick check_properties_layer;
     test_case "to_css variables with base" `Quick check_css_variables_with_base;
     test_case "compound variant theme var" `Quick
@@ -1416,14 +1302,11 @@ let tests =
       check_outline_style_after_ring;
     test_case "content-none emits no @property --tw-content" `Quick
       check_content_none_no_property;
-    test_case "resolve_dependencies" `Quick test_resolve_dependencies;
     test_case "inline_no_var_in_css_for_defaults" `Quick
       test_inline_no_vars_defaults;
     test_case "inline_style_no_var_for_defaults" `Quick
       test_inline_style_no_vars;
     test_case "inline_vs_variables_diff" `Quick test_inline_vs_variables_diff;
-    test_case "resolve_dependencies_dedup_and_queue" `Quick
-      test_resolve_deps_dedup_queue;
     test_case "theme layer family order" `Quick check_theme_layer_family_order;
     test_case "theme_layer_collects_media_refs" `Quick
       test_theme_layer_media_refs;

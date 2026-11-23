@@ -1,8 +1,3 @@
-(** Touch-action utilities
-
-    @see <https://tailwindcss.com/docs/touch-action>
-      Tailwind CSS Touch Action documentation *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -31,7 +26,6 @@ module Handler = struct
   (* Touch-action follows cursor and opens the shared interaction band. *)
   let priority _ = 11
 
-  (* CSS Variables for composable touch-action values *)
   let tw_pan_x_var =
     Var.channel ~needs_property:true ~property_order:50 Touch_action "tw-pan-x"
 
@@ -47,15 +41,12 @@ module Handler = struct
       [ tw_pan_x_var; tw_pan_y_var; tw_pinch_zoom_var ]
     |> concat
 
-  (* Create a touch-action value that references all three vars with empty
-     fallbacks *)
   let composable_touch_action () =
     let pan_x_ref = Var.reference_with_empty_fallback tw_pan_x_var in
     let pan_y_ref = Var.reference_with_empty_fallback tw_pan_y_var in
     let pinch_zoom_ref = Var.reference_with_empty_fallback tw_pinch_zoom_var in
     touch_action (Vars [ pan_x_ref; pan_y_ref; pinch_zoom_ref ])
 
-  (* Helper for composable touch styles *)
   let composable_style var value =
     let decl = Var.set var value in
     style ~property_rules:touch_props [ decl; composable_touch_action () ]
@@ -111,7 +102,7 @@ module Handler = struct
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
-    | None -> Error (`Msg "Not a touch-action utility")
+    | None -> Utility.unclaimed
 
   let examples = [ Auto ]
 end

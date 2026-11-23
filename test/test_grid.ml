@@ -8,19 +8,13 @@ let of_string_valid () =
   check "inline-grid"
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Grid.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let fail_maybe why =
+    Test_helpers.check_invalid_parts ~why (module Tw.Grid.Handler)
   in
-
-  fail_maybe [ "grid"; "cols" ];
-  (* Wrong utility - this is grid_template *)
-  fail_maybe [ "col"; "auto" ];
-  (* Wrong utility - this is grid_item *)
-  fail_maybe [ "row"; "span"; "1" ]
-(* Wrong utility - this is grid_item *)
+  fail_maybe Test_helpers.Not_a_utility [ "grid"; "cols" ];
+  (* grid_item owns these *)
+  fail_maybe Test_helpers.Another_handler [ "col"; "auto" ];
+  fail_maybe Test_helpers.Another_handler [ "row"; "span"; "1" ]
 
 let suborder_matches_tailwind () =
   let open Tw in

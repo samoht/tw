@@ -48,18 +48,23 @@ type variant_component = {
           [group-has-indeterminate] and [group-has-focus] keep their inner state
           order. [[]] for a non-compound token. *)
   value_key : string option;
-      (** A data predicate spelling or the decoded selector denoted by an
-          arbitrary variant, including its implicit [&:is(...)] anchor. [None]
-          for slots whose variants compare only by rank. *)
+      (** The decoded value of an [aria-], [data-] or [nth-*] token, or the
+          decoded selector denoted by an arbitrary variant, including its
+          implicit [&:is(...)] anchor. [None] for slots whose variants compare
+          only by rank. *)
   container : container_value option;
       (** The bound a container token names, so a stacked [\@sm:\@max-md:] sorts
           under [\@sm] as Tailwind sorts it. [None] for every other token. *)
+  anchor_name : string option;
+      (** The [/name] a [group-] or [peer-] token targets, which orders two
+          tokens wrapping the same state, the unnamed one first. [None] for
+          every other token. *)
 }
 (** One component of a rule's variant sort key: the slot a modifier token sorts
     in, plus what separates two tokens that share that slot. *)
 
 type indexed_rule = {
-  index : int;  (** Source position — used as a stable tiebreaker. *)
+  index : int;  (** Source position: used as a stable tiebreaker. *)
   rule_type :
     [ `Regular
     | `Media of Css.Media.t
@@ -90,7 +95,7 @@ type indexed_rule = {
           with {!variant_sort_key}, so {!val-compare_indexed_rules} does not
           recompute it per comparison. *)
   variant_orders : variant_component list;
-      (** The rule's variant order keys sorted descending, built with
+      (** The rule's distinct variant order keys sorted descending, built with
           {!variant_order_list}. Compared lexicographically by
           {!val-compare_indexed_rules} so a stacked variant sorts into the group
           of its highest-order component. *)
@@ -127,11 +132,11 @@ val variant_order_list :
   Css.Media.key option ->
   variant_component list
 (** [variant_order_list ?theme base_class variant_order breakpoint] is the
-    descending list of variant order keys stored in {!field-variant_orders}.
-    [theme] resolves exact custom-variant names before the built-in prefix
-    grammar. [variant_order] is the scalar fallback for selector-derived
-    variants with no order-bearing prefix. [breakpoint] is the rule's
-    {!val-responsive_media_key} and becomes the
+    descending list of distinct variant order keys stored in
+    {!field-variant_orders}. [theme] resolves exact custom-variant names before
+    the built-in prefix grammar. [variant_order] is the scalar fallback for
+    selector-derived variants with no order-bearing prefix. [breakpoint] is the
+    rule's {!val-responsive_media_key} and becomes the
     {!field-variant_component.breakpoint} of whichever token names a breakpoint.
 *)
 

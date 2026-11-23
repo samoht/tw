@@ -48,8 +48,8 @@ let test_arbitrary_token_stream () =
 let test_columns_arbitrary_width () =
   Test_helpers.check_declarations "columns-[16rem]" [ "columns:16rem" ]
 
-(* The typed constructors (newly exposed in tw.mli) must agree with the parser
-   on class names, including the [int] argument of [columns]. *)
+(* The typed constructors agree with the parser on class names, including the
+   [int] argument of [columns]. *)
 let test_typed () =
   Test_helpers.check_typed_class "columns-3" (Tw.columns 3);
   Test_helpers.check_typed_class "columns-auto" Tw.columns_auto;
@@ -92,9 +92,16 @@ let test_arbitrary_order () =
       "columns-[var(--b)]";
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "columns-[var(--a)_1px]"; "columns-[var(--a),foo]" ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "columns arbitrary width" `Quick
         test_columns_arbitrary_width;
       Alcotest.test_case "arbitrary token stream" `Quick

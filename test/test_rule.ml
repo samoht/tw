@@ -6,27 +6,9 @@ open Tw.Backgrounds
 open Tw.Padding
 open Tw.Modifiers
 
-(* ===== Tests ===== *)
-
-(* A variant decides the selector and the at-rules wrapped around it, and
-   neither is a declaration, so what these tests have to compare is the sheet
-   itself. Comparing it whole is what a substring cannot do: [:has(:focus)] is
-   an infix of [:has(:focus-visible)], and a [check bool] failure prints neither
-   the class nor the CSS. *)
-let sheet cls =
-  match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-
-let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
-
-(* Most classes here draw on no theme token, so the layers ahead of [utilities]
-   are empty and only the utilities layer is worth spelling out. The comparison
-   is still against the whole sheet. *)
-let check_utilities cls expected =
-  check_sheet cls
-    ("@layer theme,components,utilities;@layer theme;@layer components;@layer \
-      utilities{" ^ expected ^ "}")
+let sheet = Test_helpers.sheet
+let check_sheet = Test_helpers.check_sheet
+let check_utilities = Test_helpers.check_utilities
 
 let check_extract_selector_props () =
   let rules = Tw.Rule.outputs (p 4) in
@@ -35,6 +17,38 @@ let check_extract_selector_props () =
   | [ Regular { selector; _ } ] ->
       check string "correct selector" ".p-4" (Css.Selector.to_string selector)
   | _ -> fail "Expected Regular rule"
+
+(* A modifier moves a rule without changing the utility it belongs to, and each
+   item of a group keeps its own utility's order. *)
+let check_ordered_outputs () =
+  let order_of cls =
+    Tw.Utility.base_of_class Tw.Scheme.default cls
+    |> Result.get_ok |> Tw.Utility.order
+  in
+  let pair = Alcotest.(pair int int) in
+  List.iter
+    (fun (order, _) ->
+      check pair "hover:p-4 sorts as p-4" (order_of "p-4") order)
+    (Tw.Rule.ordered_outputs (hover [ p 4 ]));
+  List.iter
+    (fun (order, rule) ->
+      match rule with
+      | Media_query { base_class = Some "md:p-4"; _ } ->
+          check pair "md:p-4 sorts as p-4" (order_of "p-4") order
+      | Media_query { base_class = Some "md:bg-blue-500"; _ } ->
+          check pair "md:bg-blue-500 sorts as bg-blue-500"
+            (order_of "bg-blue-500") order
+      | rule -> failf "unexpected rule %s" (Tw.Output.pp rule))
+    (Tw.Rule.ordered_outputs (md [ p 4; bg blue ]))
+
+(* A mark around a group writes rules that belong to no single utility. *)
+let check_ordered_outputs_marked_group () =
+  match
+    Tw.Rule.ordered_outputs
+      (Tw.Utility.Important (false, Tw.Utility.Group [ p 4; bg blue ]))
+  with
+  | _ -> fail "a marked group has no single order"
+  | exception Invalid_argument _ -> ()
 
 let check_extract_hover () =
   let rules = Tw.Rule.outputs (hover [ bg blue ]) in
@@ -142,10 +156,9 @@ let test_modifier_to_rule () =
       check bool "marked as hover" true has_hover
   | _ -> fail "Expected Regular rule for hover"
 
-(* Arbitrary selector variants whose remainder starts with a combinator
-   ([&>div], [&+p], [&~p]) used to crash the renderer with a Cascade
-   Parse_error: the code forced a descendant combine and re-parsed ">div", which
-   the selector reader rejects. They must flatten to the combinator selector. *)
+(* An arbitrary selector variant whose remainder starts with a combinator
+   ([&>div], [&+p], [&~p]) flattens to the combinator selector, not a descendant
+   combine. *)
 let test_arbitrary_selector_combinator () =
   check_sheet "[&>div:first-child]:ring-2"
     {|@layer properties,theme,components,utilities;@layer properties{@supports(((-webkit-hyphens:none)) and (not (margin-trim:inline)))or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-shadow:0 0 #0000;--tw-inset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-inset-ring-shadow:0 0 #0000;--tw-ring-offset-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-ring-color:initial;--tw-inset-ring-color:initial;--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff}}}@layer theme;@layer components;@layer utilities{.\[\&\>div\:first-child\]\:ring-2>div:first-child{--tw-ring-shadow:var(--tw-ring-inset,) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color,currentcolor);box-shadow:var(--tw-inset-shadow),var(--tw-inset-ring-shadow),var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow)}}@property --tw-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-inset-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-ring-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-inset-ring-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-ring-offset-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-shadow-color{syntax:"*";inherits:false}@property --tw-shadow-alpha{syntax:"<percentage>";inherits:false;initial-value:100%}@property --tw-inset-shadow-color{syntax:"*";inherits:false}@property --tw-inset-shadow-alpha{syntax:"<percentage>";inherits:false;initial-value:100%}@property --tw-ring-color{syntax:"*";inherits:false}@property --tw-inset-ring-color{syntax:"*";inherits:false}@property --tw-ring-inset{syntax:"*";inherits:false}@property --tw-ring-offset-width{syntax:"<length>";inherits:false;initial-value:0}@property --tw-ring-offset-color{syntax:"*";inherits:false;initial-value:#fff}|};
@@ -155,9 +168,8 @@ let test_arbitrary_selector_combinator () =
     {|.\[\&_p\]\:underline p{text-decoration-line:underline}|}
 
 (* [&] is the CSS nesting anchor and stands for the utility's own class, so it
-   is substituted over the parsed selector. Rewriting the [&] bytes of the
-   source text and re-parsing the result also rewrote an [&] that was part of a
-   quoted attribute value. *)
+   is substituted over the parsed selector, never in the source text: an [&]
+   inside a quoted attribute value stays as written. *)
 let test_arbitrary_anchor_in_quoted_value () =
   (* This one stays on a substring. tw's library writes the attribute value
      quoted, exactly as the pinned CLI does, but the optimizer the [tw] binary
@@ -168,7 +180,7 @@ let test_arbitrary_anchor_in_quoted_value () =
   in
   has {|[&[data-x="a&b"]]:flex|}
     {|.\[\&\[data-x\=\"a\&b\"\]\]\:flex[data-x="a&b"]|};
-  (* the spellings that already worked stay byte-identical *)
+  (* spellings with no quoted [&] *)
   check_utilities "[&>*]:flex" {|.\[\&\>\*\]\:flex>*{display:flex}|};
   check_utilities "[&_p]:flex" {|.\[\&_p\]\:flex p{display:flex}|};
   check_utilities "[&:hover]:flex" {|.\[\&\:hover\]\:flex:hover{display:flex}|};
@@ -176,11 +188,9 @@ let test_arbitrary_anchor_in_quoted_value () =
   check_utilities "[p.foo]:flex" {|.\[p\.foo\]\:flex:is(p.foo){display:flex}|};
   check_utilities "[.line]:block" {|.\[\.line\]\:block.line{display:block}|}
 
-(* Regression: an opacity color emits a progressive-enhancement @supports block.
-   Under a variant, that block must stay scoped to the variant instead of
-   leaking a bare base-class rule. dark:text-white/80 previously emitted a
-   top-level .text-white/80 @supports rule alongside the correct
-   .dark:text-white/80. *)
+(* An opacity color emits a progressive-enhancement @supports block. Under a
+   variant, that block stays scoped to the variant and emits no bare base-class
+   rule. *)
 let test_opacity_color_variant_no_leak () =
   (* Every rule the sheet holds is named here, so a leaked [.text-white] rule
      has nowhere to hide. *)
@@ -189,17 +199,15 @@ let test_opacity_color_variant_no_leak () =
   check_sheet "hover:text-red-500/50"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--color-red-500:oklch(63.7%.237 25.331)}}@layer components;@layer utilities{@media(hover:hover){.hover\:text-red-500\/50:hover{color:#fb2c3680}@supports(color:color-mix(in lab,red,red)){.hover\:text-red-500\/50:hover{color:color-mix(in oklab,var(--color-red-500) 50%,transparent)}}}}|}
 
-(* Regression: a stacked hover:dark:* variant must keep the @media (hover:hover)
-   wrapper (nested inside the dark media), matching Tailwind. tw used to emit a
-   bare @media (dark) block, so the hover style also applied on touch
+(* A stacked hover:dark:* variant keeps the @media (hover:hover) wrapper around
+   the dark media, as Tailwind does, so the hover style does not apply on touch
    devices. *)
 let test_hover_dark_media_wrapper () =
   check_sheet "hover:dark:text-white"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--color-white:#fff}}@layer components;@layer utilities{@media(hover:hover){@media(prefers-color-scheme:dark){.hover\:dark\:text-white:hover{color:var(--color-white)}}}}|}
 
 (* An at-rule variant outside [group-hover:] must keep the inner variant's
-   pointer-capability gate inside its own block. These wrappers used to consume
-   the selector and declarations but not [has_hover], so the style matched on
+   pointer-capability gate inside its own block, so the style does not match on
    touch devices. Both named and bracketed spellings take the same route. *)
 let test_at_rule_keeps_inner_hover_gate () =
   check_utilities "supports-grid:group-hover:flex-row"
@@ -232,8 +240,8 @@ let test_at_rule_keeps_inner_hover_gate () =
     {|@supports(display:grid){@container(width>=24rem){@media(hover:hover){.supports-\[display\:grid\]\:\@sm\:group-hover\:flex-row:is(:where(.group):hover *){flex-direction:row}}}}|}
 
 (* A selector-building outer variant must retain the capability gate carried by
-   an inner peer-hover rule. [not-[:hover]] takes a dedicated multi-rule route,
-   which used to keep the transformed selector but drop [has_hover]. *)
+   an inner peer-hover rule, including [not-[:hover]], which takes a dedicated
+   multi-rule route. *)
 let test_selector_variant_keeps_inner_hover_gate () =
   (* Each of these renders the same sheet but for its selector: touch-pan-x's
      property defaults, then the rule inside [@media(hover:hover)]. Spelling the
@@ -274,9 +282,8 @@ let test_selector_variant_keeps_inner_hover_gate () =
 
 (* An outer variant has to find the class the inner one produced. The child
    variant buries it inside an [:is] with a child combinator and the
-   pseudo-element variants report the class they prefixed, so both used to be
-   invisible: the outer variant dropped out of the class name, and stacking two
-   child variants collapsed to one. *)
+   pseudo-element variants report the class they prefixed. The outer variant
+   stays in the class name, and two stacked child variants stay two. *)
 let test_outer_variant_over_child_and_pseudo () =
   check_sheet "max-sm:after:block"
     {|@layer properties,theme,components,utilities;@layer properties{@supports(((-webkit-hyphens:none)) and (not (margin-trim:inline)))or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-content:""}}}@layer theme;@layer components;@layer utilities{@media not all and (min-width:40rem){.max-sm\:after\:block:after{content:var(--tw-content);display:block}}}@property --tw-content{syntax:"*";inherits:false;initial-value:""}|};
@@ -304,9 +311,7 @@ let test_bare_arbitrary_selector_variant () =
 (* An arbitrary variant stacks with the variants beside it. What the inner
    variant compounded onto the class belongs on the element this one makes the
    subject: [[&_p]:first:] matches the first [p], not a [p] under a first child.
-   A responsive variant in the chain used to drop the arbitrary selector
-   entirely, since the media path rebuilds the selector from a spelling [[svg]]
-   has none of. *)
+   A responsive variant in the chain keeps the arbitrary selector. *)
 let test_arbitrary_selector_stacking () =
   check_sheet "[svg]:first:size-4"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--spacing:.25rem}}@layer components;@layer utilities{.\[svg\]\:first\:size-4:is(svg):first-child{width:calc(var(--spacing)*4);height:calc(var(--spacing)*4)}}|};
@@ -327,9 +332,9 @@ let occurrences sub str =
   go 0 0
 
 (* An opacity colour emits a progressive-enhancement @supports block beside its
-   fallback. Under a variant the block used to carry the theme declaration a
-   second time, and for the variants that set an order of their own it sorted
-   ahead of the rule it enhances, so the fallback won. *)
+   fallback. Under a variant the block does not repeat the theme declaration,
+   and it sorts after the rule it enhances, even for the variants that set an
+   order of their own, so the enhancement wins. *)
 let test_opacity_supports_under_variant () =
   let css cls =
     match Tw.of_string cls with
@@ -386,9 +391,8 @@ let test_opacity_supports_inside_at_rule_variant () =
     | _ -> false)
 
 (* An at-rule written in brackets wraps the utility rather than selecting it,
-   and keeps its own spelling in the class name: reading it as the [supports-]
-   variant gave a class the HTML would not match. Its condition is emitted as
-   written, prefixed property or not. *)
+   and keeps its own spelling in the class name, which is what the HTML carries.
+   Its condition is emitted as written, prefixed property or not. *)
 let test_bracketed_at_rule_variant () =
   check_utilities "[@starting-style]:opacity-0"
     {|@starting-style{.\[\@starting-style\]\:opacity-0{opacity:0}}|};
@@ -400,8 +404,7 @@ let test_bracketed_at_rule_variant () =
     {|@supports(display:grid){.supports-\[display\:grid\]\:flex{display:flex}}|}
 
 (* [in-focus] scopes to an ancestor in that state, the same state names the
-   group and peer variants take. It used to be an unknown class: only the
-   bracket and data spellings were read. *)
+   group and peer variants take, as well as the bracket and data spellings. *)
 let test_in_state_variant () =
   check_utilities "in-focus:opacity-100"
     {|:where(:focus) .in-focus\:opacity-100{opacity:1}|};
@@ -412,9 +415,9 @@ let test_in_state_variant () =
     {|@media(hover:hover){:where(:hover) .in-hover\:flex{display:flex}}|}
 
 (* [before:]/[after:] add the content declaration the pseudo-element needs, but
-   a content-* utility already brings its own: adding a second one left it
-   declared twice. A utility that sets content to something else (content-none)
-   still gets the var indirection. *)
+   a content-* utility already brings its own and gets no second one. A utility
+   that sets content to something else (content-none) still gets the var
+   indirection. *)
 let test_pseudo_element_content_once () =
   let css cls =
     match Tw.of_string cls with
@@ -435,9 +438,9 @@ let test_pseudo_element_content_once () =
   check int "a plain utility still gets one" 1
     (occurrences "content:var(--tw-content)" (css "after:underline"))
 
-(* An attribute-style variant (aria/data/has) builds its own selector, so it
-   used to discard whatever an inner variant had already done: the [:hover], the
-   child combinator, the second attribute. *)
+(* An attribute-style variant (aria/data/has) builds its own selector and keeps
+   what an inner variant has already done: the [:hover], the child combinator,
+   the second attribute. *)
 let test_attribute_variant_keeps_inner () =
   check_utilities "aria-selected:hover:underline"
     {|@media(hover:hover){.aria-selected\:hover\:underline[aria-selected=true]:hover{text-decoration-line:underline}}|};
@@ -463,8 +466,7 @@ let test_not_variant_keeps_inner () =
     {|@layer properties,theme,components,utilities;@layer properties{@supports(((-webkit-hyphens:none)) and (not (margin-trim:inline)))or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-shadow:0 0 #0000;--tw-shadow-color:initial;--tw-shadow-alpha:100%;--tw-inset-shadow:0 0 #0000;--tw-inset-shadow-color:initial;--tw-inset-shadow-alpha:100%;--tw-ring-color:initial;--tw-ring-shadow:0 0 #0000;--tw-inset-ring-color:initial;--tw-inset-ring-shadow:0 0 #0000;--tw-ring-inset:initial;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-offset-shadow:0 0 #0000}}}@layer theme;@layer components;@layer utilities{.not-data-focus\:not-has-checked\:ring-inset:not([data-focus]):not(:has(:checked)){--tw-ring-inset:inset}}@property --tw-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-shadow-color{syntax:"*";inherits:false}@property --tw-shadow-alpha{syntax:"<percentage>";inherits:false;initial-value:100%}@property --tw-inset-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-inset-shadow-color{syntax:"*";inherits:false}@property --tw-inset-shadow-alpha{syntax:"<percentage>";inherits:false;initial-value:100%}@property --tw-ring-color{syntax:"*";inherits:false}@property --tw-ring-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-inset-ring-color{syntax:"*";inherits:false}@property --tw-inset-ring-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}@property --tw-ring-inset{syntax:"*";inherits:false}@property --tw-ring-offset-width{syntax:"<length>";inherits:false;initial-value:0}@property --tw-ring-offset-color{syntax:"*";inherits:false;initial-value:#fff}@property --tw-ring-offset-shadow{syntax:"*";inherits:false;initial-value:0 0 #0000}|}
 
 (* The in-/named-group/peer routes build their selector from the bare class too,
-   so an outer one used to drop the anchor an inner arbitrary selector had put
-   in place. *)
+   so an outer one keeps the anchor an inner arbitrary selector put in place. *)
 let test_in_variant_keeps_inner () =
   check_utilities "in-data-stack:[:first-child>&]:underline"
     {|:first-child>:is(:where([data-stack]) .in-data-stack\:\[\:first-child\>\&\]\:underline){text-decoration-line:underline}|};
@@ -497,9 +499,8 @@ let test_has_variant () =
     {|.has-group-focus\/name\:underline:has(:is(:where(.group\/name):focus *)){text-decoration-line:underline}|}
 
 (* An inner media query's nested blocks hold the utility's class too, so an
-   outer responsive variant has to rename it there as well: [sm:] used to drop
-   out of the class name whenever [hover:] had wrapped the rule in its own media
-   block. *)
+   outer responsive variant renames it there as well: [sm:] stays in the class
+   name when [hover:] has wrapped the rule in its own media block. *)
 let test_outer_media_renames_nested () =
   check_utilities "sm:dark:hover:underline"
     {|@media(min-width:40rem){@media(prefers-color-scheme:dark){@media(hover:hover){.sm\:dark\:hover\:underline:hover{text-decoration-line:underline}}}}|};
@@ -507,10 +508,9 @@ let test_outer_media_renames_nested () =
     {|@layer properties,theme,components,utilities;@layer properties{@supports(((-webkit-hyphens:none)) and (not (margin-trim:inline)))or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-translate-x:0;--tw-translate-y:0;--tw-translate-z:0}}}@layer theme;@layer components;@layer utilities{@media(min-width:40rem){@media(prefers-reduced-motion:reduce){@media(hover:hover){.sm\:motion-reduce\:hover\:translate-y-0:hover{--tw-translate-y:0px;translate:var(--tw-translate-x)var(--tw-translate-y)}}}}}@property --tw-translate-x{syntax:"*";inherits:false;initial-value:0}@property --tw-translate-y{syntax:"*";inherits:false;initial-value:0}@property --tw-translate-z{syntax:"*";inherits:false;initial-value:0}|}
 
 (* A hover-gated variant keeps every declaration in a nested [@media
-   (hover:hover)] and leaves its wrapper carrying none. Rebuilding that
-   wrapper's own rule unconditionally wrote a declarationless rule beside the
-   real one, which the CLI does not emit and which no minified check sees. Each
-   at-rule an outer variant can build has to skip it. *)
+   (hover:hover)] and leaves its wrapper carrying none. Each at-rule an outer
+   variant can build skips that wrapper's own rule, so no declarationless rule
+   sits beside the real one, as the CLI emits none. *)
 let test_hover_gate_leaves_no_empty_rule () =
   check_utilities "supports-[display:grid]:dark:hover:underline"
     {|@supports(display:grid){@media(prefers-color-scheme:dark){@media(hover:hover){.supports-\[display\:grid\]\:dark\:hover\:underline:hover{text-decoration-line:underline}}}}|};
@@ -520,26 +520,24 @@ let test_hover_gate_leaves_no_empty_rule () =
     {|@container(width>=28rem){@media(prefers-color-scheme:dark){@media(hover:hover){.\@md\:dark\:hover\:underline:hover{text-decoration-line:underline}}}}|};
   (* Controls. [focus:] is not hover-gated, so the inner rule carries its own
      declarations and no wrapper is built empty; and an outer breakpoint over
-     [@supports] already skipped it, which is why that shape never showed the
-     surplus rule. *)
+     [@supports] builds no empty wrapper either. *)
   check_utilities "md:dark:focus:underline"
     {|@media(min-width:48rem){@media(prefers-color-scheme:dark){.md\:dark\:focus\:underline:focus{text-decoration-line:underline}}}|};
   check_utilities "sm:supports-[display:grid]:hover:underline"
     {|@media(min-width:40rem){@supports(display:grid){@media(hover:hover){.sm\:supports-\[display\:grid\]\:hover\:underline:hover{text-decoration-line:underline}}}}|}
 
-(* [starting:] and the bracketed at-rule variant wrap the utility in an at-rule,
-   and rebuilding the selector from the bare class dropped whatever an inner
-   variant had put on it. *)
+(* [starting:] and the bracketed at-rule variant wrap the utility in an at-rule
+   and keep whatever an inner variant put on the selector. *)
 let test_at_rule_keeps_inner () =
   check_utilities "starting:open:opacity-0"
     {|@starting-style{.starting\:open\:opacity-0:is([open],:popover-open,:open){opacity:0}}|};
   check_utilities "[@starting-style]:open:opacity-0"
     {|@starting-style{.\[\@starting-style\]\:open\:opacity-0:is([open],:popover-open,:open){opacity:0}}|}
 
-(* A prose element variant rebuilt its selector from the bare class, which threw
-   away whatever an inner variant had put on it: [prose-a:hover:text-red-500]
-   lost its [:hover] and coloured every link, [prose-li:marker:text-green-500]
-   lost its [::marker] and coloured the item's own text. *)
+(* A prose element variant keeps whatever an inner variant put on the selector:
+   [prose-a:hover:text-red-500] keeps its [:hover] and colours hovered links
+   only, [prose-li:marker:text-green-500] keeps its [::marker] and colours the
+   marker, not the item's own text. *)
 let test_prose_element_keeps_inner () =
   check_sheet "prose-a:hover:text-red-500"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--color-red-500:oklch(63.7%.237 25.331)}}@layer components;@layer utilities{@media(hover:hover){.prose-a\:hover\:text-red-500 :where(a):not(:where([class~=not-prose],[class~=not-prose] *)):hover{color:var(--color-red-500)}}}|};
@@ -551,19 +549,17 @@ let test_prose_element_keeps_inner () =
     {|@layer properties,theme,components,utilities;@layer properties{@supports(((-webkit-hyphens:none)) and (not (margin-trim:inline)))or ((-moz-orient:inline) and (not (color:rgb(from red r g b)))){*,:before,:after,::backdrop{--tw-content:""}}}@layer theme;@layer components;@layer utilities{.prose-code\:after\:content-\[\'y\'\] :where(code):not(:where([class~=not-prose],[class~=not-prose] *)):after{--tw-content:"y";content:var(--tw-content)}}@property --tw-content{syntax:"*";inherits:false;initial-value:""}|}
 
 (* The reverse direction: a prose element variant over a rule that is already a
-   media query built its selector from [Modifiers.to_selector], which returned
-   the class alone, so the elements it targets went missing and the utility
-   landed on the container. *)
+   media query keeps the elements it targets, so the utility lands on them and
+   not on the container. *)
 let test_prose_element_over_media () =
   check_sheet "prose-p:md:text-lg"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--text-lg:1.125rem;--text-lg--line-height:calc(1.75/1.125)}}@layer components;@layer utilities{@media(min-width:48rem){.prose-p\:md\:text-lg :where(p):not(:where([class~=not-prose],[class~=not-prose] *)){font-size:var(--text-lg);line-height:var(--tw-leading,var(--text-lg--line-height))}}}|};
   check_sheet "prose-a:dark:text-white"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--color-white:#fff}}@layer components;@layer utilities{@media(prefers-color-scheme:dark){.prose-a\:dark\:text-white :where(a):not(:where([class~=not-prose],[class~=not-prose] *)){color:var(--color-white)}}}|}
 
-(* [apply_modifier_to_rule] had no arm for a [@starting-style] rule, so an outer
-   variant fell through the catch-all and went with it: [hover:starting:p-4]
-   named its rule [.starting\\:p-4], a class the source never carries, and the
-   rule matched nothing. Every other at-rule wrapper had an arm already. *)
+(* An outer variant over a [@starting-style] rule renames the class inside it:
+   [hover:starting:p-4] names its rule [.hover\\:starting\\:p-4], the class the
+   source carries. *)
 let test_variant_outside_starting_style () =
   check_sheet "starting:p-4"
     {|@layer theme,components,utilities;@layer theme{:root,:host{--spacing:.25rem}}@layer components;@layer utilities{@starting-style{.starting\:p-4{padding:calc(var(--spacing)*4)}}}|};
@@ -595,11 +591,9 @@ let test_selector_underscore_escape () =
     (Astring.String.is_infix ~affix:{|[aria-label="a b"]|}
        (sheet "aria-[label=a_b]:flex"))
 
-(* [not-[:pseudo]] used to run through a table of nine pseudo-classes and write
-   everything else as a class node, so [not-[:target]] negated a class literally
-   named ":target" and matched nothing. cascade parses the selector, so the
-   table is gone and every pseudo-class it has a constructor for is negated as
-   one. *)
+(* [not-[:pseudo]] negates every pseudo-class cascade's selector parser has a
+   constructor for as that pseudo-class, so [not-[:target]] negates [:target],
+   not a class named ":target". *)
 let test_not_bracket_pseudo () =
   check_utilities "not-[:checked]:flex"
     {|.not-\[\:checked\]\:flex:not(:checked){display:flex}|};
@@ -772,6 +766,10 @@ let tests =
     test_case "extract selector props - basic" `Quick
       check_extract_selector_props;
     test_case "extract selector props - hover" `Quick check_extract_hover;
+    test_case "ordered outputs carry the base order" `Quick
+      check_ordered_outputs;
+    test_case "ordered outputs refuse a marked group" `Quick
+      check_ordered_outputs_marked_group;
     test_case "extract selector props - responsive" `Quick
       check_extract_responsive;
     test_case "extract selector props - responsive md" `Quick

@@ -1,10 +1,3 @@
-(** Overflow wrap utilities for controlling word wrapping behavior.
-
-    What's included:
-    - `wrap-normal` - Default word wrapping.
-    - `wrap-break-word` - Break words to prevent overflow.
-    - `wrap-anywhere` - Break at any character to prevent overflow. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -16,18 +9,17 @@ module Handler = struct
   let name = "overflow_wrap"
 
   (* Tailwind's property table ranks [overflow-wrap] at 291, between [text-wrap]
-     (290) and [word-break] (292); that puts these utilities in
-     [Typography_late]'s default late-typography band (priority 26), not a band
-     of their own. All three set only [overflow-wrap], so Tailwind's candidate
-     sort ties them - and [break-words] in lib/typography.ml, which writes the
-     same lone property - and breaks the tie alphabetically by class name. 8309
-     is that shared suborder: it sits right after [Typography_late]'s
-     [break-normal] (8308, which writes [overflow-wrap] then carries on to
-     [word-break] and so sorts first) and before its [break-all]/[break-keep]
-     (8310, tied on [word-break] alone). A bare constant, not [Property_order],
-     because migrating this shared slot to Tailwind's real-rank scale would
-     require moving every other family in the priority-26 band along with it
-     (see lib/typography.ml). *)
+     (290) and [word-break] (292); that puts these utilities in the band the
+     late text families share (priority 26), not a band of their own. All three
+     set only [overflow-wrap], so Tailwind's candidate sort ties them - and
+     [break-words] in lib/line_breaking.ml, which writes the same lone property
+     - and breaks the tie alphabetically by class name. 8309 is that shared
+     suborder: it sits right after [Line_breaking]'s [break-normal] (8308, which
+     writes [overflow-wrap] then carries on to [word-break] and so sorts first)
+     and before its [break-all]/[break-keep] (8310, tied on [word-break] alone).
+     A bare constant, not [Property_order], because migrating this shared slot
+     to Tailwind's real-rank scale would require moving every other family in
+     the priority-26 band along with it (see lib/line_breaking.ml). *)
   let priority _ = 26
   let suborder _ = 8309
 
@@ -47,7 +39,7 @@ module Handler = struct
     | [ "wrap"; "normal" ] -> Ok Normal
     | [ "wrap"; "break"; "word" ] -> Ok Break_word
     | [ "wrap"; "anywhere" ] -> Ok Anywhere
-    | _ -> Error (`Msg "Not an overflow-wrap utility")
+    | _ -> Utility.unclaimed
 
   let examples = [ Normal ]
 end

@@ -1,10 +1,12 @@
-(** Grid template utilities for grid layout configuration
+(** Grid template utilities for grid layout configuration.
 
-    https://tailwindcss.com/docs/grid-template-columns
-    https://tailwindcss.com/docs/grid-template-rows
-    https://tailwindcss.com/docs/grid-auto-flow
-    https://tailwindcss.com/docs/grid-auto-columns
-    https://tailwindcss.com/docs/grid-auto-rows *)
+    See
+    {{:https://tailwindcss.com/docs/grid-template-columns}grid-template-columns},
+    {{:https://tailwindcss.com/docs/grid-template-rows}grid-template-rows},
+    {{:https://tailwindcss.com/docs/grid-auto-flow}grid-auto-flow},
+    {{:https://tailwindcss.com/docs/grid-auto-columns}grid-auto-columns} and
+    {{:https://tailwindcss.com/docs/grid-auto-rows}grid-auto-rows} in the
+    Tailwind documentation. *)
 
 open Utility
 

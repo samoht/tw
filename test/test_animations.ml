@@ -21,11 +21,7 @@ let test_duration_delay () =
   check_transition "duration-300";
   check_transition "delay-150"
 
-(* Each animate utility reads its own theme token and writes nothing else. The
-   helper this replaces accepted three shapes for the value — the bare name, the
-   var() reference, or any value merely *starting* with the name — so it could
-   not say which one the utility emits, and an animation named
-   [spin-something-else] would have satisfied it. *)
+(* Each animate utility reads its own theme token and writes nothing else. *)
 let test_animation_css () =
   List.iter
     (fun name ->
@@ -34,12 +30,8 @@ let test_animation_css () =
     [ "spin"; "bounce"; "pulse" ]
 
 let test_transition_css () =
-  (* Test that transition utilities generate CSS with correct transition
-     properties - Tailwind v4 uses individual properties, not shorthand *)
   (* Tailwind v4 writes the longhands rather than the [transition] shorthand.
-     The old assertion only proved a declaration *named* transition-property
-     existed, which is equally true of both classes and says nothing about the
-     value, though its own name claimed [none]. The lists tell them apart:
+     Both classes declare transition-property, so the lists tell them apart:
      transition-all carries the timing and duration channels, transition-none
      carries the property alone. *)
   Test_helpers.check_declarations ~minify:false "transition-all"

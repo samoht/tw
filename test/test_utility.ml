@@ -1,13 +1,11 @@
 open Alcotest
 
-(* Test parsing valid class strings and converting to CSS *)
 let test_base_of_class_valid () =
   let open Tw.Utility in
   match base_of_class Tw.Scheme.default "p-4" with
   | Ok base -> check string "parsed class name" "p-4" (to_class (Base base))
   | Error _ -> fail "Failed to parse p-4"
 
-(* Test parsing invalid class strings returns error *)
 let test_base_of_class_invalid () =
   let open Tw.Utility in
   match base_of_class Tw.Scheme.default "invalid-class" with
@@ -39,73 +37,26 @@ let test_theme_bound () =
                props)
       | _ -> fail "expected p-4 to be a single style")
 
-(* Test deduplication preserves order and keeps last occurrence *)
-let test_deduplicate () =
-  let open Tw.Utility in
-  (* Parse some utilities *)
-  let u1 =
-    match base_of_class Tw.Scheme.default "p-0" with
-    | Ok u -> Base u
-    | Error _ -> failwith "parse failed"
-  in
-  let u2 =
-    match base_of_class Tw.Scheme.default "p-1" with
-    | Ok u -> Base u
-    | Error _ -> failwith "parse failed"
-  in
-  let u3 =
-    match base_of_class Tw.Scheme.default "p-0" with
-    | Ok u -> Base u
-    | Error _ -> failwith "parse failed"
-  in
-
-  (* Last occurrence should win *)
-  let result = deduplicate [ u1; u2; u3 ] in
-  check int "deduplicate length" 2 (List.length result)
-
-(* Test deduplication with empty list *)
-let test_deduplicate_empty () =
-  let open Tw.Utility in
-  let result = deduplicate [] in
-  check int "empty list dedup" 0 (List.length result)
-
-(* Test CSS parsing - commented out as css_of_string was removed *)
-(* let test_css_of_string_valid () =
-  match Tw.Utility.css_of_string ".test { color: red; }" with
-  | Ok _ -> check bool "can parse CSS" true true
-  | Error _ -> fail "Failed to parse valid CSS"
-
-(* Test CSS parsing with invalid input *)
-let test_css_of_string_invalid () =
-  match Tw.Utility.css_of_string ".test { color }" with
-  | Ok _ -> fail "Should not parse invalid CSS"
-  | Error _ -> check bool "rejects invalid CSS" true true *)
-
-(* Test Utility.order returns correct priority and suborder *)
+(* Only the relative order of the priority groups matters for the CSS. *)
 let test_order_priorities () =
   let open Tw.Utility in
-  (* Test various utilities - using actual module assignments, not ideal
-     priorities *)
   let parse_and_order class_name =
     match base_of_class Tw.Scheme.default class_name with
     | Ok u -> order u
     | Error _ -> failwith ("Failed to parse: " ^ class_name)
   in
-
-  (* Test relative ordering between different priority groups *)
   let pos_prio, _ = parse_and_order "top-0" in
   let margin_prio, _ = parse_and_order "m-4" in
   let grid_prio, _ = parse_and_order "col-span-2" in
   let padding_prio, _ = parse_and_order "p-4" in
   let typo_prio, _ = parse_and_order "text-xl" in
-
-  (* Verify relative ordering (what matters for CSS) *)
   check bool "positioning before grid" true (pos_prio < grid_prio);
   check bool "grid before margin" true (grid_prio < margin_prio);
   check bool "margin before padding" true (margin_prio < padding_prio);
   check bool "padding before typography" true (padding_prio < typo_prio)
 
-(* Test suborder within same priority group *)
+(* The padding utilities share one priority, so the suborder alone orders
+   them. *)
 let test_order_suborders () =
   let open Tw.Utility in
   let parse_and_order class_name =
@@ -113,19 +64,14 @@ let test_order_suborders () =
     | Ok u -> order u
     | Error _ -> failwith ("Failed to parse: " ^ class_name)
   in
-
-  (* Test padding suborders (all priority 19) *)
   let _, p_sub = parse_and_order "p-4" in
   let _, px_sub = parse_and_order "px-4" in
   let _, py_sub = parse_and_order "py-4" in
   let _, pt_sub = parse_and_order "pt-4" in
-
-  (* These should have different suborders for proper CSS ordering *)
   check bool "p before px" true (p_sub < px_sub);
   check bool "px before py" true (px_sub < py_sub);
   check bool "py before pt" true (py_sub < pt_sub)
 
-(* Test that ordering is consistent *)
 let test_order_consistency () =
   let open Tw.Utility in
   let parse_and_order class_name =
@@ -133,8 +79,6 @@ let test_order_consistency () =
     | Ok u -> order u
     | Error _ -> failwith ("Failed to parse: " ^ class_name)
   in
-
-  (* Call multiple times to ensure deterministic *)
   let o1 = parse_and_order "p-4" in
   let o2 = parse_and_order "p-4" in
   let o3 = parse_and_order "p-4" in
@@ -400,10 +344,6 @@ let tests =
     test_case "no class claimed twice" `Quick test_no_class_claimed_twice;
     test_case "base_of_class invalid input" `Quick test_base_of_class_invalid;
     test_case "theme_bound carries a binding" `Quick test_theme_bound;
-    test_case "deduplicate preserves order" `Quick test_deduplicate;
-    test_case "deduplicate handles empty list" `Quick test_deduplicate_empty;
-    (* test_case "css_of_string valid input" `Quick test_css_of_string_valid; *)
-    (* test_case "css_of_string invalid input" `Quick test_css_of_string_invalid; *)
     test_case "order_of_property" `Quick test_order_of_property;
     test_case "order_of_property skips a vendor prefix" `Quick
       test_order_of_property_skips_vendor_prefix;

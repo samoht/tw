@@ -1,5 +1,3 @@
-(** Field sizing utilities *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -25,7 +23,7 @@ module Handler = struct
     match parts with
     | [ "field"; "sizing"; "content" ] -> Ok Content
     | [ "field"; "sizing"; "fixed" ] -> Ok Fixed
-    | _ -> Error (`Msg "Not a field-sizing utility")
+    | _ -> Utility.unclaimed
 
   let examples = [ Content ]
 end

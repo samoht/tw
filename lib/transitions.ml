@@ -1,15 +1,3 @@
-(** Transition utilities
-
-    What's included:
-    - `transition-*` - Transition properties (none, all, colors, opacity,
-      shadow, transform).
-    - `duration-*` - Animation/transition duration values.
-    - `delay-*` - Animation/transition delay values.
-    - `ease-*` - Easing functions (linear, in, out, in-out).
-
-    What's not:
-    - Custom timing functions beyond basic easing. *)
-
 module Css = Cascade.Css
 
 module Handler = struct
@@ -26,7 +14,9 @@ module Handler = struct
     | Transition_behavior_normal
     | Transition_behavior_allow_discrete
     | Transition
-    | Transition_arbitrary of string
+    (* The bracket as written, for the class name, and the value after its hint,
+       for the sheet. *)
+    | Transition_arbitrary of string * string
     | Duration of int
     | Duration_initial
     | Duration_arbitrary of
@@ -147,11 +137,9 @@ module Handler = struct
 
   let transition ?theme () =
     (* Use typed variable names for gradient properties *)
-    let gradient_from_name =
-      Var.css_name Backgrounds.Handler.gradient_from_var
-    in
-    let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
-    let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
+    let gradient_from_name = Var.css_name Gradients.Handler.gradient_from_var in
+    let gradient_via_name = Var.css_name Gradients.Handler.gradient_via_var in
+    let gradient_to_name = Var.css_name Gradients.Handler.gradient_to_var in
     style
       (default_theme_decls ?theme ()
       @ [
@@ -200,11 +188,9 @@ module Handler = struct
       ~order:(8, 33)
 
   let transition_colors ?theme () =
-    let gradient_from_name =
-      Var.css_name Backgrounds.Handler.gradient_from_var
-    in
-    let gradient_via_name = Var.css_name Backgrounds.Handler.gradient_via_var in
-    let gradient_to_name = Var.css_name Backgrounds.Handler.gradient_to_var in
+    let gradient_from_name = Var.css_name Gradients.Handler.gradient_from_var in
+    let gradient_via_name = Var.css_name Gradients.Handler.gradient_via_var in
+    let gradient_to_name = Var.css_name Gradients.Handler.gradient_to_var in
     (* When --transition-property-colors is set in theme, use the var reference;
        otherwise inline the full property list *)
     let has_theme_var =
@@ -299,8 +285,7 @@ module Handler = struct
           Css.transition_duration (Css.Var (duration_ref ?theme ()));
         ])
 
-  let transition_arbitrary ?theme spelling =
-    let value = Parse.decode_arbitrary_value spelling in
+  let transition_arbitrary ?theme value =
     if Parse.is_var value then
       let bare_name = Parse.extract_var_name value in
       let ref_ : Css.transition_property_value Css.var =
@@ -565,7 +550,7 @@ module Handler = struct
     | Transition_behavior_normal -> transition_behavior_normal
     | Transition_behavior_allow_discrete -> transition_behavior_allow_discrete
     | Transition -> transition ()
-    | Transition_arbitrary s -> transition_arbitrary s
+    | Transition_arbitrary (_, value) -> transition_arbitrary value
     | Duration n -> duration n
     | Duration_initial -> duration_initial
     | Duration_arbitrary (_, value) -> duration_arbitrary value
@@ -649,7 +634,7 @@ module Handler = struct
         (* Tailwind accepts any declaration-safe token stream here, including
            values that are not valid transition-property lists. *)
         match Parse.arbitrary_declaration_value inner with
-        | Some _ -> Ok (Transition_arbitrary inner)
+        | Some value -> Ok (Transition_arbitrary (inner, value))
         | None -> Error (`Msg "Invalid transition property"))
     | [ "transition" ] -> Ok Transition
     | [ "duration"; n ] when Parse.is_bracket_value n -> (
@@ -684,7 +669,7 @@ module Handler = struct
             match Parse.arbitrary_declaration_value inner with
             | Some value -> Ok (Ease_arbitrary (inner, `Raw value))
             | None -> Error (`Msg "Invalid ease value")))
-    | _ -> Error (`Msg "Not a transition utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Transition_none -> "transition-none"
@@ -696,7 +681,7 @@ module Handler = struct
     | Transition_behavior_normal -> "transition-normal"
     | Transition_behavior_allow_discrete -> "transition-discrete"
     | Transition -> "transition"
-    | Transition_arbitrary s -> "transition-[" ^ s ^ "]"
+    | Transition_arbitrary (s, _) -> "transition-[" ^ s ^ "]"
     | Duration n -> "duration-" ^ string_of_int n
     | Duration_initial -> "duration-initial"
     | Duration_arbitrary (s, _) -> "duration-[" ^ s ^ "]"

@@ -153,7 +153,7 @@ let test_family_decimal_suffixes_reject_non_decimal_spellings () =
 
 (* The opacity modifier rides on every colour utility, so one reader that admits
    an OCaml literal admits it across the whole palette. The shade is the same
-   suffix a step earlier: [bg-red-0500] emitted [.bg-red-500]. *)
+   kind of suffix, so [bg-red-0500] is refused too. *)
 let test_colour_modifier_rejects_non_decimal_spellings () =
   List.iter unknown
     [
@@ -169,8 +169,7 @@ let test_colour_modifier_rejects_non_decimal_spellings () =
       "text-red-0x500";
     ]
 
-(* A fraction is two plain decimals: [w-04/2] emitted [width: 200%] for a class
-   Tailwind does not emit at all. *)
+(* A fraction is two plain decimals: Tailwind emits nothing for [w-04/2]. *)
 let test_fraction_suffixes_reject_non_decimal_spellings () =
   List.iter unknown
     [
@@ -220,9 +219,8 @@ let test_family_suffixes_round_trip () =
     ]
 
 (* A spacing suffix is read as a float and its scale printed back as an int.
-   Past 2^53 the float no longer holds the integer written, and past 2^62 the
-   int wraps round: [p-100000000000000000000] emitted [.p-1] with a negative
-   padding, overriding the real [p-1]. Such a suffix names nothing. *)
+   Past 2^53 the float does not hold the integer written, and past 2^62 the int
+   wraps round, so such a suffix names nothing. *)
 let test_huge_spacing_suffixes_are_rejected () =
   List.iter unknown
     [
@@ -277,12 +275,8 @@ let test_extract_var_name_reads_one_reference () =
 (* The utilities that swallowed a second bracket refuse the class instead of
    raising out of [to_css]. Tailwind emits nothing for any of them. *)
 let test_double_bracket_class_rejected () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u ->
-        Alcotest.failf "expected %s to be rejected, got %s" cls
-          (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let accepted cls =
     match Tw.of_string cls with
@@ -587,9 +581,9 @@ let test_alpha_call () =
 
 (* Tailwind substitutes [--alpha(<color>/<alpha>)] wherever it stands in an
    arbitrary value, as it does [--spacing()], writing the [color-mix()] it
-   denotes in its place: the call was read only when it was the whole value. The
-   alpha is scaled the way {!Tw.Parse.alpha_call} scales it, a whole one leaves
-   the colour itself, and a call missing either half stays as written for the
+   denotes in its place, not only when the call is the whole value. The alpha is
+   scaled the way {!Tw.Parse.alpha_call} scales it, a whole one leaves the
+   colour itself, and a call missing either half stays as written for the
    refusal that follows. The same bytes inside a quoted string are a string
    literal. *)
 let test_alpha_fn_expands_in_place () =
@@ -617,9 +611,86 @@ let test_alpha_fn_expands_in_place () =
   expands "--alpha(red)" "--alpha(red)";
   expands "--alpha(red/)" "--alpha(red/)"
 
+let test_is_number () =
+  let check expected s =
+    Alcotest.(check bool) s expected (Tw.Parse.is_number s)
+  in
+  List.iter (check true) [ "1"; "1.5"; ".5"; "-2"; "+3"; "1e3"; "1.5E-2" ];
+  List.iter (check false) [ ""; "1."; "0x10"; "10px"; "1e"; "-"; "." ]
+
+(* What Tailwind infers a bracket to be decides which longhand it lands in. *)
+let test_length_and_percentage () =
+  let check name f expected s =
+    Alcotest.(check bool) (name ^ " " ^ s) expected (f s)
+  in
+  let length = check "length" Tw.Parse.is_length in
+  let percentage = check "percentage" Tw.Parse.is_percentage in
+  List.iter (length true)
+    [
+      "10px";
+      "1.5em";
+      ".5rem";
+      "-2Q";
+      "1e3px";
+      "--spacing(2)";
+      "foo calc(1 + 2)";
+    ];
+  List.iter (length false) [ "10"; "10%"; "px"; "10PX"; "10foo"; "1.px"; "" ];
+  List.iter (percentage true) [ "10%"; "-1.5%"; "min(1%, 2%)" ];
+  List.iter (percentage false) [ "10"; "%"; "10px"; "a%" ]
+
+(* Tailwind's test is a name and a paren anywhere in the value, not a parse:
+   [foo_calc(1+2)] holds one, and so does [xcalc(1)]. *)
+let test_holds_math_function () =
+  let check expected s =
+    Alcotest.(check bool) s expected (Tw.Parse.holds_math_function s)
+  in
+  check true "calc(1 + 2)";
+  check true "foo calc(1 + 2)";
+  check true "min(1, 2) foo";
+  check true "xcalc(1)";
+  check false "calc";
+  check false "url(x.png) center";
+  check false "abs(1)"
+
+(* Tailwind's segmenting skips a quoted string and an escaped character, so a
+   separator inside either stays in its piece. *)
+let test_split_top_level () =
+  let check expected s =
+    Alcotest.(check (list string)) s expected (Tw.Parse.split_top_level ',' s)
+  in
+  check [ "a"; "b(c,d)" ] "a,b(c,d)";
+  check [ {|'a,1'|}; "b" ] {|'a,1',b|};
+  check [ {|"a\",b"|}; "c" ] {|"a\",b",c|};
+  check [ {|a\,b|}; "c" ] {|a\,b,c|}
+
+(* A var() reference is the whole value: one that goes on past its closing paren
+   is a token stream that merely opens with a var(). *)
+let test_is_var () =
+  let check expected s = Alcotest.(check bool) s expected (Tw.Parse.is_var s) in
+  List.iter (check true)
+    [ "var(--a)"; "var(--a,1px)"; "var(--a,var(--b))"; {|var(--a,")")|} ];
+  List.iter (check false)
+    [
+      "var(--a) 1px";
+      "var(--a)_1px";
+      "var(--a),foo";
+      "var(--a)var(--b)";
+      "var(";
+      "var(--a";
+      "x var(--a)";
+    ]
+
 let tests =
   Alcotest.
     [
+      test_case "a var() reference is the whole value" `Quick test_is_var;
+      test_case "split at a top-level separator" `Quick test_split_top_level;
+      test_case "a number as Tailwind spells it" `Quick test_is_number;
+      test_case "a length and a percentage as Tailwind infers them" `Quick
+        test_length_and_percentage;
+      test_case "math function anywhere in a value" `Quick
+        test_holds_math_function;
       test_case "underscore escape" `Quick test_underscore_escape;
       test_case "--alpha() halves and a bare number alpha" `Quick
         test_alpha_call;

@@ -1,7 +1,5 @@
-(** Divide utilities for creating gaps between child elements
-
-    @see <https://tailwindcss.com/docs/divide-width>
-      Tailwind CSS Divide Width documentation *)
+(** Divide utilities: borders between child elements, the
+    {{:https://tailwindcss.com/docs/divide-width}[divide-*]} family. *)
 
 module Css = Cascade.Css
 open Utility

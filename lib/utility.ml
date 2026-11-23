@@ -1,22 +1,12 @@
-(** Utility module for common utility types and functions *)
-
 type base = ..
 
 type t =
   | Base of base
   | Modified of Style.modifier * t
   | Group of t list
-  | Important of bool * t  (** [bool] is [true] for the v4 trailing [!] form. *)
+  | Important of bool * t
   | Aliased of string * t
-      (** [Aliased (class_name, u)] renders as [u] but reports [class_name] from
-          {!to_class}, so the emitted selector matches the source spelling. Used
-          for the [prop-(--x)] shorthand, which is [prop-[var(--x)]] in value
-          but keeps its own class name. *)
   | Theme_bound of Cascade.Css.declaration list * t
-      (** [Theme_bound (decls, u)] renders as [u] with [decls] alongside its own
-          declarations. Carries the [\@layer theme] binding of a token a
-          [theme(--x)] read: resolving the reference does not consume the token,
-          so Tailwind writes the binding as well. *)
 
 let base x = Base x
 let important ?(suffix = false) x = Important (suffix, x)
@@ -25,7 +15,6 @@ let alias class_name u = Aliased (class_name, u)
 let theme_bound decls u =
   match decls with [] -> u | _ -> Theme_bound (decls, u)
 
-(* See the .mli. *)
 module Property_order = struct
   let width = 1000
   let slot rank = width * rank
@@ -81,6 +70,8 @@ let register (type a) (module M : Registered with type t = a) =
   in
   add ()
 
+let unclaimed = Error (`Msg "not claimed by this handler")
+
 module Make (M : Handler) = struct
   type base += Self of M.t
 
@@ -121,15 +112,11 @@ let rec style_declarations (s : Style.t) =
 
 (* A width utility writes the style property as a bare reference to the style
    utilities' channel, so the declaration says nothing about which family the
-   utility belongs to. The two carriers are named by the channel they read,
-   matched on the typed value rather than on the printed declaration, so a
-   declared [border-style] naming any other variable stays a style utility. *)
-(* A carrier reads its channel and nothing else. There is no public accessor for
-   a declaration's typed value - [Properties_intf] is one of cascade's private
-   modules, so destructuring the record only compiles when cascade is built from
-   source in the same workspace - and the printed form is the surface cascade
-   does expose. Comparing it to the one spelling a carrier can have keeps a
-   declared [border-style] naming any other variable a style utility. *)
+   utility belongs to. A carrier reads its channel and nothing else.
+   [Declaration.value_of] gives the typed [Var], but no public accessor tells a
+   bare reference from one with a fallback, so the printed form is compared to
+   the one spelling a carrier can have. A declared [border-style] naming any
+   other variable stays a style utility. *)
 let carries_var decl name =
   String.equal
     (Cascade.Css.declaration_value ~minify:true decl)
@@ -244,7 +231,6 @@ let base_of_class theme class_name =
   in
   try_handlers (handlers_snapshot ())
 
-(* Every utility each handler offers as its own example, as class names. *)
 let examples_classes () =
   List.concat_map
     (fun (H (module M)) -> List.map M.to_class M.examples)
@@ -261,11 +247,6 @@ let claiming_handlers theme class_name =
       | Ok _ -> Some M.name
       | Error _ -> None)
     (handlers_snapshot ())
-
-(* Keep for backward compatibility with tests *)
-let base_of_strings theme parts =
-  let class_name = String.concat "-" parts in
-  base_of_class theme class_name
 
 let base_to_style theme u =
   let handlers = handlers_snapshot () in
@@ -340,12 +321,3 @@ let order (u : base) : int * int =
         | None -> try_handlers rest)
   in
   try_handlers (handlers_snapshot ())
-
-let deduplicate utilities =
-  let rec go seen acc = function
-    | [] -> List.rev acc
-    | u :: rest ->
-        if List.mem u seen then go seen acc rest
-        else go (u :: seen) (u :: acc) rest
-  in
-  go [] [] (List.rev utilities)

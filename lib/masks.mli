@@ -1,4 +1,4 @@
-(** Mask utilities for CSS masking *)
+(** Mask utilities for CSS masking. *)
 
 open Utility
 

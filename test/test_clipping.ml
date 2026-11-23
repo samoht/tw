@@ -17,7 +17,7 @@ let test_clip_polygon () =
     (Astring.String.is_infix
        ~affix:"clip-path: polygon(50% 0%,0% 100%,100% 100%)" css)
 
-(* Test clip-path: inset() parsing with 1-4 length values (CSS shorthand).
+(* clip-path: inset() takes one to four lengths (the CSS shorthand).
    Canonicalisation (e.g. dropping the unit on zero lengths inside basic-shape
    functions) lives in cascade's normalize/optimize pass, not in pp - so the
    helpers wrap the declaration in a tiny rule, run the optimize pipeline, and

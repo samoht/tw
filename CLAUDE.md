@@ -1,4 +1,4 @@
-# OCaml × Tailwind v4 — Contributor Guide (for Claude Code)
+# OCaml Tailwind v4: Contributor Guide (for Claude Code)
 
 ## 1) Purpose
 
@@ -7,17 +7,17 @@ This repo provides a type-safe Tailwind v4 implementation in OCaml. Utilities ar
 ### Scope
 
 All core Tailwind v4 utilities and all official plugins are in scope, including:
-- `@tailwindcss/forms` — **fully supported**
-- `@tailwindcss/typography` — **fully supported**
+- `@tailwindcss/forms`: **fully supported**
+- `@tailwindcss/typography`: **fully supported**
 
 ---
 
 ## 2) Core principles
 
-1. **Type safety over strings.** Never write `"var(--name)"` and never hand `Css.custom_property` an assembled token string; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to CSS types** — if a pattern cannot be expressed with existing types, extend the type system properly.
+1. **Type safety over strings.** Never write `"var(--name)"` and never hand `Css.custom_property` an assembled token string; represent variables and properties via `Var` and typed constructors. **NEVER add `Raw of string` or similar escape hatches to cascade's CSS types**; if a pattern cannot be expressed with existing types, extend the type system properly. The exception is the bracket of an arbitrary utility that no typed reader accepts. tw writes such a bracket through `Parse.opaque_declaration` as the token stream the author wrote, and the utility's own variant may hold it as `` `Raw of string ``. `docs/token-stream-contract.md` states when that applies.
 2. **Spec-driven tests.** CSS behaviour is tested against MDN/W3C where applicable; utilities against Tailwind v4 output.
-3. **Variables follow four patterns.** See patterns below and `docs/adding-a-new-utility.md`.
-4. **Respect layers.** `properties → theme → base → components → utilities`. Utilities must not leak into theme or properties.
+3. **Variables come from three constructors.** See section 5 below, and `docs/adding-a-new-utility.md` for the patterns that use them.
+4. **Respect layers.** `properties -> theme -> base -> components -> utilities`. Utilities must not leak into theme or properties.
 
 ---
 
@@ -34,8 +34,11 @@ lib/           core (utilities, class parsing, layer assembly)
 test/          Alcotest suites, one test_<module>.ml per lib/<module>.ml
   upstream/    replay of Tailwind's own fixture corpus
 cascade/       sibling repo, symlinked in: CSS AST, printer, optimizer, differ
+scripts/       pre-commit (format and lint hook), bench.sh (tw against
+               tailwindcss on a source tree)
 docs/          adding-a-new-utility.md (start here for new utils)
                parity.md (how Tailwind parity is measured and read)
+               token-stream-contract.md (what an arbitrary bracket emits)
 ```
 
 The CSS type system lives in cascade, not here. `Cascade.Css` is aliased as
@@ -104,23 +107,12 @@ The `tw` binary supports three backend modes:
   are compared for equivalence rather than byte-for-byte. `--diff-mode` selects
   a stricter mode (`tree` reports regrouping, `string` reports text).
 
-Example diff output:
-<!-- $MDX skip -->
-```bash
-$ dune exec -- tw --single="supports-[backdrop-filter]:bg-black/50" --diff
-Differences found between Tailwind and tw for 'supports-[backdrop-filter]:bg-black/50':
-
---- Tailwind
-+++ tw
-└─ @layer utilities (1 removed)
-   ├─ .supports-\[backdrop-filter\]\:bg-black\/50
-   │     - background-color color-mix(in oklab, var(--color-black) 50%, #0000)
-   └─ @supports (backdrop-filter: var(--tw)) (added)
-      └─ .supports-\[backdrop-filter\]\:bg-black\/50 (added)
-```
-
-That one is a known minifier difference, not a tw bug; `docs/parity.md` lists
-the residual the site comparison tolerates.
+When the sheets differ, `--diff` prints a tree under `--- Tailwind` and
+`+++ tw` headers. Each layer, at-rule and selector is a branch; a container
+counts what changed inside it, such as `(1 removed)`, and a node only one side
+has is marked `(added)` or `(removed)`. A declaration only one side has is a
+`-` or `+` line, and a changed value reads `* property: old -> new`.
+`docs/parity.md` lists the residual the site comparison tolerates.
 
 > Note: Use `tmp/` (repo-local) for debug artefacts; do **not** use `/tmp`. Update any older scripts accordingly.
 
@@ -130,7 +122,7 @@ the residual the site comparison tolerates.
 
 The variable system is documented in **`lib/var.mli`**. Key points:
 
-- **Four patterns**: `theme`, `property_default`, `channel`, `ref_only`
+- **Three constructors**: `theme`, `property_default`, `channel`
 - Always use `Var.binding` to create declaration + reference pairs
 - Never write raw `"var(--name)"` strings
 
@@ -143,7 +135,7 @@ See `lib/var.mli` for detailed documentation and examples.
 Layer architecture is documented in **`lib/build.mli`**, the sort order in
 **`lib/sort.mli`**. Key points:
 
-- **Layer order**: `properties → theme → base → components → utilities`
+- **Layer order**: `properties -> theme -> base -> components -> utilities`
 - **Utilities layer**: Sorted by (priority, suborder) for conflict resolution; each
   utility module supplies the pair through `Utility.S` (`priority`, `suborder`)
 - **Media queries**: Modifier-based media comes after regular rules; built-in media stays grouped with its utility
@@ -153,7 +145,7 @@ and the fields it keys on.
 
 ---
 
-## 7) Adding a new utility — minimal workflow
+## 7) Adding a new utility: minimal workflow
 
 1. **Read** `docs/adding-a-new-utility.md`. Identify the variable pattern.
 2. **Implement** the utility in `lib/<area>.ml` using typed `Var` and the chosen
@@ -194,7 +186,7 @@ and the fields it keys on.
   dune exec -- tw -s "border-solid" --variables | grep -A5 "@layer"
   ```
 
-  Confirm constructor ↔ pattern ↔ layer alignment.
+  Confirm constructor <-> pattern <-> layer alignment.
 
 * **Missing `@property`?**
 
@@ -245,7 +237,7 @@ and the fields it keys on.
   ALCOTEST_VERBOSE=1 dune exec test/test.exe -- test <suite> <N>
   ```
 
-  Suite names match the `lib/` module (`borders`, `sort`, `build`, …); run
+  Suite names match the `lib/` module (`borders`, `sort`, `build`, ...); run
   `dune exec test/test.exe -- list` for the full set. Differ tests live in
   cascade:
 
@@ -298,15 +290,15 @@ and the fields it keys on.
        - Block at position 26: .contrast-more\:text-black
        + Block at position 27: .contrast-more\:border-4, .contrast-more\:text-black
      ```
-     **Fix**: Media query merging is cascade's. `merge_consecutive_media` lives in
-     `cascade/lib/block.ml`, and `cascade/lib/optimize.mli` re-exports it, so tw can call
-     it the way `lib/build.ml` already calls
-     `Css.Optimize.merge_consecutive_starting_style` over the sorted utilities.
-     `lib/build.ml` runs no media merge yet, and `bin/main.ml` reaches the rest of
-     cascade's optimizer only under `--optimize`, so a plain `--minify` sheet gets none.
-     Check first whether a rule sorting between the two blocks is what keeps them apart:
-     `merge_consecutive_media` joins adjacent blocks only, and `merge_distant_media` is
-     the pass that reaches past an intervening rule.
+     **Fix**: `statements_of_sorted_rules` in `lib/build.ml` already runs cascade's
+     `Css.Optimize.merge_consecutive_media` over the sorted utilities, after
+     `merge_consecutive_starting_style` and before the `@supports` and `@container`
+     merges, so two adjacent blocks with the same condition become one. Two blocks
+     left apart have a rule sorting between them, so check the order in `lib/sort.ml`
+     first. `merge_distant_media`, which hoists a block past the rules between, stays
+     out of that pipeline because Tailwind does not regroup that way; the comment
+     above `merge_nested_media` gives the reason. A fault in the merge itself is
+     cascade's (`cascade/lib/block.ml`) and is fixed there.
 
   2. **"blocks at different positions"** - Media query appears at wrong location:
      ```
@@ -352,32 +344,34 @@ and the fields it keys on.
 ## 9) Common pitfalls (and fixes)
 
 1. Writing raw `"var(--name)"` or building a `Css.custom_property` value by
-   concatenation → model it in `Var`, extend types if missing.
-2. Setting variables in the wrong utility → only **style** utilities set style vars.
-3. Forgetting `~property_rules` on referrers → `@property` never emitted.
-4. Spreading tests across multiple concerns → one concept per file.
-5. Silencing warnings with `OCAMLPARAM=_,w=-32` → address them; do not suppress.
-6. Using non-existent `Css.kind` constructors → check `type _ kind` in
+   concatenation -> model it in `Var`, extend types if missing.
+2. Setting variables in the wrong utility -> only **style** utilities set style vars.
+3. Forgetting `~property_rules` on referrers -> `@property` never emitted.
+4. Spreading tests across multiple concerns -> one concept per file.
+5. Silencing warnings with `OCAMLPARAM=_,w=-32` -> address them; do not suppress.
+6. Using non-existent `Css.kind` constructors -> check `type _ kind` in
    `cascade/lib/properties_intf.ml` for valid kinds. If the kind genuinely needs its own
    type, add it there. Otherwise, use an existing kind (e.g., `Length` for letter-spacing
    since it takes length values).
-7. Adding `Raw of string` or similar escape hatches to bypass type safety → **NEVER**. Always add
+7. Adding `Raw of string` or similar escape hatches to bypass type safety -> **NEVER**. Always add
    the properly typed properties/variants you need. Extend the type system rather than escape it.
-8. Using `Fmt`, `Format` or `Printf` in `lib/` → `lib/` compiles to JavaScript and
+   The one exception is an arbitrary bracket no typed reader accepts, which
+   `docs/token-stream-contract.md` covers.
+8. Using `Fmt`, `Format` or `Printf` in `lib/` -> `lib/` compiles to JavaScript and
    these bloat the bundle; use `Pp` (`lib/pp.ml`). Inside a module that opens
    `Css`, a bare `Pp` is `Css.Pp`, so bind the helpers you need before the open.
    `lib/tools/` is a native-only library where `Fmt` is fine.
-9. Giving constructors a shared prefix (`Sh_xs`, `Arb_hex`) to disambiguate →
+9. Giving constructors a shared prefix (`Sh_xs`, `Arb_hex`) to disambiguate ->
    name them plainly (`Two_xs | Xs | Sm`) and add a type annotation where a bare
    name is ambiguous. Shadowing a `Css` constructor is fine, `None` included.
-10. Leaving a bare constructor in a GADT match to type-directed disambiguation →
+10. Leaving a bare constructor in a GADT match to type-directed disambiguation ->
     annotate the pattern's type. A local build compiles cascade from source and
     CI builds against the opam-installed library, and the two can pick
     different constructors.
 
 ---
 
-## 10) Tests — organisation & rules
+## 10) Tests: organisation and rules
 
 * `cascade/test/`: CSS parsing, printing and optimizing, MDN/W3C conformance
   where feasible.
@@ -444,12 +438,12 @@ and the fields it keys on.
 
 ---
 
-## 13) CSS comparison tool bugs — MUST FIX IMMEDIATELY
+## 13) CSS comparison tool bugs: MUST FIX IMMEDIATELY
 
-⚠️ **CRITICAL**: If `--diff` or cssdiff reports **"No differences found"** but there ARE actual differences in the CSS output, this is **NOT** a known limitation to work around. It is a **bug in the cssdiff tool that MUST be fixed before doing any other work**.
+**CRITICAL**: If `--diff` or cssdiff reports **"No differences found"** but there ARE actual differences in the CSS output, this is **NOT** a known limitation to work around. It is a **bug in the cssdiff tool that MUST be fixed before doing any other work**.
 
 **Do NOT:**
-- Mark tests as "effectively passing" when cssdiff fails to detect real differences
+- Mark tests as "effectively passing" when cssdiff misses a difference between the two sheets
 - Proceed with utility implementation while cssdiff is broken
 - Treat cssdiff bugs as acceptable limitations
 

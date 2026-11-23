@@ -28,10 +28,6 @@ val tailwind_css : ?forms:bool -> string list -> string
     same classes. Goes through {!require_tailwind_cli}, so it skips the test
     when the CLI is unavailable and fails it under [TW_TAILWIND_TESTS=1]. *)
 
-val properties_of_class : string -> Css.Declaration.prop_key list
-(** [properties_of_class cls] is every property [cls] declares, custom
-    properties included: two utilities can conflict on a [--tw-*] alone. *)
-
 val declarations_of_class :
   ?theme:Tw.Scheme.t -> ?minify:bool -> string -> string list
 (** [declarations_of_class cls] is what [cls] writes on an element carrying it,
@@ -55,25 +51,23 @@ val check_declarations :
     [.bg-blue-500\/50] alone, and a [check bool] failure prints neither the
     class nor the CSS. [theme] and [minify] are {!declarations_of_class}'s. *)
 
-val check_declarations_match : string -> string list -> unit
-(** [check_declarations_match cls patterns] checks each PCRE in [patterns]
-    matches some declaration of [cls], naming the class and every declaration on
-    failure. For a value that cannot be spelled exactly; anchor the pattern,
-    since an unanchored one accepts a longer class the way a substring does. *)
+val sheet : string -> string
+(** [sheet cls] is the minified sheet [cls] compiles to without the base layer,
+    failing the test when [cls] does not parse. *)
+
+val check_sheet : string -> string -> unit
+(** [check_sheet cls expected] checks that {!sheet} of [cls] is [expected],
+    whole. *)
+
+val check_utilities : string -> string -> unit
+(** [check_utilities cls expected] is {!check_sheet} for a class drawing on no
+    theme token: [expected] is the body of the utilities layer, and the empty
+    layers ahead of it are spelled out here. *)
 
 val interacting_pairs : string list -> (string * string) list
 (** [interacting_pairs classes] pairs up the classes that write on each other.
     An element carrying such a pair is where an ordering difference becomes
     observable; a class on its own can only differ in value. *)
-
-val ordering_diff : ?forms:bool -> Tw.t list -> Cascade_diff.Css_compare.t
-(** [ordering_diff ?forms utilities] compares tw's sheet for [utilities] against
-    the pinned Tailwind CLI's, canonically and with dead custom properties
-    pruned. Both {!check_ordering_fails} and {!check_ordering_matches} go
-    through it: the fuzzer minimises with the same predicate the suites assert
-    on, so a case it reports as minimal is one the assertion also rejects.
-    Pruning is what makes it blind to a utility whose only output is an
-    unreferenced binding; {!check_rendering_matches} covers that class. *)
 
 val dropped_declarations : Cascade_diff.Css_compare.t -> Error.t list
 (** [dropped_declarations diff] is the parse warnings either side of [diff]
@@ -97,18 +91,6 @@ val check_no_dropped_declarations :
     another. Every other drop - a rule, a selector, any construct that failed
     for another reason - stays a finding. *)
 
-val check_ordering_fails : ?forms:bool -> Tw.t list -> bool
-(** [check_ordering_fails ?forms utilities] is [true] when {!ordering_diff}
-    finds a difference. The minimisation predicate. *)
-
-val delta_debug : ('a list -> bool) -> 'a list -> 'a list
-(** [delta_debug check_fails lst] uses delta debugging (ddmin algorithm) to
-    minimize a failing test case. *)
-
-val minimal_pair : ('a list -> bool) -> 'a list -> 'a list option
-(** [minimal_pair check_fails lst] finds the first pair of elements that causes
-    the check to fail. *)
-
 val minimize_failing_case : ('a list -> bool) -> 'a list -> 'a list option
 (** [minimize_failing_case check_fails initial] minimizes a failing test case to
     the smallest possible set using delta debugging. Returns [None] if the
@@ -119,13 +101,15 @@ val check_ordering_matches :
 (** [check_ordering_matches ?forms ~test_name utilities] fails when tw's sheet
     for [utilities] is not canonically equivalent to the pinned Tailwind CLI's.
 
-    {b It does not check the order its name claims.} It runs {!ordering_diff},
-    which is the canonical differ, and that suppresses every reorder it can
-    prove cascade-neutral: two rules reorder observably only where they overlap
-    in both dimensions, matching a common element {e and} writing a common
-    property, which is the pairing {!interacting_pairs} finds. So a family
-    emitted in the wrong band passes here whenever nothing in the band between
-    contends with it, which is the usual case.
+    {b It does not check the order its name claims.} It compares the two sheets
+    canonically, with dead custom properties pruned, and the canonical differ
+    suppresses every reorder it can prove cascade-neutral: two rules reorder
+    observably only where they overlap in both dimensions, matching a common
+    element {e and} writing a common property, which is the pairing
+    {!interacting_pairs} finds. So a family emitted in the wrong band passes
+    here whenever nothing in the band between contends with it, which is the
+    usual case. Pruning also makes it blind to a utility whose only output is an
+    unreferenced binding; {!check_rendering_matches} covers that class.
 
     What it does catch is a reorder that can change the cascade, and every
     difference in what the utilities emit: a wrong value, a dropped or surplus
@@ -136,6 +120,10 @@ val check_ordering_matches :
     {!check_class_order} reads positions back and does check order, for the
     classes it is given. The whole-sheet answer is {!sheet_order_gap}, which the
     gate in [test/parity/] pins at zero. *)
+
+val check_class_matches_tailwind : string -> unit
+(** [check_class_matches_tailwind cls] is {!check_ordering_matches} on the one
+    class [cls], and fails when tw refuses [cls]. *)
 
 val tree_diff_css :
   expected:string -> actual:string -> Cascade_diff.Css_compare.t
@@ -249,11 +237,12 @@ val sheets : ?forms:bool -> Tw.t list -> string * string
 
 val sheet_diff : tailwind:string -> tw:string -> Cascade_diff.Css_compare.t
 (** [sheet_diff ~tailwind ~tw] compares the two sheets canonically, with dead
-    custom properties pruned, the way {!ordering_diff} does. Returning the
-    comparison rather than a verdict is what lets a caller read its structure:
-    the differ reports a reorder as a {!Cascade_diff.Tree_diff.Reordered} node
-    whenever the two rules are cascade-significant, which a caller carrying a
-    set of known misorderings has to be able to recognise. *)
+    custom properties pruned, the way {!check_ordering_matches} does. Returning
+    the comparison rather than a verdict is what lets a caller read its
+    structure: the differ reports a reorder as a
+    {!Cascade_diff.Tree_diff.Reordered} node whenever the two rules are
+    cascade-significant, which a caller carrying a set of known misorderings has
+    to be able to recognise. *)
 
 val describe_diff : Cascade_diff.Css_compare.t -> string
 (** [describe_diff diff] is [diff] rendered for a failure message. *)
@@ -284,30 +273,24 @@ val render_elements : string list -> string list
     renders: each class on its own, then one element per {!interacting_pairs}
     pair, duplicates dropped and first occurrence kept. *)
 
-val escape_attribute : string -> string
-(** [escape_attribute s] is [s] as the text of a double-quoted HTML attribute,
-    so a class carrying a quote or an angle bracket stays one value. *)
-
-val box_marker : string
-(** [box_marker] is what an element under test holds by default: a run of text
-    and a bar as wide as the content box in the element's own colour, so a
-    property painting the box reaches the raster the oracle judges. An empty
-    element paints nothing. *)
-
 val classes_page : ?scope:string list -> string list -> string
 (** [classes_page ?scope classes] is the HTML document the site comparison
-    renders: every class on an element of its own holding {!box_marker}, inside
-    a wrapper carrying every [group] name [scope] (by default [classes]) scopes
-    to and after a sibling carrying every [peer] name, with children for a class
-    whose variants read descendants ([has-*], [*:], [**:]), so [group-*],
-    [peer-*], [has-*], [in-*] and [*:] have the markup they read. A variant
-    testing an attribute or a class on an ancestor matches on neither side, so
-    the render covers it unmatched. No element carries two classes. *)
+    renders: every class on an element of its own holding {!render_page}'s
+    default content, inside a wrapper carrying every [group] name [scope] (by
+    default [classes]) scopes to and after a sibling carrying every [peer] name,
+    with children for a class whose variants read descendants ([has-*], [*:],
+    [**:]), so [group-*], [peer-*], [has-*], [in-*] and [*:] have the markup
+    they read. A variant testing an attribute or a class on an ancestor matches
+    on neither side, so the render covers it unmatched. No element carries two
+    classes. *)
 
 val render_page : ?inner:string -> string list -> string
 (** [render_page ?inner elements] is the HTML document the browser comparison
     renders: one [div] per entry of [elements], carrying that entry as its class
-    attribute and [inner], {!box_marker} by default, as its content. *)
+    attribute and [inner] as its content. [inner] defaults to a run of text and
+    a bar as wide as the content box in the element's own colour, so a property
+    painting the box reaches the raster the oracle judges; an empty element
+    paints nothing. *)
 
 val rendering_report :
   ?inner:string ->
@@ -336,8 +319,8 @@ val check_rendering_matches :
     over the captures. Each class gets an element of its own, plus one per
     {!interacting_pairs} pair, which is where an ordering difference shows.
 
-    [inner] is markup put inside every element built, {!box_marker} by default.
-    A rule that only matches a child - which is most of what
+    [inner] is markup put inside every element built, and defaults to
+    {!render_page}'s. A rule that only matches a child - which is most of what
     [@tailwindcss/typography] emits - needs [inner] to supply that child, or it
     matches nothing and the comparison passes without rendering it. *)
 
@@ -378,28 +361,9 @@ val has_media_condition : string -> Css.t -> bool
 (** [has_media_condition condition css] checks if a specific media condition
     exists. *)
 
-val selectors_in_media : condition:string -> Css.t -> string list
-(** [selectors_in_media ~condition css] returns the selector strings contained
-    within the media query that matches [condition]. Returns [[]] if not found
-    or if the block has no rules. *)
-
-val has_selector_in_media : condition:string -> selector:string -> Css.t -> bool
-(** [has_selector_in_media ~condition ~selector css] checks whether [selector]
-    appears inside the media query identified by [condition]. *)
-
-val count_selector_in_media :
-  condition:string -> selector:string -> Css.t -> int
-(** [count_selector_in_media ~condition ~selector css] counts how many times
-    [selector] appears inside the media query identified by [condition]. *)
-
 val selectors_in_media_sel : condition:string -> Css.t -> Css.Selector.t list
 (** [selectors_in_media_sel ~condition css] returns the raw selector ASTs inside
     the matching media query. *)
-
-val has_selector_in_media_sel :
-  condition:string -> selector:Css.Selector.t -> Css.t -> bool
-(** [has_selector_in_media_sel ~condition ~selector css] checks for a selector
-    using structural equality on the selector AST. *)
 
 val count_selector_in_media_sel :
   condition:string -> selector:Css.Selector.t -> Css.t -> int
@@ -470,16 +434,35 @@ type rejection =
           string saying why. Every one of these is a measured parity gap held
           open here rather than a rejection that reads as intended. *)
 
-val check_invalid_input : ?why:rejection -> (module Handler) -> string -> unit
-(** [check_invalid_input ?why h input] tests that parsing fails for invalid
-    input as expected, and records [input] for {!check_negative_premises}. [why]
-    defaults to {!constructor-Not_a_utility}; the half of it that needs no CLI,
-    whether {!Tw.of_string} knows the class, is checked here. *)
+val check_invalid_input :
+  ?why:rejection -> ?entry:string -> (module Handler) -> string -> unit
+(** [check_invalid_input ?why ?entry h input] tests that parsing fails for
+    invalid input as expected, and records [input] for
+    {!check_negative_premises}. [why] defaults to {!constructor-Not_a_utility};
+    the half of it that needs no CLI, whether {!Tw.of_string} knows the class,
+    is checked here.
+
+    [entry] is the text of a Tailwind entrypoint, its [\@theme] blocks and
+    import options included. tw parses [input] under the theme
+    {!Tw_tools.Entry_theme.of_css} reads from it, and the CLI compiles it as
+    written, so both answer under the same theme. It should import [tailwindcss]
+    with [source(none)], or the CLI scans the build tree: {!theme_entry} writes
+    one that does. It defaults to Tailwind's default theme. *)
+
+val theme_entry : string -> string
+(** [theme_entry decls] is the entrypoint {!Tw_tools.Tailwind_gen.entrypoint}
+    writes for no candidates, followed by [\@theme { decls }]. *)
+
+val check_invalid_class : ?why:rejection -> ?entry:string -> string -> unit
+(** [check_invalid_class ?why ?entry cls] is {!check_invalid_input} over
+    {!Tw.of_string}: no tw handler parses [cls], and [cls] is recorded for
+    {!check_negative_premises}. It is for a class no single handler owns, such
+    as one whose variant or theme is what makes it invalid. *)
 
 val check_negative_premises : unit -> unit
 (** [check_negative_premises ()] asks the pinned tailwindcss CLI whether every
     negative test that has run so far had its premise right, in one generation
-    over the whole corpus. It skips without the CLI, and fails instead under
+    per distinct entrypoint. It skips without the CLI, and fails instead under
     [TW_TAILWIND_TESTS=1], the way every other parity check here does.
 
     It reads what the negative tests registered as they ran, so it belongs after
@@ -491,9 +474,6 @@ val standard :
   unit Alcotest.test_case list
 (** [standard ~roundtrip ~invalid] creates the standard test case list with
     roundtrip and invalid test cases. *)
-
-val check_parts : (module Handler) -> string list -> unit
-(** [check_parts h parts] concatenates parts with "-" and tests roundtrip. *)
 
 val check_invalid_parts :
   ?why:rejection -> (module Handler) -> string list -> unit
@@ -533,11 +513,14 @@ val sweep_one : string -> sweep_verdict
     select - and it covers both halves: no emitted selector carries the class,
     or {!Tw.pp} spells the class differently from the author. *)
 
-val unescape_selector : string -> string
-(** [unescape_selector s] undoes CSS Syntax 3 (ED) sec. 4.3.7 escaping, so a
-    selector can be compared against the class text it was built from whichever
-    spelling the printer chose. *)
-
 val selectors_of_utility : Tw.t -> string list
 (** [selectors_of_utility u] is every selector [u] emits, nested rules inside
     [\@media], [\@supports], [\@container] and [\@layer] included. *)
+
+val composes_box_shadow : string
+(** [composes_box_shadow] is the minified [box-shadow] declaration every
+    box-shadow utility writes: the five shadow channels, composed in order. *)
+
+val theme_src : string
+(** [theme_src] is an entrypoint whose [\@theme] blocks reset the colours, add a
+    keyframed animation, set [--spacing] and declare an inline font. *)

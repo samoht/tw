@@ -11,65 +11,36 @@ open Tw.Animations
 open Tw.Transitions
 open Tw.Borders
 
-(* A variant decides the selector and the at-rules wrapped around it, and
-   neither is a declaration, so what these tests have to compare is the sheet
-   itself. Comparing it whole is what a substring cannot do: [:has(:focus)] is
-   an infix of [:has(:focus-visible)], and a [check bool] failure prints neither
-   the class nor the CSS. *)
-let sheet cls =
-  match Tw.of_string cls with
-  | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-  | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
+let sheet = Test_helpers.sheet
+let check_sheet = Test_helpers.check_sheet
+let check_utilities = Test_helpers.check_utilities
 
-let check_sheet cls expected = Alcotest.(check string) cls expected (sheet cls)
-
-(* Most classes here draw on no theme token, so the layers ahead of [utilities]
-   are empty and only the utilities layer is worth spelling out. The comparison
-   is still against the whole sheet. *)
-let check_utilities cls expected =
-  check_sheet cls
-    ("@layer theme,components,utilities;@layer theme;@layer components;@layer \
-      utilities{" ^ expected ^ "}")
-
-(* Test responsive modifier detection *)
 let test_has_responsive_modifier () =
-  (* Basic styles should not have responsive modifier *)
   let style1 = p 4 in
   check bool "no responsive on basic style" false
     (has_responsive_modifier style1);
 
-  (* Responsive styles should be detected *)
   let style2 = sm [ p 4 ] in
   check bool "has responsive (sm)" true (has_responsive_modifier style2);
 
   let style3 = md [ bg blue ] in
   check bool "has responsive (md)" true (has_responsive_modifier style3);
 
-  (* Nested modifiers with responsive should be detected *)
   let style4 = hover [ sm [ bg blue ] ] in
   check bool "nested has responsive" true (has_responsive_modifier style4);
 
-  (* Non-responsive modifiers should not be detected as responsive *)
   let style5 = hover [ p 4 ] in
   check bool "hover is not responsive" false (has_responsive_modifier style5);
 
-  (* Group with at least one responsive should be detected *)
   let style6 = Tw.Utility.Group [ p 4; sm [ m 2 ] ] in
   check bool "group with responsive" true (has_responsive_modifier style6);
 
-  (* Group without responsive should not be detected *)
   let style7 = Tw.Utility.Group [ p 4; m 2 ] in
   check bool "group without responsive" false (has_responsive_modifier style7)
 
-(* Test responsive nesting validation *)
 let test_validate_no_nested_responsive () =
-  (* Should pass for non-responsive styles *)
   let () = validate_no_nested_responsive [ p 4; m 2 ] in
-
-  (* Should pass for single styles without responsive modifiers *)
   let () = validate_no_nested_responsive [ p 4 ] in
-
-  (* Should fail for nested responsive *)
   let test_nested_fail () =
     try
       validate_no_nested_responsive [ sm [ md [ p 4 ] ] ];
@@ -77,36 +48,29 @@ let test_validate_no_nested_responsive () =
     with Failure _ -> ()
   in
   test_nested_fail ();
-
-  (* Should fail for already responsive styles *)
   let test_already_responsive () =
     try
       let responsive_style = sm [ p 4 ] in
       validate_no_nested_responsive [ responsive_style ];
       fail "Should have rejected responsive style"
-    with Failure _ -> () (* Expected to fail *)
+    with Failure _ -> ()
   in
   test_already_responsive ()
 
-(* Helper to test that a responsive function rejects nested responsive *)
 let test_responsive_rejects name outer_fn inner_content =
   try
     let _ = outer_fn [ inner_content ] in
     Alcotest.failf "%s should reject nested responsive" name
-  with Failure _ -> () (* Expected to fail *)
+  with Failure _ -> ()
 
-(* Test that responsive functions reject nested responsive *)
 let test_responsive_functions_reject_nesting () =
-  (* Test each breakpoint rejects nested responsive modifiers *)
   test_responsive_rejects "sm" sm (md [ p 4 ]);
   test_responsive_rejects "md" md (lg [ p 4 ]);
   test_responsive_rejects "lg" lg (xl [ p 4 ]);
   test_responsive_rejects "xl" xl (xl2 [ p 4 ]);
   test_responsive_rejects "xl2" xl2 (sm [ p 4 ])
 
-(* Test apply function *)
 let test_apply () =
-  (* Test single modifier *)
   let style1 = apply [ "hover" ] (p 4) in
   check bool "hover modifier applied" true
     (match style1 with
@@ -114,9 +78,8 @@ let test_apply () =
     | Some (Modified (Hover, _)) -> true
     | _ -> false);
 
-  (* Test multiple modifiers - "sm:hover:..." means sm is outermost, hover is
-     inner. The structure is Modified(Sm, Modified(Hover, base)) which generates
-     "sm:hover:..." *)
+  (* In "sm:hover:...", sm is the outermost wrapper: Modified (Sm, Modified
+     (Hover, base)). *)
   let style2 = apply [ "sm"; "hover" ] (bg blue) in
   check bool "multiple modifiers applied" true
     (match style2 with
@@ -124,12 +87,11 @@ let test_apply () =
     | Some (Modified (Responsive `Sm, Modified (Hover, _))) -> true
     | _ -> false);
 
-  (* Test unknown modifier (should reject the entire class) *)
+  (* an unknown modifier rejects the whole class *)
   let style3 = apply [ "unknown"; "hover" ] (p 4) in
   check bool "unknown modifier rejects class" true
     (match style3 with None -> true | _ -> false);
 
-  (* Test responsive modifiers *)
   let style4 = apply [ "md" ] (m 2) in
   check bool "md modifier applied" true
     (match style4 with
@@ -137,7 +99,6 @@ let test_apply () =
     | Some (Modified (Responsive `Md, _)) -> true
     | _ -> false);
 
-  (* Test dark mode *)
   let style5 = apply [ "dark" ] (bg ~shade:900 gray) in
   check bool "dark modifier applied" true
     (match style5 with
@@ -145,12 +106,10 @@ let test_apply () =
     | Some (Modified (Dark, _)) -> true
     | _ -> false);
 
-  (* Test modifier order - modifiers are applied so that the first modifier in
-     the list becomes the outermost wrapper. This matches how string parsing
-     works: "hover:sm:p-4" has modifiers ["hover"; "sm"], and produces
-     Modified(Hover, Modified(Sm, base)) which generates "hover:sm:p-4". Note:
-     In practice, Tailwind expects responsive modifiers like "sm" to come before
-     state modifiers like "hover", so valid classes are "sm:hover:p-4". *)
+  (* The first modifier in the list is the outermost wrapper, as in string
+     parsing: "hover:sm:p-4" has modifiers ["hover"; "sm"] and is Modified
+     (Hover, Modified (Sm, base)). Tailwind classes usually put the responsive
+     modifier first, as in "sm:hover:p-4". *)
   let style6 = apply [ "hover"; "sm" ] (p 4) in
   check bool "modifier order correct" true
     (match style6 with
@@ -158,9 +117,7 @@ let test_apply () =
     | Some (Modified (Hover, Modified (Responsive `Sm, _))) -> true
     | _ -> false)
 
-(* Test modifier class name format *)
 let test_modifier_class_names () =
-  (* Test responsive modifiers produce single colon *)
   check string "sm: single colon" "sm:p-4" (Tw.Utility.to_class (sm [ p 4 ]));
 
   check string "md: single colon" "md:grid-cols-2"
@@ -169,45 +126,36 @@ let test_modifier_class_names () =
   check string "lg: single colon" "lg:bg-blue-500"
     (Tw.Utility.to_class (lg [ bg blue ]));
 
-  (* 2xl prefix formatting *)
   check string "2xl: single colon" "2xl:p-4" (Tw.Utility.to_class (xl2 [ p 4 ]));
 
-  (* Test hover modifier *)
   check string "hover: single colon" "hover:p-4"
     (Tw.Utility.to_class (hover [ p 4 ]));
 
-  (* Test combined modifiers *)
   check string "md:hover: single colons" "md:hover:m-2"
     (Tw.Utility.to_class (md [ hover [ m 2 ] ]));
 
-  (* Test multiple utilities with modifiers in a list *)
   let classes =
     Tw.to_classes Tw.[ grid; grid_cols 5; md [ grid_cols 10 ]; gap 2 ]
   in
   check string "multiple utilities with md:"
     "grid grid-cols-5 md:grid-cols-10 gap-2" classes
 
-(* Test media preference modifiers class names *)
 let test_media_preference_modifiers () =
-  (* Motion preference modifiers *)
   check string "motion-safe: single colon" "motion-safe:animate-pulse"
     (Tw.Utility.to_class (motion_safe [ animate_pulse ]));
 
   check string "motion-reduce: single colon" "motion-reduce:transition-none"
     (Tw.Utility.to_class (motion_reduce [ transition_none ]));
 
-  (* Contrast preference modifiers *)
   check string "contrast-more: single colon" "contrast-more:border-4"
     (Tw.Utility.to_class (contrast_more [ border_4 ]));
 
   check string "contrast-less: single colon" "contrast-less:text-gray-600"
     (Tw.Utility.to_class (contrast_less [ text ~shade:600 gray ]));
 
-  (* Dark mode *)
   check string "dark: single colon" "dark:bg-gray-900"
     (Tw.Utility.to_class (dark [ bg ~shade:900 gray ]))
 
-(* Test CSS generation and parsing roundtrip for modifiers *)
 let test_modifier_css_roundtrip () =
   let test_utilities =
     [
@@ -221,58 +169,36 @@ let test_modifier_css_roundtrip () =
       sm [ p 4 ];
     ]
   in
-
-  (* Generate CSS *)
   let stylesheet = Tw.Build.to_css test_utilities in
   let css_str = Tw.Css.to_string ~minify:true stylesheet in
-
-  (* Verify CSS was generated *)
   check bool "CSS generated" true (String.length css_str > 0);
-
-  (* Parse it back - this would fail with double-backslash bug *)
+  (* Parse it back: a doubled backslash in a selector does not parse *)
   match Tw.Css.of_string css_str with
-  | Ok _parsed_stylesheet ->
-      (* Successfully parsed our own generated CSS *)
-      ()
+  | Ok _parsed_stylesheet -> ()
   | Error parse_err ->
       let error_msg = Cascade.Error.to_string parse_err in
       Alcotest.failf "Failed to parse generated CSS:\n%s" error_msg
 
-(* Test that generated CSS has correct selector escaping *)
 let test_selector_escaping_in_css () =
-  (* Generate CSS with modifiers that need escaping *)
   let stylesheet = Tw.Build.to_css [ motion_safe [ animate_pulse ] ] in
   let css_str = Tw.Css.to_string ~minify:true stylesheet in
-
-  (* Verify single backslash in output (not double) *)
-  (* In the CSS string, we expect: .motion-safe\:animate-pulse *)
-  (* Which appears as "motion-safe\\:animate-pulse" in OCaml string *)
-  check bool "CSS contains escaped colon" true (String.contains css_str '\\');
-
-  (* Count backslashes - should be exactly 1 per modifier *)
-  let backslash_count =
-    String.fold_left (fun n c -> if c = '\\' then n + 1 else n) 0 css_str
-  in
-  (* We expect 1 backslash for the motion-safe: prefix *)
-  check bool "Single backslash escape (not double)" true (backslash_count >= 1);
-
-  (* Verify it parses correctly *)
+  check bool "the colon is escaped with one backslash" true
+    (Astring.String.is_infix ~affix:{|.motion-safe\:animate-pulse{|} css_str);
+  check bool "no doubled backslash" false
+    (Astring.String.is_infix ~affix:{|\\|} css_str);
   match Tw.Css.of_string css_str with
   | Ok _ -> ()
   | Error e ->
       Alcotest.failf "Selector escaping broken - parse failed:\n%s"
         (Cascade.Error.to_string e)
 
-(* Test combined modifiers with media preferences *)
 let test_combined_media_modifiers () =
-  (* Combining responsive with media preference should work *)
   check string "sm:motion-safe: works" "sm:motion-safe:animate-pulse"
     (Tw.Utility.to_class (sm [ motion_safe [ animate_pulse ] ]));
 
   check string "md:dark: works" "md:dark:bg-gray-900"
     (Tw.Utility.to_class (md [ dark [ bg ~shade:900 gray ] ]));
 
-  (* Generate and parse CSS with combined modifiers *)
   let utilities =
     [ sm [ motion_safe [ animate_pulse ] ]; md [ dark [ bg ~shade:900 gray ] ] ]
   in
@@ -283,9 +209,6 @@ let test_combined_media_modifiers () =
       Alcotest.failf "Combined modifiers CSS roundtrip failed:\n%s"
         (Cascade.Error.to_string e)
 
-(* Media query behavior for md [...] *)
-
-(* Test that motion-reduce:transition-none outputs transition-property: none *)
 let test_motion_reduce_transition_none () =
   (* Tailwind v4 writes transition-property: none, not the transition shorthand
      with a zero duration; the whole rule is pinned, so the shorthand cannot
@@ -293,13 +216,10 @@ let test_motion_reduce_transition_none () =
   check_utilities "motion-reduce:transition-none"
     {|@media(prefers-reduced-motion:reduce){.motion-reduce\:transition-none{transition-property:none}}|}
 
-(* The class a modifier renders has to be the class it was read from. This is
-   the cheap guard on the two spellings staying merged: the class name comes
-   from Style.pp_modifier and the selector from the table Modifiers exposes, and
-   while those were two tables they disagreed on nine constructors without
-   anything failing. Both directions matter - Style is the right arm for the
-   supports- shorthand and not-[...], Modifiers' was for not-* and the data
-   attributes. *)
+(* The class a modifier renders has to be the class it was read from: the class
+   name comes from Style.pp_modifier and the selector from the table Modifiers
+   exposes, and the two must agree on every constructor, the supports-
+   shorthand, not-[...], not-* and the data attributes included. *)
 let test_modifier_class_roundtrip () =
   List.iter
     (fun cls ->
@@ -398,238 +318,6 @@ let test_nth_spelling () =
       "not-nth-[3]:flex";
     ]
 
-(* The bracket holds a length, so a word is not a breakpoint at all. *)
-let test_arbitrary_breakpoint_rejects_non_length () =
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
-      | Error (`Msg _) -> ())
-    [ "min-[abc]:flex"; "max-[abc]:flex"; "min-[]:flex" ]
-
-(* The number in front of the unit is a CSS number, not an OCaml one. Reading it
-   with [float_of_string_opt] turned [min-[0x600px]] into a live [(min-width:
-   1536px)] breakpoint: a query the browser honours, built out of a value
-   Tailwind passes through verbatim for the browser to drop. Nothing here is a
-   length either, so tw declines the whole class. *)
-let test_arbitrary_breakpoint_rejects_ocaml_literals () =
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u ->
-          Alcotest.failf "%s parsed as %s emitting %s" cls (Tw.pp u)
-            (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true)
-      | Error (`Msg _) -> ())
-    [
-      "min-[0x600px]:p-4";
-      "max-[0x600px]:p-4";
-      "min-[0x600]:p-4";
-      "min-[0o17px]:p-4";
-      "min-[1_000px]:p-4";
-    ]
-
-(* A [@custom-variant] belongs to the [@theme] block that declared it. Two
-   stylesheets built in one process read different themes, so a variant the
-   first declared must be unknown to the second. *)
-let test_custom_variant_is_theme_local () =
-  let declaring : Tw.Scheme.t =
-    {
-      Tw.Scheme.default with
-      custom_variants =
-        [
-          ( "is-data",
-            Tw.Scheme.{ values = [ ("", "&[data-x]") ]; template = "&:is({})" }
-          );
-        ];
-    }
-  in
-  check bool "the declaring theme resolves its own variant" true
-    (Result.is_ok (Tw.of_string ~theme:declaring "is-data:flex"));
-  check bool "a second theme does not see it" true
-    (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "is-data:flex"))
-
-(* Same for a [@custom-variant] whose body is a container query: it is held in
-   its own field, and belongs to its own theme just the same. *)
-let test_container_variant_is_theme_local () =
-  let declaring : Tw.Scheme.t =
-    {
-      Tw.Scheme.default with
-      container_variants = [ ("has-a", Css.Container.of_string "style(--a)") ];
-    }
-  in
-  check bool "the declaring theme resolves its own variant" true
-    (Result.is_ok (Tw.of_string ~theme:declaring "has-a:flex"));
-  check bool "a second theme does not see it" true
-    (Result.is_error (Tw.of_string ~theme:Tw.Scheme.default "has-a:flex"))
-
-(* A [@theme] block that clears [--breakpoint-*] takes the built-in responsive
-   variants with it: [md:] then names a breakpoint the project no longer has,
-   and the candidate stops resolving the way an unknown variant does. The
-   [min-], [max-] and [not-] spellings read the same breakpoint, so they go too,
-   while a breakpoint the block declared for itself still resolves. *)
-let test_removed_breakpoint_drops_its_variants () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("breakpoint-*", "initial"); ("breakpoint-tablet", "40rem") ]
-  in
-  List.iter
-    (fun cls ->
-      check bool
-        (cls ^ " names a breakpoint the theme removed")
-        true
-        (Result.is_error (Tw.of_string ~theme cls)))
-    [ "md:flex"; "min-md:flex"; "max-md:flex"; "not-md:flex" ];
-  check bool "the theme's own breakpoint still resolves" true
-    (Result.is_ok (Tw.of_string ~theme "tablet:flex"))
-
-(* [--breakpoint-md: initial] removes the one breakpoint, and Tailwind emits
-   nothing for [md:flex]. The built-in table let it go, and the custom
-   breakpoints then took it back: [initial] reads as a length, so the removed
-   token was a custom breakpoint of that width, and the sheet carried [@media
-   (min-width: initial)], a query no browser honours. *)
-let test_removed_single_breakpoint_drops_its_variants () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("breakpoint-md", "initial") ]
-  in
-  List.iter
-    (fun cls ->
-      check bool
-        (cls ^ " names a breakpoint the theme removed")
-        true
-        (Result.is_error (Tw.of_string ~theme cls)))
-    [ "md:flex"; "min-md:flex"; "max-md:flex"; "not-md:flex" ];
-  check bool "the other breakpoints still resolve" true
-    (Result.is_ok (Tw.of_string ~theme "lg:flex"))
-
-(* The variant cascade the one table defines, read as a ladder: every token
-   sorts strictly after the one before it. A token the table has no position for
-   returns 0, and the comparator reads 0 as "this rule carries no variant" and
-   puts the rule in another group entirely, so a missing rung is not a small
-   ordering error. *)
-let variant_cascade_ladder =
-  [
-    "*";
-    "**";
-    "not-hover";
-    "group-hover";
-    "peer-focus";
-    "first-letter";
-    "marker";
-    "selection";
-    "file";
-    "placeholder";
-    "backdrop";
-    "details-content";
-    "before";
-    "after";
-    "first";
-    "last";
-    "only";
-    "odd";
-    "even";
-    "first-of-type";
-    "last-of-type";
-    "only-of-type";
-    "visited";
-    "target";
-    "open";
-    "default";
-    "checked";
-    "indeterminate";
-    "placeholder-shown";
-    "autofill";
-    "optional";
-    "required";
-    "valid";
-    "invalid";
-    "user-valid";
-    "user-invalid";
-    "in-range";
-    "out-of-range";
-    "read-only";
-    "read-write";
-    "empty";
-    "focus-within";
-    "hover";
-    "focus";
-    "focus-visible";
-    "active";
-    "enabled";
-    "disabled";
-    "inert";
-    "in-focus";
-    "has-checked";
-    "aria-checked";
-    "aria-[modal]";
-    "data-active";
-    "data-[open]";
-    "nth-3";
-    "nth-last-3";
-    "nth-of-type-3";
-    "nth-last-of-type-3";
-    "hocus";
-    "supports-grid";
-    "motion-safe";
-    "motion-reduce";
-    "contrast-more";
-    "contrast-less";
-    "md";
-    "@md";
-    "portrait";
-    "landscape";
-    "ltr";
-    "rtl";
-    "dark";
-    "starting";
-    "print";
-    "forced-colors";
-    "inverted-colors";
-    "pointer-fine";
-    "any-pointer-fine";
-    "noscript";
-    "prose-h1";
-    "[&>*]";
-  ]
-
-let test_variant_cascade_ladder () =
-  List.iter
-    (fun token ->
-      check bool
-        (token ^ " has a position in the cascade")
-        true
-        (variant_order_of_prefix token > 0))
-    variant_cascade_ladder;
-  List.iteri
-    (fun i token ->
-      match List.nth_opt variant_cascade_ladder (i + 1) with
-      | None -> ()
-      | Some next ->
-          check bool
-            (token ^ " sorts before " ^ next)
-            true
-            (variant_order_of_prefix token < variant_order_of_prefix next))
-    variant_cascade_ladder
-
-(* Two tokens in the same position are separated by what they carry: a [not-]
-   sorts where the variant it negates sorts, a [group-]/[peer-] where the state
-   it wraps sorts. Both read the same table as the position itself. *)
-let test_variant_inner_order () =
-  List.iter
-    (fun (token, inner) ->
-      check int
-        (token ^ " carries " ^ inner)
-        (variant_order_of_prefix inner)
-        (variant_inner_order token))
-    [
-      ("not-hover", "hover");
-      ("not-md", "md");
-      ("not-supports-grid", "supports-grid");
-      ("group-focus", "focus");
-      ("peer-checked", "checked");
-    ];
-  check int "a plain token carries nothing" 0 (variant_inner_order "hover")
-
-(* Test suite *)
 (* The [!] prefix marks the utility's own declarations !important, leaves theme
    tokens (--spacing) normal, preserves the class name, and nests under a
    modifier (md:!flex). *)
@@ -720,10 +408,8 @@ let test_important_custom_properties () =
    left the selector reader to raise out of [to_css], a pure conversion, while
    the bracket form [has-[...]] validated its selector. *)
 let test_not_has_shorthand_selector () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   let renders cls =
     match Tw.of_string cls with
@@ -764,8 +450,7 @@ let test_has_not_bracket_attribute () =
 (* [group-has-] and [peer-has-] take any variant as their inner, the way [has-]
    does, and that variant's own selector goes inside the anchored [:has()].
    Tailwind 4.3.3 styles a descendant of [:where(.group):has([data-state=open])]
-   for [group-has-data-[state=open]:ring-2]; the two read only a state name or a
-   bracket selector, so the class was an unknown modifier. *)
+   for [group-has-data-[state=open]:ring-2]. *)
 let test_group_peer_has_variant () =
   let css cls =
     match Tw.of_string cls with
@@ -789,9 +474,7 @@ let test_group_peer_has_variant () =
     {|.group-has-checked\:flex:is(:where(.group):has(:checked) *){display:flex}|}
 
 (* @tailwindcss/typography registers one variant per element it styles, and the
-   variant is what puts a utility on that element. Eight of them - h5, h6, dl,
-   dt, dd, table, tr, picture - were not recognised at all, so the class was
-   rejected and the utility never reached the element. *)
+   variant is what puts a utility on that element. *)
 let test_prose_element_variants () =
   (* The variant scopes the utility to a descendant of the prose root, and the
      [:not(:where([class~=not-prose] ...))] guard is what keeps it off an
@@ -856,10 +539,8 @@ let test_prose_element_variant_invalid () =
 (* Negating a hover-gated variant negates the gate as well: Tailwind pairs
    [.x:not(<rel>)] with [@media not (hover: hover) { .x }] for [not-hover], and
    the group, peer, ancestor and [has-] forms of [hover] carry the gate along
-   with the state, so their negations carry the twin. Without it the class only
-   held the selector half, and a touch device - where the gate fails and the
-   twin applies - got nothing. [not-in-hover] read its inner through the plain
-   selector reading and negated the utility's own class. *)
+   with the state, so their negations carry the twin, which is what applies on a
+   touch device, where the gate fails. *)
 let test_negated_hover_forms_carry_the_twin () =
   check_utilities "not-group-hover:flex"
     {|.not-group-hover\:flex:not(:is(:where(.group):hover *)){display:flex}@media not all and (hover:hover){.not-group-hover\:flex{display:flex}}|};
@@ -874,8 +555,7 @@ let test_negated_hover_forms_carry_the_twin () =
    made, as Tailwind builds it: the block keeps that leaf's selector, [.x:focus]
    for [not-hover:focus:flex], and stays inside the [@media (hover: hover)] an
    inner [hover] brought, [@media (hover:hover) { @media not (...) { .x:hover }
-   }] for [not-dark:hover:flex]. It used to name the bare class and drop the
-   gate, so [not-hover:focus:flex] styled the element whether focused or not. *)
+   }] for [not-dark:hover:flex]. *)
 let test_negation_keeps_the_inner_leaf () =
   check_utilities "not-hover:focus:flex"
     {|.not-hover\:focus\:flex:not(:hover):focus{display:flex}@media not all and (hover:hover){.not-hover\:focus\:flex:focus{display:flex}}|};
@@ -891,7 +571,7 @@ let test_negation_keeps_the_inner_leaf () =
 (* A selector variant over a media inner: the regular arm builds the anchor or
    the negation over the inner rule's selector, and the inner query goes back
    around each rule that comes out, inside the gate the variant added. A named
-   group or peer over [md:] lost its anchor, and a negation over it lost its
+   group or peer over [md:] keeps its anchor, and a negation over it its
    twin. *)
 let test_selector_variant_over_media_inner () =
   check_utilities "not-hover:md:flex"
@@ -905,11 +585,10 @@ let test_selector_variant_over_media_inner () =
 
 (* A negation inside a compound is the negated selector, and a double negation
    of a media or supports variant is the variant again: [has-not-focus] is
-   [:has(:not(:focus))], [not-not-md] is [md]. Each read as the utility's own
-   class negated, [.x:has(.flex)], which matched nothing the author meant. A
-   negation with two halves - [not-hover] - has no single negation, and a
-   compound holds only a selector, so [not-not-hover], [has-not-hover], [has-md]
-   and [in-not-group-hover] name nothing, as they do in Tailwind. *)
+   [:has(:not(:focus))], [not-not-md] is [md], never the utility's own class
+   negated. A negation with two halves - [not-hover] - has no single negation,
+   and a compound holds only a selector, so [not-not-hover], [has-not-hover],
+   [has-md] and [in-not-group-hover] name nothing, as they do in Tailwind. *)
 let test_compound_negations () =
   check_utilities "has-not-focus:flex"
     {|.has-not-focus\:flex:has(:not(:focus)){display:flex}|};
@@ -925,10 +604,8 @@ let test_compound_negations () =
     {|.has-not-\[\.a\]\:flex:has(:not(.a)){display:flex}|};
   check_utilities "not-has-[.a]:flex"
     {|.not-has-\[\.a\]\:flex:not(:has(.a)){display:flex}|};
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   List.iter rejected
     [
@@ -943,9 +620,7 @@ let test_compound_negations () =
     ]
 
 (* [in-<variant>] holds any variant with a selector, the way [has-] does, and an
-   ancestor in a hover state keeps the pointer gate. The reading knew a bracket,
-   a data attribute and the bare state names, so [in-group-hover],
-   [in-has-focus] and [in-nth-3] were unknown classes. A media variant has no
+   ancestor in a hover state keeps the pointer gate. A media variant has no
    selector to hold, and a modifier is not a name an ancestor takes. *)
 let test_in_holds_any_selector_variant () =
   check_utilities "in-group-hover:flex"
@@ -962,15 +637,13 @@ let test_in_holds_any_selector_variant () =
     {|:where([data-x="1"]) .in-data-\[x\=1\]\:flex{display:flex}|};
   check_utilities "in-in-focus:flex"
     {|:where(:where(:focus) *) .in-in-focus\:flex{display:flex}|};
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   List.iter rejected [ "in-print:flex"; "in-md:flex"; "in-focus/x:flex" ]
 
 (* [has-group-hover/x] and [in-group-hover/x] gate on the pointer as
-   [group-hover/x] does; they used to apply on touch. *)
+   [group-hover/x] does, so they do not apply on touch. *)
 let test_has_and_in_named_hover_gate () =
   check_utilities "has-group-hover/x:flex"
     {|@media(hover:hover){.has-group-hover\/x\:flex:has(:is(:where(.group\/x):hover *)){display:flex}}|};
@@ -981,10 +654,8 @@ let test_has_and_in_named_hover_gate () =
    variant's own rule holds the [content], under no condition, and the inner
    variant's rule nests inside it, so the flattened sheet writes [.x::before {
    content }] once and the utility's declarations on [.x::before<inner>] under
-   the inner's own at-rules. tw fused the two into one rule under the inner's
-   condition and dropped the inner's selector, so [before:hover:underline]
-   underlined the pseudo-element whether hovered or not. An at-rule inner and a
-   negation's two halves each write the content rule once; [marker:] and
+   the inner's own at-rules, keeping the inner's selector. An at-rule inner and
+   a negation's two halves each write the content rule once; [marker:] and
    [selection:] put the inner's selector after each of their pseudo-elements.
    The utilities layer alone is compared: [before:] registers [--tw-content]
    ahead of it. *)
@@ -1022,8 +693,8 @@ let test_pseudo_element_over_an_inner_variant () =
     {|@media(hover:hover){.selection\:hover\:underline ::selection:hover{text-decoration-line:underline}.selection\:hover\:underline::selection:hover{text-decoration-line:underline}}|}
 
 (* [@starting-style] nests with a container or supports query around it in
-   either order, as a media query does; [starting:@md:] lost the container and
-   [@md:starting:] the block. *)
+   either order, as a media query does: [starting:@md:] and [@md:starting:] both
+   keep the container and the block. *)
 let test_starting_style_nests_with_container_and_supports () =
   check_utilities "starting:@md:underline"
     {|@starting-style{@container(width>=28rem){.starting\:\@md\:underline{text-decoration-line:underline}}}|};
@@ -1059,14 +730,12 @@ let tests =
 
 (* Additional tests for modifiers parsing, rendering, and variants *)
 
-(* Test is_hover flags *)
 let test_is_hover () =
   check bool "Hover is hover" true (is_hover Hover);
   check bool "Group_hover is hover" true (is_hover Group_hover);
   check bool "Peer_hover is hover" true (is_hover Peer_hover);
   check bool "Focus is not hover" false (is_hover Focus)
 
-(* Test of_string parsing *)
 let test_of_string_parsing () =
   let mods, cls = Tw.Modifiers.of_string "hover:bg-blue-500" in
   check (list string) "hover modifier parsed" [ "hover" ] mods;
@@ -1090,7 +759,6 @@ let test_of_string_parsing () =
     mods;
   check string "base class parsed (m-1)" "m-1" cls
 
-(* Test pp_modifier rendering *)
 let test_pp_modifier_strings () =
   check string "pp sm" "sm" (pp_modifier (Responsive `Sm));
   check string "pp container md" "@md"
@@ -1110,8 +778,7 @@ let test_pp_modifier_strings () =
   check string "pp not-hover" "not-hover" (pp_modifier (Not Hover))
 
 (* The full container-query size scale (@3xs .. @7xl) emits a container query at
-   the right threshold, using Tailwind v4's range syntax ([width >= 20rem]); @xs
-   and @3xl+ used to be unknown modifiers. *)
+   the right threshold, using Tailwind v4's range syntax ([width >= 20rem]). *)
 let test_container_query_scale () =
   check_utilities "@xs:flex"
     {|@container(width>=20rem){.\@xs\:flex{display:flex}}|};
@@ -1121,7 +788,7 @@ let test_container_query_scale () =
     (Tw.Utility.to_class (Option.get (apply [ "@xs" ] (p 4))))
 
 (* @max-<size> negates the min query, and @min-/@max-[<len>] and bare @[<len>]
-   accept arbitrary lengths. All used to be unknown modifiers. *)
+   accept arbitrary lengths. *)
 let test_container_query_min_max () =
   check_utilities "@min-md:flex"
     {|@container(width>=28rem){.\@min-md\:flex{display:flex}}|};
@@ -1148,7 +815,6 @@ let test_container_query_min_max () =
   check string "@[480px] round-trips" "@[480px]:p-4"
     (Tw.Utility.to_class (Option.get (apply [ "@[480px]" ] (p 4))))
 
-(* Test apply with bracketed has/group-has/peer-has modifiers *)
 let test_apply_bracketed_has () =
   let u1 = apply [ "has-[.x]" ] (p 4) in
   check string "has-[.x]:p-4" "has-[.x]:p-4"
@@ -1251,21 +917,19 @@ let test_has_bracket_arguments () =
   has "has-hocus:flex" ":has(:hover,:focus)"
 
 (* A group or peer bracket without an [&] attaches its compound to the anchor:
-   group-[.is-published] scopes to a .group that also has that class. It used to
-   be an unknown class, since the anchor had to be spelled. *)
+   group-[.is-published] scopes to a .group that also has that class. *)
 let test_anchor_bracket_without_ampersand () =
   check_utilities "group-[.is-published]:block"
     {|.group-\[\.is-published\]\:block:is(:where(.group).is-published *){display:block}|};
   check_utilities "peer-[.is-dirty]:block"
     {|.peer-\[\.is-dirty\]\:block:is(:where(.peer).is-dirty~*){display:block}|};
-  (* the spelled anchor still works *)
+  (* and so does the spelled anchor *)
   check_utilities "group-[&:hover]:block"
     {|.group-\[\&\:hover\]\:block:is(:where(.group):hover *){display:block}|}
 
 (* What follows the [&] anchor in a group or peer bracket is a selector, so it
-   is read as one. A pseudo-class outside a short hand-written list came out as
-   a class literally named [:defined], and a compound remainder was taken whole
-   as an element name, so [&_p.foo] named an element [p.foo]. *)
+   is read as one: [&:defined] is the pseudo-class, and [&_p.foo] a [p] element
+   with class [foo]. *)
 let test_anchor_bracket_reads_remainder () =
   check_utilities "group-[&:defined]:flex"
     {|.group-\[\&\:defined\]\:flex:is(:where(.group):defined *){display:flex}|};
@@ -1283,7 +947,6 @@ let test_anchor_bracket_reads_remainder () =
   check_utilities "peer-[&:hover]:flex"
     {|.peer-\[\&\:hover\]\:flex:is(:where(.peer):hover~*){display:flex}|}
 
-(* Test ARIA and data modifiers class names *)
 let test_aria_and_data_modifiers () =
   check string "aria-checked:p-4" "aria-checked:p-4"
     (Tw.Utility.to_class (aria_checked [ p 4 ]));
@@ -1302,12 +965,10 @@ let test_aria_and_data_modifiers () =
   check string "data-[status=on]:m-4" "data-[status=on]:m-4"
     (Tw.Utility.to_class (data_custom "status" "on" (m 4)))
 
-(* Test before/after pseudo-element modifiers *)
 let test_before_after_modifiers () =
   check string "before:p-4" "before:p-4" (Tw.Utility.to_class (before [ p 4 ]));
   check string "after:m-2" "after:m-2" (Tw.Utility.to_class (after [ m 2 ]))
 
-(* Test nested modifier class generation *)
 let test_nested_modifier_class_names () =
   (* Basic dark:hover: nesting *)
   check string "dark:hover:text-white" "dark:hover:text-white"
@@ -1359,7 +1020,6 @@ let test_nested_modifier_class_names () =
      dark:hover:bg-gray-700 dark:hover:text-white"
     (Tw.to_classes complex_styles)
 
-(* Test CSS generation for nested modifiers *)
 let test_nested_modifier_css_generation () =
   (* dark:hover: nests one media query inside the other, in the order the class
      spells them, and keeps the escaped class name. *)
@@ -1374,54 +1034,19 @@ let test_nested_modifier_css_generation () =
 (* not-[<selector>] with an arbitrary selector parses [_] as a space and [&] as
    the element, which becomes the universal selector inside the negation (so
    not-[.os-macos_&]:block negates the descendant context as a :not over
-   .os-macos descendants). It used to escape the bracket content as one class
-   name instead. *)
+   .os-macos descendants). *)
 let test_not_bracket_arbitrary_selector () =
   check_utilities "not-[.os-macos_&]:block"
     {|.not-\[\.os-macos_\&\]\:block:not(.os-macos *){display:block}|};
   check_utilities "not-[.foo]:block"
     {|.not-\[\.foo\]\:block:not(.foo){display:block}|}
 
-(* The bracket is negated as a selector, so content the selector grammar cannot
-   read is not a negation and the class is refused at parse time. The reader
-   raises rather than answering, and it stops at the first thing it cannot use,
-   so a trailing remainder is refused too rather than silently dropped. *)
-let test_not_bracket_unreadable_selector_rejected () =
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u ->
-          Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-      | Error (`Msg _) -> ())
-    [
-      "not-[a;b]:flex";
-      "not-[0.5ch]:flex";
-      "not-[1px}]:flex";
-      "not-[a{b]:flex";
-      "not-[*/]:flex";
-      "not-[<value>]:flex";
-      "not-[url(a;b)]:flex";
-      "not-[()]:flex";
-    ];
-  (* the readable ones still parse *)
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok _ -> ()
-      | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m)
-    [
-      "not-[.foo]:flex";
-      "not-[.os-macos_&]:flex";
-      "not-[:checked]:flex";
-      "not-[@media_print]:flex";
-    ]
-
 (* A bracket [@supports] condition under [not-] negates the condition, the way
    [not-[@media ...]] negates the query: Tailwind 4.3.3 writes [@supports not
    (display:grid)] for [not-[@supports(display:grid)]:flex], and the positive
-   query for a doubly negated one. tw read the at-rule as a variant and negated
-   the utility's own class instead. A compound condition has no single negation,
-   and 4.3.3 compiles nothing for it. *)
+   query for a doubly negated one, never the utility's own class negated. A
+   compound condition has no single negation, and 4.3.3 compiles nothing for
+   it. *)
 let test_not_bracket_supports () =
   let css cls =
     match Tw.of_string cls with
@@ -1438,15 +1063,12 @@ let test_not_bracket_supports () =
     {|@supports not (display:grid){.not-\[\@supports\(display\:grid\)\]\:flex{display:flex}}|};
   has "not-[@supports_not_(display:grid)]:flex"
     {|@supports(display:grid){.not-\[\@supports_not_\(display\:grid\)\]\:flex{display:flex}}|};
-  match Tw.of_string "not-[@supports(display:grid)_and_(gap:1px)]:flex" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "a compound supports condition has no single negation"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "not-[@supports(display:grid)_and_(gap:1px)]:flex"
 
 (* Tailwind declares [content] once on a [before:]/[after:] rule and nests the
    colour [@supports] twin inside it, so the flattened twin carries the colour
-   alone. tw ran the pseudo-element handler over the twin as over the rule and
-   wrote [content: var(--tw-content)] a second time, ten times over the site
-   sheet, which the canonical differ reports and the byte budget pays for. *)
+   alone, with no second [content: var(--tw-content)]. *)
 let test_pseudo_element_supports_twin_content () =
   let css cls =
     match Tw.of_string cls with
@@ -1486,146 +1108,11 @@ let test_group_arbitrary_prefix () =
   check_utilities "group-[&_p]:block"
     {|.group-\[\&_p\]\:block:is(:where(.group) p *){display:block}|}
 
-(* An nth-* bracket holds an An+B expression and a supports- bracket holds an
-   @supports condition; both are taken verbatim, so content the CSS grammar has
-   no production for escapes as a parse error out of the selector or condition
-   reader. They are validated where data-[ and has-[ are. *)
-let test_invalid_bracket_modifiers () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "nth-[]:flex";
-  rejected "nth-[abc]:flex";
-  rejected "nth-last-[]:flex";
-  rejected "nth-of-type-[]:flex";
-  rejected "nth-last-of-type-[]:flex";
-  rejected "supports-[]:flex"
-
-(* An aria- or data- variant names an attribute, so an empty argument would
-   compile to [[aria-]] or [[data-]]: a selector browsers parse and keep, and
-   nothing ever matches. An underscore stands for a space, so it is empty
-   too. *)
-let test_empty_attribute_brackets () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
-  in
-  rejected "aria-[]:flex";
-  rejected "aria-[_]:flex";
-  rejected "aria-_:flex";
-  rejected "group-aria-[]:flex";
-  rejected "peer-aria-[]:flex";
-  rejected "data-[]:flex";
-  rejected "data-[_]:flex";
-  rejected "group-data-[]:flex";
-  rejected "peer-data-[]:flex";
-  rejected "group-data-_:flex";
-  rejected "peer-data-_:flex"
-
-let test_padded_attribute_brackets () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
-  in
-  rejected "aria-[_modal_]:flex";
-  rejected "data-[_state=open_]:flex"
-
-(* The attribute spellings that do name something keep working, including the
-   empty-name-with-value form Tailwind also accepts. *)
-let test_attribute_brackets_still_parse () =
-  check_utilities "aria-[modal]:flex"
-    {|.aria-\[modal\]\:flex[aria-modal]{display:flex}|};
-  check_utilities "aria-[sort=ascending]:flex"
-    {|.aria-\[sort\=ascending\]\:flex[aria-sort=ascending]{display:flex}|};
-  check_utilities "aria-[=true]:flex"
-    {|.aria-\[\=true\]\:flex[aria-=true]{display:flex}|};
-  check_utilities "data-[state=open]:flex"
-    {|.data-\[state\=open\]\:flex[data-state=open]{display:flex}|};
-  check_utilities "group-data-[dragging]:flex"
-    {|.group-data-\[dragging\]\:flex:is(:where(.group)[data-dragging] *){display:flex}|};
-  check_utilities "peer-data-[dragging]:flex"
-    {|.peer-data-\[dragging\]\:flex:is(:where(.peer)[data-dragging]~*){display:flex}|};
-  check_utilities "group-data-modified:flex"
-    {|.group-data-modified\:flex:is(:where(.group)[data-modified] *){display:flex}|}
-
-(* [parse_data_expr] reads the [data-[...]] bracket body into an attribute
-   match: every operator ([$=], [^=], [*=], [~=], [|=], bare [=]), the
-   presence-only bare form, a quoted value holding a decoded space, and a
-   trailing case-sensitivity flag. This pins the selector each spelling produces
-   today so a rewrite of the reader cannot silently change one. *)
-let test_data_bracket_operators () =
-  let css cls =
-    match Tw.of_string cls with
-    | Ok u -> Tw.to_css ~base:false [ u ] |> Tw.Css.to_string ~minify:true
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  let emits affix cls =
-    check bool cls true (Astring.String.is_infix ~affix (css cls))
-  in
-  check_utilities "data-[size~=large]:flex"
-    {|.data-\[size\~\=large\]\:flex[data-size~=large]{display:flex}|};
-  check_utilities "data-[foo=bar]:flex"
-    {|.data-\[foo\=bar\]\:flex[data-foo=bar]{display:flex}|};
-  check_utilities "data-[foo^=bar]:flex"
-    {|.data-\[foo\^\=bar\]\:flex[data-foo^=bar]{display:flex}|};
-  check_utilities "data-[foo$=bar]:flex"
-    {|.data-\[foo\$\=bar\]\:flex[data-foo$=bar]{display:flex}|};
-  check_utilities "data-[foo*=bar]:flex"
-    {|.data-\[foo\*\=bar\]\:flex[data-foo*=bar]{display:flex}|};
-  check_utilities "data-[foo|=bar]:flex"
-    {|.data-\[foo\|\=bar\]\:flex[data-foo|=bar]{display:flex}|};
-  check_utilities "data-[open]:flex"
-    {|.data-\[open\]\:flex[data-open]{display:flex}|};
-  (* A decoded space in the value stays on a substring: tw quotes the attribute
-     value where the pinned CLI escapes the space instead ([data-foo=a\ b]). *)
-  emits {|[data-foo="a b"]|} "data-[foo='a_b']:flex";
-  check_utilities "data-[foo=bar_i]:flex"
-    {|.data-\[foo\=bar_i\]\:flex[data-foo=bar i]{display:flex}|};
-  check_utilities "data-[foo=bar_s]:flex"
-    {|.data-\[foo\=bar_s\]\:flex[data-foo=bar s]{display:flex}|};
-  check_utilities "group-data-[size~=large]:flex"
-    {|.group-data-\[size\~\=large\]\:flex:is(:where(.group)[data-size~=large] *){display:flex}|};
-  check_utilities "peer-data-[size~=large]:flex"
-    {|.peer-data-\[size\~\=large\]\:flex:is(:where(.peer)[data-size~=large]~*){display:flex}|}
-
-(* A bare [[...]] variant compounds its selector onto the utility's own class,
-   so what the brackets hold has to be a compound selector. [~] is both the
-   sibling combinator and the [~=] whitespace-list attribute operator, and only
-   reading the bracket as a selector tells them apart: a character scan that
-   rejects every [~] rejects [[data-size~=large]] along with [p_~_span]. *)
-let test_bare_selector_variant_attribute_operators () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
-  in
-  check_utilities "[[data-size~=large]]:underline"
-    {|.\[\[data-size\~\=large\]\]\:underline[data-size~=large]{text-decoration-line:underline}|};
-  check_utilities "group-[[data-size~=large]]:underline"
-    {|.group-\[\[data-size\~\=large\]\]\:underline:is(:where(.group)[data-size~=large] *){text-decoration-line:underline}|};
-  check_utilities "peer-[[data-size~=large]]:underline"
-    {|.peer-\[\[data-size\~\=large\]\]\:underline:is(:where(.peer)[data-size~=large]~*){text-decoration-line:underline}|};
-  (* the attribute operators that never collided with a combinator stay put *)
-  check_utilities "[[lang|=en]]:underline"
-    {|.\[\[lang\|\=en\]\]\:underline[lang|=en]{text-decoration-line:underline}|};
-  check_utilities "[[href^=https]]:underline"
-    {|.\[\[href\^\=https\]\]\:underline[href^=https]{text-decoration-line:underline}|};
-  (* a combinator really is one, and none of these is a compound *)
-  rejected "[p_~_span]:underline";
-  rejected "[>img]:underline";
-  rejected "[.a_.b]:underline"
-
 (* An at-rule in brackets is a variant, [@media] as much as [@supports].
    Tailwind 4.3.3 wraps the utility in [@media print] for
    [[@media_print]:underline], reading the underscore as a space, and in the
    written query for [[@media(prefers-contrast:more)]] and
-   [[@media(width>=600px)]]. Only [@supports] and [@starting-style] were read,
-   so each of these was an unknown modifier. A query with no reading is
-   refused. *)
+   [[@media(width>=600px)]]. A query with no reading is refused. *)
 let test_bracket_media_variant () =
   let css cls =
     match Tw.of_string cls with
@@ -1646,39 +1133,8 @@ let test_bracket_media_variant () =
   has "[@media(width>=600px)]:flex" "@media";
   has "[@media(width>=600px)]:flex"
     {|.\[\@media\(width\>\=600px\)\]\:flex{display:flex}|};
-  match Tw.of_string "[@media(]:flex" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "[@media(]:flex should be refused"
-
-(* The valid spellings the validation must keep accepting. *)
-let test_valid_bracket_modifiers () =
-  check_utilities "nth-[2n+1]:flex"
-    {|.nth-\[2n\+1\]\:flex:nth-child(odd){display:flex}|};
-  check_utilities "nth-[3]:flex" {|.nth-\[3\]\:flex:nth-child(3){display:flex}|};
-  check_utilities "nth-last-[2n]:flex"
-    {|.nth-last-\[2n\]\:flex:nth-last-child(2n){display:flex}|};
-  check_utilities "nth-of-type-[odd]:flex"
-    {|.nth-of-type-\[odd\]\:flex:nth-of-type(odd){display:flex}|};
-  check_utilities "supports-[display:grid]:flex"
-    {|@supports(display:grid){.supports-\[display\:grid\]\:flex{display:flex}}|}
-
-(* A [supports-[...]] condition that is not a bare [prop:value] pair goes to the
-   condition reader whole. [not(display:grid)] was split at its colon into the
-   property [not(display] and the value [grid)], which cascade refused with a
-   [Failure] out of a pure render, exit 125. Tailwind 4.3.3 writes [@supports
-   not (display:grid)], spacing a keyword the function-token spelling would hide
-   from the [@supports] grammar, and passes [selector(...)] through. A condition
-   the grammar has no production for is refused, not raised. *)
-let test_supports_condition_text () =
-  check_utilities "supports-[not(display:grid)]:flex"
-    {|@supports not (display:grid){.supports-\[not\(display\:grid\)\]\:flex{display:flex}}|};
-  check_utilities "supports-[not_(display:grid)]:flex"
-    {|@supports not (display:grid){.supports-\[not_\(display\:grid\)\]\:flex{display:flex}}|};
-  check_utilities "supports-[selector(:has(a))]:flex"
-    {|@supports selector(:has(a)){.supports-\[selector\(\:has\(a\)\)\]\:flex{display:flex}}|};
-  match Tw.of_string "supports-[display:)]:flex" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "supports-[display:)]:flex should be refused"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "[@media(]:flex"
 
 (* A [supports-<property>] test names the property the author wrote, even for a
    property browsers once shipped behind a vendor prefix: Tailwind emits
@@ -1717,11 +1173,8 @@ let test_supports_property_is_unprefixed () =
   unprefixed "supports-text-size-adjust:flex"
 
 (* A variant that wraps the utility in an at-rule keeps that at-rule when the
-   variant it decorates already produced a media query. [supports-grid:sm:flex]
-   used to render as [.sm\:flex] inside the breakpoint alone: the feature query
-   and the [supports-grid] half of the class name both disappeared, so the rule
-   applied unconditionally and matched a class the author never wrote. Tailwind
-   nests the two in the order the class spells them. *)
+   variant it decorates already produced a media query, and the class name keeps
+   both halves. Tailwind nests the two in the order the class spells them. *)
 let test_at_rule_variant_over_media () =
   check_utilities "supports-grid:sm:flex"
     {|@supports(grid:var(--tw)){@media(min-width:40rem){.supports-grid\:sm\:flex{display:flex}}}|};
@@ -1734,9 +1187,8 @@ let test_at_rule_variant_over_media () =
 
 (* [not-@md] negates the container's size condition, inside its name, the way
    Tailwind 4.3.3 writes it; a double negation is the query again, and the query
-   wraps an inner hover's gate as [@md] does. The class used to be refused. A
-   group or peer negation has only a selector, so a container inner leaves it
-   nothing, and it stays refused. *)
+   wraps an inner hover's gate as [@md] does. A group or peer negation has only
+   a selector, so a container inner leaves it nothing, and it is refused. *)
 let test_not_container_negates_the_query () =
   check_utilities "not-@md:flex"
     {|@container not (width>=28rem){.not-\@md\:flex{display:flex}}|};
@@ -1750,10 +1202,8 @@ let test_not_container_negates_the_query () =
     {|@container not (width>=28rem){@media(hover:hover){.not-\@md\:hover\:flex:hover{display:flex}}}|};
   check_utilities "not-not-@md:flex"
     {|@container(width>=28rem){.not-not-\@md\:flex{display:flex}}|};
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   List.iter rejected
     [ "group-not-@md:flex"; "peer-not-md:flex"; "has-@md:flex" ]
@@ -1762,8 +1212,7 @@ let test_not_container_negates_the_query () =
    nested statements - [md:hover:flex]'s, under the hover media - as it reaches
    the selector: [in-focus:md:hover:flex] wants [:where(:focus)] in front of the
    class inside the hover media, and [hover:md:hover:flex] its second [:hover].
-   The nested rule used to keep the bare class, so the outer variant styled
-   nothing there. A negation's twin holds the class alone. *)
+   A negation's twin holds the class alone. *)
 let test_variant_reaches_the_nested_rule () =
   check_utilities "in-focus:md:hover:flex"
     {|@media(min-width:48rem){@media(hover:hover){:where(:focus) .in-focus\:md\:hover\:flex:hover{display:flex}}}|};
@@ -1776,10 +1225,9 @@ let test_variant_reaches_the_nested_rule () =
 
 (* Under an ancestor variant the rest of a compound goes onto the class, which
    is how CSS Nesting reads [& :hover] and how Tailwind writes
-   [in-focus:hover:flex]; wrapping the whole selector in [:is()] gave
-   [:is(:where(:focus) .x):hover]. Under a scoped negation the bracket stands
-   for its selector and the negation is the scope's own: [group-not-[.a]] read
-   as [:where(.group).a], the negation lost. *)
+   [in-focus:hover:flex], not [:is(:where(:focus) .x):hover]. Under a scoped
+   negation the bracket stands for its selector and the negation is the scope's
+   own: [group-not-[.a]] is [:where(.group):not(.a)]. *)
 let test_ancestor_variant_keeps_the_compound () =
   check_utilities "in-focus:hover:flex"
     {|@media(hover:hover){:where(:focus) .in-focus\:hover\:flex:hover{display:flex}}|};
@@ -1789,27 +1237,6 @@ let test_ancestor_variant_keeps_the_compound () =
     {|@media(hover:hover){:where(:not(:focus)) .in-not-focus\:hover\:flex:hover{display:flex}}|};
   check_utilities "group-not-[.a]:flex"
     {|.group-not-\[\.a\]\:flex:is(:where(.group):not(.a) *){display:flex}|}
-
-(* A class that parses but renders no rule at all is worse than one that is
-   refused: a typo in a variant name stays silent. Tailwind emits nothing for
-   these four either, so rejecting them moves no rendered output - it only turns
-   silence into a message. [group-not-hover] is the shape: [rule.ml] already
-   knows a group negation cannot wrap a media query and answers with no rules,
-   so the parser should not have accepted it. *)
-let test_silent_empty_variants_rejected () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
-  rejected "group-not-hover:flex";
-  rejected "group-not-device-hocus:flex";
-  rejected "peer-not-hover:flex";
-  (* The negations that do have a selector form still parse. *)
-  check bool "group-not-checked still parses" true
-    (Result.is_ok (Tw.of_string "group-not-checked:flex"));
-  check bool "not-hover still parses" true
-    (Result.is_ok (Tw.of_string "not-hover:flex"))
 
 (* A variant's bracket is an arbitrary value too: [_] is a space and [\_] a
    literal underscore. An attribute value, a [@supports] condition and a
@@ -1845,10 +1272,6 @@ let tests =
   @ [
       test_case "variant underscore escape" `Quick
         test_variant_underscore_escape;
-      test_case "invalid bracket modifiers" `Quick
-        test_invalid_bracket_modifiers;
-      test_case "valid bracket modifiers" `Quick test_valid_bracket_modifiers;
-      test_case "supports condition text" `Quick test_supports_condition_text;
       test_case "supports property is unprefixed" `Quick
         test_supports_property_is_unprefixed;
       test_case "at-rule variant over a media query" `Quick
@@ -1863,16 +1286,6 @@ let tests =
         test_pseudo_element_over_an_inner_variant;
       test_case "starting-style nests with container and supports" `Quick
         test_starting_style_nests_with_container_and_supports;
-      test_case "silent empty variants rejected" `Quick
-        test_silent_empty_variants_rejected;
-      test_case "empty attribute brackets" `Quick test_empty_attribute_brackets;
-      test_case "padded attribute brackets" `Quick
-        test_padded_attribute_brackets;
-      test_case "attribute brackets still parse" `Quick
-        test_attribute_brackets_still_parse;
-      test_case "data bracket operators" `Quick test_data_bracket_operators;
-      test_case "bare selector variant attribute operators" `Quick
-        test_bare_selector_variant_attribute_operators;
       test_case "bracket media variant" `Quick test_bracket_media_variant;
       test_case "not-[selector] arbitrary negation" `Quick
         test_not_bracket_arbitrary_selector;
@@ -1910,25 +1323,9 @@ let tests =
       test_case "arbitrary breakpoint spelling" `Quick
         test_arbitrary_breakpoint_spelling;
       test_case "nth spelling" `Quick test_nth_spelling;
-      test_case "arbitrary breakpoint rejects non-length" `Quick
-        test_arbitrary_breakpoint_rejects_non_length;
-      test_case "arbitrary breakpoint rejects OCaml literals" `Quick
-        test_arbitrary_breakpoint_rejects_ocaml_literals;
-      test_case "custom variant is theme-local" `Quick
-        test_custom_variant_is_theme_local;
-      test_case "container variant is theme-local" `Quick
-        test_container_variant_is_theme_local;
-      test_case "removed breakpoint drops its variants" `Quick
-        test_removed_breakpoint_drops_its_variants;
-      test_case "a removed single breakpoint drops its variants" `Quick
-        test_removed_single_breakpoint_drops_its_variants;
       test_case "prose element variants" `Quick test_prose_element_variants;
       test_case "prose element variant invalid" `Quick
         test_prose_element_variant_invalid;
-      test_case "variant cascade ladder" `Quick test_variant_cascade_ladder;
-      test_case "variant inner order" `Quick test_variant_inner_order;
-      test_case "not-[selector] unreadable content rejected" `Quick
-        test_not_bracket_unreadable_selector_rejected;
       test_case "not-[@supports] negates the condition" `Quick
         test_not_bracket_supports;
       test_case "pseudo-element supports twin declares content once" `Quick

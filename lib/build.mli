@@ -1,4 +1,4 @@
-(** CSS layer assembly — converts {!Output.t} lists into Tailwind's layered
+(** CSS layer assembly: converts {!Output.t} lists into Tailwind's layered
     stylesheet.
 
     This module is the final stage of the pipeline. It takes the flat list of
@@ -41,7 +41,7 @@ type config = {
 }
 
 val default_config : config
-(** The default configuration. Base layer enabled. *)
+(** [default_config] is [{ base = true; forms = None; layers = true }]. *)
 
 val theme_token_rename : theme:Scheme.t -> (string -> string) option
 (** [theme_token_rename ~theme] is the rename to hand {!Css.to_string}['s]
@@ -61,23 +61,22 @@ val to_css :
   ?extra:(string * (int * int) * Css.statement list) list ->
   Utility.t list ->
   Css.t
-(** [to_css ?theme ?config utilities] generates a full CSS stylesheet for
-    [utilities]. This is the main entry point for the library. [theme] (default
-    {!Scheme.default}) supplies the theme values utilities read while generating
-    CSS. Rendering concerns such as inlining and optimization are handled by
-    {!Css.to_string}.
+(** [to_css ?theme ?config ~extra utilities] is the full stylesheet for
+    [utilities] (with [config] defaulting to {!default_config}). This is the
+    main entry point for the library. [theme] (default {!Scheme.default})
+    supplies the theme values utilities read while generating CSS. Rendering
+    concerns such as inlining and optimization are handled by {!Css.to_string}.
 
     [extra] carries rules a project's own [@utility] produced, each as
     [(class name, order, statements)]. The handlers know nothing about a
-    declared utility, so its order comes in with it - see
-    {!Utility.order_of_property} for where that order is read from - and the
-    statements sort into the utilities layer at that order instead of landing
-    after it. *)
+    declared utility, so its order comes in with it
+    ({!Utility.order_of_property} reads it), and the statements sort into the
+    utilities layer at that order instead of landing after it. *)
 
 val to_inline_style : ?theme:Scheme.t -> Utility.t list -> string
-(** [to_inline_style ?theme utilities] returns a CSS [style] attribute string
-    (e.g. ["color: red; font-size: 1rem"]) suitable for embedding in HTML.
-    Custom properties are stripped; only concrete declarations are included. *)
+(** [to_inline_style ?theme utilities] is the CSS [style] attribute string (e.g.
+    ["color: red; font-size: 1rem"]) suitable for embedding in HTML. Custom
+    properties are stripped; only concrete declarations are included. *)
 
 (** {1 Layer building} *)
 
@@ -86,11 +85,11 @@ val theme_layer_of :
   ?default_decls:Css.declaration list ->
   Utility.t list ->
   Css.t
-(** [theme_layer_of ?theme ?default_decls utilities] builds the [@layer theme]
-    block containing all CSS custom property variables referenced by
-    [utilities], plus any [default_decls] (e.g. baseline font-family
-    declarations). [theme] (default {!Scheme.default}) supplies the token
-    overrides and their declaration order. *)
+(** [theme_layer_of ?theme ?default_decls utilities] is the [@layer theme] block
+    holding all CSS custom property variables referenced by [utilities], plus
+    any [default_decls] (e.g. baseline font-family declarations). [theme]
+    (default {!Scheme.default}) supplies the token overrides and their
+    declaration order. *)
 
 val removed_token_read :
   theme:Scheme.t -> authored:(string -> bool) -> Output.t list -> string option
@@ -103,7 +102,7 @@ val removed_token_read :
     its [--], is the author's own reference and not a read either. *)
 
 val rule_sets : Utility.t list -> Css.statement list
-(** [rule_sets utilities] extracts and sorts CSS statements for [utilities] with
+(** [rule_sets utilities] is the sorted CSS statements of [utilities], with
     media queries interleaved in Tailwind order. Used by the [tw] CLI and by
     {!utilities_layer}. *)
 
@@ -116,11 +115,6 @@ val utilities_layer : layers:bool -> statements:Css.statement list -> Css.t
 
     Exposed for test coverage of the internal pipeline; not part of the stable
     API. *)
-
-val conflict_order : string -> int * int
-(** [conflict_order selector] returns the [(priority, suborder)] pair that
-    determines cascade position for the utility named by [selector]. Lower
-    priority numbers win over higher ones when classes conflict. *)
 
 val indexed_rules : Utility.t list -> Rule_sort.indexed_rule list
 (** [indexed_rules utilities] is the unsorted rule list that {!compare_rules} is
@@ -136,15 +130,17 @@ val rule_selector : Rule_sort.indexed_rule -> string
 (** [rule_selector r] is [r]'s selector, for naming a rule in a failure. *)
 
 val selector_props_pairs :
-  Output.t list -> (Css.Selector.t * Css.declaration list * (int * int)) list
-(** [selector_props_pairs outputs] flattens [Regular] outputs into
-    [(selector, props, order)] triples. Other variants are dropped. *)
+  ((int * int) * Output.t) list ->
+  (Css.Selector.t * Css.declaration list * (int * int)) list
+(** [selector_props_pairs outputs] flattens the [Regular] rules of
+    {!Rule.ordered_outputs} into [(selector, props, order)] triples. Other
+    variants are dropped. *)
 
 val of_grouped :
   ?filter_custom_props:bool ->
   (Css.Selector.t * Css.declaration list * (int * int)) list ->
   Css.statement list
-(** [of_grouped triples] converts sorted [(selector, props, order)] triples into
-    CSS rule statements, merging adjacent rules with the same selector. When
-    [filter_custom_props = true] (default [false]), custom property declarations
-    are stripped from the output. *)
+(** [of_grouped ~filter_custom_props triples] is the CSS rule statements of the
+    sorted [(selector, props, order)] [triples], with adjacent rules of the same
+    selector merged. Custom property declarations are stripped when
+    [filter_custom_props] is [true] (defaults to [false]). *)

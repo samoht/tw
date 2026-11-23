@@ -74,7 +74,8 @@ and `TW_TAILWIND_TESTS=1`, which turn those skips into failures.
   sheets. Each class gets its own element containing some text and a bar as
   wide as its content box, so a property that affects the box shows up in the
   screenshot; an empty element would paint nothing. Two classes that set the
-  same property also share an element, so an ordering mistake shows up there. The page and sheets of each run are kept under `tmp/browser/`.
+  same property also share an element, so an ordering mistake shows up there. Each run keeps its page and sheets in the repository's tmp/browser
+  directory, which it creates.
 - **Tailwind's own tests, `test/upstream/`.** `utilities.txt` and
   `variants.txt` are extracted from the v4.3.3 tag by `extract_tests.ml`, and
   every class Tailwind accepts must compile the same way in `tw`. A class
@@ -102,7 +103,8 @@ TW_PARITY_RENDER="0 50" sh test/parity/measure.sh   # also render classes 0 to 4
 ```
 
 The script builds both tools from the workspace and writes its outputs to
-`tmp/parity/`. It prints the diff, and it fails if `tw`'s minified sheet is
+the directory `TW_PARITY_OUT` names, by default tmp/parity under the
+repository root, which it creates. It prints the diff, and it fails if `tw`'s minified sheet is
 the larger one.
 With `TW_PARITY_RENDER`, it also renders one batch of 50 classes. Each class
 sits on its own element, inside a wrapper carrying every `group` name the list

@@ -1,4 +1,4 @@
-(** Mask gradient utilities *)
+(** Mask gradient utilities. *)
 
 open Utility
 

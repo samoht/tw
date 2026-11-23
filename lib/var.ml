@@ -32,7 +32,6 @@ type _ role =
   | Theme : [ `Theme ] role
   | Property_default : [ `Property_default ] role
   | Channel : [ `Channel ] role
-  | Ref_only : [ `Ref_only ] role
 
 type ('a, 'r) t = {
   kind : 'a Css.kind; (* CSS type witness *)
@@ -41,7 +40,6 @@ type ('a, 'r) t = {
   binding : ?fallback:'a Css.fallback -> 'a -> Css.declaration * 'a Css.var;
       (* Function to create declaration and var ref *)
   property : 'a property_info option; (* For @property registration *)
-  fallback : 'a option; (* Built-in fallback for ref_only variables *)
   meta : Css.meta;
 }
 
@@ -49,7 +47,6 @@ type ('a, 'r) t = {
 type 'a theme = ('a, [ `Theme ]) t
 type 'a property_default = ('a, [ `Property_default ]) t
 type 'a channel = ('a, [ `Channel ]) t
-type 'a ref_only = ('a, [ `Ref_only ]) t
 
 (* Families for ordering/grouping without string prefixes. *)
 type family =
@@ -110,21 +107,18 @@ let metadata var =
 
 let layer_name = function (Theme : layer) -> "theme" | Utility -> "utilities"
 
-(* Create a variable template *)
 let v : type a r.
     a Css.kind ->
     ?property:a property_info ->
     ?order:int * int ->
     ?property_order:int ->
     ?family:family ->
-    ?fallback:a ->
     ?runtime:bool ->
     role:r role ->
     string ->
     layer:layer ->
     (a, r) t =
- fun kind ?property ?order ?property_order ?family ?fallback ?runtime ~role name
-     ~layer ->
+ fun kind ?property ?order ?property_order ?family ?runtime ~role name ~layer ->
   (* Ensure theme variables have an order *)
   (match (layer, order) with
   | Theme, None ->
@@ -144,21 +138,13 @@ let v : type a r.
         default_css = None;
       }
   in
-  let binding ?fallback:fb value =
+  let binding ?(fallback : a Css.fallback = None) value =
     let meta = meta_of_info info in
     let layer_name = Some (layer_name layer) in
-    (* For ref_only, always use built-in fallback *)
-    let actual_fallback =
-      match ((role : r role), fallback, fb) with
-      | Ref_only, Some f, _ ->
-          Css.Fallback f (* Always use built-in fallback for ref_only *)
-      | _, _, Some f -> f (* Use provided fallback *)
-      | _ -> Css.None (* No fallback *)
-    in
-    Css.var ~default:value ~fallback:actual_fallback ?layer:layer_name ~meta
-      ?runtime name kind value
+    Css.var ~default:value ~fallback ?layer:layer_name ~meta ?runtime name kind
+      value
   in
-  { kind; name; role; binding; property; fallback; meta = meta_of_info info }
+  { kind; name; role; binding; property; meta = meta_of_info info }
 
 (* Convenience constructors to encode patterns safely *)
 
@@ -189,7 +175,7 @@ let string_of_kind_value : type a. a Css.kind -> a -> string =
       Css.Pp.to_string ~minify:true Css.Properties.pp_gradient_position value
   | _ -> Css.Properties.string_of_kind_value kind value
 
-(* Helper to create @property with correct syntax based on kind *)
+(* The [@property] syntax follows the kind. *)
 let property_universal : type a.
     name:string -> a Css.kind -> a option -> inherits:bool -> Css.t =
  fun ~name kind initial ~inherits ->
@@ -259,7 +245,6 @@ let property_rule_of_metadata (Info info) =
 let property_rule_of_var var =
   Option.bind (metadata_of_var var) property_rule_of_metadata
 
-(* Get @property rule if metadata present *)
 let property_rule : type a r. (a, r) t -> Css.t option =
  fun var ->
   match var.role with
@@ -285,8 +270,6 @@ let property_rules : type a. (a, [< `Property_default ]) t -> Css.t =
           metadata with an initial value.")
   | Some r -> r
 
-(* Create a binding: returns both declaration and a context-aware var
-   reference *)
 let binding var ?fallback value = var.binding ?fallback value
 let set var value = fst (var.binding value)
 
@@ -296,18 +279,10 @@ let set var value = fst (var.binding value)
 let binding_initial var =
   Css.custom_property ~layer:"utilities" ("--" ^ var.name) "initial"
 
-(* Create a variable reference for variables with @property defaults OR
-   fallback *)
+(* Reference a property_default variable through its @property initial value *)
 let reference : type a b. (a, b) t -> a Css.var =
  fun var ->
   match var.role with
-  | Ref_only -> (
-      (* ref_only variables must have a built-in fallback *)
-      match var.fallback with
-      | None -> failwith ("ref_only variable " ^ var.name ^ " missing fallback")
-      | Some fb_value ->
-          let _, var_ref = var.binding fb_value in
-          var_ref)
   | Property_default -> (
       (* property_default variables should have initial value in property *)
       match var.property with
@@ -333,7 +308,7 @@ let reference_with_fallback : type a b. (a, b) t -> a -> a Css.var =
         var.binding ~fallback:(Css.Fallback fallback_value) fallback_value
       in
       var_ref
-  | Property_default | Ref_only -> assert false
+  | Property_default -> assert false
 
 (* Reference a channel variable with an empty fallback. Produces: var(--name,) -
    empty fallback means unset variables contribute nothing. Used for optional
@@ -349,13 +324,9 @@ let reference_with_var_fallback : type a.
     (a, [< `Channel ]) t -> (a, [< `Theme ]) t -> a -> a Css.var =
  fun channel_var theme_var _dummy_value ->
   let fallback_name = theme_var.name in
-  (* Create a var reference directly without going through binding, to avoid
-     adding property metadata that would trigger @property rules *)
+  (* A reference built here, not through [binding], carries no property
+     metadata, so it triggers no [@property] rule. *)
   Css.var_ref ~fallback:(Css.Var_fallback fallback_name) channel_var.name
-
-let ref_only kind name ~fallback =
-  (* Create a utility variable that's only referenced, never set *)
-  v kind ~fallback ~role:Ref_only name ~layer:Utility
 
 let theme_ref : type a. ?default:a -> ?default_css:string -> string -> a Css.var
     =
@@ -446,10 +417,9 @@ let bracket ?fallback name =
         else None
   in
   (* [Parse.extract_var_name] leaves malformed references alone. Arbitrary
-     values historically also use [var(--...)] as a wrapper around a raw
-     custom-property name, where a loose closer belongs to that name. Retain
-     that interpretation only after the CSS reference reader has rejected the
-     whole string. *)
+     values also use [var(--...)] as a wrapper around a raw custom-property
+     name, where a loose closer belongs to that name. Retain that interpretation
+     only after the CSS reference reader has rejected the whole string. *)
   let raw_name =
     let prefix = "var(--" in
     let len = String.length name in

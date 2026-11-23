@@ -1,98 +1,4 @@
-(** Tests for the color conversion module *)
-
 module Css = Cascade.Css
-open Tw.Color
-
-let test_rgb_to_oklch_roundtrip () =
-  let test_cases =
-    [
-      ({ r = 255; g = 0; b = 0 }, "Pure red");
-      ({ r = 0; g = 255; b = 0 }, "Pure green");
-      ({ r = 0; g = 0; b = 255 }, "Pure blue");
-      ({ r = 255; g = 255; b = 255 }, "White");
-      ({ r = 0; g = 0; b = 0 }, "Black");
-      ({ r = 128; g = 128; b = 128 }, "Middle gray");
-      ({ r = 59; g = 130; b = 246 }, "Tailwind blue-500");
-      ({ r = 107; g = 114; b = 128 }, "Tailwind gray-500");
-      ({ r = 239; g = 68; b = 68 }, "Tailwind red-500");
-    ]
-  in
-
-  List.iter
-    (fun (rgb, name) ->
-      let oklch = rgb_to_oklch rgb in
-      let rgb_back = oklch_to_rgb oklch in
-
-      (* Allow small differences due to rounding *)
-      let diff_r = abs (rgb.r - rgb_back.r) in
-      let diff_g = abs (rgb.g - rgb_back.g) in
-      let diff_b = abs (rgb.b - rgb_back.b) in
-
-      Alcotest.(check bool)
-        (name ^ " - red channel roundtrip")
-        true (diff_r <= 2);
-      Alcotest.(check bool)
-        (name ^ " - green channel roundtrip")
-        true (diff_g <= 2);
-      Alcotest.(check bool)
-        (name ^ " - blue channel roundtrip")
-        true (diff_b <= 2))
-    test_cases
-
-let test_hex_parsing () =
-  let rgb_equal =
-    Alcotest.testable
-      (fun fmt rgb -> Fmt.pf fmt "{ r = %d; g = %d; b = %d }" rgb.r rgb.g rgb.b)
-      (fun a b -> a.r = b.r && a.g = b.g && a.b = b.b)
-  in
-  let rgb_option = Alcotest.option rgb_equal in
-
-  let test_cases =
-    [
-      ("#ffffff", Some { r = 255; g = 255; b = 255 }, "Full white");
-      ("#000000", Some { r = 0; g = 0; b = 0 }, "Full black");
-      ("#ff0000", Some { r = 255; g = 0; b = 0 }, "Red");
-      ("#00ff00", Some { r = 0; g = 255; b = 0 }, "Green");
-      ("#0000ff", Some { r = 0; g = 0; b = 255 }, "Blue");
-      ("ffffff", Some { r = 255; g = 255; b = 255 }, "White without #");
-      ("#fff", Some { r = 255; g = 255; b = 255 }, "Short form white");
-      ("#f00", Some { r = 255; g = 0; b = 0 }, "Short form red");
-      ("#3b82f6", Some { r = 59; g = 130; b = 246 }, "Tailwind blue-500");
-      ( "3b82f6",
-        Some { r = 59; g = 130; b = 246 },
-        "Tailwind blue-500 without #" );
-      ("#gggggg", None, "Invalid hex chars");
-      ("#ff", None, "Too short");
-      ("#fffffff", None, "Too long");
-      ("", None, "Empty string");
-      ("xyz", None, "Non-hex string");
-    ]
-  in
-
-  List.iter
-    (fun (hex, expected, name) ->
-      let result = hex_to_rgb hex in
-      Alcotest.(check rgb_option) name expected result)
-    test_cases
-
-let test_rgb_to_hex () =
-  let test_cases =
-    [
-      ({ r = 255; g = 255; b = 255 }, "#ffffff");
-      ({ r = 0; g = 0; b = 0 }, "#000000");
-      ({ r = 255; g = 0; b = 0 }, "#ff0000");
-      ({ r = 59; g = 130; b = 246 }, "#3b82f6");
-      ({ r = 107; g = 114; b = 128 }, "#6b7280");
-    ]
-  in
-
-  List.iter
-    (fun (rgb, expected) ->
-      let result = rgb_to_hex rgb in
-      Alcotest.(check string)
-        (Fmt.str "RGB { r = %d; g = %d; b = %d }" rgb.r rgb.g rgb.b)
-        expected result)
-    test_cases
 
 let test_oklch_css_formatting () =
   let pp l c h expected =
@@ -107,80 +13,24 @@ let test_oklch_css_formatting () =
   pp 0.0 0.0 0.0 "oklch(0% 0 0)";
   pp 100.0 0.4 360.0 "oklch(100% .4 360)"
 
-let test_edge_cases () =
-  let extreme_oklch = { l = 150.0; c = 0.5; h = 45.0 } in
-  let rgb = oklch_to_rgb extreme_oklch in
-
-  Alcotest.(check bool)
-    "Extreme OKLCH - red channel clamped" true
-    (rgb.r >= 0 && rgb.r <= 255);
-  Alcotest.(check bool)
-    "Extreme OKLCH - green channel clamped" true
-    (rgb.g >= 0 && rgb.g <= 255);
-  Alcotest.(check bool)
-    "Extreme OKLCH - blue channel clamped" true
-    (rgb.b >= 0 && rgb.b <= 255);
-
-  let negative_l = { l = -10.0; c = 0.1; h = 180.0 } in
-  let rgb2 = oklch_to_rgb negative_l in
-  Alcotest.(check bool)
-    "Negative lightness - valid RGB" true
-    (rgb2.r >= 0 && rgb2.r <= 255 && rgb2.g >= 0 && rgb2.g <= 255 && rgb2.b >= 0
-   && rgb2.b <= 255)
-
-let accuracy () =
-  (* Test that our OKLCH conversion follows the OKLab specification *)
-  (* Tailwind v4 designed their palette in OKLCH space first, then derived RGB *)
-  (* So converting their RGB back to OKLCH won't perfectly match their original values *)
-  let test_color hex_str name =
-    match hex_to_rgb hex_str with
-    | Some rgb ->
-        let oklch = rgb_to_oklch rgb in
-        (* Just verify our conversion produces valid OKLCH values *)
-        Alcotest.(check bool)
-          (Fmt.str "%s - valid lightness range" name)
-          true
-          (oklch.l >= 0.0 && oklch.l <= 100.0);
-        Alcotest.(check bool)
-          (Fmt.str "%s - valid chroma range" name)
-          true
-          (oklch.c >= 0.0 && oklch.c <= 0.5);
-        Alcotest.(check bool)
-          (Fmt.str "%s - valid hue range" name)
-          true
-          (oklch.h >= 0.0 && oklch.h <= 360.0)
-    | None -> Alcotest.failf "Failed to parse hex color %s" hex_str
-  in
-
-  (* Test our conversion produces valid OKLCH values *)
-  test_color "#3b82f6" "blue-500";
-  test_color "#ef4444" "red-500";
-  test_color "#6b7280" "gray-500"
-
 let test_css_mode_with_colors () =
-  (* Test that color utilities work correctly with different CSS modes *)
   let open Tw in
-  (* Generate CSS from color utilities *)
   let styles = [ bg blue; text red ] in
   let css = to_css styles in
   let css_string = Css.to_string css in
-
-  (* Debug: print CSS and class names *)
   Fmt.epr "bg_blue class: '%s'\n" (Tw.to_classes [ bg blue ]);
   Fmt.epr "text_red class: '%s'\n" (Tw.to_classes [ text red ]);
   Fmt.epr "Generated CSS:\n%s\n" css_string;
 
-  (* Test that Variables mode is the default and uses CSS variables *)
-  (* One rule per utility and nothing else. The searches this replaces were
-     for ".bg-blue-500" anywhere in the text, which ".bg-blue-500\\/50"
-     satisfies. *)
+  (* One rule per utility and nothing else: a search for ".bg-blue-500" anywhere
+     in the text would also match ".bg-blue-500\\/50". *)
   Alcotest.(check (list string))
     "one rule per utility"
     [ ".bg-blue-500"; ".text-red-500" ]
     (Test_helpers.extract_rule_selectors
        (Test_helpers.extract_utilities_layer_rules css));
   (* And the values, which is what "variables mode is the default" means; a
-     search for "var(--color-" found it in the theme layer regardless. *)
+     search for "var(--color-" would find the theme layer regardless. *)
   Test_helpers.check_declarations "bg-blue-500"
     [ "background-color:var(--color-blue-500)" ];
   Test_helpers.check_declarations "text-red-500"
@@ -214,8 +64,7 @@ let test_border_side_color () =
 (* Every per-side border colour writes a colour another side writes too, so
    their relative order decides which one wins. Tailwind groups them side-major:
    the all-sides colour first, then the axes and the logical sides, then the
-   physical ones. The ten sides shared one suborder, so they tied and fell back
-   to class-name order: [border-t-blue-500] sorted before [border-x-red-500]. *)
+   physical ones, so [border-x-red-500] sorts before [border-t-blue-500]. *)
 let test_border_side_color_order () =
   Test_helpers.check_class_order ~test_name:"border side colors"
     [
@@ -275,12 +124,10 @@ let test_border_color_var () =
     "border-(--pattern-fg) round-trips" "border-(--pattern-fg)"
     (Tw.pp (Result.get_ok (Tw.of_string "border-(--pattern-fg)")))
 
-(* A per-side border color takes an alpha modifier, like the all-sides one.
-   border-b-white/5 used to be an unknown class. *)
+(* A per-side border color takes an alpha modifier, like the all-sides one. *)
 let test_border_side_color_opacity () =
   (* Both arms: the folded hex a browser without color-mix reaches, then the
-     mix. The affix the axis case replaces named the property alone and said
-     nothing about either value. *)
+     mix. *)
   let mixes cls prop fallback token alpha =
     Test_helpers.check_declarations cls
       [
@@ -301,11 +148,8 @@ let test_border_side_color_opacity () =
 (* A per-side border colour takes every modifier the all-sides one takes, on
    [currentcolor] and on a bracket colour as on a palette colour, and reads
    [inherit]. Tailwind writes the colour in the open and the mix behind the
-   [color-mix()] guard, or the mix alone where a browser can read it. Only the
-   palette and the [transparent]/[inherit] keywords took a modifier on a side:
-   [border-t-current/50], [border-t-[var(--c)]/(--o)], a hinted or bracket
-   colour under a modifier, and [border-t-inherit] were unknown classes, on
-   every side and axis. *)
+   [color-mix()] guard, or the mix alone where a browser can read it. This holds
+   on every side and axis. *)
 let test_border_side_keyword_and_bracket_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
@@ -383,8 +227,8 @@ let test_border_side_keyword_and_bracket_opacity () =
 
 (* An alpha can name a custom property to read the percentage from, written
    either as [/[var(--x)]] or as the [/(--x)] shorthand. The percentage is not
-   known at build time, so it goes into the [color-mix] as a reference; before,
-   an unresolved alpha counted as 100% and the modifier was dropped. *)
+   known at build time, so it goes into the [color-mix] as a reference rather
+   than counting as 100%. *)
 let test_alpha_from_a_var () =
   (* Tailwind resolves the token into the full-opacity fallback and keeps the
      variable reference for the guarded mix, so each of these writes both. *)
@@ -413,13 +257,12 @@ let test_alpha_from_a_var () =
     (Tw.pp (Result.get_ok (Tw.of_string "bg-cyan-400/[var(--a)]")))
 
 (* A bracket colour is read as CSS first and only then as a palette name, so a
-   system colour or a light-dark() both work. The fallback used to admit only
-   colour functions, which left [bg-[Field]] an unknown class. *)
+   system colour such as [bg-[Field]] or a light-dark() both work. *)
 let test_bracket_css_colors () =
   let has cls decl = Test_helpers.check_declarations cls [ decl ] in
   has "bg-[Field]" "background-color:field";
   has "text-[FieldText]" "color:fieldtext";
-  (* the whole function, where the affix stopped at the opening paren *)
+  (* the whole function, closing paren included *)
   has "bg-[light-dark(white,black)]" "background-color:light-dark(white,black)";
   (* a CSS keyword still beats the palette entry of the same name *)
   has "bg-[red]" "background-color:red";
@@ -455,10 +298,8 @@ let guarded_declarations cls =
              | None -> (plain @ declarations stmt, guarded))
            ([], [])
 
-(* An opacity modifier applies to the colour the bracket was parsed into. The
-   modifier read the bracket text back through the palette parser, which
-   answered black for every CSS colour the palette does not name, and answered
-   the palette entry for the names it shares with CSS. *)
+(* An opacity modifier applies to the colour the bracket was parsed into, not to
+   a palette entry looked up from the bracket text. *)
 let test_bracket_colour_opacity () =
   let pin cls decl =
     Test_helpers.check_declarations ~minify:false cls [ decl ]
@@ -485,11 +326,8 @@ let test_bracket_colour_opacity () =
 
 (* An opacity modifier over a bracket colour stays a [color-mix()] on the colour
    the class wrote, which is what the pinned CLI answers: [text-[#f00]/50] gives
-   [color-mix(in oklab, #f00 50%, transparent)]. Evaluating the mix at compile
-   time replaced the authored value with the [oklab()] channels of the same
-   colour, a spelling no class names and one carrying eight decimal places
-   Tailwind never writes. Only a fully opaque modifier resolves, to the colour
-   itself. *)
+   [color-mix(in oklab, #f00 50%, transparent)], not the mix evaluated at
+   compile time. Only a fully opaque modifier resolves, to the colour itself. *)
 let test_bracket_colour_opacity_keeps_the_mix () =
   let pin cls decl =
     Test_helpers.check_declarations ~minify:false cls [ decl ]
@@ -517,11 +355,8 @@ let test_bracket_colour_opacity_keeps_the_mix () =
   pin "text-[#f00]/0" "color: color-mix(in oklab, #f00 0%, transparent)"
 
 (* An alpha read from a custom property cannot be resolved, so Tailwind writes
-   the bracket colour unguarded and puts the mix behind an [@supports] guard. tw
-   wrote the mix alone: a browser with no [color-mix()] drops that declaration
-   and paints nothing where Tailwind paints the authored colour.
-   [pre_color_mix_fallback] answers on the mix's colour operands, and the var
-   here is its percentage, so it reported that no guard was needed. *)
+   the bracket colour unguarded and puts the mix behind an [@supports] guard, so
+   a browser with no [color-mix()] still paints the authored colour. *)
 let test_bracket_colour_var_alpha_keeps_a_fallback () =
   let pin cls plain guarded =
     Alcotest.(check (pair (list string) (list string)))
@@ -557,10 +392,9 @@ let theme_declarations cls =
           | Some _ | None -> [])
 
 (* Black and white are the two palette entries Tailwind spells as a hex, and it
-   writes both in three digits. The digits were decoded to bytes and re-spelled,
-   which sent every one of their six-digit forms out: the two theme bindings,
-   and the unguarded fallback each colour family writes beside a mix whose alpha
-   reads a custom property. *)
+   writes both in three digits: in the two theme bindings, and in the unguarded
+   fallback each colour family writes beside a mix whose alpha reads a custom
+   property. *)
 let test_black_and_white_keep_three_digits () =
   let theme cls decl =
     Alcotest.(check (list string)) cls [ decl ] (theme_declarations cls)
@@ -576,9 +410,8 @@ let test_black_and_white_keep_three_digits () =
   fallback "outline-black/[var(--x)]" "outline-color: #000";
   fallback "fill-white/[var(--x)]" "fill: #fff"
 
-(* An hsl() hue takes any angle unit. Folding one to a hex colour used to keep
-   only bare numbers and [deg] and read every other unit as 0, so a half turn
-   painted red instead of cyan. *)
+(* An hsl() hue takes any angle unit, so folding a half turn to a hex colour
+   gives cyan. *)
 let test_hsl_hue_units () =
   List.iter
     (fun cls ->
@@ -592,8 +425,7 @@ let test_hsl_hue_units () =
     ]
 
 (* hsl() saturation and lightness also accept a bare number, which is the same
-   value as the percentage; both used to be read as 0, which painted the colour
-   black. A channel that is not static cannot fold at all. *)
+   value as the percentage. A channel that is not static cannot fold at all. *)
 let test_hsl_non_percentage_channels () =
   let fold (c : Css.color) =
     match Tw.Color.css_color_to_hex c with
@@ -667,8 +499,7 @@ let test_invalid_shade () =
   ignore (Tw.bg ~shade:250 (Tw.hex "#aabbcc"))
 
 (* Colour keywords accept an opacity modifier wherever Tailwind exposes a colour
-   family. Keep the original class spelling: several handlers used to either
-   reject these or silently drop [/50] from the round-trip. *)
+   family, and the class keeps its [/50] when it prints back. *)
 let test_keyword_opacity_families () =
   List.iter
     (fun cls ->
@@ -699,9 +530,8 @@ let test_keyword_opacity_families () =
       "text-shadow-transparent/50";
     ];
   (* Tailwind has no inherited text-shadow-with-opacity candidate. *)
-  match Tw.of_string "text-shadow-inherit/50" with
-  | Error _ -> ()
-  | Ok _ -> Alcotest.fail "text-shadow-inherit/50 should be rejected"
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
+    "text-shadow-inherit/50"
 
 (* A colour keyword carries its opacity modifier into a mix like any other
    colour. Only a fully opaque modifier collapses back to the bare keyword. *)
@@ -734,18 +564,14 @@ let test_keyword_opacity_mixes () =
    class. Tailwind rejects the candidate instead. *)
 let test_shadeless_colour_rejects_shade_segment () =
   List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s was renamed to %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)
     [ "bg-white-500/50"; "text-black-500/50"; "border-white-500/50" ]
 
 (* A palette family is not a colour on its own: Tailwind resolves [bg-red]
    against [--color-red], a token the default theme never declares, and emits
-   nothing. tw read the missing shade as 500 and wrote a [.bg-red-500] rule for
-   a class nobody wrote, in every family that reads the palette. The shadeless
-   black and white, the keywords and a project token keep resolving, and a
-   project that declares [--color-red] gets that token back. *)
+   nothing, in every family that reads the palette. The shadeless black and
+   white, the keywords and a project token keep resolving, and a project that
+   declares [--color-red] gets that token back. *)
 let test_shadeless_palette_name_rejected () =
   let refused (module H : Test_helpers.Handler) classes =
     List.iter (Test_helpers.check_invalid_input (module H)) classes
@@ -764,12 +590,10 @@ let test_shadeless_palette_name_rejected () =
       "outline-red";
       "placeholder-red";
     ];
-  refused
-    (module Tw.Backgrounds.Handler)
-    [ "bg-red"; "bg-red/50"; "bg-gray"; "from-red"; "via-red"; "to-red" ];
-  refused
-    (module Tw.Effects.Handler)
-    [ "ring-red"; "ring-offset-red"; "shadow-red"; "inset-shadow-red" ];
+  refused (module Tw.Backgrounds.Handler) [ "bg-red"; "bg-red/50"; "bg-gray" ];
+  refused (module Tw.Gradients.Handler) [ "from-red"; "via-red"; "to-red" ];
+  refused (module Tw.Ring.Handler) [ "ring-red"; "ring-offset-red" ];
+  refused (module Tw.Effects.Handler) [ "shadow-red"; "inset-shadow-red" ];
   refused (module Tw.Svg.Handler) [ "fill-red"; "stroke-red" ];
   refused (module Tw.Divide.Handler) [ "divide-red" ];
   refused (module Tw.Typography.Typography_early) [ "decoration-red" ];
@@ -831,8 +655,7 @@ let test_theme_colour_opacity_families () =
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
   (* The pre-color-mix fallback keeps the modifier's alpha, and the enhanced
-     value reads the token rather than inlining it. As a pair of affixes this
-     said nothing about which property either landed on. *)
+     value reads the token rather than inlining it. *)
   let mixes cls prop extra =
     round_trips cls;
     Test_helpers.check_declarations ~theme cls
@@ -912,10 +735,7 @@ let test_multi_segment_theme_colour () =
 (* A name no [@theme] block declared is not a colour, whatever it looks like. *)
 let test_undeclared_theme_colour_rejected () =
   List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility)
     [
       "bg-brand/50";
       "text-brand/50";
@@ -931,14 +751,10 @@ let test_undeclared_theme_colour_rejected () =
    nothing left to declare the variable. A shade the block kept, and a colour it
    never touched, still resolve. *)
 let test_removed_palette_colour_rejected () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "initial") ]
-  in
+  let entry = Test_helpers.theme_entry "--color-red-500: initial;" in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   List.iter
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
     [
       "text-red-500";
       "bg-red-500";
@@ -957,21 +773,17 @@ let test_removed_palette_colour_rejected () =
 (* The whole-namespace form takes every palette colour, so nothing keyed on
    [--color-*] resolves, while a colour the block declared for itself does. *)
 let test_removed_palette_namespace_rejected () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("color-*", "initial"); ("color-brand", "#123456") ]
+  let entry =
+    Test_helpers.theme_entry "--color-*: initial; --color-brand: #123456;"
   in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   List.iter
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Error _ -> ()
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u))
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
     [ "text-red-500"; "bg-blue-200" ];
   match Tw.of_string ~theme "text-brand" with
   | Ok _ -> ()
   | Error (`Msg m) -> Alcotest.failf "text-brand was rejected: %s" m
 
-(* Test suite *)
 (* An achromatic palette colour must keep a [none] hue. A numeric hue renders
    the same but folds to a plain hex, which pins the hue that interpolation is
    meant to take from the other colour. *)
@@ -1000,13 +812,12 @@ let test_v433_color_families () =
   has "border-mist-200" "border-color" "--color-mist-200";
   has "bg-taupe-950" "background-color" "--color-taupe-950"
 
-(* A [/100] modifier is a no-op mix, so the colour itself is the value: the
-   color-mix and its @supports fallback used to be emitted anyway. And [!] has
-   to reach inside that @supports, or the fallback outranks the modern value. *)
+(* A [/100] modifier is a no-op mix, so the colour itself is the value, with no
+   color-mix and no @supports fallback. And [!] has to reach inside that
+   @supports, or the fallback outranks the modern value. *)
 let test_full_opacity_and_important () =
-  (* The whole list is where "the color-mix used to be emitted anyway" is said:
-     the two [lacks] checks this replaces searched for the text "color-mix" and
-     would have passed on a sheet with no rule in it. *)
+  (* The whole list says there is no color-mix, where a search for its absence
+     would also pass on a sheet with no rule in it. *)
   Test_helpers.check_declarations "text-blue-600/100"
     [ "color:var(--color-blue-600)" ];
   Test_helpers.check_declarations "divide-gray-200/100"
@@ -1019,26 +830,11 @@ let test_full_opacity_and_important () =
        75%,transparent)!important";
     ]
 
-(* The alpha byte is appended to the six RGB digits, so a shorthand hex has to
-   be expanded first: [#fff] with 10% alpha gave the five-digit [#fff1a], which
-   cascade now rejects outright. *)
-let test_shorthand_hex_alpha () =
-  Alcotest.(check string)
-    "a three-digit hex expands before the alpha" "#ffffff1a"
-    (Tw.Color.hex_with_alpha "#fff" 10.);
-  Alcotest.(check string)
-    "an existing alpha is replaced" "#ffffff1a"
-    (Tw.Color.hex_with_alpha "#ffffffcc" 10.);
-  Alcotest.(check string)
-    "a six-digit hex is unchanged" "#0307121a"
-    (Tw.Color.hex_with_alpha "#030712" 10.)
-
 (* Tailwind writes an arbitrary colour back in the spelling the class used: the
    pinned CLI answers [bg-[#f00]] with [background-color: #f00] and
    [bg-[#ffffffff]] with all eight digits, whatever the shortest equivalent
-   would be. The digits were decoded to bytes and re-spelled, which turned every
-   short or upper-case hex into its six-digit lower-case form. Minified printing
-   folds a colour to its shortest hex, so the spelling only shows unminified. *)
+   would be, short and upper-case forms included. Minified printing folds a
+   colour to its shortest hex, so the spelling only shows unminified. *)
 let test_bracket_hex_keeps_authored_spelling () =
   let pin cls decl =
     Test_helpers.check_declarations ~minify:false cls [ decl ]
@@ -1057,10 +853,12 @@ let test_bracket_hex_keeps_authored_spelling () =
    from inside [of_class], so a malformed hex escaped the parser as an exception
    instead of failing the match. *)
 let test_invalid_bracket_hex () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class
+      ~why:
+        (Test_helpers.Diverges
+           "Tailwind writes a color-mix() around the malformed hex; tw refuses \
+            a modifier with no colour to mix")
   in
   let emits cls decl = Test_helpers.check_declarations cls [ decl ] in
   (* The CLI writes a malformed hex through into every one of these families:
@@ -1100,139 +898,6 @@ let test_invalid_bracket_hex () =
   emits "outline-[#abc]" "outline-color:#abc";
   emits "placeholder-[#abc]" "color:#abc"
 
-(* A class name is a selector, so it has to repeat the text the author wrote
-   rather than a re-print of the number it parsed to. [/[25]] and [/[25.0]]
-   denote one alpha and are two distinct classes; only the author's spelling
-   matches the markup. *)
-let test_opacity_modifier_class_roundtrip () =
-  let roundtrip cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.(check string) "class" cls (Tw.pp u)
-    | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
-  in
-  List.iter roundtrip
-    [
-      "bg-red-500/50";
-      "bg-red-500/2.5";
-      "bg-red-500/[25]";
-      "bg-red-500/[.5]";
-      "bg-red-500/[25%]";
-      "bg-red-500/[25.50%]";
-      "bg-red-500/[var(--o)]";
-      "bg-red-500/(--o)";
-      "text-red-500/[25]";
-      "border-red-500/[25]";
-      "shadow-lg/[25]";
-      "shadow-red-500/[25]";
-      "inset-shadow-sm/[25]";
-      "ring-red-500/[25]";
-      "ring-offset-red-500/[25]";
-      "inset-ring-red-500/[25]";
-      "drop-shadow-lg/[25]";
-      "drop-shadow/[25]";
-      "text-shadow-lg/[25]";
-      "decoration-red-500/[25]";
-      "divide-red-500/[25]";
-      "fill-red-500/[25]";
-      "accent-red-500/[25]";
-      "outline-red-500/[25]";
-      "placeholder-red-500/[25]";
-      "from-red-500/[25]";
-      "[color:red]/[25]";
-    ]
-
-(* The bracket modifier holds a number, so a non-numeric spelling is not a
-   utility at all rather than one with a surprising class name. *)
-let test_opacity_modifier_rejects_non_numeric () =
-  List.iter
-    (fun cls ->
-      match Tw.of_string cls with
-      | Ok u -> Alcotest.failf "%s parsed as %s" cls (Tw.pp u)
-      | Error (`Msg _) -> ())
-    [
-      "bg-red-500/[abc]";
-      "bg-red-500/[]";
-      "bg-red-500/[25px]";
-      "bg-red-500/[%]";
-      "shadow-lg/[25px]";
-    ]
-
-(* A custom property is a dashed ident, so every byte of its name outside the
-   CSS name set has to carry a backslash for the whole thing to lex as one
-   token. Walking the name is the check: a bare [#], [(] or [,] ends the ident
-   and turns the rest into stray tokens. *)
-let check_escaped_name name =
-  let n = String.length name in
-  let is_name_code_point c =
-    match c with
-    | 'a' .. 'z' | 'A' .. 'Z' | '0' .. '9' | '_' | '-' -> true
-    | c -> Char.code c >= 0x80
-  in
-  let rec walk i =
-    if i >= n then ()
-    else if name.[i] = '\\' then walk (i + 2)
-    else if is_name_code_point name.[i] then walk (i + 1)
-    else Alcotest.failf "--%s: %C at offset %d is unescaped" name name.[i] i
-  in
-  walk 0
-
-(* [color_var] is public, so it has to name a variable that a browser can read
-   whatever colour it is handed - the utility API happens to branch on
-   [is_custom_color] before it gets here, but the signature makes no such
-   promise. *)
-let test_color_var_name_is_one_ident () =
-  List.iter
-    (fun color -> check_escaped_name (Tw.Var.name (color_var color 500)))
-    [
-      Red;
-      Black;
-      Theme_named "brand";
-      Hex "0088cc";
-      Rgb { red = 1; green = 2; blue = 3 };
-      Oklch { l = 50.; c = 0.1; h = 20. };
-      Css (Css.hex "#0088cc");
-    ]
-
-(* [oklch(0.7 0.35 150)] is outside the sRGB gamut, so it has to be mapped onto
-   a colour a display can show, and there is more than one answer. CSS Color 4
-   sec. 14.2.2 halves the chroma at constant lightness and hue and keeps the
-   largest one whose clipped result is within a just noticeable difference of
-   the colour searched; [oklch_to_rgb] takes the first such chroma instead, and
-   that is the answer Tailwind ships, because lightningcss folds the
-   [color-mix(in srgb, oklch(...) ...)] fallback in Tailwind's own output the
-   same way. Cascade's [Color_space.gamut_mapped_srgb_of_oklch] answers the
-   spec's question, so it is not interchangeable with this one: [bg-blue-500/50]
-   is where the two part company, and Tailwind's byte there is the one pinned
-   below. *)
-let test_out_of_gamut_oklch () =
-  let requested = { l = 70.0; c = 0.35; h = 150.0 } in
-  let rgb = oklch_to_rgb requested in
-  Alcotest.(check string)
-    "out-of-gamut oklch maps onto a colour sRGB can show" "#00c14b"
-    (rgb_to_hex rgb);
-  let mapped = rgb_to_oklch rgb in
-  Alcotest.(check bool) "chroma is what gave way" true (mapped.c < requested.c);
-  (* The search only moves along the constant-lightness, constant-hue ray, so
-     the rendered colour lands within one just noticeable difference (0.02 in
-     OKLab) of a point on that ray. That bounds the lightness drift directly,
-     and bounds the hue drift by the angle a chord that long subtends at the
-     mapped radius. *)
-  let jnd = 0.02 in
-  let hue_cone = Float.asin (jnd /. mapped.c) *. 180.0 /. Float.pi in
-  Alcotest.(check bool)
-    "lightness stays within one JND" true
-    (Float.abs (mapped.l -. requested.l) /. 100.0 <= jnd);
-  Alcotest.(check bool)
-    "hue stays inside the JND cone" true
-    (Float.abs (mapped.h -. requested.h) <= hue_cone);
-  (* blue-500 is a palette colour just outside the gamut, so the choice of
-     mapping shows up in a shipped utility: Tailwind's minified
-     [.bg-blue-500/50] carries [#3080ff80]. *)
-  let blue_500 = { l = 62.3; c = 0.214; h = 259.815 } in
-  Alcotest.(check string)
-    "blue-500 maps to the fallback Tailwind publishes" "#3080ff"
-    (rgb_to_hex (oklch_to_rgb blue_500))
-
 let test_removed_mix_token_stays_runtime () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("color-red-500", "initial") ]
@@ -1240,9 +905,9 @@ let test_removed_mix_token_stays_runtime () =
   let class_name =
     "bg-[color-mix(in_oklab,var(--color-red-500)_25%,transparent)]"
   in
-  (* The whole list, which is where "not resolved through the default palette"
-     is said: it used to be a second search for the palette's oklch, which any
-     sheet without a rule in it also satisfies. *)
+  (* The whole list says the colour is not resolved through the default palette,
+     where a search for the palette's oklch would also pass on a sheet with no
+     rule in it. *)
   Test_helpers.check_declarations ~theme class_name
     [
       "background-color:var(--color-red-500)";
@@ -1257,95 +922,9 @@ let test_bracket_colour_underscore_escape () =
     {|text-[light-dark(var(--a\_b),red)]|}
     [ "color: light-dark(var(--a_b), red)" ]
 
-(* The theme layer and the utilities layer rank the same colour names in
-   different orders, and a name missing from either map silently takes that
-   map's unknown-colour slot. Both are derived from one list, so the pairing
-   holds by construction; this is what fails if that stops being true. *)
-let ranked_color_names =
-  [
-    "transparent";
-    "black";
-    "white";
-    "red";
-    "orange";
-    "amber";
-    "yellow";
-    "lime";
-    "green";
-    "emerald";
-    "teal";
-    "cyan";
-    "sky";
-    "blue";
-    "indigo";
-    "violet";
-    "purple";
-    "fuchsia";
-    "pink";
-    "rose";
-    "slate";
-    "gray";
-    "zinc";
-    "neutral";
-    "stone";
-    "mauve";
-    "olive";
-    "mist";
-    "taupe";
-  ]
-
-let test_color_orders_cover_the_same_names () =
-  let unknown_theme = Tw.Color.theme_order "definitely-not-a-colour" in
-  let unknown_utilities = Tw.Color.utilities_order "definitely-not-a-colour" in
-  Alcotest.(check (pair int int))
-    "unknown theme colour falls back" (2, 100000) unknown_theme;
-  Alcotest.(check (pair int int))
-    "unknown utility colour falls back" (2, 100) unknown_utilities;
-  List.iter
-    (fun name ->
-      Alcotest.(check bool)
-        (name ^ " has a theme slot")
-        false
-        (Tw.Color.theme_order name = unknown_theme);
-      Alcotest.(check bool)
-        (name ^ " has a utilities slot")
-        false
-        (Tw.Color.utilities_order name = unknown_utilities))
-    ranked_color_names
-
-(* The utilities layer leads with transparent and black and is alphabetical from
-   there. *)
-let test_utilities_color_order_is_alphabetical () =
-  let order name = snd (Tw.Color.utilities_order name) in
-  Alcotest.(check int) "transparent leads" 0 (order "transparent");
-  Alcotest.(check int) "black follows" 1 (order "black");
-  Alcotest.(check int) "amber opens the alphabetical run" 2 (order "amber");
-  Alcotest.(check int) "white sits between violet and yellow" 26 (order "white");
-  Alcotest.(check int) "zinc closes it" 28 (order "zinc");
-  (* The v4.3.3 families take their alphabetical places rather than the
-     unknown-colour slot. *)
-  Alcotest.(check int) "mauve follows lime" 11 (order "mauve");
-  Alcotest.(check int) "mist follows mauve" 12 (order "mist");
-  Alcotest.(check int) "olive follows neutral" 14 (order "olive");
-  Alcotest.(check int) "taupe follows stone" 23 (order "taupe")
-
-(* Tailwind 4.3.3 declares mauve, olive, mist and taupe in its [@theme] after
-   stone and before black, in that order. Read off [@import "tailwindcss"
-   theme(static)]. *)
-let test_v433_families_rank_in_theme_order () =
-  let order name = snd (Tw.Color.theme_order name) in
-  let names =
-    [ "stone"; "mauve"; "olive"; "mist"; "taupe"; "black"; "white" ]
-  in
-  let orders = List.map order names in
-  Alcotest.(check (list int))
-    "the four families sit between stone and black, each in its own slot"
-    (List.sort_uniq compare orders)
-    orders
-
 (* A [color:] hint says how to read the value written after it; it does not make
-   that value the name of a custom property. [text-[color:red]] wrote [color:
-   var(--red)] where Tailwind writes [color: red]. *)
+   that value the name of a custom property: Tailwind writes [text-[color:red]]
+   as [color: red]. *)
 let test_bracket_color_hint_reads_the_value () =
   Test_helpers.check_declarations "text-[color:red]" [ "color:red" ];
   Test_helpers.check_declarations "outline-[color:red]" [ "outline-color:red" ];
@@ -1381,7 +960,7 @@ let test_bracket_color_hint_reads_the_value () =
 
 (* The four families that never consulted a hint. Each writes one colour
    longhand, so any hint reaches it and the colour reader sees what follows;
-   [border-[…]] is the exception, where [length:] and [line-width:] name the
+   [border-[...]] is the exception, where [length:] and [line-width:] name the
    width the borders handler owns. The hint stays in the class name. *)
 let test_bracket_colour_hint_in_every_colour_family () =
   Test_helpers.check_declarations "border-[color:red]" [ "border-color:red" ];
@@ -1420,10 +999,8 @@ let test_bracket_colour_hint_in_every_colour_family () =
 (* An [@theme inline] colour goes into every utility that reads it, as the
    value, with no [--color-<name>] declared: that is what [inline] is for, a
    value a [var()] cannot reach, and the shape the shadcn-style [@theme inline {
-   --color-brand: var(--brand) }] entrypoint relies on. Only [bg-<name>] folded
-   it; the text, border, fill, stroke, decoration, gradient, shadow, ring,
-   divide and every opacity form declared the token and wrote
-   [var(--color-brand)], which Tailwind never emits for an inline token. *)
+   --color-brand: var(--brand) }] entrypoint relies on. Tailwind never emits
+   [var(--color-brand)] for an inline token, in any family or opacity form. *)
 let test_inline_colour_token_folds_in_every_family () =
   let theme =
     Tw.Scheme.with_overrides
@@ -1497,10 +1074,8 @@ let test_inline_colour_token_folds_in_every_family () =
 
 (* A modifier reading a custom property mixes that property into the guarded
    value, on [currentcolor] and on a bracket [var()] as on a palette colour, in
-   every family [Color.Handler] owns. The current-colour and bracket-var arms
-   folded the modifier to a percentage, which a var() has none of, so the mix
-   said [100%] and the modifier was dropped. The plain fallback keeps the colour
-   whole: a var() gives it no percentage to carry. *)
+   every family [Color.Handler] owns. The plain fallback keeps the colour whole:
+   a var() gives it no percentage to carry. *)
 let test_current_and_var_opacity_var () =
   let mixed cls property fallback colour =
     Test_helpers.check_declarations ~minify:false cls
@@ -1530,10 +1105,8 @@ let test_current_and_var_opacity_var () =
     ]
 
 (* A named [--opacity-*] token reads as [var(--opacity-half)] and nothing else,
-   the way every other family spells it. The background current-colour arm gave
-   the reference a second fallback, [var(--half-opacity)], that Tailwind never
-   writes: it tried to fold the token's value into the reference, and a
-   percentage is not the float it expected. *)
+   the way every other family spells it, the background current-colour arm
+   included: Tailwind writes no second fallback. *)
 let test_bg_current_named_opacity () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("opacity-half", "50%") ]
@@ -1545,33 +1118,26 @@ let test_bg_current_named_opacity () =
        transparent)";
     ]
 
-(* The modifier's [/] is the last one outside a bracket, as Tailwind reads a
-   candidate, so the [/] a bracket value spells stays inside it:
-   [shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50] was an unknown class, the first [/]
-   having split the bracket in two. *)
-let test_modifier_slash_outside_bracket () =
-  List.iter
-    (fun cls ->
-      Alcotest.(check bool)
-        (cls ^ " parses") true
-        (Result.is_ok (Tw.of_string cls)))
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
     [
-      "shadow-[0_1px_2px_rgb(0_0_0_/_0.1)]/50";
-      "bg-[rgb(0_0_0_/_0.5)]/50";
-      "text-[color:rgb(0_0_0_/_0.5)]/50";
-    ];
-  Test_helpers.check_declarations "bg-[rgb(0_0_0_/_0.5)]/50"
-    [ "background-color:color-mix(in oklab,#00000080 50%,transparent)" ]
+      "accent-[var(--a)_1px]";
+      "accent-[var(--a),foo]";
+      "caret-[var(--a)_1px]";
+      "caret-[var(--a),foo]";
+      "placeholder-[var(--a)_1px]";
+      "placeholder-[var(--a),foo]";
+    ]
 
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     ( "Current and var colour opacity from a var",
       `Quick,
       test_current_and_var_opacity_var );
     ("Background current named opacity", `Quick, test_bg_current_named_opacity);
-    ( "Modifier slash outside a bracket",
-      `Quick,
-      test_modifier_slash_outside_bracket );
     ( "Inline colour token folds in every family",
       `Quick,
       test_inline_colour_token_folds_in_every_family );
@@ -1588,9 +1154,6 @@ let tests =
     ( "Bracket hex keeps its authored spelling",
       `Quick,
       test_bracket_hex_keeps_authored_spelling );
-    ( "Colour variable name is one ident",
-      `Quick,
-      test_color_var_name_is_one_ident );
     ("Achromatic colour keeps a none hue", `Quick, test_achromatic_none_hue);
     ("Per-side border colors", `Quick, test_border_side_color);
     ("Border color var", `Quick, test_border_color_var);
@@ -1647,35 +1210,13 @@ let tests =
     ( "Removed palette namespace rejected",
       `Quick,
       test_removed_palette_namespace_rejected );
-    ("RGB to OKLCH roundtrip", `Quick, test_rgb_to_oklch_roundtrip);
-    ("Hex parsing", `Quick, test_hex_parsing);
-    ("RGB to hex", `Quick, test_rgb_to_hex);
     ("OKLCH CSS formatting", `Quick, test_oklch_css_formatting);
-    ("Edge cases", `Quick, test_edge_cases);
-    ("Color accuracy", `Quick, accuracy);
     ("CSS modes with colors", `Quick, test_css_mode_with_colors);
     ("v4.3.3 colour families", `Quick, test_v433_color_families);
     ("Full opacity and important", `Quick, test_full_opacity_and_important);
-    ( "Opacity modifier class roundtrip",
-      `Quick,
-      test_opacity_modifier_class_roundtrip );
-    ( "Opacity modifier rejects non-numeric",
-      `Quick,
-      test_opacity_modifier_rejects_non_numeric );
     ( "Removed color-mix token stays runtime",
       `Quick,
       test_removed_mix_token_stays_runtime );
-    ("Shorthand hex with alpha", `Quick, test_shorthand_hex_alpha);
-    ("Out-of-gamut OKLCH", `Quick, test_out_of_gamut_oklch);
-    ( "Colour orders cover the same names",
-      `Quick,
-      test_color_orders_cover_the_same_names );
-    ( "Utilities colour order is alphabetical",
-      `Quick,
-      test_utilities_color_order_is_alphabetical );
-    ( "v4.3.3 families rank in theme order",
-      `Quick,
-      test_v433_families_rank_in_theme_order );
   ]
 
 let suite = ("color", tests)

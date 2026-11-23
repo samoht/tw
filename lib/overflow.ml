@@ -1,8 +1,5 @@
-(** Overflow utilities for controlling element overflow behavior.
-
-    These utilities are in their own module to get correct ordering - they
-    should appear after display, sizing, flex, alignment, and gap utilities but
-    before borders. *)
+(* Overflow has its own module for its order: after display, sizing, flex,
+   alignment and gap, before borders. *)
 
 module Css = Cascade.Css
 
@@ -53,8 +50,8 @@ module Handler = struct
     | Y_scroll -> ("y-scroll", style [ overflow_y Scroll ], 563)
     | Y_visible -> ("y-visible", style [ overflow_y Visible ], 564)
 
-  (* Every constructor, for the class-name lookup. A missing entry costs a class
-     that no longer parses, which the round-trip test reports. *)
+  (* Every constructor, for the class-name lookup. A missing entry leaves a
+     class that does not parse, which the round-trip test reports. *)
   let all =
     [
       Auto;
@@ -91,15 +88,13 @@ module Handler = struct
   let of_class _theme cls =
     match List.assoc_opt cls of_class_map with
     | Some t -> Ok t
-    | None -> Error (`Msg "Not an overflow utility")
+    | None -> Utility.unclaimed
 
   let examples = [ Auto; X_auto; Y_auto ]
 end
 
 open Handler
 module Utility_factory = Utility.Make (Handler)
-
-(** {1 Public API} *)
 
 let utility = Utility_factory.v
 let overflow_auto = utility Auto

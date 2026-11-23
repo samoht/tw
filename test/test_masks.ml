@@ -30,8 +30,8 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask-foo";
   Test_helpers.check_invalid_input (module Tw.Masks.Handler) "mask"
 
-(* The typed mask constructors are newly exposed in tw.mli; check a sample
-   across the families agrees with the parser on class names. *)
+(* A sample of the typed mask constructors across the families agrees with the
+   parser on class names. *)
 let test_typed () =
   Test_helpers.check_typed_class "mask-clip-border" Tw.mask_clip_border;
   Test_helpers.check_typed_class "mask-no-clip" Tw.mask_no_clip;
@@ -47,8 +47,7 @@ let test_typed () =
 
 (* [mask-[<image>]] takes any background-image, not only a linear-gradient. *)
 let test_bracket_image () =
-  (* The whole list. A mask utility aliases its property for WebKit, so the
-     affix this replaces was satisfied by the unaliased arm alone. *)
+  (* The whole list, since a mask utility aliases its property for WebKit. *)
   Test_helpers.check_declarations "mask-[radial-gradient(white,black)]"
     [
       "-webkit-mask-image:radial-gradient(white,black)";
@@ -58,9 +57,7 @@ let test_bracket_image () =
   check "mask-[conic-gradient(white,black)]";
   check "mask-[linear-gradient(white,black)]"
 
-(* A mask takes one image and one position per layer, comma-separated. The
-   single-[url(...)] reading used to swallow the comma, and a position list was
-   rejected outright. *)
+(* A mask takes one image and one position per layer, comma-separated. *)
 let test_bracket_layer_list () =
   (* Read unminified. What is under test is that the list keeps both layers, and
      minified spelling is not that question: a [%] ends a percentage token, so
@@ -155,9 +152,8 @@ let test_bracket_falls_through_to_a_longhand () =
       "mask-[10px:2em]";
     ]
 
-(* mask-size-[...], mask-[size:...] and mask-[length:...] only read px, %, and
-   rem before; every CSS length unit does now, matching real Tailwind's
-   mask-size-[2em]. *)
+(* mask-size-[...], mask-[size:...] and mask-[length:...] read every CSS length
+   unit, as Tailwind reads mask-size-[2em]. *)
 let test_bracket_size_units () =
   let has cls =
     Test_helpers.check_declarations cls
@@ -168,8 +164,7 @@ let test_bracket_size_units () =
   has "mask-[length:2em]"
 
 (* A mask-position bracket takes the whole CSS grammar, the same as
-   background-position: a single edge keyword and the edge/offset form. Both
-   used to fall through the hand-rolled parser to a silent [center]. *)
+   background-position: a single edge keyword and the edge/offset form. *)
 let test_bracket_position_grammar () =
   (* Unminified, so the assertions read as the grammar they are about. Compact
      spelling belongs to the minifier: [10px 20px] keeps its space while [30%
@@ -181,7 +176,7 @@ let test_bracket_position_grammar () =
   has "mask-[position:top]" "top";
   has "mask-position-[top]" "top";
   has "mask-[top]" "top";
-  (* the lengths and layer-list forms are unchanged *)
+  (* the lengths and layer-list forms *)
   has "mask-[position:10px_20px]" "10px 20px";
   has "mask-position-[30%_50%,70%_50%]" "30% 50%, 70% 50%"
 
@@ -304,9 +299,23 @@ let test_hint_name_is_a_lower_case_run () =
     (Test_helpers.check_invalid_input (module Tw.Masks.Handler))
     [ "mask-[:2em]"; "mask-[foo:]"; "mask-size-[:2em]"; "mask-position-[:2em]" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "mask-[var(--a)_1px]";
+      "mask-[var(--a),foo]";
+      "mask-position-[var(--a)_1px]";
+      "mask-position-[var(--a),foo]";
+      "mask-size-[var(--a)_1px]";
+      "mask-size-[var(--a),foo]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "bracket data-type hint reads the value" `Quick
         test_bracket_data_type_hint_reads_the_value;
       Alcotest.test_case "hint name is a lower-case run" `Quick

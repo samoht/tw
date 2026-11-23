@@ -1,17 +1,12 @@
-(** Preflight and reset rules *)
-
 module Css = Cascade.Css
 open Css
 
-(* Base element selectors *)
 let abbr = Selector.element "abbr"
 let button = Selector.element "button"
 let input = Selector.element "input"
 let select = Selector.element "select"
 let optgroup = Selector.element "optgroup"
 let option = Selector.element "option"
-
-(* Attribute selectors *)
 let title = Selector.attribute "title" Presence
 let multiple = Selector.attribute "multiple" Presence
 let size = Selector.attribute "size" Presence
@@ -20,8 +15,6 @@ let type_reset = Selector.attribute "type" (Exact "reset")
 let type_submit = Selector.attribute "type" (Exact "submit")
 let hidden = Selector.attribute "hidden" Presence
 let hidden_until_found = Selector.attribute "hidden" (Exact "until-found")
-
-(* Complex selectors *)
 let abbr_with_title = Selector.(abbr && where [ title ])
 let select_is_multiple_size = Selector.(select && is_ [ multiple; size ])
 let radius len = Radius { horizontal = [ Length len ]; vertical = None }
@@ -32,7 +25,6 @@ let input_button_types =
 let hidden_not_until_found =
   Selector.(hidden && where [ not [ hidden_until_found ] ])
 
-(** Box model resets *)
 let box_resets () =
   let open Selector in
   [
@@ -73,16 +65,9 @@ let mono_font_variation =
   Var.theme Css.Font_variation_settings "default-mono-font-variation-settings"
     ~order:(8, 44)
 
-(** Helper for creating variable references in preflight context
-
-    This is ONLY safe to use in preflight.ml because: 1. Preflight runs in the
-    base layer, which comes AFTER theme layer 2. We're creating "optional
-    customization hooks" - variables that are intentionally NOT declared
-    anywhere by default 3. This creates var(--name, fallback) CSS that always
-    uses the fallback unless users/plugins declare the variables themselves 4.
-    This enables theme customization without bloating the default CSS
-
-    Uses the proper Var.reference API with explicit fallback. *)
+(* [var(--name, fallback)] for a customisation hook that nothing declares by
+   default, so the fallback applies until a project or plugin declares the
+   variable. Safe only in the base layer, which comes after the theme layer. *)
 let var_ref (type a)
     (var : (a, [< `Theme | `Property_default | `Channel ]) Var.t)
     ~(fallback : a) : a Css.var =
@@ -99,7 +84,6 @@ let read : type a.
   | Some t when Scheme.is_removed t (Var.name var) -> None
   | Some _ | None -> Some (Css.with_fallback reference fallback)
 
-(** HTML and body defaults *)
 let root_resets ?theme ~default_font_ref ~font_feature_ref ~font_variation_ref
     () =
   [
@@ -128,7 +112,6 @@ let root_resets ?theme ~default_font_ref ~font_feature_ref ~font_variation_ref
       ];
   ]
 
-(** Structural elements *)
 let structural_resets () =
   [
     rule ~selector:(Selector.element "hr")
@@ -154,7 +137,6 @@ let structural_resets () =
       ];
   ]
 
-(** Typography resets *)
 let typography_resets () =
   [
     rule
@@ -178,7 +160,6 @@ let typography_resets () =
       [ font_weight Bolder ];
   ]
 
-(** Code and monospace resets *)
 let code_resets ?theme ~default_mono_ref ~mono_font_feature_ref
     ~mono_font_variation_ref () =
   [
@@ -223,7 +204,6 @@ let code_resets ?theme ~default_mono_ref ~mono_font_feature_ref
        ]);
   ]
 
-(** Text-level semantics *)
 let text_level_resets () =
   [
     rule ~selector:(Selector.element "small") [ font_size (Pct 80.0) ];
@@ -240,7 +220,6 @@ let text_level_resets () =
     rule ~selector:(Selector.element "sup") [ top (Em (-0.5)) ];
   ]
 
-(** Table resets *)
 let table_resets () =
   [
     rule ~selector:(Selector.element "table")
@@ -252,10 +231,9 @@ let table_resets () =
       ];
   ]
 
-(** Interactive elements *)
 let interactive_resets () =
   [
-    (* Tailwind v4.3.2 scoped this reset to non-iframe elements. *)
+    (* Tailwind scopes this reset to non-iframe elements. *)
     rule
       ~selector:
         Selector.(
@@ -265,7 +243,6 @@ let interactive_resets () =
     rule ~selector:(Selector.element "summary") [ display List_item ];
   ]
 
-(** List resets *)
 let list_resets () =
   [
     rule
@@ -283,7 +260,6 @@ let list_resets () =
       ];
   ]
 
-(** Media resets *)
 let media_resets () =
   [
     rule
@@ -307,7 +283,6 @@ let media_resets () =
       [ max_width (Pct 100.0); height Auto ];
   ]
 
-(** Form control resets *)
 let form_control_resets () =
   [
     rule
@@ -344,7 +319,6 @@ let form_control_resets () =
       ];
   ]
 
-(** Select and option resets *)
 let select_resets () =
   [
     rule
@@ -357,16 +331,12 @@ let select_resets () =
     rule ~selector:File_selector_button [ margin_inline_end (Px 4.) ];
   ]
 
-(** Form placeholder and textarea resets *)
 let form_misc_resets () =
   [
     rule ~selector:Placeholder [ opacity (Opacity_number 1.0) ];
     rule ~selector:(Selector.element "textarea") [ resize Vertical ];
   ]
 
-(** Webkit-specific form resets. When [~forms:true], omits rules that the forms
-    plugin provides (display:inline-flex and fields-wrapper padding) to avoid
-    duplicates. *)
 let webkit_form_resets ?(forms = false) () =
   let base_rules =
     [
@@ -405,20 +375,16 @@ let webkit_form_resets ?(forms = false) () =
   in
   base_rules @ forms_provided_rules @ padding_block_rules
 
-(** Firefox-specific form resets *)
 let firefox_form_resets () =
   [ rule ~selector:Moz_ui_invalid [ box_shadow None ] ]
 
-(** Buttons need specific styles *)
 let button_specific_resets () =
   [
-    (* Complex selector - temporary workaround *)
     rule
       ~selector:Selector.(list [ button; input_button_types ])
       [ appearance Button ];
   ]
 
-(** Button appearance resets *)
 let button_resets () =
   [
     rule ~selector:File_selector_button [ appearance Button ];
@@ -426,7 +392,6 @@ let button_resets () =
     rule ~selector:Webkit_outer_spin_button [ height Auto ];
   ]
 
-(** Hidden elements *)
 let hidden_resets () =
   [ rule ~selector:hidden_not_until_found [ important (display None) ] ]
 
@@ -434,17 +399,14 @@ let font_family_ref theme fallback_stack =
   let _, ref = Var.binding theme fallback_stack in
   ref
 
-(* Get default sans-serif font family reference *)
 let default_font_family_ref () =
   font_family_ref Typography.default_font_family_var
     Typography.default_sans_stack
 
-(* Get default monospace font family reference *)
 let default_mono_family_ref () =
   font_family_ref Typography.default_mono_font_family_var
     Typography.default_mono_stack
 
-(* Get all font customization variable references *)
 let font_customization_refs () =
   let font_feature_ref : Css.font_feature_settings Css.var =
     var_ref font_feature ~fallback:(Css.Normal : Css.font_feature_settings)

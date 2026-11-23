@@ -1,6 +1,7 @@
-(** Padding utilities
+(** Padding utilities.
 
-    https://tailwindcss.com/docs/padding *)
+    These are Tailwind's
+    {{:https://tailwindcss.com/docs/padding}padding utilities}. *)
 
 open Utility
 
@@ -10,43 +11,50 @@ open Utility
     [Invalid_argument] when its size is negative. *)
 
 val p : int -> t
-(** [p n] creates padding on all sides. *)
+(** [p n] sets padding on all sides to step [n] of the spacing scale ([p-<n>]).
+*)
 
 val p' : float -> t
 (** [p' n] is {!p} for a half-step scale value (e.g. [p' 0.5] for [p-0.5]). *)
 
 val px : int -> t
-(** [px n] creates horizontal padding. *)
+(** [px n] sets padding on the left and right to step [n] of the spacing scale
+    ([px-<n>]). *)
 
 val px' : float -> t
 (** [px' n] is {!px} for a half-step scale value. *)
 
 val py : int -> t
-(** [py n] creates vertical padding. *)
+(** [py n] sets padding on the top and bottom to step [n] of the spacing scale
+    ([py-<n>]). *)
 
 val py' : float -> t
 (** [py' n] is {!py} for a half-step scale value. *)
 
 val pt : int -> t
-(** [pt n] creates top padding. *)
+(** [pt n] sets padding on the top to step [n] of the spacing scale ([pt-<n>]).
+*)
 
 val pt' : float -> t
 (** [pt' n] is {!pt} for a half-step scale value. *)
 
 val pr : int -> t
-(** [pr n] creates right padding. *)
+(** [pr n] sets padding on the right to step [n] of the spacing scale
+    ([pr-<n>]). *)
 
 val pr' : float -> t
 (** [pr' n] is {!pr} for a half-step scale value. *)
 
 val pb : int -> t
-(** [pb n] creates bottom padding. *)
+(** [pb n] sets padding on the bottom to step [n] of the spacing scale
+    ([pb-<n>]). *)
 
 val pb' : float -> t
 (** [pb' n] is {!pb} for a half-step scale value. *)
 
 val pl : int -> t
-(** [pl n] creates left padding. *)
+(** [pl n] sets padding on the left to step [n] of the spacing scale ([pl-<n>]).
+*)
 
 val pl' : float -> t
 (** [pl' n] is {!pl} for a half-step scale value. *)

@@ -1,13 +1,4 @@
-(** Form element utilities - matching Tailwind v4's [\@tailwindcss/forms]
-    plugin.
-
-    These utilities use the ring/shadow variable system from Effects for focus
-    states, ensuring proper type-safety and variable composition.
-
-    Form utilities are split into two priority groups to match Tailwind's
-    output:
-    - checkbox, radio, input: priority 3 (before layout at 4)
-    - select, textarea: priority 7 (after sizing at 6) *)
+(* Focus states compose the ring and shadow variables of [Effects]. *)
 
 module Css = Cascade.Css
 
@@ -17,7 +8,6 @@ let forced_colors_active =
        (Css.Media.Plain
           (Css.Media.Forced_colors, Css.Media.Ident Css.Media.Active)))
 
-(* Shared colors and focus ring helpers *)
 let blue_600 = Css.oklch 54.6 0.245 262.881
 let gray_500 = Css.oklch 55.1 0.027 264.364
 
@@ -112,7 +102,6 @@ let checkbox_focus_decls =
            });
     ]
 
-(* Handler for checkbox/radio/input - priority 3 *)
 (* Every form control clears the box-shadow channel before painting its own
    border, the way the plugin's reset does. *)
 let shadow_reset =
@@ -352,7 +341,7 @@ module Handler = struct
     | "form-input" -> Ok Input
     | "form-checkbox" -> Ok Checkbox
     | "form-radio" -> Ok Radio
-    | _ -> Error (`Msg "Not a form utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Input -> "form-input"
@@ -362,7 +351,6 @@ module Handler = struct
   let examples = []
 end
 
-(* Handler for select/textarea - priority 7 *)
 module Select = struct
   open Style
 
@@ -502,7 +490,7 @@ module Select = struct
     | "form-select" -> Ok Select
     | "form-textarea" -> Ok Textarea
     | "form-multiselect" -> Ok Multiselect
-    | _ -> Error (`Msg "Not a form select utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Select -> "form-select"
@@ -512,11 +500,9 @@ module Select = struct
   let examples = []
 end
 
-(* Register both handlers *)
 module Utility_factory = Utility.Make (Handler)
 module Select_utility = Utility.Make (Select)
 
-(* Public API *)
 let form_input = Utility_factory.v Handler.Input
 let form_checkbox = Utility_factory.v Handler.Checkbox
 let form_radio = Utility_factory.v Handler.Radio
@@ -524,13 +510,7 @@ let form_select = Select_utility.v Select.Select
 let form_textarea = Select_utility.v Select.Textarea
 let form_multiselect = Select_utility.v Select.Multiselect
 
-(* ======================================================================== Base
-   layer stylesheet - rules that apply to native HTML form elements when the
-   @tailwindcss/forms plugin is used
-   ======================================================================== *)
-
-(** Type selectors for form elements - wrapped with input:where() to match
-    Tailwind v4 *)
+(* Tailwind v4 wraps the type selectors in [:where()]. *)
 let type_text =
   Css.Selector.(element "input" && where [ attribute "type" (Exact "text") ])
 
@@ -588,7 +568,6 @@ let multiple =
 let size = Css.Selector.(attribute "size" Presence)
 let size_1 = Css.Selector.attribute "size" (Exact "1")
 
-(** Combined text input selector - matches all text-like inputs *)
 let text_inputs =
   Css.Selector.list
     [
@@ -610,7 +589,6 @@ let text_inputs =
       Css.Selector.element "select";
     ]
 
-(** Webkit datetime edit pseudo-element rules for text inputs *)
 let webkit_datetime_rules () =
   let open Css in
   [
@@ -660,7 +638,6 @@ let text_input_items =
     Selector.element "select";
   ]
 
-(** Text inputs base styles *)
 let text_inputs_base () =
   let open Css in
   [
@@ -688,7 +665,6 @@ let text_inputs_base () =
   ]
   @ webkit_datetime_rules ()
 
-(** Select dropdown base styles *)
 let select_base () =
   let open Css in
   [
@@ -731,7 +707,6 @@ let forced_colors_checked_appearance selector =
   let open Css in
   media ~condition:forced_colors_active [ rule ~selector [ appearance Auto ] ]
 
-(** Checked state rules for checkbox/radio *)
 let checkbox_checked_rules () =
   let open Css in
   [
@@ -779,11 +754,9 @@ let checkbox_checked_rules () =
       [ background_color Current; border_color (hex "#0000") ];
   ]
 
-(** Indeterminate state rules for checkbox *)
 let checkbox_indeterminate_rules () =
   let open Css in
   [
-    (* 11. checkbox:indeterminate - all properties *)
     rule
       ~selector:Selector.(type_checkbox && Indeterminate)
       [
@@ -799,14 +772,12 @@ let checkbox_indeterminate_rules () =
         background_size (Size (Pct 100., Pct 100.));
         border_color (hex "#0000");
       ];
-    (* 12. @media (forced-colors:active) checkbox:indeterminate *)
     media ~condition:forced_colors_active
       [
         rule
           ~selector:Selector.(type_checkbox && Indeterminate)
           [ appearance Auto ];
       ];
-    (* 13. Indeterminate hover/focus *)
     rule
       ~selector:
         Selector.(
@@ -818,12 +789,10 @@ let checkbox_indeterminate_rules () =
       [ background_color Current; border_color (hex "#0000") ];
   ]
 
-(** Checkbox and radio base styles - order matches Tailwind exactly with
-    interleaved forced-colors media queries *)
+(* The rule order, forced-colors media queries interleaved, is Tailwind's. *)
 let checkbox_radio_base () =
   let open Css in
   [
-    (* 1. Base styles for both *)
     rule
       ~selector:Selector.(list [ type_checkbox; type_radio ])
       [
@@ -845,11 +814,8 @@ let checkbox_radio_base () =
         padding [ Px 0. ];
         display Inline_block;
       ];
-    (* 2. Checkbox border-radius: 0 *)
     rule ~selector:type_checkbox [ border_radius (radius Zero) ];
-    (* 3. Radio border-radius: 100% *)
     rule ~selector:type_radio [ border_radius (radius (Pct 100.)) ];
-    (* 4. Focus ring for both *)
     rule
       ~selector:Selector.(list [ type_checkbox && Focus; type_radio && Focus ])
       checkbox_focus_decls;
@@ -857,7 +823,6 @@ let checkbox_radio_base () =
   @ checkbox_checked_rules ()
   @ checkbox_indeterminate_rules ()
 
-(** File input base styles *)
 let file_input_base () =
   let open Css in
   [
@@ -897,8 +862,6 @@ let file_input_base () =
    not only elements bearing a [.form-*] class. Those global resets are the
    forms base layer, emitted whenever the forms plugin is active. The rule order
    below mirrors the plugin's own output. *)
-
-(** Complete base layer stylesheet for forms plugin *)
 let base_stylesheet () =
   Css.v
     (text_inputs_base () @ select_base () @ checkbox_radio_base ()

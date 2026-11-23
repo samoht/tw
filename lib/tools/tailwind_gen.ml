@@ -1,32 +1,19 @@
-(** Tailwind CSS generation utilities for testing - extracted from test_tw.ml *)
-
 let write_file path content =
-  let oc = open_out path in
-  output_string oc content;
-  close_out oc
+  Out_channel.with_open_bin path (fun oc ->
+      Out_channel.output_string oc content)
 
-(* A candidate reaches the CLI by one of two routes, and they answer different
-   questions. An [@source inline] entry goes to the engine, which is what tw's
-   own reader models. Text in a scanned file has to satisfy the candidate
-   extractor first, and the extractor declines spellings the engine compiles: a
-   [/name] opening on [-] or [_] is one, so [group-hover/-2a:underline] yields
-   no rule from a file although [@apply] resolves it. A declined candidate costs
-   the whole rule rather than changing a value, so a sheet built that way is
-   short a rule that tw emits, and the comparison reads as a class tw invented.
+(* A candidate reaches the CLI by two routes. An [@source inline] entry goes
+   straight to the engine, which is what tw's reader models. Text in a scanned
+   file must first pass the candidate extractor, which declines some spellings
+   the engine compiles, such as [group-hover/-2a:underline], and so loses their
+   whole rule. Only the scanned route makes a [theme(--x)] read a theme
+   dependency, which binds the token in [@layer theme]. Every candidate
+   therefore takes both routes; the engine compiles it once either way.
 
-   The scanned route answers what inline cannot. A [theme(--x)] read counts as a
-   theme dependency only when the candidate came from a file, so a class reading
-   one that way binds the token in [@layer theme] and the same class declared
-   inline leaves it unbound. The spelling inlines the token's value and leaves
-   no [var()] behind, so nothing else recovers the binding, and the comparison
-   reads as a binding tw invented.
-
-   Every candidate therefore takes both routes, which costs nothing because the
-   engine compiles it once either way. [inline_quote] says which of them the
-   inline string can hold at all: [{] and [}] are its expansion syntax, a [\]
-   opens a string escape, and one carrying both quote characters fits inside
-   neither string form. No class name Tailwind can produce is spelled that
-   way. *)
+   [inline_quote candidate] is the quote an inline string can hold [candidate]
+   in, if any: [{] and [}] are its expansion syntax, a [\] opens a string
+   escape, and a candidate carrying both quote characters fits neither form. No
+   class name Tailwind can produce is spelled that way. *)
 let inline_quote candidate =
   let unusable = function '{' | '}' | '\\' -> true | _ -> false in
   if String.exists unusable candidate then None
@@ -109,8 +96,7 @@ let tailwind_files ?(forms = false) ?input_css temp_dir classnames =
           ~plugins:[ "@tailwindcss/typography" ]
           ?config ~scanned_files candidates
   in
-  (* Generate tailwind.config.js when forms plugin is needed (only for the
-     synthesised input; a supplied entrypoint carries its own config). *)
+  (* A supplied entrypoint carries its own config. *)
   (if forms && input_css = None then
      let config_content =
        {|import forms from '@tailwindcss/forms'
@@ -284,7 +270,6 @@ let tailwindcss_version cmd =
       | None -> failwith "Failed to check tailwindcss version.")
 
 let extract_version_number line =
-  (* Extract version number from strings like "tailwindcss v4.0.0" or "4.0.0" *)
   let digit c = c >= '0' && c <= '9' in
   let version_candidates =
     List.filter
@@ -383,10 +368,8 @@ let resolve_command name =
    option tests rely on to stand a stub in front of the real one; reversing it
    would make the binary's own pin unconditional and take that away.
 
-   The fallback is for the case that used to fail outright: run from a directory
-   with no [node_modules] above it, discovery found nothing and the run died
-   reporting the pinned CLI "not installed", even though the binary was built in
-   a tree carrying it. Note this is the opposite order from [tmp_root], which
+   The fallback covers a run from a directory with no [node_modules] above it,
+   where the tree the binary was built in still carries the pinned CLI. Note this is the opposite order from [tmp_root], which
    writes scratch files and must not put them in a checkout the caller merely
    happens to stand in. Either answer still has to satisfy
    [command_is_required], so a tree pinning the wrong version is declined rather
@@ -464,7 +447,7 @@ let check_tailwindcss_available () =
         try
           tailwind_command := Some (tailwindcss_command ());
           Ok ()
-        with e -> Error e
+        with (Failure _ | Sys_error _) as e -> Error e
       in
       availability_result := Some result;
       match result with Ok () -> () | Error e -> raise e)
@@ -480,7 +463,6 @@ let availability () =
   | exception Failure reason -> Error reason
   | exception Sys_error reason -> Error reason
 
-(* Statistics tracking *)
 module Stats = struct
   let total_time = ref 0.0
   let total_calls = ref 0
@@ -500,7 +482,6 @@ module Stats = struct
     let total_test_time = Unix.gettimeofday () -. !test_start_time in
     Fmt.epr "@.=== Tailwind CSS Generation Statistics ===@.";
 
-    (* Show which tailwindcss is being used *)
     (match !tailwind_command with
     | Some cmd when String.contains cmd ' ' ->
         Fmt.epr "Using: npx tailwindcss (slower)@."
@@ -537,8 +518,6 @@ let temp_dir () =
   Sys.mkdir dir 0o755;
   dir
 
-(** Detect if any class names use forms utilities (form-input, form-select,
-    etc.) *)
 let has_forms_class classnames =
   List.exists (fun cls -> String.starts_with ~prefix:"form-" cls) classnames
 
@@ -566,7 +545,6 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
   try
     let start_time = Stats.start_timer () in
 
-    (* Auto-detect forms plugin usage if not explicitly specified *)
     let use_forms =
       match forms with
       | Some f -> f && classnames <> []
@@ -603,9 +581,7 @@ let generate ?(minify = false) ?(optimize = true) ?forms ?input_css classnames =
     Stats.record_call elapsed;
 
     if exit_code = 0 then (
-      let ic = open_in output_file in
-      let content = really_input_string ic (in_channel_length ic) in
-      close_in ic;
+      let content = In_channel.with_open_bin output_file In_channel.input_all in
       cleanup ();
       content)
     else
@@ -640,7 +616,4 @@ let generate_entrypoint ?(minify = true) entry =
   Stats.record_call (Unix.gettimeofday () -. start_time);
   if status <> 0 then
     failwith ("Failed to generate Tailwind CSS from the entrypoint " ^ entry);
-  let ic = open_in out in
-  Fun.protect
-    ~finally:(fun () -> close_in_noerr ic)
-    (fun () -> really_input_string ic (in_channel_length ic))
+  In_channel.with_open_bin out In_channel.input_all

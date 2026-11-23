@@ -64,7 +64,7 @@ let test_any_fraction_denominator () =
 
 (* Arbitrary values round-trip verbatim in the class name: the leading zero of
    0.67rem (and the sign of negatives) is preserved, not re-serialised to a
-   normalised .67rem that would no longer match the HTML class. *)
+   normalised .67rem that would not match the HTML class. *)
 let test_arbitrary_roundtrip () =
   check "top-[0.67rem]";
   check "right-[-0.9rem]";
@@ -77,10 +77,9 @@ let test_arbitrary_roundtrip () =
    or --spacing-<name>; stray source tokens like top-level / bottom-right must
    be rejected rather than emitting a bogus placeholder value. *)
 let named_inset_requires_theme_token () =
-  let reject c =
-    match Tw.Position.Handler.of_class Tw.Scheme.default c with
-    | Error _ -> ()
-    | Ok _ -> Alcotest.failf "%s should be rejected without a theme token" c
+  let reject =
+    Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+      (module Tw.Position.Handler)
   in
   reject "top-level";
   reject "bottom-right";
@@ -93,8 +92,7 @@ let named_inset_requires_theme_token () =
   | Error (`Msg m) -> Alcotest.failf "top-header with theme rejected: %s" m
 
 (* Arbitrary var() insets (top-[var(--t)], inset-[var(--i)]) reference the var
-   directly; they used to be unknown classes because the bracket parser only
-   accepted numeric lengths. *)
+   directly. *)
 let test_arbitrary_var () =
   Test_helpers.check_declarations ~minify:false "top-[var(--t)]"
     [ "top: var(--t)" ];
@@ -119,8 +117,7 @@ let test_spacing_steps () =
   check "left-px";
   check "inset-px"
 
-(* Arbitrary calc() insets go through the full length grammar (the bracket
-   parser used to accept only plain <number><unit>). *)
+(* Arbitrary calc() insets go through the full length grammar. *)
 let test_arbitrary_calc () =
   Test_helpers.check_declarations ~minify:false "left-[calc(5%-2px)]"
     [ "left: calc(5% - 2px)" ];
@@ -140,10 +137,8 @@ let test_arbitrary_value_decoder_stages () =
     [ "inset:calc(1px + 1px)" ];
   Test_helpers.check_declarations "left-[--spacing(4)]"
     [ "left:calc(var(--spacing)*4)" ];
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok u -> Alcotest.failf "expected %s to be rejected, got %s" cls (Tw.pp u)
-    | Error _ -> ()
+  let rejected =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   rejected "top-0x4";
   rejected "top-1_0"
@@ -169,9 +164,8 @@ let suborder_matches_tailwind () =
 (* Tailwind orders inset values negative-first (ascending magnitude), then
    positives with fractions interleaved by numerator, then arbitrary, then
    keywords: inset-0, inset-1, inset-2, inset-4, inset-40, inset-3/4, -inset-1,
-   -inset-4, -inset-full. tw used a too-tight band where a numeric value (e.g.
-   inset-40) overflowed past the arbitrary/keyword offset and into the next
-   family, and sorted fractions ahead of all numerics. *)
+   -inset-4, -inset-full. A large step such as inset-40 stays inside the
+   family's band. *)
 let inset_value_order_matches_tailwind () =
   let mk s =
     match Tw.of_string s with
@@ -225,8 +219,7 @@ let position_candidate_bands_match_tailwind () =
     ]
 
 (* top'/right'/bottom'/left'/inset'/inset_x'/inset_y' take a half-step float
-   (negative allowed, same as the int base); the int base keeps emitting what it
-   always did. *)
+   (negative allowed, same as the int base). *)
 let typed_prime () =
   let open Tw in
   let check_class expected value =
@@ -299,15 +292,18 @@ let logical_inline_scale_steps () =
    source token, the negative of a keyword Tailwind only defines positive, and a
    zero denominator are all rejected. *)
 let logical_inline_rejects_non_utilities () =
-  let reject c =
-    match Tw.of_string c with
-    | Error _ -> ()
-    | Ok _ -> Alcotest.failf "%s should not be a utility" c
+  let reject =
+    Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility
   in
   reject "start-junk";
   reject "end-junk";
   reject "-start-auto";
-  reject "start-1/0";
+  Test_helpers.check_invalid_class
+    ~why:
+      (Test_helpers.Diverges
+         "Tailwind passes a zero denominator through as calc(1 / 0 * 100%), \
+          which no browser can compute; tw refuses the class instead")
+    "start-1/0";
   reject "start-"
 
 (* Every inset side reads an arbitrary length, and reads it under either sign.
@@ -358,10 +354,9 @@ let named_inset_on_logical_inline_sides () =
   accepts "start-header";
   accepts "end-header";
   (* and stays a non-utility when the theme binds no such name *)
-  let reject c =
-    match Tw.Position.Handler.of_class Tw.Scheme.default c with
-    | Error _ -> ()
-    | Ok _ -> Alcotest.failf "%s should be rejected without a theme token" c
+  let reject =
+    Test_helpers.check_invalid_input ~why:Test_helpers.Not_a_utility
+      (module Tw.Position.Handler)
   in
   reject "start-header";
   reject "end-header"
@@ -444,10 +439,8 @@ let check_themed theme cls expected =
   Alcotest.(check (list string)) cls expected (themed_declarations theme cls)
 
 (* A named inset names a theme token, and the theme owns its value: Tailwind
-   reads [--inset-<name>] and falls back to [--spacing-<name>]. tw resolved the
-   [--inset-*] spelling whichever namespace matched and bound it to a length of
-   its own, so a theme carrying only [--spacing-lg] got [top: var(--inset-lg)]
-   over an [--inset-lg: 1940px] no theme ever declared. *)
+   reads [--inset-<name>] and falls back to [--spacing-<name>], and binds no
+   token the theme does not declare. *)
 let named_inset_reads_the_theme_token () =
   let spacing =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-lg", "3rem") ]
@@ -475,8 +468,7 @@ let named_inset_reads_the_theme_token () =
 
 (* Every inset side reads a named token under a minus, the way it reads a
    spacing step and an arbitrary length: the CLI writes
-   [calc(var(--inset-shadowned) * -1)]. tw's negative tail read the bracket
-   alone, so the whole negative named family was an unknown class. *)
+   [calc(var(--inset-shadowned) * -1)]. *)
 let negative_named_inset_on_every_side () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default
@@ -515,8 +507,7 @@ let negative_named_inset_on_every_side () =
 
 (* The four logical [inset-*] sides carry the whole scale their [start]/[end]
    spellings do: the px step, the fractional steps and the fractions, in both
-   signs. Fractions were spelled per side, which left [inset-y-1/2],
-   [bottom-1/2] and every fraction but [3/4] on the logical sides unknown. *)
+   signs. Every side, [inset-y] and [bottom] included, takes every fraction. *)
 let logical_inset_sides_take_the_whole_scale () =
   let open Test_helpers in
   check_declarations "inset-s-0.5"
@@ -537,8 +528,7 @@ let logical_inset_sides_take_the_whole_scale () =
      and unlike [start-0] *)
   check_declarations "inset-s-0" [ "inset-inline-start:0px" ];
   check_declarations "inset-bs-1" [ "inset-block-start:var(--spacing)" ];
-  (* fractions, on the logical sides and on the two the per-side spelling had
-     left with [3/4] alone *)
+  (* fractions, on the logical sides, [inset-y] and [bottom] *)
   check_declarations "inset-s-1/2" [ "inset-inline-start:calc(1/2*100%)" ];
   check_declarations "inset-e-3/4" [ "inset-inline-end:calc(3/4*100%)" ];
   check_declarations "inset-bs-1/2" [ "inset-block-start:calc(1/2*100%)" ];
@@ -595,11 +585,8 @@ let test_data_type_hint_before_the_length_reader () =
     [ "top-[:4px]"; "top-[length:]" ]
 
 (* A negated arbitrary length is [calc(<value> * -1)], the spelling Tailwind
-   writes for every unit. Folding the sign into the number instead was done from
-   a unit table that listed a few of them, so [4px] came out [-4px] while [2em]
-   and [10vh], which the table missed, already carried the calc. The two compute
-   the same length, so only the raw sheets show it; what makes it worth settling
-   is that the upstream fixtures record the CLI's spelling. *)
+   writes for every unit, never the sign folded into the number. The two compute
+   the same length, but the upstream fixtures record the CLI's spelling. *)
 let test_position_negated_arbitrary_is_a_calc () =
   List.iter
     (fun (cls, decl) ->
@@ -610,8 +597,24 @@ let test_position_negated_arbitrary_is_a_calc () =
       ("-inset-[2rem]", "inset: calc(2rem * -1)");
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "inset-[var(--a)_1px]";
+      "inset-[var(--a),foo]";
+      "top-[var(--a)_1px]";
+      "top-[var(--a),foo]";
+      "left-[var(--a)_1px]";
+      "left-[var(--a),foo]";
+      "-top-[var(--a)_1px]";
+      "-top-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "negated arbitrary length is a calc" `Quick
       test_position_negated_arbitrary_is_a_calc;
     test_case "data-type hint before the length reader" `Quick

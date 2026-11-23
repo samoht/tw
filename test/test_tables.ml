@@ -15,15 +15,12 @@ let border_spacing_prime () =
   check_class "border-spacing-0.5" (Tw.Tables.border_spacing' 0.5)
 
 (* An arbitrary border-spacing is read with the whole CSS length grammar and
-   spelled in the class name the way the author wrote it. Reading only px left
-   every other unit unparsed, and the class-name printer had a placeholder
-   waiting to stand in for whatever it could not spell. *)
+   spelled in the class name the way the author wrote it, whatever the unit. *)
 let arbitrary_border_spacing () =
   let shorthand =
     "border-spacing:var(--tw-border-spacing-x) var(--tw-border-spacing-y)"
   in
-  (* The whole list. The affixes named one axis of a utility that sets both, and
-     never the shorthand that reads them. *)
+  (* The whole list: both axes and the shorthand that reads them. *)
   let both cls value =
     Test_helpers.check_declarations cls
       [

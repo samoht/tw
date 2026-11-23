@@ -1,26 +1,14 @@
 module Css = Cascade.Css
-(* Client-side CSS injection.
+(* Client-side CSS injection. [use] registers each utility once, by class name,
+   and its CSS goes into [<style data-tw="runtime">] elements in [<head>].
 
-   Maintains [<style data-tw="runtime">] elements in [<head>] containing CSS for
-   all utilities registered via [use]. Each utility's class name is tracked to
-   avoid re-injection.
-
-   A full [Tw.to_css] over every utility seen so far, run on every newly
-   discovered class, costs 1 + 2 + ... + n compilations over a mount pass that
-   introduces n distinct classes - O(n^2). Rebuilds are coalesced onto a
-   microtask (a mount pass compiles once, not once per [use] call), but that
-   alone does not bound the *total* work over the app's lifetime: a class
-   trickling in on its own microtask on every tick still hits the same pattern,
-   one full recompile per tick. [flush] instead keeps one "consolidated" element
-   holding a single from-scratch, fully sorted and deduplicated compile, and
-   injects each tick's new classes as their own small "delta" element compiled
-   from just that tick's batch - O(that batch) instead of O(everything so far).
-   Deltas fold back into the consolidated element once they have grown to match
-   it, the same growth-factor rule a dynamic array doubles by, which keeps the
-   *total* cost of every [Tw.to_css] call across the app's lifetime O(n) in
-   distinct classes rather than O(n^2). Base (Preflight) is never recompiled per
-   delta - it does not depend on which utilities are present, so it is folded in
-   once, at each consolidation. *)
+   [main_el] holds one from-scratch compile of the consolidated utilities, and
+   each [flush] injects that tick's new utilities as a delta element compiled
+   from the batch alone. Once the deltas match the consolidated set in size,
+   everything is recompiled into [main_el], doubling as a dynamic array does, so
+   the total compile work stays O(n) in distinct classes where a recompile per
+   tick would cost O(n^2). Preflight does not depend on the utilities, so only a
+   consolidation includes it. *)
 
 open Brr
 
@@ -59,8 +47,8 @@ let ensure_style_el () =
 let set_text_content el s = El.set_children el [ El.txt (Jstr.v s) ]
 
 (* Fold everything registered so far into [main_el] with one from-scratch
-   compile, matching exactly what a full rebuild produces today, and drop the
-   delta elements it now supersedes. *)
+   compile, so it holds exactly what a full rebuild produces, and drop the delta
+   elements it supersedes. *)
 let consolidate () =
   let el = ensure_style_el () in
   let styles = List.rev !all_styles in
@@ -70,11 +58,8 @@ let consolidate () =
   delta_els := [];
   consolidated_count := !all_styles_count
 
-(* Compile and inject just [batch] (this tick's new styles) as its own small
-   element, appended after everything already in the document. [base] is never
-   included here - see the module comment - so a batch this only picks up
-   utility rules, folded into the canonical, deduplicated compile at the next
-   consolidation. *)
+(* [batch] alone, without the base layer, in its own element after everything
+   already in the document. *)
 let inject_delta batch =
   let head = Document.head G.document in
   let css = Tw.to_css ~base:false batch in

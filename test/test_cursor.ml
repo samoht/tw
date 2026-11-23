@@ -1,5 +1,4 @@
 open Alcotest
-open Tw.Cursor.Handler
 
 let check parts =
   Test_helpers.check_handler_roundtrip
@@ -20,15 +19,13 @@ let of_string_valid () =
   check [ "cursor"; "grabbing" ]
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ class_name)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Cursor.Handler)
   in
 
   fail_maybe [ "cursor" ];
-  (* Note: "cursor-invalid" is valid — Tailwind v4 supports theme cursor values
+  (* Note: "cursor-invalid" is valid: Tailwind v4 supports theme cursor values
      via --cursor-* variables, so any valid name is accepted. *)
   fail_maybe []
 
@@ -49,8 +46,15 @@ let suborder_matches_tailwind () =
   Test_helpers.check_ordering_matches
     ~test_name:"cursor suborder matches Tailwind" shuffled
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "cursor-[var(--a)_1px]"; "cursor-[var(--a),foo]" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "cursor of_string - valid values" `Quick of_string_valid;
     test_case "cursor of_string - invalid values" `Quick of_string_invalid;
     test_case "cursor suborder matches Tailwind" `Quick

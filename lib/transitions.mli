@@ -1,9 +1,11 @@
-(** Transition utilities
+(** Transition utilities.
 
-    https://tailwindcss.com/docs/transition-property
-    https://tailwindcss.com/docs/transition-duration
-    https://tailwindcss.com/docs/transition-timing-function
-    https://tailwindcss.com/docs/transition-delay *)
+    Tailwind documents them under
+    {{:https://tailwindcss.com/docs/transition-property}transition property},
+    {{:https://tailwindcss.com/docs/transition-duration}transition duration},
+    {{:https://tailwindcss.com/docs/transition-timing-function}transition timing
+     function} and
+    {{:https://tailwindcss.com/docs/transition-delay}transition delay}. *)
 
 open Cascade
 open Utility

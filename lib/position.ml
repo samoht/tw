@@ -1,8 +1,4 @@
-(** Positioning utilities for controlling element placement *)
-
 module Css = Cascade.Css
-
-(** {1 Helper Functions} *)
 
 (* Negate an inset length: simple units flip sign directly; var()/calc() and
    parenthesized expressions wrap in [calc(... * -1)] to match Tailwind. *)
@@ -89,8 +85,6 @@ let named_inset_value theme name : Css.length =
   in
   Css.Var (Var.theme_ref token)
 
-(* Create a spacing value using calc(var(--spacing) * n). Returns the theme
-   declaration and a length that references the variable. *)
 let spacing_value ?theme n : Css.declaration * Css.length =
   Theme.spacing_calc ?theme n
 
@@ -225,7 +219,6 @@ module Handler = struct
   open Style
   open Css
 
-  (** Local position utility type *)
   type t =
     | Position_static
     | Position_relative
@@ -304,14 +297,8 @@ module Handler = struct
     | End_full
     | Neg_end_full
 
-  (** Extensible variant for position utilities *)
-
   let name = "position"
-
-  (** Priority for position utilities *)
   let priority _ = 0
-
-  (** {1 Utility Conversion Functions} *)
 
   let to_style theme =
     let spacing_value n = spacing_value ~theme n in
@@ -367,28 +354,24 @@ module Handler = struct
     | Inset_y n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_block [ value ] ])
-    (* inset-s = inset-inline-start *)
     | Inset_s n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_inline_start value ])
     | Inset_s_auto -> style [ Css.inset_inline_start Auto ]
     | Inset_s_full -> style [ Css.inset_inline_start (Pct 100.0) ]
     | Neg_inset_s_full -> style [ Css.inset_inline_start (Pct (-100.0)) ]
-    (* inset-e = inset-inline-end *)
     | Inset_e n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_inline_end value ])
     | Inset_e_auto -> style [ Css.inset_inline_end Auto ]
     | Inset_e_full -> style [ Css.inset_inline_end (Pct 100.0) ]
     | Neg_inset_e_full -> style [ Css.inset_inline_end (Pct (-100.0)) ]
-    (* inset-bs = inset-block-start *)
     | Inset_bs n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_block_start value ])
     | Inset_bs_auto -> style [ Css.inset_block_start Auto ]
     | Inset_bs_full -> style [ Css.inset_block_start (Pct 100.0) ]
     | Neg_inset_bs_full -> style [ Css.inset_block_start (Pct (-100.0)) ]
-    (* inset-be = inset-block-end *)
     | Inset_be n ->
         let decl, value = spacing_value n in
         style (decl :: [ Css.inset_block_end value ])
@@ -535,10 +518,10 @@ module Handler = struct
       | None when Parse.is_valid_theme_name n && is_named_inset theme n ->
           Ok (Neg_pos_named (side, n))
       | None -> (
-          (* [calc(<value> * -1)] is what a negated arbitrary writes whatever
-             the unit, and a value no reader took is no exception. *)
-          match bracket_token_stream n with
-          | Some raw -> Ok (Neg_pos_raw (side, n, "calc(" ^ raw ^ " * -1)"))
+          match
+            Option.bind (bracket_token_stream n) Parse.negated_declaration_value
+          with
+          | Some raw -> Ok (Neg_pos_raw (side, n, raw))
           | None -> Error (`Msg "invalid"))
     in
     (* A fraction, then the side's own scale, then the shared tail. Every inset
@@ -598,7 +581,6 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_y (-x))
         | Error _ -> neg_scale_or_arbitrary Side.Inset_y n)
-    (* inset-s = inset-inline-start *)
     | [ "inset"; "s"; "auto" ] -> Ok Inset_s_auto
     | [ "inset"; "s"; "full" ] -> Ok Inset_s_full
     | [ ""; "inset"; "s"; "full" ] -> Ok Neg_inset_s_full
@@ -610,7 +592,6 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_s (-x))
         | Error _ -> neg_scale_or_arbitrary Side.Inset_s n)
-    (* inset-e = inset-inline-end *)
     | [ "inset"; "e"; "auto" ] -> Ok Inset_e_auto
     | [ "inset"; "e"; "full" ] -> Ok Inset_e_full
     | [ ""; "inset"; "e"; "full" ] -> Ok Neg_inset_e_full
@@ -622,7 +603,6 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_e (-x))
         | Error _ -> neg_scale_or_arbitrary Side.Inset_e n)
-    (* inset-bs = inset-block-start *)
     | [ "inset"; "bs"; "auto" ] -> Ok Inset_bs_auto
     | [ "inset"; "bs"; "full" ] -> Ok Inset_bs_full
     | [ ""; "inset"; "bs"; "full" ] -> Ok Neg_inset_bs_full
@@ -634,7 +614,6 @@ module Handler = struct
         match int_of_string_with_sign n with
         | Ok x -> Ok (Inset_bs (-x))
         | Error _ -> neg_scale_or_arbitrary Side.Inset_bs n)
-    (* inset-be = inset-block-end *)
     | [ "inset"; "be"; "auto" ] -> Ok Inset_be_auto
     | [ "inset"; "be"; "full" ] -> Ok Inset_be_full
     | [ ""; "inset"; "be"; "full" ] -> Ok Neg_inset_be_full
@@ -710,7 +689,7 @@ module Handler = struct
     | [ ""; "end"; "full" ] -> Ok Neg_end_full
     | [ "end"; n ] -> step_or_arbitrary Side.End n
     | [ ""; "end"; n ] -> neg_step_or_arbitrary Side.End n
-    | _ -> Error (`Msg "Not a position utility")
+    | _ -> Utility.unclaimed
 
   let to_class = function
     | Position_static -> "static"
@@ -751,28 +730,24 @@ module Handler = struct
     | Inset_y n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-y-" ^ string_of_int (abs n)
-    (* inset-s = inset-inline-start *)
     | Inset_s n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-s-" ^ string_of_int (abs n)
     | Inset_s_auto -> "inset-s-auto"
     | Inset_s_full -> "inset-s-full"
     | Neg_inset_s_full -> "-inset-s-full"
-    (* inset-e = inset-inline-end *)
     | Inset_e n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-e-" ^ string_of_int (abs n)
     | Inset_e_auto -> "inset-e-auto"
     | Inset_e_full -> "inset-e-full"
     | Neg_inset_e_full -> "-inset-e-full"
-    (* inset-bs = inset-block-start *)
     | Inset_bs n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-bs-" ^ string_of_int (abs n)
     | Inset_bs_auto -> "inset-bs-auto"
     | Inset_bs_full -> "inset-bs-full"
     | Neg_inset_bs_full -> "-inset-bs-full"
-    (* inset-be = inset-block-end *)
     | Inset_be n ->
         let prefix = if n < 0 then "-" else "" in
         prefix ^ "inset-be-" ^ string_of_int (abs n)
@@ -826,13 +801,9 @@ module Handler = struct
 end
 
 open Handler
-
 module Utility_factory = Utility.Make (Handler)
-(** Register handler with Utility system *)
 
-(** Public API combinators *)
 let utility = Utility_factory.v
-
 let static = utility Position_static
 let relative = utility Position_relative
 let absolute = utility Position_absolute

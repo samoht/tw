@@ -82,9 +82,8 @@ let mixed_gap_axis_arbitrary_order_matches_tailwind () =
 (* space-x-px / -space-x-px use a literal +/-1px gap (no --spacing multiple),
    wrapped in the reverse calc like the numeric variants. *)
 let test_space_px_values () =
-  (* The whole list, which is where "sets no --spacing" is said: it used to be a
-     search for a name that must not appear, and the px step writes both
-     margins, not just the one the affix named. *)
+  (* The whole list, which is where "sets no --spacing" is said, and the px step
+     writes both margins. *)
   let px_step cls step =
     Test_helpers.check_declarations ~minify:false cls
       [
@@ -97,8 +96,8 @@ let test_space_px_values () =
   px_step "space-x-px" "1px";
   px_step "-space-x-px" "-1px"
 
-(** Test that CSS values use the correct spacing multiplier. gap-64 should
-    generate calc(var(--spacing)*64), not calc(var(--spacing)*16) *)
+(* Each step multiplies the spacing scale by its own number: gap-64 is
+   calc(var(--spacing)*64). *)
 let test_css_values () =
   Test_helpers.check_declarations "gap-64" [ "gap:calc(var(--spacing)*64)" ];
   Test_helpers.check_declarations "gap-4" [ "gap:calc(var(--spacing)*4)" ];
@@ -135,8 +134,8 @@ let test_gap_candidate_boundaries () =
   Test_helpers.check_class_order ~test_name:"gap candidate boundaries"
     [ "space-y-2"; "gap-px"; "gap-[5cqw]"; "gap-10"; "gap-(--gap)"; "gap-1.5" ]
 
-(* gap'/gap_x'/gap_y' take a half-step float; space_x/space_y flipped from float
-   to int with a [']-suffixed float sibling, same convention as [p]/[p']. *)
+(* gap'/gap_x'/gap_y' take a half-step float; space_x/space_y take an int and
+   have a [']-suffixed float sibling, same convention as [p]/[p']. *)
 let typed_prime () =
   let open Tw in
   check_typed_class "gap-0.5" (gap' 0.5);
@@ -174,8 +173,34 @@ let typed_negative () =
       ignore (gap_x' (-0.5)));
   check_typed_class "gap-0" (gap 0)
 
+(* A [space-*] bracket holding a length or a [var()] takes either sign, with the
+   value after any hint, as Tailwind writes it. *)
+let test_space_bracket_lengths () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "space-x-[var(--x)]";
+      "space-y-[foo:var(--x)]";
+      "-space-x-[3px]";
+      "-space-y-[50%]";
+      "-space-x-[var(--x)]";
+      "-space-y-[foo:3px]";
+    ]
+
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "gap-[var(--a)_1px]";
+      "gap-[var(--a),foo]";
+      "gap-x-[var(--a)_1px]";
+      "gap-x-[var(--a),foo]";
+    ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
+    test_case "space bracket lengths" `Quick test_space_bracket_lengths;
     test_case "typed constructors: negative size" `Quick typed_negative;
     test_case "data-type hint before the length reader" `Quick
       test_data_type_hint_before_the_length_reader;

@@ -22,8 +22,8 @@ let test_invalid () =
   Test_helpers.check_invalid_input (module Tw.Scroll.Handler) "scroll";
   Test_helpers.check_invalid_input (module Tw.Scroll.Handler) "scroll-foo"
 
-(* Typed scroll-margin/padding constructors (newly exposed in tw.mli) take an
-   [int]; check they agree with the parser on class names. *)
+(* The typed scroll-margin/padding constructors take an [int] and agree with the
+   parser on class names. *)
 let test_typed () =
   Test_helpers.check_typed_class "scroll-m-4" (Tw.scroll_m 4);
   Test_helpers.check_typed_class "scroll-mx-2" (Tw.scroll_mx 2);
@@ -42,9 +42,8 @@ let test_typed_prime () =
   Test_helpers.check_typed_class "scroll-p-0.5" (Tw.scroll_p' 0.5);
   Test_helpers.check_typed_class "scroll-py-2.5" (Tw.scroll_py' 2.5)
 
-(* An arbitrary scroll offset is any CSS length. A value the parser cannot read
-   is not a utility: it used to be reinterpreted as a variable name, so
-   [scroll-m-[2vh]] emitted [scroll-margin: var(--2vh)]. *)
+(* An arbitrary scroll offset is any CSS length, never a variable name:
+   [scroll-m-[2vh]] is [scroll-margin: 2vh], not [var(--2vh)]. *)
 let test_arbitrary_length () =
   let emits decl cls =
     Test_helpers.check_declarations ~minify:false cls [ decl ]
@@ -54,19 +53,14 @@ let test_arbitrary_length () =
   emits "scroll-margin: var(--gap)" "scroll-m-[var(--gap)]";
   (* A value no length reader took still names the longhand the class does,
      which is the token-stream contract: the browser discards the declaration
-     and the selector survives, where a refusal drops both. It used to be read
-     as a variable name, so [scroll-m-[2vh]] emitted [scroll-margin: var(--2vh)]
-     - a value the class never asked for, which is the failure this test was
-     written against and is still ruled out. *)
+     and the selector survives, where a refusal drops both. *)
   Test_helpers.check_declarations ~minify:false "scroll-m-[bogus]"
     [ "scroll-margin: bogus" ]
 
 (* Every scroll margin writes a property another one writes too, so their order
    decides which one wins. Tailwind sorts them by side - all, the two axes, the
    four logical sides, then the four physical ones - and puts the negative of a
-   side before its positive. The sign was weighed ahead of the side, so
-   [-scroll-ml-6] sorted before [scroll-mt-4]; the logical sides also trailed
-   the physical ones. *)
+   side before its positive, so [scroll-mt-4] sorts before [-scroll-ml-6]. *)
 let test_margin_order () =
   Test_helpers.check_class_order ~test_name:"scroll margins"
     [
@@ -124,9 +118,23 @@ let test_data_type_hint_before_the_length_reader () =
     (Test_helpers.check_invalid_input (module Tw.Scroll.Handler))
     [ "scroll-m-[:4px]"; "scroll-m-[length:]" ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "scroll-m-[var(--a)_1px]";
+      "scroll-m-[var(--a),foo]";
+      "scroll-p-[var(--a)_1px]";
+      "scroll-p-[var(--a),foo]";
+      "scroll-mt-[var(--a)_1px]";
+      "scroll-mt-[var(--a),foo]";
+    ]
+
 let tests =
   Test_helpers.standard ~roundtrip:test_roundtrip ~invalid:test_invalid
   @ [
+      Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
       Alcotest.test_case "data-type hint before the length reader" `Quick
         test_data_type_hint_before_the_length_reader;
       Alcotest.test_case "typed constructors" `Quick test_typed;

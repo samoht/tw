@@ -177,13 +177,8 @@ let candidates source =
   in
   loop 0 [] |> List.sort_uniq String.compare
 
-let read_file filename =
-  let ic = open_in_bin filename in
-  Fun.protect
-    ~finally:(fun () -> close_in_noerr ic)
-    (fun () -> really_input_string ic (in_channel_length ic))
-
-let candidates_from_file filename = filename |> read_file |> candidates
+let candidates_from_file filename =
+  In_channel.with_open_bin filename In_channel.input_all |> candidates
 
 let is_glob path =
   String.exists (function '*' | '?' | '{' -> true | _ -> false) path

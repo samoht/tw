@@ -1,18 +1,15 @@
 open Cmdliner
 
-(* Define --seed option *)
 let seed =
   let doc = "Random seed for property-based tests (for reproducibility)" in
   Arg.(value & opt (some int) None & info [ "seed" ] ~docv:"SEED" ~doc)
 
-(* Initialize random seed and return test suites *)
 let setup =
   let init = function
     | Some s ->
         Random.init s;
         Fmt.epr "Using random seed: %d\n%!" s
     | None ->
-        (* Generate a seed from system entropy (time + process id) *)
         let s =
           int_of_float (Unix.gettimeofday () *. 1000.0) lxor Unix.getpid ()
         in
@@ -23,10 +20,8 @@ let setup =
 
 let () =
   Tw_tools.Cascade_provenance.report ();
-  (* Use Alcotest.run_with_args for proper CLI integration *)
   Tw_tools.Tailwind_gen.with_stats @@ fun () ->
   Alcotest.run_with_args "tw" setup
-    (* Return test suites *)
     [
       Test_tw.suite;
       Test_source_scan.suite;
@@ -43,16 +38,36 @@ let () =
       Test_cursor.suite;
       Test_arbitrary.suite;
       Test_color.suite;
+      Test_color_value.suite;
+      Test_color_opacity.suite;
+      Test_palette.suite;
+      Test_srgb.suite;
       Test_margin.suite;
       Test_padding.suite;
       Test_borders.suite;
       Test_sizing.suite;
       Test_layout.suite;
       Test_typography.suite;
+      Test_text_decoration.suite;
+      Test_letter_spacing.suite;
+      Test_text_transform.suite;
+      Test_font_smoothing.suite;
+      Test_line_breaking.suite;
+      Test_text_overflow.suite;
+      Test_line_clamp.suite;
+      Test_vertical_align.suite;
+      Test_text_indent.suite;
+      Test_list_style.suite;
+      Test_content.suite;
+      Test_font_stretch.suite;
+      Test_font_variant_numeric.suite;
       Test_effects.suite;
+      Test_ring.suite;
+      Test_blend.suite;
       Test_clipping.suite;
       Test_animations.suite;
       Test_backgrounds.suite;
+      Test_gradients.suite;
       Test_containers.suite;
       Test_style.suite;
       Test_filters.suite;
@@ -69,6 +84,8 @@ let () =
       Test_transforms.suite;
       Test_var.suite;
       Test_modifiers.suite;
+      Test_variant_parse.suite;
+      Test_variant_order.suite;
       Test_pp.suite;
       Test_prose.suite;
       Test_theme.suite;

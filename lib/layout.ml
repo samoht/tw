@@ -1,8 +1,5 @@
-(** Layout utilities for basic display, positioning, and object properties *)
-
 module Css = Cascade.Css
 
-(** Screen reader utilities handler - priority 0 to appear first *)
 module Screen_reader_handler = struct
   open Style
   open Css
@@ -63,7 +60,7 @@ module Screen_reader_handler = struct
     match parts with
     | [ "sr"; "only" ] -> Ok Sr_only
     | [ "not"; "sr"; "only" ] -> Ok Not_sr_only
-    | _ -> Error (`Msg "Not a screen reader utility")
+    | _ -> Utility.unclaimed
 
   let examples = []
 end
@@ -73,12 +70,9 @@ end
    declaration --z-index-auto: 42 in the :root, :host block. *)
 let z_index_auto_var = Var.theme Css.Z_index "z-index-auto" ~order:(4, 750)
 
-(* Generate z-auto style: either theme var with custom declaration, or bare
-   theme_ref fallback *)
 let z_auto_style ?theme () =
   match Scheme.theme_value theme "z-index-auto" with
   | Some value_str ->
-      (* Parse theme value as z_index *)
       let z_value : Css.z_index =
         match value_str with
         | "auto" -> Auto
@@ -91,11 +85,9 @@ let z_auto_style ?theme () =
   | None -> Style.style [ Css.z_index Auto ]
 
 (* An [object-[...]] value that is not a var() reference is a <position>, read
-   with cascade's grammar for it rather than a local one. Splitting on the space
-   and reading each side as a length took the two-length and one-length forms
-   and nothing else, so every keyword the grammar allows was refused. The
-   [bg-position-] bracket reads the same CSS type through the same reader; the
-   two families must not disagree about what a position is. *)
+   with cascade's grammar for it rather than a local one. The [bg-position-]
+   bracket reads the same CSS type through the same reader; the two families
+   must not disagree about what a position is. *)
 let parse_object_position raw : Css.position_value option =
   let cursor = Cascade.Cursor.of_string (Parse.decode_arbitrary_value raw) in
   match
@@ -150,8 +142,7 @@ module Handler = struct
        not, that text verbatim: Tailwind hands a bracket to the declaration
        unvalidated. *)
     | Z_arbitrary of string * [ `Index of Css.z_index | `Raw of string ]
-    | Neg_z_arbitrary of
-        string * Css.z_index (* Negative arbitrary: -z-[var(--value)] *)
+    | Neg_z_arbitrary of string * [ `Index of Css.z_index | `Raw of string ]
     | (* Object fit *)
       Object_contain
     | Object_cover
@@ -292,9 +283,9 @@ module Handler = struct
     | Isolation_auto -> 15_000_001
     (* Z-index (priority 0) - after inset (up to ~13M in position.ml), before
        container (priority 1). Order: negative, positive, arbitrary, auto. *)
-    | Neg_z n -> 20_000_000 + 500 + n (* -z-50, -z-10 *)
+    | Neg_z n -> 20_000_000 + 500 + n
     | Z_0 -> 20_000_000 + 600
-    | Z n -> 20_000_000 + 601 + n (* z-10 *)
+    | Z n -> 20_000_000 + 601 + n
     | Z_10 -> 20_000_000 + 611
     | Z_20 -> 20_000_000 + 621
     | Z_30 -> 20_000_000 + 631
@@ -372,8 +363,6 @@ module Handler = struct
     | Break_after_left -> 1305
     | Break_after_page -> 1306
     | Break_after_right -> 1307
-
-  (** {1 Style Generation} *)
 
   let to_class = function
     | Block -> "block"
@@ -520,8 +509,10 @@ module Handler = struct
         match Parse.opaque_declaration "z-index" v with
         | Some declaration -> style [ declaration ]
         | None -> style [])
-    | Neg_z_arbitrary (_, zi) ->
+    | Neg_z_arbitrary (_, `Index zi) ->
         style [ z_index (Calc (Css.Calc.mul (Val zi) (Css.Calc.float (-1.)))) ]
+    | Neg_z_arbitrary (_, `Raw v) ->
+        style (Option.to_list (Parse.opaque_declaration "z-index" v))
     | Object_contain -> style [ object_fit Contain ]
     | Object_cover -> style [ object_fit Cover ]
     | Object_fill -> style [ object_fit Fill ]
@@ -547,9 +538,9 @@ module Handler = struct
     | Object_raw (_, v) ->
         style (Option.to_list (Parse.opaque_declaration "object-position" v))
     | Object_arbitrary bracket -> (
-        (* Only a var() reference names a variable; anything else is a position
-           value, which [object-[50%]] used to turn into [var(--50)]. [of_class]
-           refused an empty hint, so the peel succeeds here. *)
+        (* Only a var() reference names a variable; anything else, [50%]
+           included, is a position value. [of_class] rejects an empty hint, so
+           the peel succeeds here. *)
         let raw =
           Option.value (Parse.value_after_hint bracket) ~default:bracket
         in
@@ -594,7 +585,6 @@ module Handler = struct
             Css.webkit_box_decoration_break Slice;
             Css.box_decoration_break Slice;
           ]
-    (* Break before *)
     | Break_before_all -> style [ Css.break_before All ]
     | Break_before_auto -> style [ Css.break_before Auto ]
     | Break_before_avoid -> style [ Css.break_before Avoid ]
@@ -603,7 +593,6 @@ module Handler = struct
     | Break_before_left -> style [ Css.break_before Left ]
     | Break_before_page -> style [ Css.break_before Page ]
     | Break_before_right -> style [ Css.break_before Right ]
-    (* Break after *)
     | Break_after_all -> style [ Css.break_after All ]
     | Break_after_auto -> style [ Css.break_after Auto ]
     | Break_after_avoid -> style [ Css.break_after Avoid ]
@@ -612,13 +601,10 @@ module Handler = struct
     | Break_after_left -> style [ Css.break_after Left ]
     | Break_after_page -> style [ Css.break_after Page ]
     | Break_after_right -> style [ Css.break_after Right ]
-    (* Break inside *)
     | Break_inside_auto -> style [ Css.break_inside Auto ]
     | Break_inside_avoid -> style [ Css.break_inside Avoid ]
     | Break_inside_avoid_column -> style [ Css.break_inside Avoid_column ]
     | Break_inside_avoid_page -> style [ Css.break_inside Avoid_page ]
-
-  (** {1 Parsing Functions} *)
 
   (* The z-index a [z-[...]] bracket denotes. [None] is a bracket the z-index
      grammar cannot read, and [of_class] refuses the utility rather than leaving
@@ -666,7 +652,6 @@ module Handler = struct
     | [ "z"; "50" ] -> Ok Z_50
     | [ "z"; "auto" ] -> Ok Z_auto
     | [ "z"; n ] when String.starts_with ~prefix:"[" n ->
-        (* Arbitrary value: z-[123] *)
         if Parse.is_bracket_value n then
           let inner = Parse.bracket_inner n in
           match arbitrary_z_index inner with
@@ -678,18 +663,24 @@ module Handler = struct
               | None -> Error (`Msg ("Invalid z-index arbitrary value: " ^ n)))
         else Error (`Msg ("Invalid z-index arbitrary value: " ^ n))
     | [ "z"; n ] -> (
-        (* Dynamic z-index: z-5, z-100, etc. *)
         match Parse.decimal_int n with
         | Some i -> Ok (Z i)
         | None -> Error (`Msg ("Invalid z-index value: " ^ n)))
     | "" :: "z" :: rest when rest <> [] -> (
-        (* Negative z-index: -z-10, -z-50, -z-[var(--value)], etc. *)
         let value = String.concat "-" rest in
         if Parse.is_bracket_value value then
           let inner = Parse.bracket_inner value in
           match arbitrary_z_index inner with
-          | Some zi -> Ok (Neg_z_arbitrary (inner, zi))
-          | None -> Error (`Msg ("Invalid negative z-index value: " ^ value))
+          | Some zi -> Ok (Neg_z_arbitrary (inner, `Index zi))
+          | None -> (
+              match
+                Option.bind
+                  (Parse.arbitrary_declaration_value inner)
+                  Parse.negated_declaration_value
+              with
+              | Some v -> Ok (Neg_z_arbitrary (inner, `Raw v))
+              | None ->
+                  Error (`Msg ("Invalid negative z-index value: " ^ value)))
         else
           match Parse.decimal_int value with
           | Some i -> Ok (Neg_z i)
@@ -742,7 +733,6 @@ module Handler = struct
     | [ "box"; "decoration"; "slice" ] -> Ok Box_decoration_slice
     | [ "decoration"; "clone" ] -> Ok Decoration_clone
     | [ "decoration"; "slice" ] -> Ok Decoration_slice
-    (* Break before *)
     | [ "break"; "before"; "all" ] -> Ok Break_before_all
     | [ "break"; "before"; "auto" ] -> Ok Break_before_auto
     | [ "break"; "before"; "avoid" ] -> Ok Break_before_avoid
@@ -751,7 +741,6 @@ module Handler = struct
     | [ "break"; "before"; "left" ] -> Ok Break_before_left
     | [ "break"; "before"; "page" ] -> Ok Break_before_page
     | [ "break"; "before"; "right" ] -> Ok Break_before_right
-    (* Break after *)
     | [ "break"; "after"; "all" ] -> Ok Break_after_all
     | [ "break"; "after"; "auto" ] -> Ok Break_after_auto
     | [ "break"; "after"; "avoid" ] -> Ok Break_after_avoid
@@ -760,12 +749,11 @@ module Handler = struct
     | [ "break"; "after"; "left" ] -> Ok Break_after_left
     | [ "break"; "after"; "page" ] -> Ok Break_after_page
     | [ "break"; "after"; "right" ] -> Ok Break_after_right
-    (* Break inside *)
     | [ "break"; "inside"; "auto" ] -> Ok Break_inside_auto
     | [ "break"; "inside"; "avoid" ] -> Ok Break_inside_avoid
     | [ "break"; "inside"; "avoid"; "column" ] -> Ok Break_inside_avoid_column
     | [ "break"; "inside"; "avoid"; "page" ] -> Ok Break_inside_avoid_page
-    | _ -> Error (`Msg "Not a layout utility")
+    | _ -> Utility.unclaimed
 
   let examples =
     [
@@ -787,9 +775,6 @@ open Handler
 module Screen_reader_utility = Utility.Make (Screen_reader_handler)
 module Utility_factory = Utility.Make (Handler)
 
-(** {1 Public API - Utility Values} *)
-
-(* Layout utilities *)
 let utility = Utility_factory.v
 let block = utility Block
 let contents = utility Contents
@@ -850,17 +835,11 @@ let clear_none = utility Clear_none
 let clear_both = utility Clear_both
 let clear_start = utility Clear_start
 let clear_end = utility Clear_end
-
-(* Screen reader utilities *)
 let sr_utility = Screen_reader_utility.v
 let sr_only = sr_utility Screen_reader_handler.Sr_only
 let not_sr_only = sr_utility Screen_reader_handler.Not_sr_only
-
-(* Box decoration break utilities *)
 let box_decoration_clone = utility Box_decoration_clone
 let box_decoration_slice = utility Box_decoration_slice
-
-(* Break before/after/inside utilities - page/column breaks *)
 let break_before_all = utility Break_before_all
 let break_before_auto = utility Break_before_auto
 let break_before_avoid = utility Break_before_avoid

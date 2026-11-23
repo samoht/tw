@@ -21,14 +21,10 @@
 
    Usage: corpus_check TW_BINARY DIR *)
 
-module Entrypoint = Tw_tools.Entrypoint
+module Source_directive = Tw_tools.Source_directive
 
 let ( // ) = Filename.concat
 let required name = Sys.getenv_opt name = Some "1"
-let read_file path = In_channel.with_open_bin path In_channel.input_all
-
-let write_file path contents =
-  Out_channel.with_open_bin path (fun oc -> output_string oc contents)
 
 let cases dir =
   Sys.readdir dir |> Array.to_list
@@ -41,7 +37,7 @@ let page_of_case dir name css =
   let own = dir // (Filename.chop_suffix name ".css" ^ ".html") in
   if Sys.file_exists own then `Own own
   else
-    match Entrypoint.source_inline css with
+    match Source_directive.inline css with
     | [], _ -> `None
     | classes, _ -> `Built (Test_helpers.classes_page classes)
 
@@ -50,13 +46,13 @@ let page_of_case dir name css =
    compare. *)
 let run_case ~tw ~render ~work dir name =
   let css_path = dir // name in
-  let css = read_file css_path in
+  let css = In_channel.with_open_bin css_path In_channel.input_all in
   let page =
     match page_of_case dir name css with
     | `Own path -> Some path
     | `Built html ->
         let path = work // (Filename.chop_suffix name ".css" ^ ".html") in
-        write_file path html;
+        Tw_tools.Tailwind_gen.write_file path html;
         Some path
     | `None -> None
   in
@@ -70,19 +66,12 @@ let run_case ~tw ~render ~work dir name =
   | Some page ->
       let out = work // (name ^ ".out") in
       let cmd =
-        String.concat " "
-          ([
-             Filename.quote tw;
-             "--input-css";
-             Filename.quote css_path;
-             Filename.quote page;
-             "--diff";
-           ]
-          @ (if render then [ "--html"; Filename.quote page ] else [])
-          @ [ ">"; Filename.quote out; "2>&1" ])
+        Filename.quote_command tw ~stdout:out ~stderr:out
+          ([ "--input-css"; css_path; page; "--diff" ]
+          @ if render then [ "--html"; page ] else [])
       in
       let status = Sys.command cmd in
-      let report = read_file out in
+      let report = In_channel.with_open_bin out In_channel.input_all in
       if status = 0 then (
         Fmt.pr "ok   %s%s@." name (if render then "" else " (canonical only)");
         `Ok)

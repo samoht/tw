@@ -43,7 +43,7 @@ let of_string_valid () =
   check "auto-rows-max";
   check "auto-rows-fr";
 
-  (* Arbitrary values with mixed units (was crashing on '%' before) *)
+  (* Arbitrary values with mixed units, [%] included *)
   check "grid-cols-[1fr_40%]";
   check "grid-cols-[200px]";
   check "grid-cols-[1fr_2fr]";
@@ -53,7 +53,7 @@ let of_string_valid () =
   check "auto-rows-[1.5rem]";
 
   (* Arbitrary grid functions: repeat()/minmax()/fit-content(), incl. nesting
-     and auto-fill/auto-fit (used to be rejected as unknown classes). *)
+     and auto-fill/auto-fit. *)
   check "grid-cols-[minmax(0,1fr)]";
   check "grid-cols-[repeat(3,minmax(0,1fr))]";
   check "grid-cols-[repeat(2,1fr_2fr)]";
@@ -66,44 +66,31 @@ let of_string_valid () =
   check "grid-cols-[max(200px,50%)_1fr]"
 
 let of_string_invalid () =
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Grid_template.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Grid_template.Handler)
   in
-
-  fail_maybe [ "grid" ];
-  (* Missing subcommand *)
+  (* display: grid, which the grid handler owns *)
+  Test_helpers.check_invalid_parts ~why:Test_helpers.Another_handler
+    (module Tw.Grid_template.Handler)
+    [ "grid" ];
   fail_maybe [ "grid"; "cols" ];
-  (* Missing value *)
   fail_maybe [ "grid"; "cols"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "grid"; "rows" ];
-  (* Missing value *)
   fail_maybe [ "grid"; "rows"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "grid"; "flow" ];
-  (* Missing flow direction *)
   fail_maybe [ "grid"; "flow"; "invalid" ];
 
-  (* Invalid flow direction *)
   fail_maybe [ "auto" ];
-  (* Missing subcommand *)
   fail_maybe [ "auto"; "cols" ];
-  (* Missing value *)
   fail_maybe [ "auto"; "cols"; "invalid" ];
-  (* Invalid value *)
   fail_maybe [ "auto"; "rows" ];
-  (* Missing value *)
   fail_maybe [ "auto"; "rows"; "invalid" ];
 
-  (* Invalid value *)
   ()
 
 (* A bracket the track grammar cannot read is not refused: Tailwind hands it to
-   the declaration as written, and so does tw. Reading it must not raise, which
-   [grid-cols-[1fr_40%]] once did mid-run. *)
+   the declaration as written, and so does tw, without raising. *)
 let test_unreadable_tracks_pass_through () =
   Test_helpers.check_declarations "grid-cols-[totally_garbage]"
     [ "grid-template-columns:totally garbage" ];

@@ -153,3 +153,16 @@ declarations and emits none of the entrypoint's own CSS:
   $ tw --minify --input-css single.css -s card | grep -c 'page'
   0
   [1]
+
+The custom properties a declared utility sets are the project's own, read by
+CSS this path does not emit, so the single-class path keeps them as the
+pinned CLI does, inline mode included:
+
+  $ cat > vars.css <<EOF
+  > @import "tailwindcss";
+  > @utility foo { --x: 1; color: red; }
+  > @utility bar { --y: 1; }
+  > EOF
+  $ tw --minify --input-css vars.css -s 'foo bar' | grep -oE '\.(foo|bar)\{[^}]*\}'
+  .foo{--x:1;color:red}
+  .bar{--y:1}

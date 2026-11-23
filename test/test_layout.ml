@@ -45,23 +45,17 @@ let test_overflow () =
   check_overflow "overflow-y-hidden"
 
 let of_string_invalid () =
-  (* Invalid layout values *)
-  let fail_maybe input =
-    let class_name = String.concat "-" input in
-    match Tw.Layout.Handler.of_class Tw.Scheme.default class_name with
-    | Ok _ -> fail ("Expected error for: " ^ String.concat "-" input)
-    | Error _ -> ()
+  let fail_maybe =
+    Test_helpers.check_invalid_parts ~why:Test_helpers.Not_a_utility
+      (module Tw.Layout.Handler)
   in
 
   fail_maybe [ "inline"; "invalid" ];
-  (* Invalid display *)
   fail_maybe [ "table"; "invalid" ];
-  (* Invalid table display *)
-  (* Note: z-60 is valid in Tailwind v4 (dynamic z-index), so not tested here *)
+  (* z-60 is valid in Tailwind v4 (dynamic z-index); the double dash of z--10 is
+     not *)
   fail_maybe [ "z"; ""; "10" ];
-  (* Double dash z--10 is invalid *)
   fail_maybe [ "unknown" ]
-(* Unknown layout type *)
 
 let test_screen_reader () =
   check_class "sr-only" Tw.Layout.sr_only;
@@ -112,26 +106,20 @@ let test_sr_only_declaration_order () =
        (-1) order)
 
 let test_layout_container () =
-  (* Test that container generates .container rule with width: 100% *)
-  let css = Tw.to_css [ Tw.container ] in
-  let css_string = Tw.Css.to_string ~minify:true css in
-  Alcotest.(check bool)
-    "has .container class" true
-    (String.contains css_string 'c');
-  Alcotest.(check bool) "has width:100%" true (String.contains css_string 'w')
+  Test_helpers.check_declarations "container"
+    [
+      "width:100%";
+      "max-width:40rem";
+      "max-width:48rem";
+      "max-width:64rem";
+      "max-width:80rem";
+      "max-width:96rem";
+    ]
 
+(* [container] is the layout utility and [@container] marks a query container;
+   the two share a word and nothing else. *)
 let test_container_vs_at_container () =
-  (* Test the difference between layout .container and @container query *)
-  let layout = Tw.to_css [ Tw.container ] in
-  let query = Tw.to_css [ Tw.at_container ] in
-  let layout_str = Tw.Css.to_string ~minify:true layout in
-  let query_str = Tw.Css.to_string ~minify:true query in
-  Alcotest.(check bool)
-    "layout container has .container class" true
-    (String.contains layout_str '.');
-  Alcotest.(check bool)
-    "@container has container-type" true
-    (String.contains query_str 't')
+  Test_helpers.check_declarations "@container" [ "container-type:inline-size" ]
 
 let test_layout_container_matches_tailwind () =
   (* This test documents that our implementation matches Tailwind ordering *)
@@ -204,8 +192,8 @@ let isolation_and_float_slots () =
     (List.sort Int.compare positions)
     positions
 
-(* Visibility, float and break-* typed constructors are newly exposed in tw.mli;
-   check they agree with the parser on class names. *)
+(* The visibility, float and break-* typed constructors agree with the parser on
+   class names. *)
 let test_typed () =
   Test_helpers.check_typed_class "visible" Tw.visible;
   Test_helpers.check_typed_class "invisible" Tw.invisible;
@@ -217,9 +205,8 @@ let test_typed () =
   Test_helpers.check_typed_class "break-before-column" Tw.break_before_column;
   Test_helpers.check_typed_class "break-inside-avoid" Tw.break_inside_avoid
 
-(* [object-[50%]] is a position, not a variable name: it used to come out as
-   [object-position: var(--50)]. [z-auto] writes the keyword, since no theme
-   declares [--z-index-auto]. *)
+(* [object-[50%]] is a position, not a variable name. [z-auto] writes the
+   keyword, since no theme declares [--z-index-auto]. *)
 let test_object_and_z_values () =
   let has cls decl = Test_helpers.check_declarations cls [ decl ] in
   has "object-[50%]" "object-position:50%";
@@ -231,28 +218,27 @@ let test_object_and_z_values () =
     [ "object-position:<value>" ];
   has "z-auto" "z-index:auto"
 
-(* [z-[...]] takes a z-index. A bracket the z-index grammar cannot read is
-   accepted and then raises out of [to_css], a pure conversion, so the rejection
-   belongs at parse time. *)
-let test_invalid_arbitrary_z_index () =
-  let rejected cls =
-    match Tw.of_string cls with
-    | Ok _ -> Alcotest.failf "expected %s to be rejected" cls
-    | Error _ -> ()
-  in
+(* [to_css] is a pure conversion, so a bracket [of_class] accepts renders
+   without raising. *)
+let test_arbitrary_z_index_renders () =
   let renders cls =
     match Tw.of_string cls with
     | Ok u -> ignore (Tw.to_css ~base:false [ u ] |> Tw.Css.to_string)
     | Error (`Msg m) -> Alcotest.failf "%s: %s" cls m
   in
-  (* The negated form builds [calc(<inner> * -1)] from a typed z-index, so a
-     bracket the grammar cannot read still has nowhere to go. *)
-  rejected "-z-[foo]";
   renders "z-[13]";
   renders "z-[auto]";
   renders "z-[var(--x)]";
   renders "-z-[13]";
   renders "-z-[var(--x)]"
+
+(* A negated bracket the z-index grammar cannot read is [calc(<value> * -1)],
+   with the value after any hint, as Tailwind writes it. *)
+let test_negated_token_stream () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [
+      "-z-[foo]"; "-z-[red]"; "-z-[3px]"; "-z-[foo:2]"; "-z-[url(x.png)_center]";
+    ]
 
 (* The bracket is a token stream Tailwind hands to the declaration unvalidated.
    It goes through the arbitrary-value pipeline, not OCaml's number reader, so
@@ -275,9 +261,7 @@ let test_arbitrary_token_stream () =
 (* A data-type hint chooses which longhand a bracket lands in and says nothing
    about the value. [object-] writes one longhand, so every hint lands there and
    the position reader is handed what follows it; the hint stays in the class
-   name, which is what the markup carries. The reader was given the hint as
-   well, read nothing, and the class was refused where Tailwind writes the value
-   through.
+   name, which is what the markup carries. Tailwind writes the value through.
 
    A percentage rather than a keyword, because [object-[top]] is refused with no
    hint involved: the position reader here takes no keyword, which is a separate
@@ -294,10 +278,8 @@ let test_object_bracket_peels_a_hint () =
     [ "object-[position:50%]"; "object-[foo:50%]" ]
 
 (* [object-[...]] takes the whole CSS <position> grammar, as Tailwind does and
-   as the [bg-position-] bracket already did: an edge keyword, a pair of them, a
-   keyword with an offset, a var() and a math function. The reader here split on
-   spaces and read each side as a length, so every keyword form was refused and
-   only the two-length and one-length cases resolved. *)
+   as the [bg-position-] bracket does: an edge keyword, a pair of them, a
+   keyword with an offset, a var() and a math function. *)
 let test_object_bracket_position_grammar () =
   List.iter
     (fun (cls, decl) ->
@@ -315,8 +297,15 @@ let test_object_bracket_position_grammar () =
       ("object-[50%_50%]", "object-position: 50% 50%");
     ]
 
+(* A bracket that opens with a var() and goes on past it is no custom property
+   reference: Tailwind writes it as it stands. *)
+let test_var_prefixed_bracket () =
+  List.iter Test_helpers.check_class_matches_tailwind
+    [ "object-[var(--a)_1px]"; "object-[var(--a),foo]" ]
+
 let tests =
   [
+    Alcotest.test_case "var-prefixed bracket" `Quick test_var_prefixed_bracket;
     test_case "object bracket position grammar" `Quick
       test_object_bracket_position_grammar;
     test_case "object bracket peels a data-type hint" `Quick
@@ -340,7 +329,8 @@ let tests =
     test_case "isolation and float slots" `Quick isolation_and_float_slots;
     test_case "layout suborder matches Tailwind" `Quick
       suborder_matches_tailwind;
-    test_case "invalid arbitrary z-index" `Quick test_invalid_arbitrary_z_index;
+    test_case "arbitrary z-index renders" `Quick test_arbitrary_z_index_renders;
+    test_case "negated z-index token stream" `Quick test_negated_token_stream;
     test_case "arbitrary z-index token stream" `Quick
       test_arbitrary_token_stream;
   ]

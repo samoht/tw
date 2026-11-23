@@ -1,4 +1,12 @@
-(** Tailwind CSS generation utilities for testing *)
+(** Reference CSS from the pinned Tailwind CLI, for tests and comparisons. *)
+
+val write_file : string -> string -> unit
+(** [write_file path content] writes [content] to [path] byte for byte,
+    replacing what was there. *)
+
+val dir_containing : string -> string -> string option
+(** [dir_containing name dir] is the nearest of [dir] and its ancestors that
+    holds an entry [name], if any. *)
 
 val entrypoint :
   ?project_css:string ->
@@ -34,8 +42,15 @@ val generate :
   ?input_css:string ->
   string list ->
   string
-(** [generate ?minify ?optimize ?forms ?input_css classnames] generates Tailwind
-    CSS for given class names.
+(** [generate ~minify ~optimize ~forms ~input_css classnames] is the CSS the
+    pinned Tailwind CLI generates for [classnames], with:
+    - [minify] passes [--minify] (defaults to [false]).
+    - [optimize] passes [--optimize] (defaults to [true]).
+    - [forms] includes the [@tailwindcss/forms] plugin (defaults to whether a
+      class in [classnames] uses it).
+    - [input_css] is the project's CSS entrypoint, used verbatim as the Tailwind
+      input so its [@theme], [@plugin] and [@config] apply (defaults to a
+      synthesised import).
 
     Each class name is handed to the CLI twice, as an [@source inline] candidate
     and as text in a scanned file, because neither route answers for it alone.
@@ -46,15 +61,7 @@ val generate :
     short the bindings such a class puts in [@layer theme]. Either way the
     comparison reports what is missing as tw's invention. {!scanned_candidates}
     names the few class names the inline route cannot carry at all.
-    @param minify Whether to minify the output (default: false)
-    @param optimize Whether to optimize the output (default: true)
-    @param forms
-      Whether to include [@tailwindcss/forms] plugin (default: auto-detect)
-    @param input_css
-      The project's CSS entrypoint content, used verbatim as the Tailwind input
-      so its [@theme]/[@plugin]/[@config] apply (default: synthesised import)
-    @param classnames List of Tailwind class names
-    @return The generated CSS as a string
+
     @raise Failure if Tailwind CSS generation fails. *)
 
 val scanned_candidates : string list -> string list
@@ -71,11 +78,14 @@ val scanned_candidates : string list -> string list
     narrower oracle unremarked. *)
 
 val check_tailwindcss_available : unit -> unit
-(** [check_tailwindcss_available ()] checks if Tailwind CSS v4 is available.
+(** [check_tailwindcss_available ()] checks that the pinned Tailwind CSS v4 CLI
+    is available, and caches the answer.
+
     @raise Failure if Tailwind CSS is not available or not v4. *)
 
 val tailwindcss_command : unit -> string
 (** [tailwindcss_command ()] is the shell command for the pinned Tailwind CLI.
+
     @raise Failure if Tailwind CSS is unavailable or has the wrong version. *)
 
 val availability : unit -> (unit, string) result
@@ -88,8 +98,8 @@ val availability : unit -> (unit, string) result
 *)
 
 val with_stats : (unit -> 'a) -> 'a
-(** [with_stats f] runs function [f] and prints Tailwind CSS generation
-    statistics afterward. *)
+(** [with_stats f] is [f ()], after which it prints the Tailwind CLI run
+    statistics, also when [f] raises. *)
 
 val generate_entrypoint : ?minify:bool -> string -> string
 (** [generate_entrypoint ?minify entry] is the CSS the pinned CLI produces from
@@ -99,4 +109,5 @@ val generate_entrypoint : ?minify:bool -> string -> string
     plus an explicit [@source] scans exactly what it names and nothing else,
     which is what keeps a comparison against tw from reading tw's own output
     back in.
+
     @raise Failure if Tailwind CSS is unavailable or the run fails. *)

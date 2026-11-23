@@ -44,9 +44,9 @@ let test_int_constructor () =
     "int spacing" (`Rem 1.0) (int 4)
 
 (* A named spacing renders as [var(--spacing-<name>)], so the utility has to
-   declare the token as well as reference it: padding and gap used to emit the
-   reference alone, which renders as nothing. Tailwind emits the binding for
-   every one of these classes given the same @theme. *)
+   declare the token as well as reference it; a reference alone renders as
+   nothing. Tailwind emits the binding for every one of these classes given the
+   same @theme. *)
 let test_named_spacing_declares_token () =
   let theme =
     Tw.Scheme.with_overrides Tw.Scheme.default [ ("spacing-form", "1rem") ]
@@ -68,15 +68,12 @@ let test_named_spacing_declares_token () =
    family that offers the scale. A step the theme binds outright survives, and
    the removed token itself never reaches the theme layer. *)
 let test_removed_spacing_multiplier () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("spacing", "initial"); ("spacing-4", "1rem") ]
+  let entry =
+    Test_helpers.theme_entry "--spacing: initial; --spacing-4: 1rem;"
   in
+  let theme = Tw_tools.Entry_theme.of_css entry in
   List.iter
-    (fun cls ->
-      match Tw.of_string ~theme cls with
-      | Ok _ -> Alcotest.failf "%s is a utility with no --spacing to read" cls
-      | Error _ -> ())
+    (Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry)
     [
       "px-1";
       "-m-2";
@@ -102,13 +99,11 @@ let test_removed_spacing_multiplier () =
 (* [--spacing-*: initial] resets the whole namespace, the multiplier included,
    and only the steps the block goes on to declare survive it. *)
 let test_reset_spacing_namespace () =
-  let theme =
-    Tw.Scheme.with_overrides Tw.Scheme.default
-      [ ("spacing-*", "initial"); ("spacing-4", "1rem") ]
+  let entry =
+    Test_helpers.theme_entry "--spacing-*: initial; --spacing-4: 1rem;"
   in
-  (match Tw.of_string ~theme "px-1" with
-  | Ok _ -> Alcotest.fail "px-1 is a utility after the namespace reset"
-  | Error _ -> ());
+  let theme = Tw_tools.Entry_theme.of_css entry in
+  Test_helpers.check_invalid_class ~why:Test_helpers.Not_a_utility ~entry "px-1";
   match Tw.of_string ~theme "px-4" with
   | Error (`Msg m) -> Alcotest.failf "px-4 rejected: %s" m
   | Ok u ->

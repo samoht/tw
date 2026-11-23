@@ -1,26 +1,26 @@
-(** A type-safe, ergonomic DSL for Tailwind CSS using nominal types.
-
-    This library takes inspiration from Tailwind CSS v3's utility-first approach
-    while leveraging OCaml's type system for compile-time safety. We cherry-pick
-    concepts that work well with OCaml and add our own innovations where
-    appropriate.
-
-    Key design decisions:
-    - Pure OCaml implementation without external CSS dependencies
-    - Type-safe API that prevents invalid CSS at compile time
-    - Simplified spacing functions that accept integers directly
-    - Support for modern CSS features like container queries and 3D transforms
-    - Minimal bundle size for js_of_ocaml by avoiding Format module. *)
-
 type t = Utility.t
 
 include Color
 include Backgrounds
+include Gradients
 include Margin
 include Gap
 include Padding
 include Sizing
 include Typography
+include Text_decoration
+include Letter_spacing
+include Text_transform
+include Font_smoothing
+include Line_breaking
+include Text_overflow
+include Line_clamp
+include Vertical_align
+include Text_indent
+include List_style
+include Content
+include Font_stretch
+include Font_variant_numeric
 include Layout
 include Overflow
 include Overscroll
@@ -39,6 +39,8 @@ include Flex_layout
 include Alignment
 include Borders
 include Effects
+include Ring
+include Blend
 include Text_shadow
 include Transforms
 include Cursor
@@ -73,8 +75,6 @@ let to_css ?theme ?(base = Build.default_config.base) ?forms
 
 let to_inline_style ?theme utilities = Build.to_inline_style ?theme utilities
 let preflight = Preflight.stylesheet
-
-(* Class generation functions *)
 let pp utility = Utility.to_class utility
 let to_classes styles = styles |> List.map Utility.to_class |> String.concat " "
 let modifiers_of_string = Modifiers.of_string
@@ -162,23 +162,67 @@ let split_importance base_class =
     (`Suffix, String.sub base_class 0 (n - 1))
   else (`None, base_class)
 
-(* The alpha a [theme()] path carries, as the percentage to mix at: a percentage
-   as written, a bare number as the fraction Tailwind reads it for. *)
-let theme_alpha_percent a =
-  let n = String.length a in
-  if n > 1 && a.[n - 1] = '%' then float_of_string_opt (String.sub a 0 (n - 1))
-  else Option.map (fun f -> f *. 100.) (float_of_string_opt a)
+(* The alpha a theme key carries after its [/], read the way Tailwind's
+   [withAlpha] reads it: a bare number is the fraction, a percentage is mixed at
+   as written, a [var()] is mixed at as written, and [100%] leaves the colour
+   alone. [None] is an alpha naming no percentage. *)
+type theme_alpha = Opaque | Percent of float | Var_percent of string
 
-(* Tailwind applies a [theme()] alpha by mixing the colour with transparent,
-   which reads whatever the [@theme] bound the palette entry to. *)
-let theme_color_with_alpha base a =
-  match (Cascade.Css.parse_color base, theme_alpha_percent a) with
-  | Some color, Some percent1 ->
-      Some
-        (Cascade.Css.Pp.to_string Cascade.Css.pp_color
-           (Cascade.Css.color_mix ~in_space:Oklab ~percent1 color
-              Cascade.Css.Transparent))
+let finite_float s =
+  match float_of_string_opt s with
+  | Some f when Float.is_finite f -> Some f
   | _ -> None
+
+let theme_alpha a =
+  let n = String.length a in
+  if a = "100%" then Some Opaque
+  else if n > 1 && a.[n - 1] = '%' then
+    Option.map (fun p -> Percent p) (finite_float (String.sub a 0 (n - 1)))
+  else if Parse.is_var a then
+    let name = Parse.extract_var_name a in
+    if name <> a && not (String.contains name ',') then Some (Var_percent name)
+    else None
+  else
+    match finite_float a with
+    | Some 1. -> Some Opaque
+    | Some f -> Some (Percent (f *. 100.))
+    | None -> None
+
+(* Tailwind applies a theme alpha by mixing the colour with transparent. *)
+let theme_mix color = function
+  | Opaque -> color
+  | Percent percent1 ->
+      Cascade.Css.color_mix ~in_space:Oklab ~percent1 color
+        Cascade.Css.Transparent
+  | Var_percent var_name ->
+      Cascade.Css.color_mix_var_percent ~in_space:Oklab ~var_name color
+        Cascade.Css.Transparent
+
+let color_text c = Cascade.Css.Pp.to_string Cascade.Css.pp_color c
+
+(* A theme key and the alpha after its [/]. The class spells a space as [_].
+   Tailwind trims the spaces after the slash, and before it only in the
+   [--theme()] spelling: [theme(--x_/_25%)] names a key ending in a space, which
+   no theme carries. *)
+let theme_key_alpha ~reference key =
+  let trim s =
+    let n = String.length s in
+    let blank c = c = '_' || c = ' ' in
+    let i = ref 0 and j = ref n in
+    while !i < n && blank s.[!i] do
+      incr i
+    done;
+    while !j > !i && blank s.[!j - 1] do
+      decr j
+    done;
+    String.sub s !i (!j - !i)
+  in
+  match String.index_opt key '/' with
+  | Some k ->
+      let path = String.sub key 0 k in
+      ( (if reference then trim path else path),
+        Some (trim (String.sub key (k + 1) (String.length key - k - 1))) )
+  | None -> (key, None)
 
 (* The value the theme binds a [theme()] dot path to, before any alpha:
    [colors.<name>.<shade>] is the palette entry, [spacing.<n>] the spacing
@@ -228,7 +272,9 @@ let theme_token_binding ~theme name =
 let theme_token_value ~theme path =
   Option.bind (Parse.bare_name path) (theme_token_binding ~theme)
 
-(* Resolve one theme() argument.
+(* Resolve one theme() argument, as the text to write in its place. [reference]
+   is the [--theme()] spelling, which writes a [var()] of the token instead of
+   its value and admits no dot path.
 
    [`Value] is the key resolved, mixed with the [/<alpha>] it carries when it
    has one. [`Token] is the same for the [--<name>] spelling, and carries the
@@ -240,29 +286,45 @@ let theme_token_value ~theme path =
    absence. [`Verbatim] is everything else - an alpha naming no number, and a
    namespace tw does not resolve - where there is no table saying the key is
    absent and Tailwind emits a rule for the ones it knows. *)
-let theme_resolve_key ~theme key =
-  let path, alpha =
-    match String.index_opt key '/' with
-    | Some k ->
-        ( String.sub key 0 k,
-          Some (String.sub key (k + 1) (String.length key - k - 1)) )
-    | None -> (key, None)
-  in
-  let with_alpha base =
+let theme_resolve_key ~theme ~reference key =
+  let path, alpha = theme_key_alpha ~reference key in
+  let alpha = Option.map theme_alpha alpha in
+  (* [theme()] writes the value, mixed with the alpha. *)
+  let inlined base =
     match alpha with
-    | None -> Some base
-    | Some a -> theme_color_with_alpha base a
+    | None | Some (Some Opaque) -> Some (Parse.encode_underscores base)
+    | Some None -> None
+    | Some (Some a) ->
+        Option.map
+          (fun c -> Parse.encode_underscores (color_text (theme_mix c a)))
+          (Cascade.Css.parse_color base)
+  in
+  (* [--theme()] writes a reference to the token, mixed with the alpha. Only a
+     colour token takes one: Tailwind mixes any token, and a mixed length is not
+     a value any property reads. *)
+  let referenced base name =
+    match (alpha, Cascade.Css.parse_color base) with
+    | None, _ -> Some ("var(" ^ path ^ ")")
+    | Some None, _ | _, None -> None
+    | Some (Some a), Some _ ->
+        let color : Cascade.Css.color = Var (Var.bracket name) in
+        Some (Parse.encode_underscores (color_text (theme_mix color a)))
+  in
+  let write base name =
+    if reference then referenced base name else inlined base
   in
   match theme_key_value ~theme path with
   | Some base -> (
-      match with_alpha base with Some v -> `Value v | None -> `Verbatim)
+      match inlined base with
+      | Some v when not reference -> `Value v
+      | _ -> `Verbatim)
   | None -> (
-      match theme_token_value ~theme path with
-      | Some (base, decl) -> (
-          match with_alpha base with
+      match (theme_token_value ~theme path, Parse.bare_name path) with
+      | Some (base, decl), Some name -> (
+          match write base name with
           | Some v -> `Token (decl, v)
           | None -> `Verbatim)
-      | None -> (
+      | _ -> (
           match String.split_on_char '.' path with
           | "colors" :: _ | [ _ ] -> `Missing
           | _ -> `Verbatim))
@@ -290,9 +352,8 @@ let theme_call_fallback inner =
    value is read in: a space becomes [_] and an underscore [\_], so a project
    that binds a token to [var(--brand_red)] keeps the variable it named.
    [--theme(--<name>)] is the same lookup written as a reference, and writes
-   [var(--<name>)] instead of the value; it admits neither a v3 dot path nor an
-   alpha, both of which Tailwind reads some other way, so those are left for the
-   class to fail on.
+   [var(--<name>)], mixed with its alpha, instead of the value; it admits no v3
+   dot path, which is left for the class to fail on.
 
    [None] is a call naming a key the theme does not carry and offering no
    fallback: Tailwind emits no rule for such a class, so it is not a utility. *)
@@ -302,7 +363,6 @@ let resolve_theme_functions ~theme s =
   let missing = ref false in
   let bindings = ref [] in
   let i = ref 0 in
-  let resolved v = Buffer.add_string buf (Parse.encode_underscores v) in
   let opens j lit =
     j + String.length lit <= n && String.sub s j (String.length lit) = lit
   in
@@ -328,22 +388,16 @@ let resolve_theme_functions ~theme s =
       (if not closed then verbatim ()
        else
          let key, fallback = theme_call_fallback inner in
-         if reference && String.contains key '/' then verbatim ()
-         else
-           match theme_resolve_key ~theme key with
-           | `Value v -> if reference then verbatim () else resolved v
-           | `Token (decl, v) ->
-               bindings := decl :: !bindings;
-               (* [key] is the [--<name>] the call spelled: the reference form
-                  bailed above on anything carrying an alpha, so the whole key
-                  is the property name. *)
-               if reference then Buffer.add_string buf ("var(" ^ key ^ ")")
-               else resolved v
-           | `Verbatim -> verbatim ()
-           | `Missing -> (
-               match fallback with
-               | Some f -> Buffer.add_string buf f
-               | None -> missing := true));
+         match theme_resolve_key ~theme ~reference key with
+         | `Value v -> Buffer.add_string buf v
+         | `Token (decl, v) ->
+             bindings := decl :: !bindings;
+             Buffer.add_string buf v
+         | `Verbatim -> verbatim ()
+         | `Missing -> (
+             match fallback with
+             | Some f -> Buffer.add_string buf f
+             | None -> missing := true));
       i := if closed then !j + 1 else n
     end
     else begin
@@ -411,7 +465,6 @@ let removed_token_read ~theme class_str u =
       (Rule.outputs ~theme u)
   else None
 
-(* Parse a single class string into a Tw.t *)
 let of_candidate ~theme class_str =
   let modifiers, base_class = modifiers_of_string class_str in
   let importance, base_class = split_importance base_class in
@@ -509,8 +562,6 @@ let of_classes ?theme s =
 
 let str s = fst (of_classes s)
 
-(** {1 Module Exports} *)
-
 module Style = Style
 module Margin = Margin
 module Padding = Padding
@@ -523,6 +574,7 @@ module Alignment = Alignment
 module Cursor = Cursor
 module Borders = Borders
 module Backgrounds = Backgrounds
+module Gradients = Gradients
 module Sizing = Sizing
 module Layout = Layout
 module Overflow = Overflow
@@ -537,8 +589,23 @@ module Grid = Grid
 module Grid_item = Grid_item
 module Grid_template = Grid_template
 module Typography = Typography
+module Text_decoration = Text_decoration
+module Letter_spacing = Letter_spacing
+module Text_transform = Text_transform
+module Font_smoothing = Font_smoothing
+module Line_breaking = Line_breaking
+module Text_overflow = Text_overflow
+module Line_clamp = Line_clamp
+module Vertical_align = Vertical_align
+module Text_indent = Text_indent
+module List_style = List_style
+module Content = Content
+module Font_stretch = Font_stretch
+module Font_variant_numeric = Font_variant_numeric
 module Divide = Divide
 module Effects = Effects
+module Ring = Ring
+module Blend = Blend
 module Text_shadow = Text_shadow
 module Transforms = Transforms
 module Interactivity = Interactivity
@@ -559,6 +626,8 @@ module Prose = Prose
 module Css = Cascade.Css
 module Color = Color
 module Modifiers = Modifiers
+module Variant_parse = Variant_parse
+module Variant_order = Variant_order
 module Var = Var
 module Theme = Theme
 module Scheme = Scheme
@@ -571,12 +640,6 @@ module Touch = Touch
 module Parse = Parse
 module Mask_gradient = Mask_gradient
 module Property = Property
-
-(* Include flex utilities *)
 include Flex
-
-(* Include grid utilities *)
 include Grid
-
-(* Include cursor utilities *)
 include Cursor

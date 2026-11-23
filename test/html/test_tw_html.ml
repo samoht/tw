@@ -1,5 +1,3 @@
-(** Tests for the HTML module *)
-
 open Alcotest
 open Tw_html
 
@@ -87,7 +85,6 @@ let test_pp () =
     (pp (div ~tw:Tw.[ p 2 ] [ txt "Test" ]))
 
 let test_page_cache_busting () =
-  (* Test that page function generates cache-busted CSS URLs *)
   let test_page =
     page ~title:"Test Page"
       ~meta:[ ("description", "Test page for cache busting") ]
@@ -135,7 +132,6 @@ let test_page_cache_busting () =
     html_content
 
 let test_page_cache_busting_consistency () =
-  (* Test that same content produces same hash *)
   let create_test_page () =
     page ~title:"Test" ~tw_css:(Link "test.css") []
       [ div ~tw:Tw.[ p 4; m 2 ] [ txt "Content" ] ]
@@ -147,7 +143,6 @@ let test_page_cache_busting_consistency () =
   let html1 = html page1 in
   let html2 = html page2 in
 
-  (* Extract hash from both *)
   let extract_hash html =
     match Astring.String.find_sub ~sub:"test.css?v=" html with
     | Some idx ->
@@ -162,7 +157,6 @@ let test_page_cache_busting_consistency () =
 
   check string "same content produces same hash" hash1 hash2;
 
-  (* Different content should produce different hash *)
   let page3 =
     page ~title:"Test" ~tw_css:(Link "test.css") []
       [ div ~tw:Tw.[ p 8; m 4 ] [ txt "Different" ] ]
@@ -180,7 +174,6 @@ let test_inline_css () =
   let html_content = html test_page in
   let css_filename, css_stylesheet = css test_page in
 
-  (* Inline pages have no external CSS file *)
   check Alcotest.(option string) "no external CSS file" None css_filename;
 
   (* The stylesheet is inlined verbatim inside [<style>], a raw-text element, so
@@ -299,8 +292,8 @@ let test_repeated_utilities_emit_one_sheet () =
   check string "sheet is the same" (sheet once) (sheet repeated)
 
 (* A class the parser does not recognise still reaches the rendered attribute -
-   a framework hook or a JS selector belongs there - but it is no longer
-   invisible: [unknown_classes] reports it so a typo can be caught. *)
+   a framework hook or a JS selector belongs there - and [unknown_classes]
+   reports it so a typo can be caught. *)
 let test_unknown_class_passes_through () =
   let elem = div ~at:[ At.v "class" "flex bg-blu-500 my-app-header" ] [] in
   check string "unknown names still rendered"

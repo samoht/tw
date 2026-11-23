@@ -1,2 +1,11 @@
 (cram
  (deps %{bin:tw} prefixes.css prefixes.html))
+
+; These stand a [#!/bin/sh] stub in for the Tailwind CLI, and the backend they
+; drive runs it through a POSIX shell ([2>/dev/null], [| head -1], an
+; extensionless [node_modules/.bin/tailwindcss]), so neither runs under cmd.exe.
+
+(cram
+ (applies_to reference-cli entry-imports scratch tailwind-entrypoint)
+ (enabled_if
+  (<> %{os_type} Win32)))

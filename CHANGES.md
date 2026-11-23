@@ -1,18 +1,211 @@
 ## Unreleased
 
+### Breaking changes
+
+- `Tw.Var.ref_only` and its type `'a Tw.Var.ref_only` are removed. Nothing
+  created such a variable; one that a utility reads with a fallback and
+  another sets is a `Var.channel` (#919).
+- `Build.conflict_order` is removed, and `Rule.outputs` loses `?order_tbl`:
+  `Rule.ordered_outputs` pairs each rule with the order of the utility that
+  built it, and `Build.selector_props_pairs` reads those pairs (#920).
+- `Tw.Utility.base_of_strings`, `Tw.Spacing.to_length`,
+  `Tw.Spacing.margin_to_length`, `Tw.Spacing.margin_to_length_neg`,
+  `Tw.Utility.deduplicate`, `Tw.Property.sort_by_order`,
+  `Tw.Scheme.is_static_token`, `Tw.Scheme.is_hex_color`, `Tw.Color.round_n`
+  and `Tw.Color.Tailwind` are removed: nothing called them. `Tw.Utility.base_of_class` takes the class
+  `base_of_strings` assembled from its parts (#922, #970).
+- `Tw.Color.opacity_var_bare`, `Tw.Color.relative_color_supports`,
+  `Tw.Color.relative_alpha`, `Tw.Color.channel_style`, `Tw.Color.palette_hex`,
+  `Tw.Color.bracket_var_ref`, `Tw.Color.of_string_exn`,
+  `Tw.Color.theme_order_with_shade`, `Tw.Parse.fraction_percent`,
+  `Tw.Prose.to_css_rules`, `Tw.Prose.css_variables`,
+  `Tw.Spacing.named_spacing_binding`, `Tw.Theme.spacing_n_var`,
+  `Tw.Typography.font_sans_var`, `Tw.Typography.font_serif_var`,
+  `Tw.Typography.font_mono_var`, `Tw.Utility.base_to_style`,
+  `Tw.Var.property_info` and `Tw.Var.property_rule_of_metadata` are no longer
+  exported: only their own module used them. `Tw.Color.of_string` and
+  `Tw.Parse.fraction_pct` remain for callers of `of_string_exn` and
+  `fraction_percent` (#923).
+- `Tw.Variant_parse.is_aria_shorthand` is removed: every named `aria-`
+  variant now reads the same way, and `Tw.Variant_parse.aria_attribute` gives
+  the attribute a spelling matches. `Tw.Style.Group_aria` and `Peer_aria` hold
+  the spelling as written, brackets included, and `Tw.Style.Aria` is the named
+  form (#946).
+
 ### Utilities
 
-- A spacing scale of 2^53 or more names no utility: `p-100000000000000000000`
-  wrapped round to a second `.p-1` with a negative padding that overrode the
-  real one. The margin, gap, scroll-margin, sizing and `leading` families
-  share the reader (#902).
+- A negated bracket no typed reader takes compiles to `calc(<value> * -1)`
+  with the value after any hint, as Tailwind writes it, where tw refused the
+  class: `-z-[foo:2]` is `z-index: calc(2 * -1)` and `-indent-[foo]` is
+  `text-indent: calc(foo * -1)`. This holds for `-z-`, `-order-`, `-indent-`,
+  `-outline-offset-`, `-underline-offset-`, `-hue-rotate-` and
+  `-backdrop-hue-rotate-` (#950).
+- `mask-linear-[...]` and `mask-conic-[...]`, negated or not, refuse a bracket
+  that cannot stand in a declaration or opens with an empty hint, as Tailwind
+  does: `-mask-conic-[}]` raised out of `to_css` and `mask-linear-[a;b]`
+  compiled (#951).
+- `-col-[...]`, `-col-start-[...]`, `-col-end-[...]`, `-row-[...]`,
+  `-row-start-[...]` and `-row-end-[...]` compile to `calc(<value> * -1)` in
+  their longhand, as Tailwind writes them, where tw refused every negated
+  bracket on a grid line (#953).
+- `-bg-conic-[...]` compiles as `bg-conic-[...]` does, unnegated, as Tailwind
+  writes it, and `-bg-linear-[...]` negates a value after an `angle:` hint.
+  `-bg-linear-[...]` refuses a bracket Tailwind infers no angle from, such as
+  `var(--x)`, `calc(45deg)` or `0` (#954).
+- `space-x-[...]` and `space-y-[...]` take a `var()` and, negated, any length
+  or `var()`, as Tailwind does: `-space-x-[3px]` writes
+  `calc(calc(3px * -1) * var(--tw-space-x-reverse))` where tw refused the
+  class (#952).
+- A bracket opening with a data-type hint the family does not know writes only
+  the value after the hint, as Tailwind does: `transition-[foo:color]` sets
+  `transition-property: color`, not `foo:color`. This holds for `transition-`,
+  `bg-linear-`, `bg-radial-`, `bg-conic-`, `scale-z-`, `contain-`, the
+  `mask-linear-`, `mask-conic-`, `mask-radial-` and `mask-radial-at-` families
+  and the `brightness-`, `contrast-`, `grayscale-`, `invert-`, `saturate-`,
+  `sepia-` and `backdrop-opacity-` filters and their `backdrop-` forms;
+  `contain-[...]` writes any other value as written rather than as a `var()`
+  (#942).
+- A `shadow-`, `inset-shadow-` or `drop-shadow-` bracket no shadow reader
+  takes routes its colour through the colour channel the way Tailwind picks
+  it: `shadow-[foo:red]` writes `var(--tw-shadow-color,red)`, a layer of
+  lengths alone gets `currentcolor` that way, `inset-shadow-[...]` puts
+  `inset` before each layer and `drop-shadow-[...]` writes one `drop-shadow()`
+  per layer (#943).
+- A `!`-prefixed utility that only the project's `@theme` makes valid, such as
+  `!bg-brand`, sorts with its family rather than after every other utility
+  (#920).
+- A bare opacity above 100, such as `opacity-110`, compiles to `opacity:1.1`
+  as Tailwind writes it, where tw refused it, and the opacity utilities sort
+  by class name the way Tailwind's do, `opacity-12.5` before `opacity-12.25`
+  (#939).
+- A `--theme()` reference with an alpha, such as
+  `bg-[--theme(--color-red-500/25%)]`, compiles to the `color-mix()` of the
+  token at that alpha Tailwind writes, where tw refused it. `theme()` and
+  `--theme()` also read a `var()` alpha and a space after the slash (#940).
+- `col-[…]`, `col-start-[…]`, `col-end-[…]`, `row-[…]`, `row-start-[…]` and
+  `row-end-[…]` write a bracket the grid-line grammar does not read, such as
+  `col-[10px]` or `row-end-[url(x.png)_center]`, into their longhand as
+  Tailwind does, where tw refused the class (#956).
+- The grid placement utilities name a bracket holding math as it was written:
+  `col-[calc(1+2)]` printed the selector `.col-\[calc\(1_\+_2\)\]`, which no
+  markup carries (#957).
+- `mask-[…]` reads only the math functions Tailwind knows as a position, so
+  `mask-[abs(1px)]` is a `mask-image` as it is in Tailwind (#958).
+- `font-[…]`, `list-[…]` and `will-change-[…]` write a bracket their grammar
+  does not read, such as `list-[10px]` or `will-change-[url(x.png)_center]`,
+  into their longhand as Tailwind does, where tw refused the class.
+  `font-[…]` chooses between `font-family` and `font-weight` the way Tailwind
+  does, so `font-[10px]` and `font-[calc(1+2)]` are weights and
+  `font-[url(x.png)_center]` is a family (#959).
+- `decoration-[…]` writes a bracket that Tailwind does not read as a length or a
+  percentage into `text-decoration-color`, and one holding math into
+  `text-decoration-thickness`, as Tailwind does: `decoration-[foo]`,
+  `decoration-[--c]` and `decoration-[url(x.png)_center]` were refused, and
+  `decoration-[2]` wrote an empty rule. A thickness takes no opacity modifier,
+  as in Tailwind (#960).
+- `text-shadow-[…]` writes a bracket that Tailwind does not read as a colour
+  into `text-shadow` as Tailwind does, opacity modifier included:
+  `text-shadow-[foo]`, `text-shadow-[10px]` and
+  `text-shadow-[shadow:notashadow]` were refused. A data-type hint other than
+  `color:` makes the bracket a shadow, so `text-shadow-[bogus:0_0_2px_red]`
+  reads as one (#961).
+- A bracket that opens with a `var()` and goes on past it, such as
+  `p-[var(--a)_1px]` or `font-[var(--a),foo]`, is written as it stands, as
+  Tailwind does. tw read it as one custom property and wrote
+  `padding: var(--var\(--a\)_1px)`; `bg-[…]`, `mask-[…]` and
+  `decoration-[…]` also send it to their last resort, since Tailwind infers no
+  type from a value opening with `var()` (#962).
+- `text-shadow-[…]` picks the colour of a shadow no reader takes the way
+  Tailwind does and routes it through `--tw-text-shadow-color`, so
+  `text-shadow-[0_1px_notacolour]` and `text-shadow-[foo:red]` compile where
+  tw refused them (#963).
+- A margin, gap, scroll-margin, sizing or `leading` scale of 2^53 or more,
+  such as `m-9007199254740993`, is refused, where it wrapped round to another
+  class (#902).
+- A negated zero transform such as `-translate-x-0`, `-rotate-0`, `-scale-x-0`
+  or `-skew-x-0` keeps its sign in the selector, as Tailwind writes it, where
+  tw wrote `.translate-x-0` and the rule missed the element (#980).
+- `blur-none` with no `--blur-none` token registers the filter chain's
+  `@property` rules and initialises them in the properties layer, as Tailwind
+  and `backdrop-blur-none` do. tw wrote neither (#981).
+- `backdrop-blur-<name>` reads a project `--backdrop-blur-<name>` token, then
+  `--blur-<name>`, as Tailwind does, so `backdrop-blur-soft` under
+  `--blur-soft` compiles where tw refused it (#982).
+- `backdrop-blur-<size>` reads a project `--backdrop-blur-<size>` token for a
+  built-in size too, where tw bound `--blur-<size>` and ignored it (#985).
+- `translate-0.5` and the bare form's other fractional steps compile, as
+  `translate-x-0.5` did, where tw refused them as unknown (#986).
+- `translate-0` and `translate-z-0` write `0px`, and `translate-1` and
+  `translate-z-1` write `var(--spacing)`, as Tailwind and `translate-x-*` do,
+  where tw wrote `calc(var(--spacing) * n)` (#983).
 
 ### Project stylesheets
 
-- A brace range in `@source inline` stops at the int limits:
-  `p-{4611686018427387902..4611686018427387903}` counted on for ever, and a
-  step too large for an int, which named nothing or stepped by one, now names
-  the first value as any step longer than the range does (#902).
+- An entrypoint saved with CR LF line ends keeps its `@apply` bodies,
+  `@source inline` lists and `@theme` blocks, which compiled to nothing
+  (#916).
+- On Windows, an `@source` glob matches the files under its root and
+  `@source not` takes its paths out, where both matched nothing (#916).
+- An `@utility` sorts by the earliest of its properties in Tailwind's
+  property order and skips a custom or unknown one, as Tailwind does. One
+  that wrote such a property first sorted after every other utility, and one
+  that wrote `color` before `display` sorted with the colours (#938).
+- In inline mode, the default for `-s`, a custom property an `@utility` sets
+  is kept, as Tailwind keeps it, where it was resolved away: `--x` went from
+  `.foo{--x:1;color:red}` and `.bar{--y:1}` disappeared (#941).
+- An `@source inline` brace range ending near the largest integer stops,
+  where it counted on for ever (#902).
+
+### Variants
+
+- An `aria-[...]` or `data-[...]` variant naming an attribute no selector can
+  hold, such as `aria-[0.5ch]` or `data-[a\b]`, is refused, where it was
+  accepted and emitted nothing or, under `in-` and `not-`, raised (#925).
+- `not-data-*` and `not-nth-*` read their inner variant as `data-*` and
+  `nth-*` do: `not-nth-of-type-3` is `:not(:nth-of-type(3))`, and
+  `not-data-[0.5ch]` is refused, where both raised. A bare `aria-*` or
+  `data-*` name and a `group-not-[...]` or `peer-not-[...]` bracket that no
+  selector can hold are refused too, where they raised, and a bare
+  `group-data-*` name keeps its underscores, `[data-a_b]` for
+  `group-data-a_b` (#937).
+- A named `aria-` variant matches any name as Tailwind does, `aria-foo` as
+  `[aria-foo="true"]` and under `group-`, `peer-`, `in-`, `has-` and `not-`
+  too, and a bracketed one is always an attribute expression, so
+  `aria-[busy]` keeps its class name and matches presence. A named `aria-` or
+  `data-` variant keeps its `_`: `aria-_`, `group-data-_` and `has-data-a_b`
+  compile instead of being refused, emitting `[data-]` or raising, and a name
+  no attribute can hold, such as `data-a.b`, is refused (#946).
+- An arbitrary selector variant with no `&` takes any selector, as Tailwind
+  writes it into `:is()`: `[p_~_span]:underline` is `:is(p~span)` and
+  `[.a,.b]:underline` is `:is(.a,.b)`, under `group-[...]` and `peer-[...]`
+  too, where every combinator and list was refused. `[*]` is `:is(*)`, where
+  it compounded into a selector browsers drop (#947).
+- An `in-[...]` bracket is read as a selector: `in-[.a_.b]` is
+  `:where(:is(.a .b))`, where it matched an ancestor of class `a_.b`, and
+  `in-[[data-x]]` is `:where([data-x])`, where it named an element. A bracket
+  with a leading combinator, such as `in-[>p]`, is refused. A `not-[...]`
+  bracket holding a complex selector or a list goes through `:is()`, as
+  `:not(:is(p~span))` (#948).
+- A `group-not-[...]` or `peer-not-[...]` bracket under an outer `not-`,
+  `has-` or `in-` keeps its class name and its negation:
+  `not-group-not-[.foo]` is `:not(:is(:where(.group):not(.foo) *))`, where
+  it was named `not-group-not-not-[.foo]` and matched `.foo` (#949).
+- Two values of an `aria-`, `data-` or `nth-*` variant sort by the value, as
+  Tailwind sorts them, whatever is stacked under either:
+  `aria-checked:**:animate-none` now precedes `aria-disabled:animate-spin` (#973).
+- Two `group-` or `peer-` variants on the same state sort by the name they
+  target, the unnamed one first, as Tailwind sorts them (#974).
+- A stack of two `data-` values sorts by both, as Tailwind sorts it, where tw
+  keyed it by the inner value alone (#975).
+
+### OCaml API
+
+- `Utility.unclaimed` is the answer a handler's `of_class` gives a class it
+  does not claim, shared by every handler in place of its own message (#921).
+- `Color.hex_to_oklch_css` and `Color.to_oklch_css` raise `Invalid_argument`
+  on a string that is not a hex colour instead of returning it unchanged
+  (#926).
+- `Tw.Parse.is_digit` tests for an ASCII digit (#936).
 
 ## 1.2.0 (27/10/2026)
 

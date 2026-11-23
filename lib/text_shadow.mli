@@ -1,4 +1,4 @@
-(** Text shadow utilities *)
+(** Text shadow utilities. *)
 
 open Utility
 
