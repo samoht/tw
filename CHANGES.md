@@ -1,3 +1,21 @@
+## Unreleased
+
+### Utilities
+
+- `font-[inherit]`, `font-[initial]`, `font-[unset]`, `font-[revert]` and
+  `font-[revert-layer]` write the keyword, as Tailwind does, where tw wrote a
+  quoted family of that name.
+- `rounded-full` and its side and corner forms write `calc(infinity * 1px)`
+  as Tailwind does; only the optimised sheet folds it to `3.40282e38px`.
+- A CSS escape in a quoted `content-[...]` bracket is kept, so
+  `content-["\201C"]` shows the quotation mark as in Tailwind, where tw
+  escaped the backslash and showed the text `\201C`.
+
+### OCaml API
+
+- `Tw.noscript` applies styles under `@media (scripting: none)`, the
+  `noscript:` variant.
+
 ## 1.2.1 (12/11/2026)
 
 ### Breaking changes
