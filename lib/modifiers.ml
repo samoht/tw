@@ -667,6 +667,7 @@ let print styles = wrap Print styles
 let portrait styles = wrap Portrait styles
 let landscape styles = wrap Landscape styles
 let forced_colors styles = wrap Forced_colors styles
+let noscript styles = wrap Noscript styles
 let supports cond styles = wrap (Supports_condition cond) styles
 let prose_headings styles = wrap (Prose_element "headings") styles
 let prose_p styles = wrap (Prose_element "p") styles
