@@ -191,7 +191,18 @@ let test_rounded_4xl () =
 let test_rounded_side_full_inlined () =
   check_sheet "rounded-l-full"
     "@layer theme,components,utilities;@layer theme;@layer components;@layer \
-     utilities{.rounded-l-full{border-top-left-radius:3.40282e38px;border-bottom-left-radius:3.40282e38px}}"
+     utilities{.rounded-l-full{border-top-left-radius:calc(infinity*1px);border-bottom-left-radius:calc(infinity*1px)}}"
+
+(* Tailwind's --radius-full is calc(infinity * 1px), written as such; only the
+   optimizer folds it to the largest float. *)
+let test_rounded_full_infinity () =
+  check_declarations ~minify:false "rounded-full"
+    [ "border-radius: calc(infinity * 1px)" ];
+  check_declarations ~minify:false "rounded-t-full"
+    [
+      "border-top-left-radius: calc(infinity * 1px)";
+      "border-top-right-radius: calc(infinity * 1px)";
+    ]
 
 (* Numeric outline widths (outline-1/2/4/8) emit outline-width: Npx with the
    outline-style var. *)
@@ -599,6 +610,8 @@ let tests =
     test_case "rounded-4xl default radius" `Quick test_rounded_4xl;
     test_case "rounded-l-full inlined radius" `Quick
       test_rounded_side_full_inlined;
+    test_case "rounded-full writes calc(infinity * 1px)" `Quick
+      test_rounded_full_infinity;
     test_case "outline numeric widths" `Quick test_outline_widths;
     test_case "outline-offset arbitrary length" `Quick
       test_outline_offset_arbitrary;
