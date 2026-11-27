@@ -138,6 +138,9 @@
 - `translate-0` and `translate-z-0` write `0px`, and `translate-1` and
   `translate-z-1` write `var(--spacing)`, as Tailwind and `translate-x-*` do,
   where tw wrote `calc(var(--spacing) * n)` (#983).
+- `font-[inherit]` wrote `font-family: "inherit"`, a font named "inherit"; it
+  now writes `font-family: inherit`, as Tailwind does. The same holds for
+  `initial`, `unset`, `revert` and `revert-layer` (#988).
 
 ### Project stylesheets
 
