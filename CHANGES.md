@@ -141,6 +141,9 @@
 - `font-[inherit]` wrote `font-family: "inherit"`, a font named "inherit"; it
   now writes `font-family: inherit`, as Tailwind does. The same holds for
   `initial`, `unset`, `revert` and `revert-layer` (#988).
+- `rounded-full` and its side and corner forms wrote `3.40282e38px`; they now
+  write `calc(infinity * 1px)`, as Tailwind does. `tw --minify` still writes
+  `3.40282e38px`, as Tailwind's minified CSS does (#989).
 
 ### Project stylesheets
 

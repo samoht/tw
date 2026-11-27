@@ -374,10 +374,10 @@ module Handler = struct
   let radius_value len =
     Css.Radius { horizontal = [ Css.Length len ]; vertical = None }
 
-  (* Tailwind's --radius-full default is calc(infinity * 1px); FLT_MAX is the
-     canonical large value that infinity folds to, so the all-corners and
-     per-side/corner "full" utilities share it. *)
-  let radius_full_len : Css.length = Css.Px 3.40282e38
+  (* Tailwind's --radius-full default, shared by the all-corners and
+     per-side/corner "full" utilities. *)
+  let radius_full_len : Css.length =
+    Css.Calc Css.Calc.((Math_const Infinity : Css.length Css.calc) * px 1.)
 
   (* Map a [Corner.t] to the corner/side radius declarations for a given length.
      Shared by both the sized and arbitrary radius utilities; [Corner.All] uses
