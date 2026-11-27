@@ -144,6 +144,9 @@
 - `rounded-full` and its side and corner forms wrote `3.40282e38px`; they now
   write `calc(infinity * 1px)`, as Tailwind does. `tw --minify` still writes
   `3.40282e38px`, as Tailwind's minified CSS does (#989).
+- `content-["\201C"]` wrote `"\\201C"`, shown as the text `\201C`; it now
+  writes `"\201C"`, shown as the quotation mark, as Tailwind does. Any CSS
+  escape in a quoted `content-[...]` bracket is kept the same way (#990).
 
 ### Project stylesheets
 
