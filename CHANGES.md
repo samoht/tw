@@ -215,6 +215,8 @@
   on a string that is not a hex colour instead of returning it unchanged
   (#926).
 - `Tw.Parse.is_digit` tests for an ASCII digit (#936).
+- `Tw.noscript` is new. It applies styles under `@media (scripting: none)`,
+  as the `noscript:` class does (#991).
 
 ## 1.2.0 (27/10/2026)
 

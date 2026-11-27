@@ -4659,6 +4659,10 @@ val contrast_more : t list -> t
 val contrast_less : t list -> t
 (** [contrast_less styles] applies [styles] when lower contrast is preferred. *)
 
+val noscript : t list -> t
+(** [noscript styles] applies [styles] when scripting is disabled
+    ([\@media (scripting: none)]). *)
+
 val starting : t list -> t
 (** [starting styles] applies styles using [@starting-style]. *)
 

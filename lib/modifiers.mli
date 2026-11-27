@@ -563,6 +563,10 @@ val landscape : t list -> t
 val forced_colors : t list -> t
 (** [forced_colors styles] applies [styles] when forced colors are active. *)
 
+val noscript : t list -> t
+(** [noscript styles] applies [styles] when scripting is disabled
+    ([\@media (scripting: none)]). *)
+
 val supports : string -> t list -> t
 (** [supports condition styles] applies [styles] when the CSS condition is
     supported. *)
