@@ -7,13 +7,16 @@ module Handler = struct
   type t =
     | Content_none
     | Content of string
-    | Content_squote of string (* single-quoted arbitrary: content-['x'] *)
     | Content_raw of string * [ `Content of Css.content | `Raw of string ]
-      (* unquoted arbitrary: content-[attr(before)]; raw class text + value *)
+      (* arbitrary: content-['x'], content-[attr(before)]; class text + value *)
     | Content_named of string (* content-<token> defined in the @theme *)
 
   let name = "content"
   let priority _ = 35
+
+  let read_content s =
+    Cascade.Cursor.try_parse_full_err Css.Properties.read_content
+      (Cascade.Cursor.of_string s)
 
   let of_class theme class_name =
     let parts = Parse.split_class class_name in
@@ -33,12 +36,13 @@ module Handler = struct
            content-wrapper with no such token is not a utility. An unquoted
            bracket (content-[attr(before)]) carries a function value, parsed as
            a content list. *)
-        if bracket_quoted '"' then
-          let value = String.sub joined 2 (String.length joined - 4) in
-          Ok (Content value)
-        else if bracket_quoted '\'' then
-          let value = String.sub joined 2 (String.length joined - 4) in
-          Ok (Content_squote value)
+        if bracket_quoted '"' || bracket_quoted '\'' then
+          (* The bracket is a CSS string: its escapes ([\201C]) are the
+             author's, read and kept as written rather than taken as text. *)
+          let inner = String.sub joined 1 (String.length joined - 2) in
+          match read_content (Parse.decode_underscores inner) with
+          | Ok value -> Ok (Content_raw (inner, `Content value))
+          | Error _ -> Utility.unclaimed
         else if Scheme.theme_value (Some theme) ("content-" ^ joined) <> None
         then Ok (Content_named joined)
         else if
@@ -48,10 +52,7 @@ module Handler = struct
         then begin
           let inner = String.sub joined 1 (String.length joined - 2) in
           let spaced = Parse.decode_underscores inner in
-          match
-            Cascade.Cursor.try_parse_full_err Css.Properties.read_content
-              (Cascade.Cursor.of_string spaced)
-          with
+          match read_content spaced with
           | Ok value -> Ok (Content_raw (inner, `Content value))
           | Error _ -> (
               match Parse.arbitrary_declaration_value inner with
@@ -64,14 +65,12 @@ module Handler = struct
   let to_class = function
     | Content_none -> "content-none"
     | Content s -> "content-[\"" ^ s ^ "\"]"
-    | Content_squote s -> "content-['" ^ s ^ "']"
     | Content_raw (s, _) -> "content-[" ^ s ^ "]"
     | Content_named s -> "content-" ^ s
 
   let suborder = function
     | Content_none -> 13000
     | Content _ -> 10001
-    | Content_squote _ -> 10001
     | Content_raw _ -> 10001
     | Content_named _ -> 10002
 
@@ -116,20 +115,8 @@ module Handler = struct
     let c : Css.content = Css.Var content_ref in
     style ~property_rules (content_decl @ [ Css.content c ])
 
-  let content_squote s =
-    (* Single-quoted arbitrary content (content-['x']) keeps the single quote.
-       [_] is a space and [\_] a literal underscore. *)
-    let value = Parse.decode_underscores s in
-    let quoted : Css.content =
-      Css.Quoted { value; quote = '\''; repr = None }
-    in
-    let content_decl, content_ref = Var.binding Typography.content_var quoted in
-    let property_rules = Var.property_rules Typography.content_var in
-    let c : Css.content = Css.Var content_ref in
-    style ~property_rules [ content_decl; Css.content c ]
-
-  (* Unquoted arbitrary content (content-[attr(before)]) binds the parsed value
-     verbatim. *)
+  (* Arbitrary content (content-[attr(before)], content-["x"]) binds the parsed
+     value verbatim. *)
   let content_raw (value : Css.content) =
     let content_decl, content_ref = Var.binding Typography.content_var value in
     let property_rules = Var.property_rules Typography.content_var in
@@ -155,7 +142,6 @@ module Handler = struct
     | Content s -> content s
     | Content_raw (_, `Content c) -> content_raw c
     | Content_raw (_, `Raw value) -> content_raw_value value
-    | Content_squote s -> content_squote s
     | Content_named name -> content_named name
 
   let examples = [ Content_none ]

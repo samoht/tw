@@ -156,6 +156,16 @@ let test_media_preference_modifiers () =
   check string "dark: single colon" "dark:bg-gray-900"
     (Tw.Utility.to_class (dark [ bg ~shade:900 gray ]))
 
+(* [noscript] is the [noscript:] variant, Tailwind's [@media (scripting:
+   none)]. *)
+let test_noscript () =
+  let style = noscript [ Tw.Layout.hidden ] in
+  check string "noscript: single colon" "noscript:hidden"
+    (Tw.Utility.to_class style);
+  let css = Tw.Css.to_string ~minify:true (Tw.Build.to_css [ style ]) in
+  check bool "under @media (scripting: none)" true
+    (Astring.String.is_infix ~affix:"@media(scripting:none)" css)
+
 let test_modifier_css_roundtrip () =
   let test_utilities =
     [
@@ -721,6 +731,7 @@ let tests =
     test_case "modifier class names" `Quick test_modifier_class_names;
     test_case "media preference modifiers" `Quick
       test_media_preference_modifiers;
+    test_case "noscript" `Quick test_noscript;
     test_case "modifier CSS roundtrip" `Quick test_modifier_css_roundtrip;
     test_case "selector escaping in CSS" `Quick test_selector_escaping_in_css;
     test_case "combined media modifiers" `Quick test_combined_media_modifiers;

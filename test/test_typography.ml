@@ -703,6 +703,9 @@ let test_font_bracket_routes_like_tailwind () =
   family "font-[url(x.png)_center]" "url(x.png) center";
   family "font-[family-name:10px]" "10px";
   family "font-[ui-sans-serif]" "ui-sans-serif";
+  (* a CSS-wide keyword is the keyword, never a family named after it *)
+  family "font-[inherit]" "inherit";
+  family "font-[revert-layer]" "revert-layer";
   Alcotest.(check string)
     "the class keeps its hint" "font-[bogus:foo]"
     (Tw.pp (Result.get_ok (Tw.of_string "font-[bogus:foo]")));

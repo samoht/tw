@@ -138,6 +138,15 @@
 - `translate-0` and `translate-z-0` write `0px`, and `translate-1` and
   `translate-z-1` write `var(--spacing)`, as Tailwind and `translate-x-*` do,
   where tw wrote `calc(var(--spacing) * n)` (#983).
+- `font-[inherit]` wrote `font-family: "inherit"`, a font named "inherit"; it
+  now writes `font-family: inherit`, as Tailwind does. The same holds for
+  `initial`, `unset`, `revert` and `revert-layer` (#988).
+- `rounded-full` and its side and corner forms wrote `3.40282e38px`; they now
+  write `calc(infinity * 1px)`, as Tailwind does. `tw --minify` still writes
+  `3.40282e38px`, as Tailwind's minified CSS does (#989).
+- `content-["\201C"]` wrote `"\\201C"`, shown as the text `\201C`; it now
+  writes `"\201C"`, shown as the quotation mark, as Tailwind does. Any CSS
+  escape in a quoted `content-[...]` bracket is kept the same way (#990).
 
 ### Project stylesheets
 
@@ -206,6 +215,8 @@
   on a string that is not a hex colour instead of returning it unchanged
   (#926).
 - `Tw.Parse.is_digit` tests for an ASCII digit (#936).
+- `Tw.noscript` is new. It applies styles under `@media (scripting: none)`,
+  as the `noscript:` class does (#991).
 
 ## 1.2.0 (27/10/2026)
 

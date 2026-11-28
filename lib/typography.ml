@@ -1592,6 +1592,11 @@ module Typography_early = struct
             | "cursive" -> Css.Cursive
             | "fantasy" -> Css.Fantasy
             | "system-ui" -> Css.System_ui
+            | "inherit" -> Css.Inherit
+            | "initial" -> Css.Initial
+            | "unset" -> Css.Unset
+            | "revert" -> Css.Revert
+            | "revert-layer" -> Css.Revert_layer
             | "emoji" -> Css.Emoji
             | "math" -> Css.Math
             | name -> Css.Name name
